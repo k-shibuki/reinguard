@@ -8,7 +8,7 @@ alwaysApply: true
 ## Issue-driven work
 
 - Prefer **one GitHub Issue per PR** (1 Issue ≈ 1 PR) for implementation work.
-- Commit footers include `Refs: #<issue>` when an Issue exists.
+- Commit messages follow **`@.cursor/rules/commit-format.mdc`** (Conventional Commits + `Refs: #<issue>` footer).
 - PR body includes `Closes #<issue>` (or `Fixes`) when applicable.
 
 ## Exceptions

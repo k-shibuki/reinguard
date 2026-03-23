@@ -13,11 +13,11 @@ jobs:
   go-ci:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6.3.0
         with:
-          go-version: "1.22"
+          go-version: "1.26.1"
 
       - name: Download modules
         run: go mod download
@@ -29,9 +29,9 @@ jobs:
         run: go build ./...
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v9.2.0
         with:
-          version: v1.62.0
+          version: v2.11.4
           args: --timeout=5m ./...
 
       - name: go vet

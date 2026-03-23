@@ -65,7 +65,7 @@ Authoritative decisions are recorded as ADRs under [docs/adr/](docs/adr/):
 
 ## Development
 
-- **Go**: 1.22 or newer (see [`go.mod`](go.mod)).
+- **Go**: 1.25.8 or newer; CI uses 1.26.1 (see [`go.mod`](go.mod)).
 - **Build**: `go build -o rgd ./cmd/rgd`
 - **Test**: `go test ./...`
 - **Vet**: `go vet ./...`
@@ -83,6 +83,10 @@ go run ./cmd/rgd schema export --dir /tmp/rgd-schemas
 
 - Follow **Issue-driven** workflow: open an Issue, then a PR that `Closes #N`
   (see `.cursor/rules/workflow-policy.mdc`).
+- **Commit format** matches the bridle-style policy in `.cursor/rules/commit-format.mdc`
+  (Conventional Commits + `Refs: #N` in the body). Optional local setup:
+  - `git config commit.template .gitmessage`
+  - `pip install pre-commit && pre-commit install --hook-type commit-msg`
 - Use the PR template at `.github/PULL_REQUEST_TEMPLATE.md`.
 - Architecture decisions belong in `docs/adr/` (ADR).
 

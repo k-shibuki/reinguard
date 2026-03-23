@@ -12,25 +12,33 @@ import (
 )
 
 // Export writes the embedded operational context placeholder schema into dir.
-func Export(dir string) error {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return fmt.Errorf("schema export: mkdir: %w", err)
+func Export(dir string) (err error) {
+	if mkErr := os.MkdirAll(dir, 0o755); mkErr != nil {
+		return fmt.Errorf("schema export: mkdir: %w", mkErr)
 	}
 	src, err := schema.Files().Open(schema.OperationalContextPlaceholder)
 	if err != nil {
 		return fmt.Errorf("schema export: open embedded: %w", err)
 	}
-	defer src.Close()
+	defer func() {
+		if cerr := src.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("schema export: close embedded: %w", cerr)
+		}
+	}()
 
 	outPath := filepath.Join(dir, schema.OperationalContextPlaceholder)
 	dst, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 	if err != nil {
 		return fmt.Errorf("schema export: create %s: %w", outPath, err)
 	}
-	defer dst.Close()
+	defer func() {
+		if cerr := dst.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("schema export: close %s: %w", outPath, cerr)
+		}
+	}()
 
-	if _, err := io.Copy(dst, src); err != nil {
-		return fmt.Errorf("schema export: write %s: %w", outPath, err)
+	if _, copyErr := io.Copy(dst, src); copyErr != nil {
+		return fmt.Errorf("schema export: write %s: %w", outPath, copyErr)
 	}
 	return nil
 }

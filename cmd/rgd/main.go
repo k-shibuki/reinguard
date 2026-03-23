@@ -32,8 +32,8 @@ func main() {
 				Name:  "version",
 				Usage: "print rgd version",
 				Action: func(c *cli.Context) error {
-					fmt.Fprintln(c.App.Writer, c.App.Version)
-					return nil
+					_, err := fmt.Fprintln(c.App.Writer, c.App.Version)
+					return err
 				},
 			},
 			{
@@ -69,8 +69,8 @@ func main() {
 							if err := schemaexport.Export(dir); err != nil {
 								return err
 							}
-							fmt.Fprintf(c.App.Writer, "wrote embedded schema to %q\n", dir)
-							return nil
+							_, err := fmt.Fprintf(c.App.Writer, "wrote embedded schema to %q\n", dir)
+							return err
 						},
 					},
 				},
@@ -99,9 +99,9 @@ func runValidate(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := validate.Dir(dir); err != nil {
+	if err = validate.Dir(dir); err != nil {
 		return err
 	}
-	fmt.Fprintf(c.App.Writer, "config OK: %q\n", dir)
-	return nil
+	_, err = fmt.Fprintf(c.App.Writer, "config OK: %q\n", dir)
+	return err
 }
