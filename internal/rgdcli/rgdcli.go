@@ -86,6 +86,61 @@ func RunStateEval(c *cli.Context) error {
 	return writeJSON(c.App.Writer, out, false)
 }
 
+// RunRouteSelect evaluates route rules.
+func RunRouteSelect(c *cli.Context) error {
+	wd, cfgDir, err := resolvePaths(c)
+	if err != nil {
+		return err
+	}
+	loaded, err := config.Load(cfgDir)
+	if err != nil {
+		return err
+	}
+	signals, diags, deg, err := loadOrObserve(c, wd, cfgDir, loaded)
+	if err != nil {
+		return err
+	}
+	flat := flattenSignals(signals)
+	if p := c.String("state-file"); p != "" {
+		sf, rerr := os.ReadFile(p)
+		if rerr != nil {
+			return rerr
+		}
+		var st map[string]any
+		if jerr := json.Unmarshal(sf, &st); jerr != nil {
+			return jerr
+		}
+		flat["state"] = st
+	}
+	degSet := observation.DegradedSet(diags, deg)
+	res, err := resolve.ResolveRoute(loaded.Rules(), flat, degSet)
+	if err != nil {
+		return err
+	}
+	out := map[string]any{
+		"kind":     string(res.Kind),
+		"state_id": res.StateID,
+		"route_id": res.RouteID,
+		"rule_id":  res.RuleID,
+		"priority": res.Priority,
+		"reason":   res.Reason,
+	}
+	if len(res.Candidates) > 0 {
+		out["candidates"] = res.Candidates
+	}
+	if len(res.RouteCandidates) > 0 {
+		rc := make([]any, len(res.RouteCandidates))
+		for i, x := range res.RouteCandidates {
+			rc[i] = map[string]any{"rule_id": x.RuleID, "route_id": x.RouteID, "priority": x.Priority}
+		}
+		out["route_candidates"] = rc
+	}
+	if c.Bool("fail-on-non-resolved") && (res.Kind == resolve.OutcomeAmbiguous || res.Kind == resolve.OutcomeDegraded) {
+		return fmt.Errorf("non-resolved route outcome: %s", res.Kind)
+	}
+	return writeJSON(c.App.Writer, out, false)
+}
+
 // RunSchemaExport exports embedded schemas.
 func RunSchemaExport(c *cli.Context) error {
 	dir := c.String("dir")
@@ -316,6 +371,25 @@ func NewApp(version string) *cli.App {
 						newFailOnNonResolvedFlag(),
 					},
 					Action: RunStateEval,
+				},
+			},
+		},
+		{
+			Name:  "route",
+			Usage: "route selection",
+			Subcommands: []*cli.Command{
+				{
+					Name:  "select",
+					Usage: "evaluate route rules",
+					Flags: []cli.Flag{
+						newObservationFileFlag(),
+						newStateFileFlag(),
+						newSerialFlag(),
+						newCwdFlag(),
+						newConfigDirFlag(),
+						newFailOnNonResolvedFlag(),
+					},
+					Action: RunRouteSelect,
 				},
 			},
 		},
