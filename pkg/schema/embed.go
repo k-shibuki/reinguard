@@ -1,3 +1,4 @@
+// Package schema exposes embedded JSON Schema assets for reinguard.
 package schema
 
 import (

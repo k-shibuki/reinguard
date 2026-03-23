@@ -21,8 +21,16 @@ func TestRoot_gitInitRepo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Root: %v", err)
 	}
-	if root != dir {
-		t.Fatalf("got root %q want %q", root, dir)
+	wantRoot, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		t.Fatalf("EvalSymlinks: %v", err)
+	}
+	gotRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatalf("EvalSymlinks: %v", err)
+	}
+	if gotRoot != wantRoot {
+		t.Fatalf("got root %q want %q", gotRoot, wantRoot)
 	}
 }
 

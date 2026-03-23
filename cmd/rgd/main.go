@@ -41,11 +41,9 @@ func main() {
 				Usage: "configuration commands",
 				Subcommands: []*cli.Command{
 					{
-						Name:  "validate",
-						Usage: "validate .reinguard configuration (MVP stub)",
-						Action: func(c *cli.Context) error {
-							return runValidate(c)
-						},
+						Name:   "validate",
+						Usage:  "validate .reinguard configuration (MVP stub)",
+						Action: runValidate,
 					},
 				},
 			},

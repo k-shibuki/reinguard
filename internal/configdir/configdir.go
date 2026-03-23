@@ -18,13 +18,10 @@ func Resolve(cwd, explicit string) (string, error) {
 		return "", fmt.Errorf("configdir: empty cwd")
 	}
 	if explicit != "" {
-		var path string
 		if filepath.IsAbs(explicit) {
-			path = explicit
-		} else {
-			path = filepath.Join(cwd, explicit)
+			return filepath.Clean(explicit), nil
 		}
-		abs, err := filepath.Abs(path)
+		abs, err := filepath.Abs(filepath.Join(cwd, explicit))
 		if err != nil {
 			return "", err
 		}
