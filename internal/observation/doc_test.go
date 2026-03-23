@@ -69,3 +69,24 @@ func TestDegradedSet_multipleProvidersDeduped(t *testing.T) {
 		t.Fatal(ds)
 	}
 }
+
+func TestDocument_withDiagnosticsAndMeta(t *testing.T) {
+	t.Parallel()
+	diags := []observe.Diagnostic{
+		{Severity: "warn", Message: "m1", Provider: "git", Code: "provider_failed"},
+		{Severity: "warn", Message: "m2", Provider: "github", Code: "provider_degraded"},
+	}
+	doc := Document(map[string]any{"x": 1}, diags, true)
+	raw, ok := doc["diagnostics"].([]any)
+	if !ok || len(raw) != 2 {
+		t.Fatalf("diagnostics: %v", doc["diagnostics"])
+	}
+	meta, ok := doc["meta"].(map[string]any)
+	if !ok {
+		t.Fatal("expected meta")
+	}
+	srcs, ok := meta["degraded_sources"].([]any)
+	if !ok || len(srcs) < 1 {
+		t.Fatalf("degraded_sources: %v", meta["degraded_sources"])
+	}
+}

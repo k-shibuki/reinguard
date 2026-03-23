@@ -48,6 +48,10 @@ rgd config validate
 rgd schema export
 ```
 
+## CLI reference
+
+Command behavior, flags, and exit codes: [docs/cli.md](docs/cli.md).
+
 ## Architecture decisions
 
 Authoritative decisions are recorded as ADRs under [docs/adr/](docs/adr/):
@@ -62,6 +66,7 @@ Authoritative decisions are recorded as ADRs under [docs/adr/](docs/adr/):
 | [ADR-0006](docs/adr/0006-gh-cli-as-sole-authentication.md) | gh CLI as sole authentication source |
 | [ADR-0007](docs/adr/0007-ambiguity-as-evaluation-outcome.md) | Ambiguity as evaluation outcome |
 | [ADR-0008](docs/adr/0008-schema-versioning.md) | Schema versioning: synchronized semver with best-effort compatibility |
+| [ADR-0009](docs/adr/0009-observation-engine-abstraction.md) | Observation engine abstraction (providers + config) |
 
 ## Development
 
@@ -80,6 +85,9 @@ go run ./cmd/rgd schema export --dir /tmp/rgd-schemas
 ```
 
 ## Contributing
+
+See **[CONTRIBUTING.md](CONTRIBUTING.md)** for local checks, CI behavior (including
+fork PRs), and links to the PR template and `docs/cli.md`.
 
 - Follow **Issue-driven** workflow: open an Issue, then a PR that `Closes #N`
   (see `.cursor/rules/workflow-policy.mdc`).
