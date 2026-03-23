@@ -1,5 +1,7 @@
 # reinguard
 
+[![CI](https://github.com/k-shibuki/reinguard/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/k-shibuki/reinguard/actions/workflows/ci.yaml?query=branch%3Amain)
+
 **reinguard** is a spec-driven control-plane substrate that reads
 repository-declared control specifications, builds operational context
 through observation and evaluation, and returns route candidates, guard
@@ -60,6 +62,33 @@ Authoritative decisions are recorded as ADRs under [docs/adr/](docs/adr/):
 | [ADR-0006](docs/adr/0006-gh-cli-as-sole-authentication.md) | gh CLI as sole authentication source |
 | [ADR-0007](docs/adr/0007-ambiguity-as-evaluation-outcome.md) | Ambiguity as evaluation outcome |
 | [ADR-0008](docs/adr/0008-schema-versioning.md) | Schema versioning: synchronized semver with best-effort compatibility |
+
+## Development
+
+- **Go**: 1.25.8 or newer; CI uses 1.26.1 (see [`go.mod`](go.mod)).
+- **Build**: `go build -o rgd ./cmd/rgd`
+- **Test**: `go test ./...`
+- **Vet**: `go vet ./...`
+- **Lint** (optional locally): install [golangci-lint](https://golangci-lint.run/) and run `golangci-lint run` (CI enforces it).
+
+### CLI smoke (from repository root)
+
+```bash
+go run ./cmd/rgd version
+go run ./cmd/rgd config validate
+go run ./cmd/rgd schema export --dir /tmp/rgd-schemas
+```
+
+## Contributing
+
+- Follow **Issue-driven** workflow: open an Issue, then a PR that `Closes #N`
+  (see `.cursor/rules/workflow-policy.mdc`).
+- **Commit format** matches the bridle-style policy in `.cursor/rules/commit-format.mdc`
+  (Conventional Commits + `Refs: #N` in the body). Optional local setup:
+  - `git config commit.template .gitmessage`
+  - `pip install pre-commit && pre-commit install --hook-type commit-msg`
+- Use the PR template at `.github/PULL_REQUEST_TEMPLATE.md`.
+- Architecture decisions belong in `docs/adr/` (ADR).
 
 ## License
 

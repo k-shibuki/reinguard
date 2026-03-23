@@ -1,0 +1,28 @@
+---
+description: Non-negotiable safety rules for agents working on reinguard
+alwaysApply: true
+---
+
+# Agent Safety (reinguard)
+
+## HS-CI-MERGE
+
+Never merge a PR unless **required CI checks are green**. Use GitHub PR checks or `gh pr checks` before `gh pr merge`.
+
+Never use `gh pr merge --admin` to bypass branch protection.
+
+## HS-PR-TEMPLATE
+
+Every PR must follow `.github/PULL_REQUEST_TEMPLATE.md` (all required sections present).
+
+## HS-LOCAL-VERIFY
+
+Before pushing Go changes:
+
+- `go test ./...`
+- `go vet ./...`
+- `golangci-lint run` (or rely on CI, but local run is strongly preferred)
+
+## HS-NO-SKIP
+
+Do not skip verification steps or merge with failing checks without an explicit documented exception.

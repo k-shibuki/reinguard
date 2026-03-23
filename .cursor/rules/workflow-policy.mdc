@@ -1,0 +1,21 @@
+---
+description: Issue-driven workflow and PR discipline (reinguard)
+alwaysApply: true
+---
+
+# Workflow Policy (reinguard)
+
+## Issue-driven work
+
+- Prefer **one GitHub Issue per PR** (1 Issue ≈ 1 PR) for implementation work.
+- Commit messages follow **`@.cursor/rules/commit-format.mdc`** (Conventional Commits + `Refs: #<issue>` footer).
+- PR body includes `Closes #<issue>` (or `Fixes`) when applicable.
+
+## Exceptions
+
+- Use repository **labels** and a `## Exception` section in the PR when bypassing the normal Issue flow (document justification).
+
+## Evidence targets
+
+- This repository does **not** use bridle-style `make evidence-*` targets.
+- Until `rgd observe` ships, see `evidence-temporary.mdc` for GitHub observation.

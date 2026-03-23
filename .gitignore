@@ -1,0 +1,39 @@
+# Binaries (repo root and common build outputs)
+/rgd
+/bin/
+/dist/
+
+# Go build artifacts (cross-platform)
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Test / coverage
+*.out
+
+# Go workspace (local multi-module checkouts)
+go.work
+go.work.sum
+
+# Vendored dependencies (if introduced later, remove this line to commit vendor/)
+vendor/
+
+# OS / editor
+.DS_Store
+*~
+*.swp
+.idea/
+.vscode/
+
+# Local environment overrides (keep *.example committed)
+.env
+.env.local
+.env.*.local
+
+# Schema export default output (local runs)
+/schema-export/

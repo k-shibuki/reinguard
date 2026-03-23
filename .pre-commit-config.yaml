@@ -1,0 +1,16 @@
+# Minimal pre-commit setup aligned with bridle commit-msg validation.
+# Install: pip install pre-commit && pre-commit install --hook-type commit-msg
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+  - repo: local
+    hooks:
+      - id: check-commit-msg
+        name: Validate commit message format
+        entry: bash tools/check-commit-msg.sh
+        language: system
+        stages: [commit-msg]
+        always_run: true

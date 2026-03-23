@@ -1,0 +1,15 @@
+# Commit type prefixes (SSOT for commit message validation)
+# Referenced by: check-commit-msg.sh, commit-format.mdc § Prefix
+# PR title types intentionally exclude 'hotfix' — see commit-format.mdc § PR title handling
+feat
+fix
+hotfix
+refactor
+perf
+test
+docs
+build
+ci
+chore
+style
+revert
