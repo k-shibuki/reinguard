@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -38,7 +39,11 @@ jobs:
         run: go vet ./...
 
       - name: go test
-        run: go test ./... -race -coverprofile=coverage.out
+        run: go test ./... -race -coverpkg=./... -coverprofile=coverage.out -count=1
+
+      - name: Coverage threshold (module-wide)
+        # go tool cover reports one decimal; 79.9% can occur at ~80% true coverage.
+        run: bash tools/check-coverage-threshold.sh 79.9 coverage.out
 
       - name: Upload coverage artifact
         if: always()
@@ -56,3 +61,57 @@ jobs:
           /tmp/rgd version
           /tmp/rgd config validate
           /tmp/rgd schema export --dir /tmp/rgd-schema-smoke
+
+  # Second stage: exercise this repository’s real `.reinguard` (no GitHub REST).
+  # Safe for fork PRs — only git + local schema validation.
+  rgd-dogfood:
+    name: Dogfood CLI (fork-safe)
+    needs: go-ci
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: actions/setup-go@v6.3.0
+        with:
+          go-version: "1.26.1"
+
+      - name: Build rgd
+        run: go build -o /tmp/rgd ./cmd/rgd
+
+      - name: Validate config and observe git
+        run: |
+          set -euo pipefail
+          /tmp/rgd --cwd "${GITHUB_WORKSPACE}" config validate
+          /tmp/rgd --cwd "${GITHUB_WORKSPACE}" observe git > /tmp/observe-git.json
+          grep -q '"schema_version"' /tmp/observe-git.json
+
+  # Third stage: live GitHub observation via `gh` + REST. Skip fork PRs so we
+  # never run API collection against arbitrary merge commits from untrusted forks.
+  rgd-github-dogfood:
+    name: Dogfood GitHub API (non-fork PRs)
+    needs: go-ci
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+      checks: read
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: actions/setup-go@v6.3.0
+        with:
+          go-version: "1.26.1"
+
+      - name: Build rgd
+        run: go build -o /tmp/rgd ./cmd/rgd
+
+      - name: Observe GitHub (aggregate)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh --version
+          /tmp/rgd --cwd "${GITHUB_WORKSPACE}" observe github > /tmp/observe-github.json
+          grep -q '"schema_version"' /tmp/observe-github.json
