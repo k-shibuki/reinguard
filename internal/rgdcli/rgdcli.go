@@ -9,6 +9,7 @@ import (
 
 	"github.com/k-shibuki/reinguard/internal/config"
 	"github.com/k-shibuki/reinguard/internal/configdir"
+	"github.com/k-shibuki/reinguard/internal/guard"
 	"github.com/k-shibuki/reinguard/internal/observation"
 	"github.com/k-shibuki/reinguard/internal/observe"
 	"github.com/k-shibuki/reinguard/internal/resolve"
@@ -139,6 +140,28 @@ func RunRouteSelect(c *cli.Context) error {
 		return fmt.Errorf("non-resolved route outcome: %s", res.Kind)
 	}
 	return writeJSON(c.App.Writer, out, false)
+}
+
+// RunGuardEval runs a named guard.
+func RunGuardEval(c *cli.Context, guardID string) error {
+	if guardID != "merge-readiness" {
+		return fmt.Errorf("unknown guard %q", guardID)
+	}
+	path := c.String("observation-file")
+	if path == "" {
+		return fmt.Errorf("--observation-file is required")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return err
+	}
+	signals, _ := doc["signals"].(map[string]any)
+	res := guard.EvalMergeReadiness(signals)
+	return writeJSON(c.App.Writer, res, false)
 }
 
 // RunSchemaExport exports embedded schemas.
@@ -390,6 +413,27 @@ func NewApp(version string) *cli.App {
 						newFailOnNonResolvedFlag(),
 					},
 					Action: RunRouteSelect,
+				},
+			},
+		},
+		{
+			Name:  "guard",
+			Usage: "guard evaluation",
+			Subcommands: []*cli.Command{
+				{
+					Name:      "eval",
+					Usage:     "evaluate a guard by id",
+					ArgsUsage: "<guard-id>",
+					Flags: []cli.Flag{
+						newObservationFileRequiredFlag(),
+						newCwdFlag(),
+					},
+					Action: func(c *cli.Context) error {
+						if c.NArg() < 1 {
+							return fmt.Errorf("guard id required")
+						}
+						return RunGuardEval(c, c.Args().First())
+					},
 				},
 			},
 		},
