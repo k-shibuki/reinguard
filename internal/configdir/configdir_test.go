@@ -4,17 +4,21 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
 func TestResolve_explicit(t *testing.T) {
 	t.Parallel()
+	// Given: explicit relative config directory under base
 	base := t.TempDir()
 	want := filepath.Join(base, "cfg")
 	if err := os.MkdirAll(want, 0o755); err != nil {
 		t.Fatal(err)
 	}
+	// When: Resolve with explicit name
 	got, err := Resolve(base, "cfg")
+	// Then: absolute path matches
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -25,6 +29,7 @@ func TestResolve_explicit(t *testing.T) {
 
 func TestResolve_gitRepo(t *testing.T) {
 	t.Parallel()
+	// Given: git repo with .reinguard directory
 	dir := t.TempDir()
 	runGit(t, dir, "init")
 	runGit(t, dir, "config", "user.email", "test@example.com")
@@ -33,12 +38,31 @@ func TestResolve_gitRepo(t *testing.T) {
 	if err := os.MkdirAll(rg, 0o755); err != nil {
 		t.Fatal(err)
 	}
+	// When: Resolve with empty explicit (discover git root)
 	got, err := Resolve(dir, "")
+	// Then: .reinguard under root
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got != rg {
 		t.Fatalf("got %q want %q", got, rg)
+	}
+}
+
+func TestResolve_noGitRepoIncludesHint(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	_, err := Resolve(dir, "")
+	if err == nil || !strings.Contains(err.Error(), "config-dir") {
+		t.Fatalf("%v", err)
+	}
+}
+
+func TestResolve_emptyCwd(t *testing.T) {
+	t.Parallel()
+	_, err := Resolve("", "x")
+	if err == nil || !strings.Contains(err.Error(), "empty cwd") {
+		t.Fatalf("%v", err)
 	}
 }
 
