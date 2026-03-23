@@ -1,0 +1,19 @@
+---
+description: Temporary observation policy until rgd implements full observation
+alwaysApply: true
+---
+
+# Evidence (temporary)
+
+reinguard is bootstrapping. **Structured GitHub / git observation** will live in
+`rgd` (see ADRs **ADR-0003**, **ADR-0006**).
+
+Until `rgd observe` and related commands exist in this repository:
+
+- Agents **may** use the **`gh` CLI** and **`git`** directly for read-only
+  inspection when implementing or reviewing GitHub workflows.
+- Prefer capturing stable behavior in **tests** and **CI** rather than ad-hoc
+  scripts.
+
+This file will be deleted or replaced when observation is fully implemented in
+`rgd`.
