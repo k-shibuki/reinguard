@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/k-shibuki/reinguard/internal/config"
 	"github.com/k-shibuki/reinguard/internal/configdir"
 	"github.com/k-shibuki/reinguard/internal/observation"
 	"github.com/k-shibuki/reinguard/internal/observe"
+	"github.com/k-shibuki/reinguard/internal/resolve"
 	"github.com/k-shibuki/reinguard/internal/schemaexport"
 	"github.com/k-shibuki/reinguard/internal/validate"
 	"github.com/urfave/cli/v2"
@@ -48,6 +50,42 @@ func RunObserve(c *cli.Context, gitHubFacet string, providerOverride []string) e
 	return writeJSON(c.App.Writer, doc, false)
 }
 
+// RunStateEval evaluates state rules.
+func RunStateEval(c *cli.Context) error {
+	wd, cfgDir, err := resolvePaths(c)
+	if err != nil {
+		return err
+	}
+	loaded, err := config.Load(cfgDir)
+	if err != nil {
+		return err
+	}
+	signals, diags, deg, err := loadOrObserve(c, wd, cfgDir, loaded)
+	if err != nil {
+		return err
+	}
+	degSet := observation.DegradedSet(diags, deg)
+	res, err := resolve.ResolveState(loaded.Rules(), flattenSignals(signals), degSet)
+	if err != nil {
+		return err
+	}
+	out := map[string]any{
+		"kind":     string(res.Kind),
+		"state_id": res.StateID,
+		"route_id": res.RouteID,
+		"rule_id":  res.RuleID,
+		"priority": res.Priority,
+		"reason":   res.Reason,
+	}
+	if len(res.Candidates) > 0 {
+		out["candidates"] = res.Candidates
+	}
+	if c.Bool("fail-on-non-resolved") && (res.Kind == resolve.OutcomeAmbiguous || res.Kind == resolve.OutcomeDegraded) {
+		return fmt.Errorf("non-resolved state outcome: %s", res.Kind)
+	}
+	return writeJSON(c.App.Writer, out, false)
+}
+
 // RunSchemaExport exports embedded schemas.
 func RunSchemaExport(c *cli.Context) error {
 	dir := c.String("dir")
@@ -76,6 +114,80 @@ func writeJSON(w io.Writer, v any, _ bool) error {
 	return enc.Encode(v)
 }
 
+func parseObservationJSON(data []byte) (signals map[string]any, diags []observe.Diagnostic, degraded bool, err error) {
+	var doc map[string]any
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return nil, nil, false, err
+	}
+	signals, _ = doc["signals"].(map[string]any)
+	if signals == nil {
+		signals = map[string]any{}
+	}
+	degraded, _ = doc["degraded"].(bool)
+	if raw, ok := doc["diagnostics"].([]any); ok {
+		for _, r := range raw {
+			if m, ok := r.(map[string]any); ok {
+				diags = append(diags, observe.Diagnostic{
+					Severity: stringField(m, "severity"),
+					Message:  stringField(m, "message"),
+					Provider: stringField(m, "provider"),
+					Code:     stringField(m, "code"),
+				})
+			}
+		}
+	}
+	return signals, diags, degraded, nil
+}
+
+func loadOrObserve(c *cli.Context, wd, cfgDir string, loaded *config.LoadResult) (map[string]any, []observe.Diagnostic, bool, error) {
+	if p := c.String("observation-file"); p != "" {
+		data, err := os.ReadFile(p)
+		if err != nil {
+			return nil, nil, false, err
+		}
+		return parseObservationJSON(data)
+	}
+	engine := observe.NewEngine()
+	signals, diags, deg, err := engine.Collect(context.Background(), &loaded.Root, observe.Options{WorkDir: wd, Serial: c.Bool("serial")})
+	return signals, diags, deg, err
+}
+
+func flattenSignals(signals map[string]any) map[string]any {
+	out := map[string]any{}
+	var walk func(prefix string, v any)
+	walk = func(prefix string, v any) {
+		if m, ok := v.(map[string]any); ok {
+			if prefix != "" {
+				out[prefix] = v
+			}
+			for k, vv := range m {
+				p := k
+				if prefix != "" {
+					p = prefix + "." + k
+				}
+				out[p] = vv
+				walk(p, vv)
+			}
+			return
+		}
+		if prefix != "" {
+			out[prefix] = v
+		}
+	}
+	for ns, v := range signals {
+		out[ns] = v
+		walk(ns, v)
+	}
+	return out
+}
+
+func stringField(m map[string]any, k string) string {
+	if v, ok := m[k].(string); ok {
+		return v
+	}
+	return ""
+}
+
 func runConfigValidateLegacy(c *cli.Context) error {
 	wd, err := configdir.WorkingDir()
 	if err != nil {
@@ -95,7 +207,7 @@ func runConfigValidateLegacy(c *cli.Context) error {
 	return err
 }
 
-// NewApp builds the urfave CLI application (observe surface; extended in later PRs).
+// NewApp builds the urfave CLI application (observe + state eval; extended in later PRs).
 func NewApp(version string) *cli.App {
 	verFlag := newRootVersionFlag()
 	verFlag.Action = func(c *cli.Context, printVer bool) error {
@@ -186,6 +298,24 @@ func NewApp(version string) *cli.App {
 							Action: func(c *cli.Context) error { return RunObserve(c, "reviews", []string{"github"}) },
 						},
 					},
+				},
+			},
+		},
+		{
+			Name:  "state",
+			Usage: "state evaluation",
+			Subcommands: []*cli.Command{
+				{
+					Name:  "eval",
+					Usage: "evaluate state rules",
+					Flags: []cli.Flag{
+						newObservationFileFlag(),
+						newSerialFlag(),
+						newCwdFlag(),
+						newConfigDirFlag(),
+						newFailOnNonResolvedFlag(),
+					},
+					Action: RunStateEval,
 				},
 			},
 		},
