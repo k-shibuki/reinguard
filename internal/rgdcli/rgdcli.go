@@ -14,7 +14,6 @@ import (
 	"github.com/k-shibuki/reinguard/internal/observe"
 	"github.com/k-shibuki/reinguard/internal/resolve"
 	"github.com/k-shibuki/reinguard/internal/schemaexport"
-	"github.com/k-shibuki/reinguard/internal/validate"
 	"github.com/k-shibuki/reinguard/pkg/schema"
 	"github.com/urfave/cli/v2"
 )
@@ -370,7 +369,7 @@ func diagsToMaps(diags []observe.Diagnostic) []any {
 	return out
 }
 
-func runConfigValidateLegacy(c *cli.Context) error {
+func runConfigValidate(c *cli.Context) error {
 	wd, err := configdir.WorkingDir()
 	if err != nil {
 		return err
@@ -382,8 +381,12 @@ func runConfigValidateLegacy(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if err = validate.Dir(dir); err != nil {
+	res, err := config.Load(dir)
+	if err != nil {
 		return err
+	}
+	for _, w := range config.DeprecatedWarnings(&res.Root) {
+		_, _ = fmt.Fprintln(c.App.ErrWriter, w)
 	}
 	_, err = fmt.Fprintf(c.App.Writer, "config OK: %q\n", dir)
 	return err
@@ -415,9 +418,9 @@ func NewApp(version string) *cli.App {
 			Subcommands: []*cli.Command{
 				{
 					Name:   "validate",
-					Usage:  "validate .reinguard directory (legacy MVP check)",
+					Usage:  "validate .reinguard against JSON Schemas",
 					Flags:  []cli.Flag{newConfigDirFlag(), newCwdFlag()},
-					Action: runConfigValidateLegacy,
+					Action: runConfigValidate,
 				},
 			},
 		},
