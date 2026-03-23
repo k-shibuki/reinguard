@@ -25,11 +25,14 @@ jobs:
       - name: Verify module checksums
         run: go mod verify
 
+      - name: Warm module cache
+        run: go build ./...
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
           version: v1.62.0
-          args: --timeout=5m
+          args: --timeout=5m ./...
 
       - name: go vet
         run: go vet ./...
