@@ -86,14 +86,14 @@ go run ./cmd/rgd schema export --dir /tmp/rgd-schemas
 
 ## Contributing
 
-See **[CONTRIBUTING.md](CONTRIBUTING.md)** for local checks, CI behavior (including
+See **[CONTRIBUTING.md](.github/CONTRIBUTING.md)** for local checks, CI behavior (including
 fork PRs), and links to the PR template and `docs/cli.md`.
 
 - Follow **Issue-driven** workflow: open an Issue, then a PR that `Closes #N`
   (see `.cursor/rules/workflow-policy.mdc`).
 - **Commit format** matches the bridle-style policy in `.cursor/rules/commit-format.mdc`
   (Conventional Commits + `Refs: #N` in the body). Optional local setup:
-  - `git config commit.template .gitmessage`
+  - `git config commit.template .github/gitmessage`
   - `pip install pre-commit && pre-commit install --hook-type commit-msg`
 - Use the PR template at `.github/PULL_REQUEST_TEMPLATE.md`.
 - Architecture decisions belong in `docs/adr/` (ADR).

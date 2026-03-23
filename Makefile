@@ -18,7 +18,7 @@ test: ## go test ./... -race -count=1
 
 lint: ## golangci-lint (required for check; must be on PATH)
 	@command -v golangci-lint >/dev/null 2>&1 && golangci-lint run --timeout=5m ./... || \
-		(echo "golangci-lint not in PATH; install from CONTRIBUTING or rely on CI" >&2; exit 1)
+		(echo "golangci-lint not in PATH; see .github/CONTRIBUTING.md or rely on CI" >&2; exit 1)
 
 coverage: ## Race tests + module coverage profile + 80% gate
 	go test ./... -race -count=1 -coverpkg=./... -coverprofile=coverage.out

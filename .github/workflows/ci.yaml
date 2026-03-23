@@ -42,8 +42,7 @@ jobs:
         run: go test ./... -race -coverpkg=./... -coverprofile=coverage.out -count=1
 
       - name: Coverage threshold (module-wide)
-        # go tool cover reports one decimal; 79.9% can occur at ~80% true coverage.
-        run: bash tools/check-coverage-threshold.sh 79.9 coverage.out
+        run: bash tools/check-coverage-threshold.sh 80 coverage.out
 
       - name: Upload coverage artifact
         if: always()
