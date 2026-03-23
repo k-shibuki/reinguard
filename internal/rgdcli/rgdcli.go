@@ -15,6 +15,7 @@ import (
 	"github.com/k-shibuki/reinguard/internal/resolve"
 	"github.com/k-shibuki/reinguard/internal/schemaexport"
 	"github.com/k-shibuki/reinguard/internal/validate"
+	"github.com/k-shibuki/reinguard/pkg/schema"
 	"github.com/urfave/cli/v2"
 )
 
@@ -162,6 +163,76 @@ func RunKnowledgePack(c *cli.Context) error {
 	return writeJSON(c.App.Writer, map[string]any{"paths": paths}, false)
 }
 
+// RunContextBuild runs the default operational-context pipeline.
+func RunContextBuild(c *cli.Context) error {
+	wd, cfgDir, err := resolvePaths(c)
+	if err != nil {
+		return err
+	}
+	loaded, err := config.Load(cfgDir)
+	if err != nil {
+		return err
+	}
+	var signals map[string]any
+	var diags []observe.Diagnostic
+	var deg bool
+	if p := c.String("observation-file"); p != "" {
+		data, rerr := os.ReadFile(p)
+		if rerr != nil {
+			return rerr
+		}
+		signals, diags, deg, err = parseObservationJSON(data)
+		if err != nil {
+			return err
+		}
+	} else {
+		engine := observe.NewEngine()
+		signals, diags, deg, err = engine.Collect(context.Background(), &loaded.Root, observe.Options{WorkDir: wd, Serial: c.Bool("serial")})
+		if err != nil {
+			return err
+		}
+	}
+	obsDoc := observation.Document(signals, diags, deg)
+	flat := flattenSignals(signals)
+	degSet := observation.DegradedSet(diags, deg)
+	stateRes, err := resolve.ResolveState(loaded.Rules(), flat, degSet)
+	if err != nil {
+		return err
+	}
+	flat["state"] = map[string]any{
+		"kind":     string(stateRes.Kind),
+		"state_id": stateRes.StateID,
+		"rule_id":  stateRes.RuleID,
+	}
+	routeRes, err := resolve.ResolveRoute(loaded.Rules(), flat, degSet)
+	if err != nil {
+		return err
+	}
+	gr := guard.EvalMergeReadiness(flat)
+	var kpaths []any
+	if loaded.KnowledgePresent && loaded.Knowledge != nil {
+		for _, e := range loaded.Knowledge.Entries {
+			kpaths = append(kpaths, e.Path)
+		}
+	}
+	ctxDoc := map[string]any{
+		"schema_version": schema.CurrentSchemaVersion,
+		"observation":    obsDoc,
+		"state":          stateRes,
+		"routes":         []any{routeRes},
+		"guards": map[string]any{
+			"merge-readiness": gr,
+		},
+		"knowledge": map[string]any{"paths": kpaths},
+		"diagnostics": append(diagsToMaps(diags), map[string]any{
+			"severity": "info",
+			"message":  "context build pipeline complete",
+			"code":     "context_built",
+		}),
+	}
+	return writeJSON(c.App.Writer, ctxDoc, false)
+}
+
 // RunGuardEval runs a named guard.
 func RunGuardEval(c *cli.Context, guardID string) error {
 	if guardID != "merge-readiness" {
@@ -284,6 +355,19 @@ func stringField(m map[string]any, k string) string {
 		return v
 	}
 	return ""
+}
+
+func diagsToMaps(diags []observe.Diagnostic) []any {
+	var out []any
+	for _, d := range diags {
+		out = append(out, map[string]any{
+			"severity": d.Severity,
+			"message":  d.Message,
+			"provider": d.Provider,
+			"code":     d.Code,
+		})
+	}
+	return out
 }
 
 func runConfigValidateLegacy(c *cli.Context) error {
@@ -445,6 +529,23 @@ func NewApp(version string) *cli.App {
 					Usage:  "list knowledge paths from manifest",
 					Flags:  []cli.Flag{newCwdFlag(), newConfigDirFlag()},
 					Action: RunKnowledgePack,
+				},
+			},
+		},
+		{
+			Name:  "context",
+			Usage: "operational context",
+			Subcommands: []*cli.Command{
+				{
+					Name:  "build",
+					Usage: "full pipeline",
+					Flags: []cli.Flag{
+						newSerialFlag(),
+						newCwdFlag(),
+						newConfigDirFlag(),
+						newObservationFileFlag(),
+					},
+					Action: RunContextBuild,
 				},
 			},
 		},

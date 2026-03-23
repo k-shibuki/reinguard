@@ -1,0 +1,24 @@
+{
+  "schema_version": "0.2.0",
+  "signals": {
+    "git": {
+      "branch": "main",
+      "detached_head": false,
+      "uncommitted_files": 0,
+      "working_tree_clean": true,
+      "stash_count": 0,
+      "ahead_of_upstream": 0,
+      "behind_of_upstream": 0,
+      "has_upstream": false,
+      "stale_remote_branches_count": 0
+    },
+    "github": {
+      "ci": { "ci_status": "success", "head_sha": "deadbeef" },
+      "reviews": {
+        "review_threads_unresolved": 0,
+        "pagination_incomplete": false
+      }
+    }
+  },
+  "degraded": false
+}
