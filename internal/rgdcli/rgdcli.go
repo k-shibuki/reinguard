@@ -142,6 +142,26 @@ func RunRouteSelect(c *cli.Context) error {
 	return writeJSON(c.App.Writer, out, false)
 }
 
+// RunKnowledgePack lists knowledge paths from manifest.
+func RunKnowledgePack(c *cli.Context) error {
+	_, cfgDir, err := resolvePaths(c)
+	if err != nil {
+		return err
+	}
+	loaded, err := config.Load(cfgDir)
+	if err != nil {
+		return err
+	}
+	if !loaded.KnowledgePresent || loaded.Knowledge == nil {
+		return writeJSON(c.App.Writer, map[string]any{"paths": []any{}}, false)
+	}
+	var paths []any
+	for _, e := range loaded.Knowledge.Entries {
+		paths = append(paths, e.Path)
+	}
+	return writeJSON(c.App.Writer, map[string]any{"paths": paths}, false)
+}
+
 // RunGuardEval runs a named guard.
 func RunGuardEval(c *cli.Context, guardID string) error {
 	if guardID != "merge-readiness" {
@@ -413,6 +433,18 @@ func NewApp(version string) *cli.App {
 						newFailOnNonResolvedFlag(),
 					},
 					Action: RunRouteSelect,
+				},
+			},
+		},
+		{
+			Name:  "knowledge",
+			Usage: "knowledge commands",
+			Subcommands: []*cli.Command{
+				{
+					Name:   "pack",
+					Usage:  "list knowledge paths from manifest",
+					Flags:  []cli.Flag{newCwdFlag(), newConfigDirFlag()},
+					Action: RunKnowledgePack,
 				},
 			},
 		},
