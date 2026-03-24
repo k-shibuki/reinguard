@@ -2,6 +2,7 @@ package githubapi
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -76,5 +77,26 @@ func TestClient_GetJSON_retry403RateLimit_usesRateLimitReset(t *testing.T) {
 	}
 	if atomic.LoadInt32(&hits) < 2 {
 		t.Fatal("expected retry after X-RateLimit-Reset delay")
+	}
+}
+
+func TestClient_GetJSON_contextCancelsDuring429Backoff(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Retry-After", "120")
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	t.Cleanup(srv.Close)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Millisecond)
+	defer cancel()
+
+	c := &Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	var out map[string]any
+	err := c.GetJSON(ctx, srv.URL+"/x", &out)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("want deadline exceeded, got %v", err)
 	}
 }

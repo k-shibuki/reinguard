@@ -4,14 +4,13 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 
 	"github.com/k-shibuki/reinguard/internal/githubapi"
 	"github.com/k-shibuki/reinguard/internal/gitroot"
 )
 
-// prSearchItem is a subset of GitHub search results. The search API does not
-// reliably include pull request head metadata on each item; callers should
-// rely on query qualifiers (e.g. head:<branch>) instead of comparing head.ref.
+// prSearchItem is a subset of GitHub issue search results (open PR count).
 type prSearchItem struct {
 	Number int `json:"number"`
 }
@@ -19,6 +18,15 @@ type prSearchItem struct {
 type searchResponse struct {
 	Items      []prSearchItem `json:"items"`
 	TotalCount int            `json:"total_count"`
+}
+
+type pullHead struct {
+	Ref string `json:"ref"`
+}
+
+type pullListItem struct {
+	Head   pullHead `json:"head"`
+	Number int      `json:"number"`
 }
 
 // Collect returns pull request signals for the current branch.
@@ -40,15 +48,27 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir stri
 	prForBranch := false
 	prNum := 0
 	if branch != "" {
-		qh := fmt.Sprintf("repo:%s/%s is:pr is:open head:%s", owner, repo, branch)
-		uh := c.APIBase() + "/search/issues?q=" + url.QueryEscape(qh)
-		var headOut searchResponse
-		if err := c.GetJSON(ctx, uh, &headOut); err != nil {
+		// Issue search `head:<branch>` matches by prefix; use List Pulls with
+		// head=owner:branch for an exact head ref (GitHub REST).
+		q := url.Values{}
+		q.Set("state", "open")
+		q.Set("head", owner+":"+branch)
+		uPulls := fmt.Sprintf("%s/repos/%s/%s/pulls?%s",
+			c.APIBase(),
+			url.PathEscape(owner),
+			url.PathEscape(repo),
+			q.Encode(),
+		)
+		var pulls []pullListItem
+		if err := c.GetJSON(ctx, uPulls, &pulls); err != nil {
 			return nil, warnings, err
 		}
-		if headOut.TotalCount > 0 && len(headOut.Items) > 0 {
-			prForBranch = true
-			prNum = headOut.Items[0].Number
+		for _, p := range pulls {
+			if strings.EqualFold(p.Head.Ref, branch) {
+				prForBranch = true
+				prNum = p.Number
+				break
+			}
 		}
 	}
 

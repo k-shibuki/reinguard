@@ -2,6 +2,7 @@ package observe
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/k-shibuki/reinguard/internal/config"
@@ -58,6 +59,15 @@ func TestEngine_Collect_parallelSameSignals(t *testing.T) {
 	}
 	if signals["a"].(map[string]any)["v"] != 1 {
 		t.Fatalf("%v", signals)
+	}
+}
+
+func TestEngine_Collect_nilRoot(t *testing.T) {
+	t.Parallel()
+	e := NewEngine()
+	_, _, _, err := e.Collect(context.Background(), nil, Options{Serial: true})
+	if err == nil || !strings.Contains(err.Error(), "nil config root") {
+		t.Fatalf("got err=%v", err)
 	}
 }
 

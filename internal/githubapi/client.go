@@ -48,7 +48,9 @@ func (c *Client) GetJSON(ctx context.Context, u string, out any) error {
 		if err != nil {
 			lastErr = err
 			if attempt < maxAttempts-1 {
-				time.Sleep(backoff)
+				if err := sleepCtx(ctx, backoff); err != nil {
+					return err
+				}
 				backoff *= 2
 			}
 			continue
@@ -58,20 +60,26 @@ func (c *Client) GetJSON(ctx context.Context, u string, out any) error {
 		if readErr != nil {
 			lastErr = fmt.Errorf("read response body: %w", readErr)
 			if attempt < maxAttempts-1 {
-				time.Sleep(backoff)
+				if err := sleepCtx(ctx, backoff); err != nil {
+					return err
+				}
 				backoff *= 2
 			}
 			continue
 		}
 		if resp.StatusCode == http.StatusTooManyRequests && attempt < maxAttempts-1 {
 			lastErr = fmt.Errorf("429 from GitHub")
-			time.Sleep(retryAfterDelay(resp, backoff))
+			if err := sleepCtx(ctx, retryAfterDelay(resp, backoff)); err != nil {
+				return err
+			}
 			backoff *= 2
 			continue
 		}
 		if isGitHubRateLimit403(resp, body) && attempt < maxAttempts-1 {
 			lastErr = fmt.Errorf("403 rate limited from GitHub")
-			time.Sleep(retryAfterDelay(resp, backoff))
+			if err := sleepCtx(ctx, retryAfterDelay(resp, backoff)); err != nil {
+				return err
+			}
 			backoff *= 2
 			continue
 		}
@@ -112,6 +120,20 @@ func retryAfterDelay(resp *http.Response, fallback time.Duration) time.Duration 
 		}
 	}
 	return fallback
+}
+
+func sleepCtx(ctx context.Context, d time.Duration) error {
+	if d <= 0 {
+		return nil
+	}
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-t.C:
+		return nil
+	}
 }
 
 func isGitHubRateLimit403(resp *http.Response, body []byte) bool {

@@ -11,22 +11,26 @@ import (
 	"github.com/k-shibuki/reinguard/internal/githubapi"
 )
 
-func TestCollect_prForBranch_whenSearchOmitsHeadMetadata(t *testing.T) {
+func TestCollect_prForBranch_usesPullsListExactHead(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	run(t, "git", dir, "init")
 	run(t, "git", dir, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "init")
 	run(t, "git", dir, "branch", "-M", "feature")
 
-	// GitHub search often returns PR items without populated head.ref; the
-	// head:<branch> qualifier still constrains matches.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		q := r.URL.Query().Get("q")
-		if strings.Contains(q, "head:feature") {
-			_, _ = w.Write([]byte(`{"total_count":1,"incomplete_results":false,"items":[{"number":99}]}`))
-			return
+		switch r.URL.Path {
+		case "/search/issues":
+			_, _ = w.Write([]byte(`{"total_count":0,"incomplete_results":false,"items":[]}`))
+		case "/repos/o/r/pulls":
+			if r.URL.Query().Get("state") != "open" || r.URL.Query().Get("head") != "o:feature" {
+				http.NotFound(w, r)
+				return
+			}
+			_, _ = w.Write([]byte(`[{"number":99,"head":{"ref":"feature"}}]`))
+		default:
+			http.NotFound(w, r)
 		}
-		_, _ = w.Write([]byte(`{"total_count":0,"incomplete_results":false,"items":[]}`))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -38,7 +42,10 @@ func TestCollect_prForBranch_whenSearchOmitsHeadMetadata(t *testing.T) {
 	if len(warns) != 0 {
 		t.Fatalf("%v", warns)
 	}
-	pr := m["pull_requests"].(map[string]any)
+	pr, ok := m["pull_requests"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected pull_requests map, got %T", m["pull_requests"])
+	}
 	if !pr["pr_exists_for_branch"].(bool) {
 		t.Fatalf("want pr for branch, got %v", pr)
 	}
@@ -56,12 +63,18 @@ func TestCollect_withGitRepo(t *testing.T) {
 
 	emptySearch := `{"total_count":0,"incomplete_results":false,"items":[]}`
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		q := r.URL.Query().Get("q")
-		if strings.Contains(q, "head:main") {
+		switch r.URL.Path {
+		case "/search/issues":
 			_, _ = w.Write([]byte(emptySearch))
-			return
+		case "/repos/o/r/pulls":
+			if r.URL.Query().Get("state") != "open" || r.URL.Query().Get("head") != "o:main" {
+				http.NotFound(w, r)
+				return
+			}
+			_, _ = w.Write([]byte(`[]`))
+		default:
+			http.NotFound(w, r)
 		}
-		_, _ = w.Write([]byte(emptySearch))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -73,7 +86,10 @@ func TestCollect_withGitRepo(t *testing.T) {
 	if len(warns) != 0 {
 		t.Fatalf("%v", warns)
 	}
-	pr := m["pull_requests"].(map[string]any)
+	pr, ok := m["pull_requests"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected pull_requests map, got %T", m["pull_requests"])
+	}
 	if pr["current_branch"].(string) != "main" {
 		t.Fatalf("%v", pr)
 	}

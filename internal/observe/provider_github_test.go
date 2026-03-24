@@ -43,6 +43,8 @@ exit 1
 		switch r.URL.Path {
 		case "/search/issues":
 			_, _ = w.Write([]byte(`{"total_count": 0}`))
+		case "/repos/octocat/hello-world/pulls":
+			_, _ = w.Write([]byte(`[]`))
 		case "/repos/octocat/hello-world/commits/" + sha + "/status":
 			_, _ = w.Write([]byte(`{"state":"success"}`))
 		default:
