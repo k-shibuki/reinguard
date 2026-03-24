@@ -12,7 +12,12 @@
 
 - GitHub **Files changed** → open each review thread; note whether the root comment is **CodeRabbit**, **Codex / chatgpt-codex-connector**, or human.
 - `gh pr view <N> --comments` and `gh pr checks <N>` — failing checks vs review findings.
-- Until `rgd observe` exists, use `gh api` to list review comments if needed, e.g. `gh api repos/{owner}/{repo}/pulls/<N>/comments`.
+- Until `rgd observe` exists, use `gh api` to list inline review threads, e.g. `gh api repos/{owner}/{repo}/pulls/<N>/comments`.
+- **Outside diff range / non-inline bot findings** — CodeRabbit (and peers) may post items **only** outside the patch (label **Outside diff range**, review **summary** body, PR **conversation**, or Checks text) so they **never** appear in `pulls/<N>/comments`. **Do not** treat “zero unresolved threads” as “no review work left.” Also collect:
+  - `gh api repos/{owner}/{repo}/pulls/<N>/reviews` — inspect each review `body` for summary-only findings
+  - `gh pr view <N> --comments` for timeline text
+  - Optional: `gh api repos/{owner}/{repo}/issues/<N>/comments` when the PR is issue `#N` on the same repo
+  Classify and disposition these like inline threads; if there is **no** comment id to reply under, post a **PR conversation comment** that quotes or names the finding and states **Fixed / By design / False positive / Acknowledged**, then still run `@coderabbitai review` when CodeRabbit budget/rules allow.
 
 ## Act
 
@@ -20,7 +25,8 @@
 2. Fix P0/P1 in code or docs.
 3. **Dispositions: use threaded replies, not only top-level PR comments**  
    For each **pull review comment** (file/line thread), post the disposition (**Fixed / By design / False positive / Acknowledged**) as a **Reply on that thread** (GitHub UI **Reply**, or `gh api` `POST repos/{owner}/{repo}/pulls/<N>/comments` with `in_reply_to=<root_comment_database_id>` per the bridle disposition template).  
-   A generic PR body or issue-style comment **does not** substitute for a thread reply when the bot left a review comment on the diff.
+   A generic PR body or issue-style comment **does not** substitute for a thread reply when the bot left a review comment on the diff.  
+   For **outside-diff / summary-only** findings (Sense above) with no anchor id, a **targeted PR conversation comment** (quote + disposition) is the correct substitute—not silence.
 
 4. **CodeRabbit threads** — follow [bridle § CodeRabbit resolution gate](https://github.com/bridle-org/bridle/blob/main/.cursor/knowledge/review--consensus-protocol.md#coderabbit-resolution-gate-resolvereviewthread): do **not** `resolve` until consensus evidence (CR auto-resolved, CR replied without objecting, or qualifying review after re-trigger). After you push fixes, trigger a new review cycle with a **PR conversation comment**:  
    `gh pr comment <N> --body "@coderabbitai review"`  
