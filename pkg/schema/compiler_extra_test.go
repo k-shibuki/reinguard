@@ -11,7 +11,7 @@ func TestListEmbedded_nonEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(names) < 4 {
-		t.Fatal(names)
+	if len(names) < 5 {
+		t.Fatalf("expected at least 5 embedded schemas, got %d: %v", len(names), names)
 	}
 }
