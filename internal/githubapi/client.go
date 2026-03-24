@@ -92,6 +92,17 @@ func retryAfterDelay(resp *http.Response, fallback time.Duration) time.Duration 
 			return time.Duration(sec) * time.Second
 		}
 	}
+	// GitHub often omits Retry-After but sets X-RateLimit-Reset (epoch seconds) when remaining is 0.
+	rem := resp.Header.Get("X-RateLimit-Remaining")
+	if rem == "0" || (rem == "" && resp.StatusCode == http.StatusTooManyRequests) {
+		if reset := resp.Header.Get("X-RateLimit-Reset"); reset != "" {
+			if unixSec, err := strconv.ParseInt(reset, 10, 64); err == nil {
+				if d := time.Until(time.Unix(unixSec, 0)); d > 0 {
+					return d
+				}
+			}
+		}
+	}
 	return fallback
 }
 
