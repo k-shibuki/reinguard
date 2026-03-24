@@ -54,16 +54,25 @@ func (*GitProvider) Collect(ctx context.Context, opts Options) (Fragment, error)
 	ahead, behind, upstreamOK, upstreamErr := gitUpstreamAheadBehind(ctx, wd)
 	staleRemote, staleDiag := gitStaleRemoteBranchesMerged(ctx, wd, opts.DefaultBranch)
 
-	signals := map[string]any{
-		"branch":                      branch,
-		"detached_head":               detached,
-		"uncommitted_files":           uncommitted,
-		"working_tree_clean":          uncommitted == 0,
-		"stash_count":                 stashCount,
-		"ahead_of_upstream":           ahead,
-		"behind_of_upstream":          behind,
-		"has_upstream":                upstreamOK,
-		"stale_remote_branches_count": staleRemote,
+	signals := map[string]any{}
+	if berr == nil {
+		signals["branch"] = branch
+		signals["detached_head"] = detached
+	}
+	if serr == nil {
+		signals["uncommitted_files"] = uncommitted
+		signals["working_tree_clean"] = uncommitted == 0
+	}
+	if stashErr == nil {
+		signals["stash_count"] = stashCount
+	}
+	if upstreamErr == nil {
+		signals["ahead_of_upstream"] = ahead
+		signals["behind_of_upstream"] = behind
+		signals["has_upstream"] = upstreamOK
+	}
+	if len(staleDiag) == 0 {
+		signals["stale_remote_branches_count"] = staleRemote
 	}
 	var diags []Diagnostic
 	if berr != nil {
@@ -149,7 +158,8 @@ func gitStaleRemoteBranchesMerged(ctx context.Context, wd, defaultBranch string)
 	n := 0
 	for _, line := range strings.Split(out, "\n") {
 		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "HEAD ->") {
+		// Skip symbolic refs (e.g. "origin/HEAD -> origin/main", "HEAD -> origin/main").
+		if line == "" || strings.Contains(line, " -> ") {
 			continue
 		}
 		// Exclude the merge base ref itself (every branch is trivially merged into itself).

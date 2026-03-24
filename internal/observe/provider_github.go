@@ -30,7 +30,7 @@ func (*GitHubProvider) ID() string { return "github" }
 func (p *GitHubProvider) Collect(ctx context.Context, opts Options) (Fragment, error) {
 	httpClient := p.HTTPClient
 	if httpClient == nil {
-		httpClient = http.DefaultClient
+		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
 	token, err := githubapi.TokenFromGH(ctx, opts.WorkDir)
 	if err != nil {

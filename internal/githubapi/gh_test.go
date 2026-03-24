@@ -81,3 +81,18 @@ func TestRepoFromGH_unexpectedNameWithOwner(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestRepoFromGH_errorIncludesStderr(t *testing.T) {
+	old := runGHCommand
+	t.Cleanup(func() { runGHCommand = old })
+	runGHCommand = func(ctx context.Context, wd string, args []string) ([]byte, []byte, error) {
+		return nil, []byte("permission denied\n"), errors.New("exit 1")
+	}
+	_, _, err := RepoFromGH(context.Background(), "")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "permission denied") {
+		t.Fatalf("expected stderr in error: %v", err)
+	}
+}

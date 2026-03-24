@@ -128,6 +128,26 @@ func TestEval_countRequiresEq(t *testing.T) {
 	}
 }
 
+func TestEval_countEqMustBeInteger(t *testing.T) {
+	t.Parallel()
+	_, err := Eval(map[string]any{"op": "count", "path": "xs", "eq": 1.9}, map[string]any{"xs": []any{1, 2}})
+	requireMatchErr(t, err)
+	if !strings.Contains(err.Error(), "non-negative integer") {
+		t.Fatal(err)
+	}
+}
+
+func TestEval_countOnTypedSlice(t *testing.T) {
+	t.Parallel()
+	ok, err := Eval(map[string]any{"op": "count", "path": "xs", "eq": 2}, map[string]any{"xs": []int{1, 2}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("expected match on []int-backed signal")
+	}
+}
+
 func TestEval_anyRequiresWhen(t *testing.T) {
 	t.Parallel()
 	_, err := Eval(map[string]any{"op": "any", "path": "items"}, map[string]any{"items": []any{1}})

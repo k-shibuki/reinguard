@@ -3,6 +3,8 @@ package match
 
 import (
 	"fmt"
+	"math"
+	"reflect"
 	"strconv"
 	"strings"
 )
@@ -225,7 +227,7 @@ func evalCount(m map[string]any, signals map[string]any) (bool, error) {
 	if !ok {
 		return false, nil
 	}
-	arr, ok := got.([]any)
+	arr, ok := asSignalSlice(got)
 	if !ok {
 		return false, nil
 	}
@@ -263,6 +265,9 @@ func expectCount(m map[string]any) (int, error) {
 		if err != nil {
 			return 0, err
 		}
+		if f < 0 || math.Trunc(f) != f {
+			return 0, fmt.Errorf("match: count eq must be a non-negative integer")
+		}
 		return int(f), nil
 	}
 	return 0, fmt.Errorf("match: count requires eq")
@@ -281,7 +286,7 @@ func evalQuant(kind string, m map[string]any, signals map[string]any) (bool, err
 	if !ok {
 		return false, nil
 	}
-	arr, ok := got.([]any)
+	arr, ok := asSignalSlice(got)
 	if !ok {
 		return false, nil
 	}
@@ -322,6 +327,25 @@ func asSlice(v any) ([]any, error) {
 		return t, nil
 	default:
 		return nil, fmt.Errorf("match: expected array, got %T", v)
+	}
+}
+
+// asSignalSlice accepts []any and other slice/array kinds produced by observation or tests.
+func asSignalSlice(v any) ([]any, bool) {
+	if v == nil {
+		return nil, false
+	}
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Slice, reflect.Array:
+		n := rv.Len()
+		out := make([]any, n)
+		for i := 0; i < n; i++ {
+			out[i] = rv.Index(i).Interface()
+		}
+		return out, true
+	default:
+		return nil, false
 	}
 }
 

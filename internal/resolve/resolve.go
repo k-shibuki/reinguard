@@ -144,11 +144,6 @@ func ResolveRoute(rules []config.Rule, signals map[string]any, degraded map[stri
 	}
 
 	best := sorted[0].Priority
-	for _, c := range sorted[1:] {
-		if c.Priority < best {
-			best = c.Priority
-		}
-	}
 	var atBest []config.Rule
 	for _, c := range sorted {
 		if nearlyEqual(c.Priority, best) {
@@ -269,5 +264,6 @@ func DuplicatePriorityWarnings(rules []config.Rule) []string {
 		}
 		msgs = append(msgs, fmt.Sprintf("priority %s shared across rule kinds by rules %v", priKey, ids))
 	}
+	sort.Strings(msgs)
 	return msgs
 }

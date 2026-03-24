@@ -227,7 +227,7 @@ func (r *Root) EnabledProviderIDs() []string {
 	var ids []string
 	for _, p := range r.Providers {
 		if p.Enabled {
-			ids = append(ids, p.ID)
+			ids = append(ids, strings.TrimSpace(p.ID))
 		}
 	}
 	return ids

@@ -29,8 +29,9 @@ func (c *Client) APIBase() string {
 
 // GetJSON performs GET u with GitHub REST headers.
 func (c *Client) GetJSON(ctx context.Context, u string, out any) error {
-	if c.HTTP == nil {
-		c.HTTP = http.DefaultClient
+	httpClient := c.HTTP
+	if httpClient == nil {
+		httpClient = http.DefaultClient
 	}
 	const maxAttempts = 4
 	var lastErr error
@@ -44,7 +45,7 @@ func (c *Client) GetJSON(ctx context.Context, u string, out any) error {
 		req.Header.Set("Accept", "application/vnd.github+json")
 		req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 
-		resp, err := c.HTTP.Do(req)
+		resp, err := httpClient.Do(req)
 		if err != nil {
 			lastErr = err
 			if attempt < maxAttempts-1 {

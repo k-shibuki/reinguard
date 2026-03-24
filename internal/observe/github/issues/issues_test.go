@@ -39,6 +39,15 @@ func TestCollect_openCount(t *testing.T) {
 	}
 }
 
+func TestCollect_emptyOwner(t *testing.T) {
+	t.Parallel()
+	c := &githubapi.Client{HTTP: http.DefaultClient, Token: "t", BaseURL: "http://unused"}
+	_, err := Collect(context.Background(), c, "", "r")
+	if err == nil || !strings.Contains(err.Error(), "non-empty") {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestCollect_http500(t *testing.T) {
 	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -47,7 +56,10 @@ func TestCollect_http500(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
 	_, err := Collect(context.Background(), c, "o", "r")
-	if err == nil || !strings.Contains(err.Error(), "500") || !strings.Contains(err.Error(), "server boom") {
+	if err == nil || !strings.Contains(err.Error(), "fetch open issues") {
+		t.Fatalf("expected wrap: %v", err)
+	}
+	if !strings.Contains(err.Error(), "500") || !strings.Contains(err.Error(), "server boom") {
 		t.Fatalf("%v", err)
 	}
 }
