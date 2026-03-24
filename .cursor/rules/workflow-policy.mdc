@@ -13,9 +13,21 @@ alwaysApply: true
 
 ## Exceptions
 
-- Use repository **labels** and a `## Exception` section in the PR when bypassing the normal Issue flow (document justification).
+- Use repository **labels** (`no-issue` / `hotfix`) and a `## Exception` section in the PR when bypassing the normal Issue flow (document justification).
+
+## Command separation (review vs merge)
+
+Treat **review**, **fix**, and **merge** as distinct steps (bridle-aligned; supports future `rgd` semantics):
+
+- **Ready for review** → use **`pr-review`** (or human/CodeRabbit review only): judgment, no merge.
+- **Unresolved threads / changes requested** → **`review-fix`**: address findings, disposition replies, resolve threads.
+- **Review done, CI green, policy satisfied** → **`pr-merge`**: execute merge only after checks.
 
 ## Evidence targets
 
 - This repository does **not** use bridle-style `make evidence-*` targets.
-- Until `rgd observe` ships, see `evidence-temporary.mdc` for GitHub observation.
+- Until `rgd observe` ships, see `evidence-temporary.mdc` for GitHub observation (`gh` / `git` read-only).
+
+## Maintainer reference
+
+Branch protection, labels, and CI gates: [docs/contributing.md](../../docs/contributing.md).
