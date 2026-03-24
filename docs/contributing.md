@@ -33,20 +33,20 @@ PRs must have exactly one **type** label (`feat`, `fix`, `docs`, …). Exception
 From the repository root (once per org/repo):
 
 ```bash
-chmod +x tools/gh-labels.sh
-./tools/gh-labels.sh
+go run ./cmd/rgd ensure-labels
 ```
+
+With `rgd` on your `PATH` (for example `go install ./cmd/rgd`), run `rgd ensure-labels` instead.
 
 ### Open PRs after policy changes
 
 After merging workflow updates to `main`, feature branches should **merge or rebase `main`** so they pick up `ci.yaml` / `pr-policy.yaml`. To add missing template sections and type labels on already-open PRs:
 
 ```bash
-chmod +x tools/backfill-open-pr-policy.py
-./tools/backfill-open-pr-policy.py
+go run ./cmd/rgd backfill-pr-policy
 ```
 
-The script uses `gh api` to update PR bodies and labels (some `gh` versions fail on `gh pr edit` due to deprecated Classic Projects GraphQL).
+The command shells out to `gh api` to update PR bodies and labels (some `gh` versions fail on `gh pr edit` due to deprecated Classic Projects GraphQL). With `rgd` on your `PATH` (for example `go install ./cmd/rgd`), run `rgd backfill-pr-policy` instead.
 
 ## Review threads and merge
 

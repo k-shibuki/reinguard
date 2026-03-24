@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"github.com/k-shibuki/reinguard/internal/configdir"
+	"github.com/k-shibuki/reinguard/internal/labels"
+	"github.com/k-shibuki/reinguard/internal/prbackfill"
 	"github.com/k-shibuki/reinguard/internal/schemaexport"
 	"github.com/k-shibuki/reinguard/internal/validate"
 	"github.com/urfave/cli/v2"
@@ -45,6 +47,24 @@ func main() {
 						Usage:  "validate .reinguard configuration (MVP stub)",
 						Action: runValidate,
 					},
+				},
+			},
+			{
+				Name:  "ensure-labels",
+				Usage: "create PR policy type and exception labels on the repo if missing (requires gh)",
+				Description: "Idempotent maintainer command; replaces tools/gh-labels.sh. " +
+					"Requires gh CLI with permission to manage labels.",
+				Action: func(c *cli.Context) error {
+					return labels.EnsureRepoLabels(c.App.Writer)
+				},
+			},
+			{
+				Name:  "backfill-pr-policy",
+				Usage: "add missing PR template sections and type labels to open PRs (requires gh)",
+				Description: "Uses gh api (not gh pr edit) because some gh versions exit non-zero on pr edit " +
+					"when Classic Projects GraphQL is deprecated. Idempotent for sections already present.",
+				Action: func(c *cli.Context) error {
+					return prbackfill.Run(c.App.Writer)
 				},
 			},
 			{

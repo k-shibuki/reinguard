@@ -29,7 +29,11 @@
 5. **Codex (e.g. chatgpt-codex-connector) threads** — same as step 3: post disposition as a **reply on the bot’s review thread**. **Then** request a new Codex pass with a **PR conversation comment** that includes **`@codex review`** (and a one-line summary of what changed). The connector generally **does not** re-run from a thread reply alone; without `@codex review` on the PR timeline, follow-up review often does not run.  
    (Bridles strict rule is “Codex only on user instruction”; if your org limits agent-posted `@codex`, have the human post that line.)
 
-6. Commit and push: new commit with `Refs: #<issue>` (no amend+force-push on the PR head).
+6. **Local verify** (when Go code changed), then commit and push:
+   - `go test ./...`
+   - `go vet ./...`
+   - `golangci-lint run` (or document in the PR why relying on CI-only is acceptable)
+   - New commit with `Refs: #<issue>` (no amend+force-push on the PR head).
 
 7. After bot re-review: re-check threads and `gh pr checks <N>` until **`ci-pass`** is green; resolve threads only when `HS-REVIEW-RESOLVE` is satisfied.
 
@@ -40,3 +44,7 @@
 ## Guard
 
 - `HS-REVIEW-RESOLVE`, `HS-LOCAL-VERIFY`, `HS-NO-SKIP`
+- `HS-CI-MERGE` (do not merge with failing required checks)
+- `HS-MERGE-CONSENSUS` (do not enable auto-merge while bot review is pending or threads unresolved)
+- `HS-PR-TEMPLATE` (PR body must stay policy-complete during follow-up edits)
+- `HS-PR-BASE` (if any follow-up recreates a PR: target `main` only; document stack deps in the body)
