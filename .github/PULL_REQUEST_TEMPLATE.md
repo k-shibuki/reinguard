@@ -1,4 +1,4 @@
-# Summary
+## Summary
 
 <!-- Short description of the change (1–3 bullets). -->
 

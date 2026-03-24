@@ -121,8 +121,8 @@ jobs:
               );
             }
 
-            // --- 8. Summary section ---
-            if (!/## Summary/i.test(body)) {
+            // --- 8. Summary section (H1 or H2 for template compatibility) ---
+            if (!/(?:^|\n)#{1,2}\s+Summary\b/im.test(body)) {
               errors.push('**Summary**: Section is missing from the PR body.');
             }
 
