@@ -27,6 +27,14 @@ suppressed without hiding the failure behind logs.
 
 **Unified priority resolution** in a single rule set:
 
+**Phase 1 configuration layout:** Rules loaded from `.reinguard/rules/*.yaml`
+share **one priority space** across rule kinds. Each rule entry includes a
+`type` discriminator (for example `state`, `route`, `guard`). **The same
+numeric priority semantics apply to all `type` values** — there is no
+separate merge artifact or tier-specific ordering. Authors order
+candidates globally by priority regardless of whether the rule classifies
+state, selects a route, or participates in guard evaluation.
+
 1. Evaluate all state match rules against current observation signals.
 2. For each matching rule, check **dependencies** (`depends_on`): if any
    declared observation source is degraded (stale, unavailable, error,
