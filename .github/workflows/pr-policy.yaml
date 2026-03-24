@@ -17,8 +17,20 @@ jobs:
           script: |
             const run = async () => {
             const pr = context.payload.pull_request;
-            const body = pr.body || '';
-            const labels = pr.labels.map(l => l.name);
+            let body = pr.body || '';
+            // workflow_call reuse: payload.pull_request.labels is often empty even when labels exist.
+            let labels = (pr.labels || []).map((l) => l.name);
+            if (labels.length === 0 && pr.number) {
+              const { data: full } = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+              });
+              labels = (full.labels || []).map((l) => l.name);
+              if (full.body) {
+                body = full.body;
+              }
+            }
             const errors = [];
             const warnings = [];
 
@@ -175,4 +187,4 @@ jobs:
               core.warning(warnings.join('\n'));
             }
             };
-            return run();
+            return await run();
