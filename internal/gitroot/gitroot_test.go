@@ -42,16 +42,22 @@ func TestRoot_notGitRepo(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	_, err := Root(dir)
-	if err == nil || !strings.Contains(err.Error(), "not a git repository") {
-		t.Fatalf("%v", err)
+	if err == nil {
+		t.Fatal("expected error for non-git directory")
+	}
+	if !strings.Contains(err.Error(), "not a git repository") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestRoot_emptyCwd(t *testing.T) {
 	t.Parallel()
 	_, err := Root("")
-	if err == nil || !strings.Contains(err.Error(), "empty cwd") {
-		t.Fatalf("%v", err)
+	if err == nil {
+		t.Fatal("expected error for empty cwd")
+	}
+	if !strings.Contains(err.Error(), "empty cwd") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
