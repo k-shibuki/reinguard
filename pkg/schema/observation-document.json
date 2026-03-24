@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/k-shibuki/reinguard/schemas/observation-document.json",
+  "title": "ObservationDocument",
+  "type": "object",
+  "required": ["schema_version", "signals"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$"
+    },
+    "signals": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["severity", "message"],
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": ["info", "warning", "error"]
+          },
+          "message": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "degraded": {
+      "type": "boolean",
+      "description": "True if any provider failed or returned partial data."
+    },
+    "meta": {
+      "type": "object",
+      "description": "Engine metadata (e.g. degraded provider ids).",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

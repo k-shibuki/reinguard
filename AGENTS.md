@@ -33,6 +33,7 @@ CI: `golangci-lint`, `go vet`, `go test -race`; PRs must pass job **`ci-pass`** 
 - Table-driven tests where appropriate; use `t.Parallel()` when safe.
 - Table tests: cover success, expected errors, and boundary inputs when meaningful.
 - Exported functions and CLI behavior changes should have tests unless trivial wiring.
+- Observation and guards must respect **ADR-0005** (no agent-internal files) and **ADR-0006** (`gh` for GitHub auth).
 
 ### Traceability (P1)
 

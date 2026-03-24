@@ -4,11 +4,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
 func TestRoot_gitInitRepo(t *testing.T) {
 	t.Parallel()
+	// Given: git repo with nested cwd
 	dir := t.TempDir()
 	run(t, dir, "git", "init")
 	run(t, dir, "git", "config", "user.email", "test@example.com")
@@ -17,7 +19,9 @@ func TestRoot_gitInitRepo(t *testing.T) {
 	if err := os.MkdirAll(sub, 0o755); err != nil {
 		t.Fatal(err)
 	}
+	// When: Root from nested path
 	root, err := Root(sub)
+	// Then: toplevel matches repo root
 	if err != nil {
 		t.Fatalf("Root: %v", err)
 	}
@@ -38,8 +42,16 @@ func TestRoot_notGitRepo(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	_, err := Root(dir)
-	if err == nil {
-		t.Fatal("expected error outside git repo")
+	if err == nil || !strings.Contains(err.Error(), "not a git repository") {
+		t.Fatalf("%v", err)
+	}
+}
+
+func TestRoot_emptyCwd(t *testing.T) {
+	t.Parallel()
+	_, err := Root("")
+	if err == nil || !strings.Contains(err.Error(), "empty cwd") {
+		t.Fatalf("%v", err)
 	}
 }
 

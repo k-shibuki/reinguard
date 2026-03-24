@@ -1,4 +1,4 @@
-// Package schemaexport writes embedded JSON Schemas to disk (MVP).
+// Package schemaexport writes embedded JSON Schemas to disk.
 package schemaexport
 
 import (
@@ -11,22 +11,34 @@ import (
 	"github.com/k-shibuki/reinguard/pkg/schema"
 )
 
-// Export writes the embedded operational context placeholder schema into dir.
+// Export writes all embedded JSON schemas into dir.
 func Export(dir string) (err error) {
 	if mkErr := os.MkdirAll(dir, 0o755); mkErr != nil {
 		return fmt.Errorf("schema export: mkdir: %w", mkErr)
 	}
-	src, err := schema.Files().Open(schema.OperationalContextPlaceholder)
+	return fs.WalkDir(schema.Files(), ".", func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+		return copyEmbeddedFile(dir, path)
+	})
+}
+
+func copyEmbeddedFile(destDir, name string) (err error) {
+	src, err := schema.Files().Open(name)
 	if err != nil {
-		return fmt.Errorf("schema export: open embedded: %w", err)
+		return fmt.Errorf("schema export: open embedded %s: %w", name, err)
 	}
 	defer func() {
 		if cerr := src.Close(); cerr != nil && err == nil {
-			err = fmt.Errorf("schema export: close embedded: %w", cerr)
+			err = fmt.Errorf("schema export: close embedded %s: %w", name, cerr)
 		}
 	}()
 
-	outPath := filepath.Join(dir, schema.OperationalContextPlaceholder)
+	outPath := filepath.Join(destDir, filepath.Base(name))
 	dst, err := os.OpenFile(outPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 	if err != nil {
 		return fmt.Errorf("schema export: create %s: %w", outPath, err)
@@ -43,18 +55,7 @@ func Export(dir string) (err error) {
 	return nil
 }
 
-// ListEmbedded returns embedded schema entry names (for tests / future CLI).
+// ListEmbedded returns embedded schema entry names (for tests / CLI).
 func ListEmbedded() ([]string, error) {
-	var names []string
-	err := fs.WalkDir(schema.Files(), ".", func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-		names = append(names, path)
-		return nil
-	})
-	return names, err
+	return schema.ListEmbedded()
 }
