@@ -4,19 +4,16 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"strings"
 
 	"github.com/k-shibuki/reinguard/internal/githubapi"
 	"github.com/k-shibuki/reinguard/internal/gitroot"
 )
 
-type prSearchHead struct {
-	Ref string `json:"ref"`
-}
-
+// prSearchItem is a subset of GitHub search results. The search API does not
+// reliably include pull request head metadata on each item; callers should
+// rely on query qualifiers (e.g. head:<branch>) instead of comparing head.ref.
 type prSearchItem struct {
-	Head   prSearchHead `json:"head"`
-	Number int          `json:"number"`
+	Number int `json:"number"`
 }
 
 type searchResponse struct {
@@ -49,12 +46,9 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir stri
 		if err := c.GetJSON(ctx, uh, &headOut); err != nil {
 			return nil, warnings, err
 		}
-		for _, it := range headOut.Items {
-			if strings.EqualFold(it.Head.Ref, branch) {
-				prForBranch = true
-				prNum = it.Number
-				break
-			}
+		if headOut.TotalCount > 0 && len(headOut.Items) > 0 {
+			prForBranch = true
+			prNum = headOut.Items[0].Number
 		}
 	}
 

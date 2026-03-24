@@ -53,8 +53,16 @@ func (c *Client) GetJSON(ctx context.Context, u string, out any) error {
 			}
 			continue
 		}
-		body, _ := io.ReadAll(resp.Body)
+		body, readErr := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
+		if readErr != nil {
+			lastErr = fmt.Errorf("read response body: %w", readErr)
+			if attempt < maxAttempts-1 {
+				time.Sleep(backoff)
+				backoff *= 2
+			}
+			continue
+		}
 		if resp.StatusCode == http.StatusTooManyRequests && attempt < maxAttempts-1 {
 			lastErr = fmt.Errorf("429 from GitHub")
 			time.Sleep(retryAfterDelay(resp, backoff))

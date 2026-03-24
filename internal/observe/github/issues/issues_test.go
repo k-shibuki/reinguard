@@ -30,7 +30,10 @@ func TestCollect_openCount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	inner := m["issues"].(map[string]any)
+	inner, ok := m["issues"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected issues map, got %T", m["issues"])
+	}
 	if inner["open_count"].(int) != 3 {
 		t.Fatalf("%v", m)
 	}
