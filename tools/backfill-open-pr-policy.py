@@ -14,9 +14,39 @@ import subprocess
 import sys
 
 
-def gh_json(args: list[str]) -> object:
-    out = subprocess.check_output(["gh"] + args, text=True)
-    return json.loads(out)
+def gh_open_pulls_raw() -> str:
+    """Fetch all open PRs; --paginate may emit multiple JSON arrays — parse below."""
+    return subprocess.check_output(
+        [
+            "gh",
+            "api",
+            "repos/{owner}/{repo}/pulls",
+            "-f",
+            "state=open",
+            "-f",
+            "per_page=100",
+            "--paginate",
+        ],
+        text=True,
+    )
+
+
+def parse_paginated_json_arrays(raw: str) -> list[dict]:
+    """Concatenate top-level JSON arrays from gh api --paginate stdout."""
+    decoder = json.JSONDecoder()
+    idx = 0
+    merged: list[dict] = []
+    s = raw.strip()
+    while idx < len(s):
+        obj, end = decoder.raw_decode(s, idx)
+        if isinstance(obj, list):
+            for item in obj:
+                if isinstance(item, dict):
+                    merged.append(item)
+        idx = end
+        while idx < len(s) and s[idx].isspace():
+            idx += 1
+    return merged
 
 
 def patch_pr_body(num: int, new_body: str) -> None:
@@ -91,6 +121,12 @@ def ensure_sections(body: str) -> str:
     if "## Rollback Plan" not in b:
         additions.append("## Rollback Plan\n\nRevert this PR on main.\n")
 
+    if "## Definition of Done" not in b and "## Acceptance Criteria" not in b:
+        additions.append(
+            "## Definition of Done\n\n"
+            "- [ ] (fill in verifiable criteria; see Issue if linked)\n"
+        )
+
     if additions:
         sep = "\n\n" if b else ""
         b = b + sep + "\n\n".join(additions)
@@ -98,15 +134,17 @@ def ensure_sections(body: str) -> str:
 
 
 def main() -> int:
-    prs = gh_json(
-        [
-            "api",
-            "repos/{owner}/{repo}/pulls?state=open&per_page=100",
-            "--paginate",
-            "--jq",
-            "[.[] | {number: .number, title: .title, body: (.body // \"\"), labels: [.labels[].name]}]",
-        ]
-    )
+    raw = gh_open_pulls_raw()
+    pulls = parse_paginated_json_arrays(raw)
+    prs = [
+        {
+            "number": p["number"],
+            "title": p["title"],
+            "body": p.get("body") or "",
+            "labels": [lb["name"] for lb in p.get("labels") or []],
+        }
+        for p in pulls
+    ]
     type_labels = {
         "feat",
         "fix",

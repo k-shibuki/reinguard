@@ -20,6 +20,10 @@ In GitHub: **Settings → Branches → Branch protection rule** for `main`:
 3. **Require conversation resolution before merging**: **enable** — all review threads must be resolved before merge (aligns with `HS-REVIEW-RESOLVE` in [.cursor/rules/agent-safety.mdc](../.cursor/rules/agent-safety.mdc)).
 4. Do not rely on bypassing checks (`gh pr merge --admin` is prohibited for agents).
 
+### Merge strategy
+
+- Prefer **`gh pr merge <N> --squash`** on `main` for a linear history, unless a specific PR or release note calls for a merge commit.
+
 Observation until `rgd observe` exists: use `gh` / `git` for read-only inspection per [.cursor/rules/evidence-temporary.mdc](../.cursor/rules/evidence-temporary.mdc).
 
 ## Labels

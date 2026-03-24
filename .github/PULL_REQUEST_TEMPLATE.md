@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD041 -->
 ## Summary
 
 <!-- Short description of the change (1–3 bullets). -->

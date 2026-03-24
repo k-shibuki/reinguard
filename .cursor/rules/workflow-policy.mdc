@@ -30,4 +30,4 @@ Treat **review**, **fix**, and **merge** as distinct steps (bridle-aligned; supp
 
 ## Maintainer reference
 
-Branch protection, labels, and CI gates: [docs/contributing.md](docs/contributing.md).
+Branch protection, labels, and CI gates: [docs/contributing.md](../../docs/contributing.md).

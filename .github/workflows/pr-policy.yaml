@@ -97,7 +97,8 @@ jobs:
               errors.push(
                 '**PR title**: Must follow Conventional Commits format: ' +
                 '`<type>(<scope>): <summary>`. ' +
-                'Valid types: feat, fix, refactor, perf, test, docs, build, ci, chore, style, revert'
+                'Valid types: feat, fix, refactor, perf, test, docs, build, ci, chore, style, revert. ' +
+                '(`hotfix` is an exception label only, not a PR title type.)'
               );
             }
 
@@ -110,14 +111,19 @@ jobs:
               );
             }
 
-            // --- 7. Type label ---
+            // --- 7. Type label (exactly one) ---
             const TYPE_LABELS = ['feat', 'fix', 'refactor', 'perf', 'docs', 'test', 'ci', 'build', 'chore', 'style', 'revert'];
-            const hasTypeLabel = TYPE_LABELS.some(t => labels.includes(t));
-            if (!hasTypeLabel) {
+            const typeHits = TYPE_LABELS.filter(t => labels.includes(t));
+            if (typeHits.length === 0) {
               errors.push(
                 '**Type label**: PR must have exactly one type label ' +
                 '(`feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `ci`, `build`, `chore`, `style`, `revert`). ' +
                 'Add a label via `--label "<type>"` in `gh pr create`.'
+              );
+            } else if (typeHits.length > 1) {
+              errors.push(
+                '**Type label**: PR has multiple type labels (' + typeHits.join(', ') + '). ' +
+                'Keep exactly one; remove the rest.'
               );
             }
 

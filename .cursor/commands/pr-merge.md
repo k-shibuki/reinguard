@@ -12,7 +12,7 @@
 ## Act
 
 1. Confirm: CI success, PR policy satisfied, threads resolved (if required).
-2. Merge: `gh pr merge <N> --squash` or `--merge` per repo convention (squash preferred unless exception).  
+2. Merge: `gh pr merge <N> --squash` or `--merge` per [docs/contributing.md](../../docs/contributing.md) and maintainer convention for this repo.  
    Do **not** use `--admin`. Do **not** merge with failing checks.
 
 ## Output

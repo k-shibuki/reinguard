@@ -2,7 +2,7 @@
 
 ## Reads
 
-- `agent-safety.mdc` (`HS-REVIEW-RESOLVE`, `HS-NO-SKIP`)
+- `agent-safety.mdc` (`HS-REVIEW-RESOLVE`, `HS-NO-SKIP`, `HS-LOCAL-VERIFY`)
 - `AGENTS.md` (dispositions, thread policy)
 - [bridle review consensus protocol](https://github.com/bridle-org/bridle/blob/main/.cursor/knowledge/review--consensus-protocol.md) (full detail)
 
