@@ -14,13 +14,13 @@ func TokenFromGH(ctx context.Context, wd string) (string, error) {
 	if wd != "" {
 		cmd.Dir = wd
 	}
-	var buf bytes.Buffer
-	cmd.Stdout = &buf
-	cmd.Stderr = &buf
+	var outBuf, errBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("gh auth token: %w: %s", err, strings.TrimSpace(buf.String()))
+		return "", fmt.Errorf("gh auth token: %w (stderr: %s)", err, strings.TrimSpace(errBuf.String()))
 	}
-	return strings.TrimSpace(buf.String()), nil
+	return strings.TrimSpace(outBuf.String()), nil
 }
 
 // RepoFromGH runs `gh repo view` for nameWithOwner.
@@ -29,13 +29,13 @@ func RepoFromGH(ctx context.Context, wd string) (owner, name string, err error) 
 	if wd != "" {
 		cmd.Dir = wd
 	}
-	var buf bytes.Buffer
-	cmd.Stdout = &buf
-	cmd.Stderr = &buf
+	var outBuf, errBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
 	if err := cmd.Run(); err != nil {
-		return "", "", fmt.Errorf("gh repo view: %w: %s", err, strings.TrimSpace(buf.String()))
+		return "", "", fmt.Errorf("gh repo view: %w (stderr: %s)", err, strings.TrimSpace(errBuf.String()))
 	}
-	s := strings.TrimSpace(buf.String())
+	s := strings.TrimSpace(outBuf.String())
 	parts := strings.Split(s, "/")
 	if len(parts) != 2 {
 		return "", "", fmt.Errorf("unexpected nameWithOwner %q", s)

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -46,15 +47,23 @@ func (c *Client) GetJSON(ctx context.Context, u string, out any) error {
 		resp, err := c.HTTP.Do(req)
 		if err != nil {
 			lastErr = err
-			time.Sleep(backoff)
-			backoff *= 2
+			if attempt < maxAttempts-1 {
+				time.Sleep(backoff)
+				backoff *= 2
+			}
 			continue
 		}
 		body, _ := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
 		if resp.StatusCode == http.StatusTooManyRequests && attempt < maxAttempts-1 {
 			lastErr = fmt.Errorf("429 from GitHub")
-			time.Sleep(backoff)
+			time.Sleep(retryAfterDelay(resp, backoff))
+			backoff *= 2
+			continue
+		}
+		if isGitHubRateLimit403(resp, body) && attempt < maxAttempts-1 {
+			lastErr = fmt.Errorf("403 rate limited from GitHub")
+			time.Sleep(retryAfterDelay(resp, backoff))
 			backoff *= 2
 			continue
 		}
@@ -72,4 +81,27 @@ func (c *Client) GetJSON(ctx context.Context, u string, out any) error {
 		lastErr = fmt.Errorf("github request failed")
 	}
 	return lastErr
+}
+
+func retryAfterDelay(resp *http.Response, fallback time.Duration) time.Duration {
+	if resp == nil {
+		return fallback
+	}
+	if ra := resp.Header.Get("Retry-After"); ra != "" {
+		if sec, err := strconv.ParseInt(ra, 10, 64); err == nil && sec > 0 {
+			return time.Duration(sec) * time.Second
+		}
+	}
+	return fallback
+}
+
+func isGitHubRateLimit403(resp *http.Response, body []byte) bool {
+	if resp == nil || resp.StatusCode != 403 {
+		return false
+	}
+	if resp.Header.Get("Retry-After") != "" {
+		return true
+	}
+	b := strings.ToLower(string(body))
+	return strings.Contains(b, "rate limit") || strings.Contains(b, "too many requests")
 }
