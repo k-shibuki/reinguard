@@ -33,13 +33,13 @@ Refs: #
 
 <!-- What could go wrong? Who/what is affected? For docs-only PRs, a short note is enough. -->
 
--
+- (affected area / breaking change — replace this bullet)
 
 ## Rollback Plan
 
 <!-- How to revert if something goes wrong. For docs/test-only PRs, write "N/A". -->
 
--
+- (describe rollback steps or write "N/A" for docs/test-only)
 
 ## Exception
 

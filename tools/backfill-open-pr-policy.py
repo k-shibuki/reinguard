@@ -40,13 +40,17 @@ def parse_paginated_json_arrays(raw: str) -> list[dict]:
     while idx < len(s):
         obj, end = decoder.raw_decode(s, idx)
         if isinstance(obj, list):
-            for item in obj:
-                if isinstance(item, dict):
-                    merged.append(item)
+            merged.extend(item for item in obj if isinstance(item, dict))
         idx = end
         while idx < len(s) and s[idx].isspace():
             idx += 1
     return merged
+
+
+def has_heading(body: str, title: str) -> bool:
+    """Case-insensitive: PR body already has `## {title}` heading line."""
+    pat = rf"(?im)^##\s+{re.escape(title)}\s*$"
+    return bool(re.search(pat, body))
 
 
 def patch_pr_body(num: int, new_body: str) -> None:
@@ -102,7 +106,7 @@ def ensure_sections(body: str) -> str:
     b = (body or "").replace("\r\n", "\n").rstrip()
     additions: list[str] = []
 
-    if "## Traceability" not in b:
+    if not has_heading(b, "Traceability"):
         close = extract_closes_line(b)
         if close:
             additions.append("## Traceability\n\n" + close + "\n")
@@ -111,17 +115,19 @@ def ensure_sections(body: str) -> str:
                 "## Traceability\n\nCloses # (fill in — see Linked issues above if present)\n"
             )
 
-    if "## Risk / Impact" not in b:
+    if not has_heading(b, "Risk / Impact"):
         additions.append(
             "## Risk / Impact\n\n"
             "- Affected area: see Summary.\n"
             "- Breaking change: no (update if yes).\n"
         )
 
-    if "## Rollback Plan" not in b:
+    if not has_heading(b, "Rollback Plan"):
         additions.append("## Rollback Plan\n\nRevert this PR on main.\n")
 
-    if "## Definition of Done" not in b and "## Acceptance Criteria" not in b:
+    if not has_heading(b, "Definition of Done") and not has_heading(
+        b, "Acceptance Criteria"
+    ):
         additions.append(
             "## Definition of Done\n\n"
             "- [ ] (fill in verifiable criteria; see Issue if linked)\n"
