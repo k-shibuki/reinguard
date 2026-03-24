@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/k-shibuki/reinguard/internal/githubapi"
@@ -17,8 +18,14 @@ func TestCollect_withGitRepo(t *testing.T) {
 	run(t, "git", dir, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "init")
 	run(t, "git", dir, "branch", "-M", "main")
 
+	emptySearch := `{"total_count":0,"incomplete_results":false,"items":[]}`
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`[]`))
+		q := r.URL.Query().Get("q")
+		if strings.Contains(q, "head:main") {
+			_, _ = w.Write([]byte(emptySearch))
+			return
+		}
+		_, _ = w.Write([]byte(emptySearch))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -33,6 +40,9 @@ func TestCollect_withGitRepo(t *testing.T) {
 	pr := m["pull_requests"].(map[string]any)
 	if pr["current_branch"].(string) != "main" {
 		t.Fatalf("%v", pr)
+	}
+	if oc, ok := pr["open_count"].(int); !ok || oc != 0 {
+		t.Fatalf("open_count want 0 got %v (%T)", pr["open_count"], pr["open_count"])
 	}
 }
 
@@ -51,10 +61,10 @@ func TestCollect_detachedHeadWarning(t *testing.T) {
 	run(t, "git", dir, "init")
 	run(t, "git", dir, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "init")
 	commit, _ := exec.Command("git", "-C", dir, "rev-parse", "HEAD").Output()
-	run(t, "git", dir, "checkout", string(commit[:len(commit)-1]))
+	run(t, "git", dir, "checkout", strings.TrimSpace(string(commit)))
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`[]`))
+		_, _ = w.Write([]byte(`{"total_count":0,"incomplete_results":false,"items":[]}`))
 	}))
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "tok", BaseURL: srv.URL}

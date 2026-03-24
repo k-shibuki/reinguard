@@ -1,21 +1,27 @@
 package pullrequests
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"os/exec"
+	"net/url"
 	"strings"
 
 	"github.com/k-shibuki/reinguard/internal/githubapi"
+	"github.com/k-shibuki/reinguard/internal/gitroot"
 )
 
-type pull struct {
-	State string `json:"state"`
-	Head  struct {
-		Ref string `json:"ref"`
-	} `json:"head"`
-	Number int `json:"number"`
+type prSearchHead struct {
+	Ref string `json:"ref"`
+}
+
+type prSearchItem struct {
+	Head   prSearchHead `json:"head"`
+	Number int          `json:"number"`
+}
+
+type searchResponse struct {
+	Items      []prSearchItem `json:"items"`
+	TotalCount int            `json:"total_count"`
 }
 
 // Collect returns pull request signals for the current branch.
@@ -24,28 +30,37 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir stri
 		return nil, nil, fmt.Errorf("nil client")
 	}
 	var warnings []string
-	branch, err := currentBranch(ctx, workDir)
-	if err != nil {
-		warnings = append(warnings, err.Error())
-		branch = ""
-	}
-	u := fmt.Sprintf("%s/repos/%s/%s/pulls?state=open&per_page=100", c.APIBase(), owner, repo)
-	var list []pull
-	if err := c.GetJSON(ctx, u, &list); err != nil {
+	branch, w := resolveBranch(ctx, workDir)
+	warnings = append(warnings, w...)
+
+	qOpen := fmt.Sprintf("repo:%s/%s is:pr is:open", owner, repo)
+	uOpen := c.APIBase() + "/search/issues?q=" + url.QueryEscape(qOpen)
+	var openOut searchResponse
+	if err := c.GetJSON(ctx, uOpen, &openOut); err != nil {
 		return nil, warnings, err
 	}
+
 	prForBranch := false
 	prNum := 0
-	for _, p := range list {
-		if branch != "" && strings.EqualFold(p.Head.Ref, branch) {
-			prForBranch = true
-			prNum = p.Number
-			break
+	if branch != "" {
+		qh := fmt.Sprintf("repo:%s/%s is:pr is:open head:%s", owner, repo, branch)
+		uh := c.APIBase() + "/search/issues?q=" + url.QueryEscape(qh)
+		var headOut searchResponse
+		if err := c.GetJSON(ctx, uh, &headOut); err != nil {
+			return nil, warnings, err
+		}
+		for _, it := range headOut.Items {
+			if strings.EqualFold(it.Head.Ref, branch) {
+				prForBranch = true
+				prNum = it.Number
+				break
+			}
 		}
 	}
+
 	return map[string]any{
 		"pull_requests": map[string]any{
-			"open_count":           len(list),
+			"open_count":           openOut.TotalCount,
 			"current_branch":       branch,
 			"pr_exists_for_branch": prForBranch,
 			"pr_number_for_branch": prNum,
@@ -53,20 +68,13 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir stri
 	}, warnings, nil
 }
 
-func currentBranch(ctx context.Context, wd string) (string, error) {
-	cmd := exec.CommandContext(ctx, "git", "rev-parse", "--abbrev-ref", "HEAD")
-	if wd != "" {
-		cmd.Dir = wd
+func resolveBranch(ctx context.Context, workDir string) (branch string, warnings []string) {
+	b, detached, err := gitroot.CurrentBranch(ctx, workDir)
+	if err != nil {
+		return "", []string{err.Error()}
 	}
-	var buf bytes.Buffer
-	cmd.Stdout = &buf
-	cmd.Stderr = &buf
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("git branch: %w", err)
-	}
-	b := strings.TrimSpace(buf.String())
-	if b == "HEAD" {
-		return "", fmt.Errorf("detached HEAD")
+	if detached {
+		return "", []string{"detached HEAD"}
 	}
 	return b, nil
 }
