@@ -224,7 +224,8 @@ func nearlyEqual(a, b float64) bool {
 	return math.Abs(a-b) <= priorityEpsilon
 }
 
-// DuplicatePriorityWarnings returns rule id pairs that share the same priority (same type).
+// DuplicatePriorityWarnings returns validation warnings for rules that share the same
+// numeric priority (ADR-0004: one shared priority space across rule kinds).
 func DuplicatePriorityWarnings(rules []config.Rule) []string {
 	by := map[string]map[string][]string{} // type -> priorityKey -> ids
 	for _, r := range rules {
@@ -242,6 +243,31 @@ func DuplicatePriorityWarnings(rules []config.Rule) []string {
 			}
 			msgs = append(msgs, fmt.Sprintf("type %s priority %s duplicated by rules %v", typ, priKey, ids))
 		}
+	}
+
+	// Cross-kind collisions: same numeric priority on different rule types (not caught above
+	// when each type has at most one rule at that priority).
+	global := map[string][]config.Rule{} // priorityKey -> rules
+	for _, r := range rules {
+		key := strconv.FormatFloat(r.Priority, 'f', -1, 64)
+		global[key] = append(global[key], r)
+	}
+	for priKey, group := range global {
+		if len(group) < 2 {
+			continue
+		}
+		typeSeen := map[string]struct{}{}
+		for _, r := range group {
+			typeSeen[r.Type] = struct{}{}
+		}
+		if len(typeSeen) < 2 {
+			continue
+		}
+		ids := make([]string, len(group))
+		for i := range group {
+			ids[i] = group[i].ID
+		}
+		msgs = append(msgs, fmt.Sprintf("priority %s shared across rule kinds by rules %v", priKey, ids))
 	}
 	return msgs
 }
