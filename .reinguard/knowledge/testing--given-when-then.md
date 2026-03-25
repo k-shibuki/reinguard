@@ -1,5 +1,5 @@
 ---
-id: gwt-test-comments
+id: testing-given-when-then
 description: Given / When / Then comment format for Go tests
 triggers:
   - Given When Then

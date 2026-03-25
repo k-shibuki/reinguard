@@ -1,5 +1,5 @@
 ---
-id: review-ops
+id: knowledge-ops
 description: How rgd indexes knowledge, validates manifests, and how agents retrieve review docs
 triggers:
   - knowledge operations
@@ -36,11 +36,11 @@ triggers:
 - Keep each file atomic (one concern per file).
 - Use required front matter: `id`, `description`, `triggers` (non-empty list).
 - Prefer stable guidance over PR-specific details.
-- Put evidence snapshots in `review--source-summary.md`, not in atomic rule docs.
+- Prefer stable guidance over PR-specific or evidence-only snapshots.
 
 ## Review/update loop
 
-1. Periodically extract PR review comments and refresh patterns in `review--source-summary.md`.
+1. Periodically extract PR review comments and refresh recurring patterns into atomic knowledge files.
 2. Update atomic docs as needed.
 3. Run **`rgd knowledge index`** and commit `manifest.json`.
 4. Validate with **`rgd config validate`**.

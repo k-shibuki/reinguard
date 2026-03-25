@@ -21,7 +21,7 @@ alwaysApply: false
 
 ## Given / When / Then
 
-Use the comment format in `@.reinguard/knowledge/test--given-when-then.md`
+Use the comment format in `@.reinguard/knowledge/testing--given-when-then.md`
 for new or substantially edited tests.
 
 ## Perspectives

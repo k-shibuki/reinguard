@@ -1,4 +1,4 @@
-# Minimal pre-commit setup aligned with bridle commit-msg validation.
+# Pre-commit hooks: formatting, linting, and commit-msg validation.
 # Install: pip install pre-commit && pre-commit install --hook-type commit-msg
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -8,6 +8,23 @@ repos:
       - id: trailing-whitespace
   - repo: local
     hooks:
+      - id: go-fmt
+        name: gofmt
+        entry: gofmt -l -w
+        language: system
+        types: [go]
+      - id: go-vet
+        name: go vet
+        entry: go vet ./...
+        language: system
+        types: [go]
+        pass_filenames: false
+      - id: golangci-lint
+        name: golangci-lint
+        entry: golangci-lint run --timeout=5m ./...
+        language: system
+        types: [go]
+        pass_filenames: false
       - id: check-commit-msg
         name: Validate commit message format
         entry: bash tools/check-commit-msg.sh
