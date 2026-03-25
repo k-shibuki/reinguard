@@ -11,7 +11,7 @@ and Substrate (`rgd`). Do not duplicate body text from `.reinguard/` here.
 - **Substrate config**: [.reinguard/reinguard.yaml](../../.reinguard/reinguard.yaml) — `schema_version`, `default_branch`, `providers` (ADR-0008, ADR-0009).
 - **Knowledge catalog**: [.reinguard/knowledge/manifest.json](../../.reinguard/knowledge/manifest.json) — `entries[]` with `id`, `path`, `description`, `triggers` (ADR-0010).
 - **Policy catalog** (normative, not in knowledge manifest): [.reinguard/policy/catalog.yaml](../../.reinguard/policy/catalog.yaml) — `entries[]` with `id`, `path`, `description`; bodies live under [.reinguard/policy/](../../.reinguard/policy/).
-- **Control catalog**: [.reinguard/control/catalog.yaml](../../.reinguard/control/catalog.yaml) — `entries[]` with `id`, `path`, `type`, `description`; rule files under [.reinguard/control/states/](../../.reinguard/control/states/), [routes/](../../.reinguard/control/routes/), [guards/](../../.reinguard/control/guards/) — consumed by `config.Load` / `rgd config validate`.
+- **Control catalog** (human-maintained index; not read by validate): [.reinguard/control/catalog.yaml](../../.reinguard/control/catalog.yaml) — `entries[]` with `id`, `path`, `type`, `description`. **Rule YAML** under [.reinguard/control/states/](../../.reinguard/control/states/), [routes/](../../.reinguard/control/routes/), [guards/](../../.reinguard/control/guards/) — consumed by `config.Load` / `rgd config validate`.
 
 ## Always-active policy
 

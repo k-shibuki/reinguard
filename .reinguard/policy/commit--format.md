@@ -1,10 +1,10 @@
 ---
 id: commit-format
-description: Conventional Commits, footer requirements, atomic commits, and branch naming
+description: Conventional Commits, issue reference in body, atomic commits, and branch naming
 triggers:
   - commit message
   - Conventional Commits
-  - Refs footer
+  - Refs body
   - branch naming
 ---
 

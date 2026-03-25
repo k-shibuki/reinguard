@@ -16,7 +16,9 @@ triggers:
 - Each knowledge file is Markdown under `.reinguard/knowledge/` with YAML front matter
   (`id`, `description`, `triggers`).
 - **Policy** lives under `.reinguard/policy/` — not indexed here; use `.reinguard/policy/catalog.yaml` to list entries, then open Markdown by path.
-- **Control** match rules live under `.reinguard/control/{states,routes,guards}/` — see `.reinguard/control/catalog.yaml`; loaded by `rgd`, not `knowledge pack`.
+- **Control** match rules live under `.reinguard/control/{states,routes,guards}/`
+  (`*.yaml` loaded by `config.Load` / `rgd config validate`). `.reinguard/control/catalog.yaml`
+  is a human-maintained index only (not read by validate today). Not `knowledge pack`.
 - **`rgd knowledge index`** scans `knowledge/*.md`, reads front matter, and writes
   `.reinguard/knowledge/manifest.json` (committed; run after changing metadata).
 - **`rgd config validate`** checks the manifest schema, that paths exist, that the manifest

@@ -15,7 +15,7 @@ Repository-wide workflow rules. The Cursor Adapter rule `workflow-policy.mdc` po
 ## Issue-driven work
 
 - Prefer **one GitHub Issue per PR** (1 Issue ≈ 1 PR) for implementation work.
-- Commit messages follow `.reinguard/policy/commit--format.md` (Conventional Commits + `Refs: #<issue>` footer).
+- Commit messages follow `.reinguard/policy/commit--format.md` (Conventional Commits + `Refs: #<issue>` in the message body).
 - PR body includes `Closes #<issue>` (or `Fixes`) when applicable.
 
 ## Issue title patterns
