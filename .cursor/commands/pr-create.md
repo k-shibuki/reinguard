@@ -6,6 +6,7 @@
 - `.github/PULL_REQUEST_TEMPLATE.md` (body SSOT — `HS-PR-TEMPLATE`)
 - `commit-format.mdc` (branch naming)
 - `agent-safety.mdc` (`HS-PR-BASE`, `HS-MERGE-CONSENSUS`)
+- `tools/check-pr-policy.sh` (local pre-flight mirroring `check-policy` CI)
 
 ## Sense
 
@@ -14,12 +15,21 @@
 ## Act
 
 1. Push: `git push -u origin HEAD` (after `HS-LOCAL-VERIFY`).
-2. Create PR targeting **main** only:  
+2. **Pre-flight PR policy** (before `gh pr create`): fill the template into a file, then run from repo root:
+   ```bash
+   bash tools/check-pr-policy.sh \
+     --title "<same-as-gh-pr-create>" \
+     --body-file <filled-from-template> \
+     --label "<type>" \
+     --base main
+   ```
+   Fix any reported errors so `check-policy` CI does not fail on template/labels/title/base.
+3. Create PR targeting **main** only:
    `gh pr create --title "<type>(<scope>): <desc>" --base main --label "<type>" --body-file <filled-from-template>`.
    Exception PRs: add `--label no-issue` or `--label hotfix` and complete `## Exception`.
-3. Trigger CodeRabbit: `gh pr comment <N> --body "@coderabbitai review"`.
-4. Wait for CI: `gh pr checks <N>` until **`ci-pass`** is success (do not merge on red).
-5. On `check-policy` failure: `gh pr edit <N> --body-file ...` or `--body` with corrected sections; add missing **type** label if needed.
+4. Trigger CodeRabbit: `gh pr comment <N> --body "@coderabbitai review"`.
+5. Wait for CI: `gh pr checks <N>` until **`ci-pass`** is success (do not merge on red).
+6. On `check-policy` failure: re-run `tools/check-pr-policy.sh` locally, then `gh pr edit <N> --body-file ...` or `--body` with corrected sections; add missing **type** label if needed.
 
 ## Output
 

@@ -69,4 +69,4 @@ replace `make evidence-*` observation with `gh issue view`, `gh pr view`,
 
 ## Maintainer reference
 
-Branch protection, labels, and CI gates: [docs/contributing.md](../../docs/contributing.md).
+Branch protection, labels, and CI gates: [.github/CONTRIBUTING.md](../../.github/CONTRIBUTING.md).
