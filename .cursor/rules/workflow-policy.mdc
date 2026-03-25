@@ -17,7 +17,7 @@ alwaysApply: true
   `feat(scope): …`, `fix(scope): …`, `docs(adr): …`, `chore(test): …`.
 - Title should be imperative and English (same language rule as commits).
 
-## Required Issue sections (bridle-inspired)
+## Recommended Issue sections (bridle-inspired)
 
 New implementation Issues SHOULD include:
 
@@ -29,6 +29,13 @@ New implementation Issues SHOULD include:
 6. **Test plan** — concrete cases (table encouraged); not only “tests pass”
 
 Use `.github/ISSUE_TEMPLATE/task.md` as the starting point.
+
+## Branch naming (bridle-inspired)
+
+Follow the same traceable branch convention as **bridle** (and as documented in reinguard's commit policy). **SSOT**: `@.cursor/rules/commit-format.mdc` § Branch Naming Convention.
+
+- Pattern: `<prefix>/<issue-number>-<short-description>` (examples: `feat/42-cli-version`, `fix/15-config-validate`, `docs/3-adr-0009`).
+- **Exception**: `hotfix/<short-description>` may omit the Issue number when it meets the hotfix criteria in `@.cursor/rules/commit-format.mdc` and workflow exception policy.
 
 ## PR discipline
 
