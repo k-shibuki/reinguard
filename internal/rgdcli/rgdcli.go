@@ -45,7 +45,7 @@ func RunObserve(c *cli.Context, gitHubFacet string, providerOverride []string) e
 		return err
 	}
 	doc := observation.Document(signals, diags, deg)
-	return writeJSON(c.App.Writer, doc, false)
+	return writeJSON(c.App.Writer, doc)
 }
 
 // RunSchemaExport exports embedded schemas.
@@ -70,7 +70,7 @@ func resolvePaths(c *cli.Context) (wd string, cfgDir string, err error) {
 	return wd, cfgDir, err
 }
 
-func writeJSON(w io.Writer, v any, _ bool) error {
+func writeJSON(w io.Writer, v any) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	return enc.Encode(v)

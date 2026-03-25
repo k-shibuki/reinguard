@@ -92,3 +92,12 @@ const testFixtureRulesRouteAmbiguous = `rules:
 `
 
 const testFixtureRulesEmpty = "rules: []\n"
+
+// Reserved for upcoming observe/state CLI tests; keeps fixtures compiled and lint-clean.
+var _ = []string{
+	testFixtureReinguardRoot,
+	testFixtureRulesStateIdle,
+	testFixtureRulesContextBuild,
+	testFixtureRulesStateAmbiguous,
+	testFixtureRulesRouteAmbiguous,
+}
