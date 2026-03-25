@@ -63,20 +63,6 @@ const testFixtureRulesContextBuild = `rules:
       value: resolved
 `
 
-// Two state rules with same priority and overlapping when -> ambiguous with fail-on-non-resolved.
-const testFixtureRulesStateAmbiguous = `rules:
-  - type: state
-    id: a
-    priority: 1
-    state_id: A
-    when: {op: eq, path: x, value: 1}
-  - type: state
-    id: b
-    priority: 1
-    state_id: B
-    when: {op: eq, path: x, value: 1}
-`
-
 // Two route rules with same priority and overlapping when -> ambiguous.
 const testFixtureRulesRouteAmbiguous = `rules:
   - type: route
