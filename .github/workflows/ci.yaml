@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   go-ci:
@@ -42,7 +43,8 @@ jobs:
 
       - name: Upload coverage artifact
         if: always()
-        uses: actions/upload-artifact@v4.6.2
+        # v6+ runs on Node 24 (v4.x was node20; deprecated on GitHub-hosted runners).
+        uses: actions/upload-artifact@v6.0.0
         with:
           name: coverage
           path: coverage.out
@@ -56,3 +58,32 @@ jobs:
           /tmp/rgd version
           /tmp/rgd config validate
           /tmp/rgd schema export --dir /tmp/rgd-schema-smoke
+
+  check-policy:
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/pr-policy.yaml
+    secrets: inherit
+
+  # Single required check for branch protection (include policy on PRs).
+  ci-pass:
+    if: always()
+    needs: [go-ci, check-policy]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify aggregate gate
+        env:
+          GO_RESULT: ${{ needs.go-ci.result }}
+          POLICY_RESULT: ${{ needs.check-policy.result }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ "$GO_RESULT" != "success" ]; then
+            echo "go-ci did not succeed: $GO_RESULT"
+            exit 1
+          fi
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            if [ "$POLICY_RESULT" != "success" ]; then
+              echo "check-policy did not succeed: $POLICY_RESULT"
+              exit 1
+            fi
+          fi
+          echo "ci-pass: OK"

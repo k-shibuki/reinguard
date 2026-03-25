@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# CodeRabbit — primary bot reviewer. Auto-review OFF: agents trigger with
+# @coderabbitai review per .cursor/commands/pr-create.md and review-fix.md.
+
+language: "en-US"
+early_access: false
+
+reviews:
+  profile: "assertive"
+  request_changes_workflow: false
+  high_level_summary: true
+  high_level_summary_in_walkthrough: true
+  poem: false
+  in_progress_fortune: false
+  review_status: true
+  commit_status: true
+  review_details: true
+  collapse_walkthrough: true
+  changed_files_summary: false
+  sequence_diagrams: false
+  estimate_code_review_effort: false
+  enable_prompt_for_ai_agents: false
+  related_issues: true
+  related_prs: false
+  suggested_labels: false
+  auto_apply_labels: false
+  suggested_reviewers: false
+  auto_assign_reviewers: false
+  auto_review:
+    enabled: false
+    drafts: false
+    ignore_title_keywords:
+      - "WIP"
+      - "DO NOT MERGE"
+  finishing_touches:
+    docstrings:
+      enabled: false
+    unit_tests:
+      enabled: false
+  path_instructions:
+    - path: "cmd/**"
+      instructions: |
+        CLI surface and flags. P0: broken commands or unsafe defaults; missing tests for new behavior.
+        Public CLI changes should match ADRs and be reflected in docs / README where applicable.
+    - path: "internal/**"
+      instructions: |
+        Non-public implementation. P0: logic bugs, silent failures, resource leaks. New packages need
+        tests where behavior is non-trivial (table-driven Go tests preferred).
+    - path: "pkg/**"
+      instructions: |
+        Library code toward stable APIs. P0: breaking changes without ADR or migration path; missing
+        tests for exported behavior; JSON/schema drift vs embedded contracts (see ADR-0008).
+    - path: "docs/adr/**"
+      instructions: |
+        ADRs are normative. P1 if code contradicts an accepted ADR without a superseding ADR.
+    - path: ".github/workflows/**"
+      instructions: |
+        Job `ci-pass` is the single aggregate required check for branch protection; `check-policy` is
+        invoked via reusable workflow pr-policy.yaml. Keep permissions minimal; align with docs/contributing.md.
+  tools:
+    shellcheck:
+      enabled: true
+    yamllint:
+      enabled: true
+    markdownlint:
+      enabled: true
+    github-checks:
+      enabled: true
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  code_guidelines:
+    enabled: true

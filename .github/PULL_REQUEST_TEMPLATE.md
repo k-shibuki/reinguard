@@ -1,6 +1,17 @@
-# Summary
+<!-- markdownlint-disable MD041 -->
+## Summary
 
-<!-- Short description of the change -->
+<!-- Short description of the change (1–3 bullets). -->
+
+-
+
+## Traceability
+
+<!-- Required: Closes #N (or Fixes / Resolves). Exception PRs: use labels no-issue / hotfix and fill ## Exception. -->
+
+Closes #
+
+Refs: #
 
 ## Definition of Done
 
@@ -18,11 +29,17 @@
 1.
 2.
 
-## Linked issues
+## Risk / Impact
 
-Closes #
+<!-- What could go wrong? Who/what is affected? For docs-only PRs, a short note is enough. -->
 
-Refs: #
+- (affected area / breaking change — replace this bullet)
+
+## Rollback Plan
+
+<!-- How to revert if something goes wrong. For docs/test-only PRs, write "N/A". -->
+
+- (describe rollback steps or write "N/A" for docs/test-only)
 
 ## Exception
 
