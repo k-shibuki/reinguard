@@ -30,6 +30,8 @@ The following ADRs are the source of truth for major decisions:
 - [ADR-0006](adr/0006-gh-cli-as-sole-authentication.md): GitHub auth source
 - [ADR-0007](adr/0007-ambiguity-as-evaluation-outcome.md): ambiguity handling
 - [ADR-0008](adr/0008-schema-versioning.md): synchronized semver + best-effort compatibility
+- [ADR-0009](adr/0009-observation-engine-abstraction.md): observation engine
+  abstraction (providers + config-declared collection)
 
 If this document conflicts with an ADR, the ADR wins.
 

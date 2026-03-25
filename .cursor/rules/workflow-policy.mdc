@@ -11,6 +11,31 @@ alwaysApply: true
 - Commit messages follow **`@.cursor/rules/commit-format.mdc`** (Conventional Commits + `Refs: #<issue>` footer).
 - PR body includes `Closes #<issue>` (or `Fixes`) when applicable.
 
+## Issue title patterns
+
+- Use **Conventional Commits**-style titles where practical:
+  `feat(scope): …`, `fix(scope): …`, `docs(adr): …`, `chore(test): …`.
+- Title should be imperative and English (same language rule as commits).
+
+## Required Issue sections (bridle-inspired)
+
+New implementation Issues SHOULD include:
+
+1. **Context** — problem and constraints
+2. **Refs: ADR** — which ADRs apply, or `none`
+3. **ADR Impact** — `none`, `new`, or `amend` with target file
+4. **Acceptance ↔ ADR** — how completion is verified against ADRs
+5. **Definition of Done** — checklist
+6. **Test plan** — concrete cases (table encouraged); not only “tests pass”
+
+Use `.github/ISSUE_TEMPLATE/task.md` as the starting point.
+
+## PR discipline
+
+- Fill **every** section of `.github/PULL_REQUEST_TEMPLATE.md` (Summary, DoD,
+  Test plan, Linked issues, Exception if applicable).
+- Base branch is always **`main`**.
+
 ## Exceptions
 
 - Use repository **labels** (`no-issue` / `hotfix`) and a `## Exception` section in the PR when bypassing the normal Issue flow (document justification).
@@ -27,6 +52,13 @@ Treat **review**, **fix**, and **merge** as distinct steps (bridle-aligned; supp
 
 - This repository does **not** use bridle-style `make evidence-*` targets.
 - Until `rgd observe` ships, see `evidence-temporary.mdc` for GitHub observation (`gh` / `git` read-only).
+
+## Agent procedure reference (optional)
+
+For commit / PR / review **procedure shape**, agents may read bridle’s
+`.cursor/commands/commit.md`, `pr-create.md`, and `pr-review.md` and adapt:
+replace `make evidence-*` observation with `gh issue view`, `gh pr view`,
+`gh pr checks`, etc.
 
 ## Maintainer reference
 

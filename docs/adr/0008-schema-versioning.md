@@ -50,6 +50,11 @@ as semver for API-shaped artifacts.
    against published input schemas. Schemas ship **inside** the binary and
    can be **exported** to disk for editor integration and CI checks.
 
+5. **CLI SSOT:** Normative documentation for flags, exit codes, stdin/stdout
+   contracts, and the command tree lives in **`docs/cli.md`**, not in this
+   ADR. This ADR references that file as the operational contract for
+   machine-readable CLI I/O.
+
 ## Consequences
 
 - **Easier**: Progressive adoption; semver communicates breaking vs

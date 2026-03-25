@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/k-shibuki/reinguard/schemas/reinguard-config.json",
+  "title": "ReinguardRootConfig",
+  "type": "object",
+  "required": ["schema_version", "default_branch", "providers"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Synchronized contract version (ADR-0008).",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$"
+    },
+    "default_branch": {
+      "type": "string",
+      "minLength": 1
+    },
+    "providers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "enabled"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "options": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "legacy_tool_hints": {
+      "type": "object",
+      "description": "Deprecated. Reserved for transitional tooling metadata; do not use in new configs.",
+      "additionalProperties": true,
+      "deprecated": true
+    }
+  },
+  "additionalProperties": false
+}

@@ -10,11 +10,14 @@ import (
 
 func TestExport_writesFile(t *testing.T) {
 	t.Parallel()
+	// Given: empty temp directory
 	dir := t.TempDir()
+	// When: Export runs
 	if err := Export(dir); err != nil {
 		t.Fatal(err)
 	}
-	p := filepath.Join(dir, schema.OperationalContextPlaceholder)
+	// Then: operational context schema file is non-empty
+	p := filepath.Join(dir, schema.OperationalContext)
 	st, err := os.Stat(p)
 	if err != nil {
 		t.Fatal(err)
