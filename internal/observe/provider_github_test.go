@@ -44,13 +44,15 @@ exit 1
 	sha := strings.TrimSpace(string(shaBytes))
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/search/issues":
+		switch {
+		case r.URL.Path == "/search/issues":
 			_, _ = w.Write([]byte(`{"total_count": 0}`))
-		case "/repos/octocat/hello-world/pulls":
+		case r.URL.Path == "/repos/octocat/hello-world/pulls":
 			_, _ = w.Write([]byte(`[]`))
-		case "/repos/octocat/hello-world/commits/" + sha + "/status":
+		case r.URL.Path == "/repos/octocat/hello-world/commits/"+sha+"/status":
 			_, _ = w.Write([]byte(`{"state":"success"}`))
+		case strings.HasSuffix(r.URL.Path, "/comments"):
+			_, _ = w.Write([]byte(`[]`))
 		default:
 			http.NotFound(w, r)
 		}

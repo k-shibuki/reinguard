@@ -1,0 +1,67 @@
+{
+  "diagnostics": [
+    {
+      "code": "context_built",
+      "message": "context build pipeline complete",
+      "severity": "info"
+    }
+  ],
+  "guards": {
+    "merge-readiness": {
+      "guard_id": "merge-readiness",
+      "ok": true
+    }
+  },
+  "knowledge": {
+    "paths": [".reinguard/README.md"]
+  },
+  "observation": {
+    "degraded": false,
+    "schema_version": "0.2.0",
+    "signals": {
+      "git": {
+        "ahead_of_upstream": 0,
+        "behind_of_upstream": 0,
+        "branch": "main",
+        "detached_head": false,
+        "has_upstream": false,
+        "stale_remote_branches_count": 0,
+        "stash_count": 0,
+        "uncommitted_files": 0,
+        "working_tree_clean": true
+      },
+      "github": {
+        "ci": {
+          "ci_status": "success",
+          "head_sha": "deadbeef"
+        },
+        "reviews": {
+          "pagination_incomplete": false,
+          "review_threads_unresolved": 0
+        }
+      }
+    }
+  },
+  "routes": [
+    {
+      "kind": "resolved",
+      "route_id": "next",
+      "rule_id": "r1",
+      "priority": 10,
+      "route_candidates": [
+        {
+          "rule_id": "r1",
+          "route_id": "next",
+          "priority": 10
+        }
+      ]
+    }
+  ],
+  "schema_version": "0.2.0",
+  "state": {
+    "kind": "resolved",
+    "state_id": "Idle",
+    "rule_id": "idle",
+    "priority": 10
+  }
+}

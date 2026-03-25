@@ -1,0 +1,9 @@
+{
+  "schema_version": "0.2.0",
+  "entries": [
+    {
+      "id": "gwt-test-comments",
+      "path": ".reinguard/knowledge/test--given-when-then.md"
+    }
+  ]
+}

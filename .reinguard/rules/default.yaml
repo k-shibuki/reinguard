@@ -1,0 +1,18 @@
+# Dogfood rules: match any normal clone (current branch exists) and resolve a route when state is resolved.
+rules:
+  - type: state
+    id: branch_present
+    priority: 10
+    state_id: ActiveBranch
+    when:
+      op: eq
+      path: git.detached_head
+      value: false
+  - type: route
+    id: when_resolved
+    priority: 10
+    route_id: proceed
+    when:
+      op: eq
+      path: state.kind
+      value: resolved

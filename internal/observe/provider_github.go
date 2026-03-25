@@ -2,7 +2,6 @@ package observe
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -10,9 +9,10 @@ import (
 	"github.com/k-shibuki/reinguard/internal/observe/github/ci"
 	"github.com/k-shibuki/reinguard/internal/observe/github/issues"
 	"github.com/k-shibuki/reinguard/internal/observe/github/pullrequests"
+	"github.com/k-shibuki/reinguard/internal/observe/github/reviews"
 )
 
-// GitHubProvider aggregates GitHub REST facets (ADR-0006).
+// GitHubProvider aggregates GitHub facets (ADR-0006).
 type GitHubProvider struct {
 	HTTPClient *http.Client
 	// APIBase optionally overrides the GitHub REST root (tests / httptest).
@@ -83,21 +83,24 @@ func (p *GitHubProvider) Collect(ctx context.Context, opts Options) (Fragment, e
 		if m, err := issues.Collect(ctx, client, owner, repo); err != nil {
 			degraded = true
 			diags = append(diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github.issues"})
-		} else if err := mergeGitHubSignals(signals, m); err != nil {
-			degraded = true
-			diags = append(diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github"})
+		} else {
+			mergeSignals(signals, m)
 		}
 	}
 
-	if wantFacet("pull-requests") {
+	var prNum int
+	needPRData := wantFacet("pull-requests") || wantFacet("reviews")
+	if needPRData {
 		if m, warns, err := pullrequests.Collect(ctx, client, owner, repo, opts.WorkDir); err != nil {
 			degraded = true
 			diags = append(diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github.pull-requests"})
 		} else {
 			appendWarnings("github.pull-requests", warns)
-			if err := mergeGitHubSignals(signals, m); err != nil {
-				degraded = true
-				diags = append(diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github"})
+			if wantFacet("pull-requests") {
+				mergeSignals(signals, m)
+			}
+			if prMap, ok := m["pull_requests"].(map[string]any); ok {
+				prNum = intFromMap(prMap, "pr_number_for_branch")
 			}
 		}
 	}
@@ -108,22 +111,41 @@ func (p *GitHubProvider) Collect(ctx context.Context, opts Options) (Fragment, e
 			diags = append(diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github.ci"})
 		} else {
 			appendWarnings("github.ci", warns)
-			if err := mergeGitHubSignals(signals, m); err != nil {
-				degraded = true
-				diags = append(diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github"})
-			}
+			mergeSignals(signals, m)
+		}
+	}
+
+	if wantFacet("reviews") {
+		if m, err := reviews.Collect(ctx, client, owner, repo, prNum); err != nil {
+			degraded = true
+			diags = append(diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github.reviews"})
+		} else {
+			mergeSignals(signals, m)
 		}
 	}
 
 	return Fragment{Signals: signals, Diagnostics: diags, Degraded: degraded}, nil
 }
 
-func mergeGitHubSignals(dst map[string]any, src map[string]any) error {
+func mergeSignals(dst map[string]any, src map[string]any) {
 	for k, v := range src {
-		if _, exists := dst[k]; exists {
-			return fmt.Errorf("duplicate github signal key: %s", k)
-		}
 		dst[k] = v
 	}
-	return nil
+}
+
+func intFromMap(m map[string]any, key string) int {
+	v, ok := m[key]
+	if !ok {
+		return 0
+	}
+	switch x := v.(type) {
+	case int:
+		return x
+	case int64:
+		return int(x)
+	case float64:
+		return int(x)
+	default:
+		return 0
+	}
 }

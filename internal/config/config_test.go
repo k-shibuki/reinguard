@@ -7,6 +7,158 @@ import (
 	"testing"
 )
 
+func TestLoad_emptyConfigDir(t *testing.T) {
+	t.Parallel()
+	_, err := Load("")
+	if err == nil || !strings.Contains(err.Error(), "empty directory") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestDeprecatedWarnings_nilRoot(t *testing.T) {
+	t.Parallel()
+	if w := DeprecatedWarnings(nil); len(w) != 0 {
+		t.Fatalf("got %v", w)
+	}
+}
+
+func TestDeprecatedWarnings_noLegacyHints(t *testing.T) {
+	t.Parallel()
+	r := &Root{SchemaVersion: "0.2.0", DefaultBranch: "main"}
+	if w := DeprecatedWarnings(r); len(w) != 0 {
+		t.Fatalf("got %v", w)
+	}
+}
+
+func TestDeprecatedWarnings_legacyHints(t *testing.T) {
+	t.Parallel()
+	r := &Root{LegacyToolHints: map[string]any{"x": 1}}
+	w := DeprecatedWarnings(r)
+	if len(w) != 1 || !strings.Contains(w[0], "legacy_tool_hints") {
+		t.Fatalf("got %v", w)
+	}
+}
+
+func TestLoad_knowledgeManifest_ok(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.2.0"
+default_branch: main
+providers: []
+`))
+	if err := os.Mkdir(filepath.Join(dir, "rules"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(dir, "knowledge"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(dir, "knowledge", "manifest.json"), []byte(`{
+  "schema_version": "0.1.0",
+  "entries": [{"id": "doc1", "path": "docs/a.md"}]
+}`))
+
+	res, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.KnowledgePresent || res.Knowledge == nil {
+		t.Fatal("expected knowledge manifest")
+	}
+	if len(res.Knowledge.Entries) != 1 || res.Knowledge.Entries[0].ID != "doc1" {
+		t.Fatalf("%+v", res.Knowledge)
+	}
+}
+
+func TestLoad_knowledgeManifest_invalidJSON(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.2.0"
+default_branch: main
+providers: []
+`))
+	if err := os.Mkdir(filepath.Join(dir, "rules"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(dir, "knowledge"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(dir, "knowledge", "manifest.json"), []byte(`{`))
+
+	_, err := Load(dir)
+	if err == nil || !strings.Contains(err.Error(), "parse knowledge manifest") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestLoad_knowledgeManifest_schemaInvalid(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.2.0"
+default_branch: main
+providers: []
+`))
+	if err := os.Mkdir(filepath.Join(dir, "rules"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(dir, "knowledge"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Missing required "entries"
+	writeFile(t, filepath.Join(dir, "knowledge", "manifest.json"), []byte(`{"schema_version":"0.1.0"}`))
+
+	_, err := Load(dir)
+	if err == nil || !strings.Contains(err.Error(), "schema validation") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestLoad_rulesDotYmlAndStableOrder(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.2.0"
+default_branch: main
+providers: []
+`))
+	if err := os.Mkdir(filepath.Join(dir, "rules"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(dir, "rules", "z.yml"), []byte(`rules:
+  - type: state
+    id: z
+    priority: 10
+    when:
+      op: eq
+    state_id: Z
+`))
+	writeFile(t, filepath.Join(dir, "rules", "a.yaml"), []byte(`rules:
+  - type: state
+    id: a
+    priority: 10
+    when:
+      op: eq
+    state_id: A
+`))
+	if err := os.Mkdir(filepath.Join(dir, "rules", "skipdir"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := []string{}
+	for n := range res.RuleFiles {
+		names = append(names, n)
+	}
+	if len(names) != 2 {
+		t.Fatalf("files: %v", names)
+	}
+	rules := res.Rules()
+	if len(rules) != 2 || rules[0].ID != "a" || rules[1].ID != "z" {
+		t.Fatalf("expected [a, z] ordering, got %+v", rules)
+	}
+}
+
 func TestLoad_minimalValid(t *testing.T) {
 	t.Parallel()
 	// Given: valid reinguard.yaml and empty rules directory
