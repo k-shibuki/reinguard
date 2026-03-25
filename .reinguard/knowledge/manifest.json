@@ -63,6 +63,19 @@
       ]
     },
     {
+      "id": "review-github-thread-api",
+      "path": ".reinguard/knowledge/review--github-thread-api.md",
+      "description": "GitHub REST vs GraphQL for PR review thread resolution state (isResolved) and enumeration",
+      "triggers": [
+        "isResolved",
+        "unresolved thread count",
+        "review thread status",
+        "GraphQL reviewThreads",
+        "thread resolution API",
+        "gh api graphql"
+      ]
+    },
+    {
       "id": "testing-assertions",
       "path": ".reinguard/knowledge/testing--assertions.md",
       "description": "Test assertion quality, failure messages, and boundary coverage",
