@@ -24,6 +24,11 @@ Repository-wide coding and documentation rules. The Cursor Adapter rule `reingua
 - Run `go vet ./...` and `go test ./...` locally before push (see `.reinguard/policy/safety--agent-invariants.md` § **HS-LOCAL-VERIFY**).
 - Prefer small packages under `internal/` and `cmd/` per repository layout conventions.
 
+## Markdown
+
+- Lint with `markdownlint-cli2` before commit (config: `.markdownlint-cli2.yaml`).
+- Pre-commit hook and CI job `markdown-lint` enforce the same rules.
+
 ## Change scope
 
 - Before hand-off, **search for same-kind** occurrences (parallel wording, config, or call sites), including **`.reinguard/`** and **`.cursor/`**, and reconcile them in the **same deliverable** when in scope for the task.

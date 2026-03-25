@@ -38,6 +38,10 @@ Before pushing Go changes:
 - `go vet ./...`
 - `golangci-lint run` (or rely on CI, but local run is strongly preferred)
 
+Before pushing Markdown changes:
+
+- `markdownlint-cli2 '**/*.md'` (or `pre-commit run markdownlint-cli2 --all-files`)
+
 ## HS-NO-SKIP
 
 Do not skip verification steps or merge with failing checks without an explicit documented exception.

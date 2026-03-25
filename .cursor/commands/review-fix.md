@@ -68,7 +68,12 @@ When Go code changed:
 - `go test ./...`
 - `go vet ./...`
 - `golangci-lint run` (or document in the PR why relying on CI-only is acceptable)
-- New commit with `Refs: #<issue>` (no amend+force-push on the PR head).
+
+When Markdown changed:
+
+- `markdownlint-cli2 '**/*.md'`
+
+New commit with `Refs: #<issue>` (no amend+force-push on the PR head).
 
 ### 7. Post-push
 
