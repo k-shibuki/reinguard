@@ -19,6 +19,10 @@ func TestClient_GetJSON_success(t *testing.T) {
 	if err := c.GetJSON(context.Background(), srv.URL+"/x", &out); err != nil {
 		t.Fatal(err)
 	}
+	v, ok := out["a"].(float64)
+	if !ok || v != 1 {
+		t.Fatalf("unexpected decoded payload: %#v", out)
+	}
 }
 
 func TestClient_APIBase_default(t *testing.T) {

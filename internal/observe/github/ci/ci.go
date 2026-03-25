@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net/url"
 	"os/exec"
 	"strings"
 
@@ -30,7 +31,12 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir stri
 			},
 		}, warnings, nil
 	}
-	u := fmt.Sprintf("%s/repos/%s/%s/commits/%s/status", c.APIBase(), owner, repo, sha)
+	u := fmt.Sprintf("%s/repos/%s/%s/commits/%s/status",
+		c.APIBase(),
+		url.PathEscape(owner),
+		url.PathEscape(repo),
+		url.PathEscape(sha),
+	)
 	var st combinedStatus
 	if err := c.GetJSON(ctx, u, &st); err != nil {
 		return nil, warnings, err
