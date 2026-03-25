@@ -23,6 +23,15 @@ func TestCurrentBranch_named(t *testing.T) {
 	}
 }
 
+func TestCurrentBranch_nonGitDir(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	_, _, err := CurrentBranch(context.Background(), dir)
+	if err == nil {
+		t.Fatal("expected error for non-git directory")
+	}
+}
+
 func TestCurrentBranch_detached(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

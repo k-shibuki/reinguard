@@ -18,7 +18,9 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo string) (map[
 	if c == nil {
 		return nil, fmt.Errorf("nil client")
 	}
-	if strings.TrimSpace(owner) == "" || strings.TrimSpace(repo) == "" {
+	owner = strings.TrimSpace(owner)
+	repo = strings.TrimSpace(repo)
+	if owner == "" || repo == "" {
 		return nil, fmt.Errorf("issues: owner and repo must be non-empty")
 	}
 	q := fmt.Sprintf("repo:%s/%s is:issue is:open", owner, repo)

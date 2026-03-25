@@ -101,6 +101,18 @@ func TestEval_eqMissingValue(t *testing.T) {
 	}
 }
 
+func TestEval_eq_numericSignal_nonNumericValue(t *testing.T) {
+	t.Parallel()
+	// Regression: int signal compared to non-numeric value must be false without stack overflow.
+	ok, err := Eval(map[string]any{"op": "eq", "path": "n", "value": "not-a-number"}, map[string]any{"n": 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok {
+		t.Fatal("expected false")
+	}
+}
+
 func TestEval_inValueNotArray(t *testing.T) {
 	t.Parallel()
 	_, err := Eval(map[string]any{"op": "in", "path": "p", "value": "not-array"}, map[string]any{"p": "x"})

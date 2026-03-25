@@ -353,6 +353,8 @@ func getPath(root map[string]any, path string) (any, bool) {
 	parts := strings.Split(path, ".")
 	var cur any = root
 	for _, p := range parts {
+		// Ignore empty segments so "a..b" addresses the same path as "a.b"
+		// (resilient to accidental double dots in config).
 		if p == "" {
 			continue
 		}
@@ -402,14 +404,24 @@ func eqScalar(a, b any) bool {
 		bv, ok := b.(string)
 		return ok && av == bv
 	case int:
-		return compareValues(float64(av), b) == 0
+		return numericEqual(float64(av), b)
 	case int64:
-		return compareValues(float64(av), b) == 0
+		return numericEqual(float64(av), b)
 	case float64:
-		return compareValues(av, b) == 0
+		return numericEqual(av, b)
 	default:
 		return false
 	}
+}
+
+// numericEqual reports whether a equals b when b is numeric; non-numeric b is false.
+// Used by eqScalar so we never recurse through compareValues (which would call eqScalar again).
+func numericEqual(a float64, b any) bool {
+	fb, err := toFloat(b)
+	if err != nil {
+		return false
+	}
+	return a == fb
 }
 
 func toFloat(v any) (float64, error) {

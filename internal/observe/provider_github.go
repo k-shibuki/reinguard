@@ -2,6 +2,7 @@ package observe
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -82,8 +83,9 @@ func (p *GitHubProvider) Collect(ctx context.Context, opts Options) (Fragment, e
 		if m, err := issues.Collect(ctx, client, owner, repo); err != nil {
 			degraded = true
 			diags = append(diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github.issues"})
-		} else {
-			mergeGitHubSignals(signals, m)
+		} else if err := mergeGitHubSignals(signals, m); err != nil {
+			degraded = true
+			diags = append(diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github"})
 		}
 	}
 
@@ -93,7 +95,10 @@ func (p *GitHubProvider) Collect(ctx context.Context, opts Options) (Fragment, e
 			diags = append(diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github.pull-requests"})
 		} else {
 			appendWarnings("github.pull-requests", warns)
-			mergeGitHubSignals(signals, m)
+			if err := mergeGitHubSignals(signals, m); err != nil {
+				degraded = true
+				diags = append(diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github"})
+			}
 		}
 	}
 
@@ -103,15 +108,22 @@ func (p *GitHubProvider) Collect(ctx context.Context, opts Options) (Fragment, e
 			diags = append(diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github.ci"})
 		} else {
 			appendWarnings("github.ci", warns)
-			mergeGitHubSignals(signals, m)
+			if err := mergeGitHubSignals(signals, m); err != nil {
+				degraded = true
+				diags = append(diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github"})
+			}
 		}
 	}
 
 	return Fragment{Signals: signals, Diagnostics: diags, Degraded: degraded}, nil
 }
 
-func mergeGitHubSignals(dst map[string]any, src map[string]any) {
+func mergeGitHubSignals(dst map[string]any, src map[string]any) error {
 	for k, v := range src {
+		if _, exists := dst[k]; exists {
+			return fmt.Errorf("duplicate github signal key: %s", k)
+		}
 		dst[k] = v
 	}
+	return nil
 }

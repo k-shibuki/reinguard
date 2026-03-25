@@ -17,6 +17,7 @@ import (
 
 // Root is the parsed reinguard.yaml root document.
 type Root struct {
+	// Defaults is allowed by schema (pkg/schema/reinguard-config.json) for future default rule/provider values; Load does not apply it yet.
 	Defaults        map[string]any `yaml:"defaults,omitempty" json:"defaults,omitempty"`
 	LegacyToolHints map[string]any `yaml:"legacy_tool_hints,omitempty" json:"legacy_tool_hints,omitempty"`
 	SchemaVersion   string         `yaml:"schema_version" json:"schema_version"`
