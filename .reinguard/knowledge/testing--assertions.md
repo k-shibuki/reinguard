@@ -1,5 +1,5 @@
 ---
-id: review-test-assertions
+id: testing-assertions
 description: Test assertion quality, failure messages, and boundary coverage
 triggers:
   - test quality

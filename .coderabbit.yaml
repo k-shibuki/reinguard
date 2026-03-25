@@ -57,7 +57,7 @@ reviews:
     - path: ".github/workflows/**"
       instructions: |
         Job `ci-pass` is the single aggregate required check for branch protection; `check-policy` is
-        invoked via reusable workflow pr-policy.yaml. Keep permissions minimal; align with docs/contributing.md.
+        invoked via reusable workflow pr-policy.yaml. Keep permissions minimal; align with .github/CONTRIBUTING.md.
   tools:
     shellcheck:
       enabled: true

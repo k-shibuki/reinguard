@@ -86,7 +86,7 @@ go run ./cmd/rgd schema export --dir /tmp/rgd-schemas
 
 ## Contributing
 
-See **[docs/contributing.md](docs/contributing.md)** for local checks, CI behavior (including
+See **[.github/CONTRIBUTING.md](.github/CONTRIBUTING.md)** for local checks, CI behavior (including
 fork PRs), branch protection, labels, PR policy, and review-thread rules.
 
 - Follow **Issue-driven** workflow: open an Issue, then a PR that `Closes #N`

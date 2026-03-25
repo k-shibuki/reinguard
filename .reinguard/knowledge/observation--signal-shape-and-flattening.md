@@ -1,5 +1,5 @@
 ---
-id: review-signal-shape-flattening
+id: observation-signal-shape-and-flattening
 description: Observation signal shape, signals field validation, and dotted-path flattening
 triggers:
   - signals field

@@ -1,5 +1,5 @@
 ---
-id: review-ci-permissions-gates
+id: ci-permissions-and-gates
 description: GitHub Actions permissions, aggregate CI gates, and least privilege
 triggers:
   - github actions permissions

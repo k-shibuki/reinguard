@@ -1,8 +1,8 @@
 # Contributing to reinguard (rgd)
 
 Thank you for helping improve **reinguard**. The shipped CLI binary is **`rgd`**
-(`go build -o rgd ./cmd/rgd`). This file is the human-facing contributor guide;
-normative CLI behavior is **[`docs/cli.md`](../docs/cli.md)** (see ADR-0008).
+(`go build -o rgd ./cmd/rgd`). **This file is the single contributor guide** for this
+repository; normative CLI behavior is **[`docs/cli.md`](../docs/cli.md)** (see ADR-0008).
 
 Review routing for touched areas is defined in **[`CODEOWNERS`](CODEOWNERS)**.
 
@@ -50,6 +50,8 @@ go test ./... -race -coverpkg=./... -coverprofile=coverage.out -count=1
 bash tools/check-coverage-threshold.sh 80 coverage.out
 ```
 
+Optional: `pre-commit install --hook-type commit-msg` and `pre-commit install` (see [`.pre-commit-config.yaml`](../.pre-commit-config.yaml)).
+
 ## rgd, schemas, and layout
 
 | Area | Role |
@@ -63,15 +65,77 @@ bash tools/check-coverage-threshold.sh 80 coverage.out
 - Command tree, flags, stdout/stderr, exit codes: **`docs/cli.md`**.
 - Export schemas for inspection: `./rgd schema export --dir /tmp/rgd-schemas` (after `go build`).
 
-## Workflow and traceability
+## Workflow
 
-- Prefer **one GitHub Issue per implementation PR**; the PR should include
-  `Closes #N` (or `Fixes`) and commits should use `Refs: #N` in the footer
-  (see [`.cursor/rules/commit-format.mdc`](../.cursor/rules/commit-format.mdc)).
-- Fill every section of [`.github/PULL_REQUEST_TEMPLATE.md`](PULL_REQUEST_TEMPLATE.md).
-- Architectural intent lives under [`docs/adr/`](../docs/adr/).
+- **Issue-driven**: Prefer one GitHub Issue per implementation PR; the PR body must include `Closes #N` (or `Fixes` / `Resolves`), unless you use an exception label and fill `## Exception` per [`.github/PULL_REQUEST_TEMPLATE.md`](PULL_REQUEST_TEMPLATE.md).
+- **Commits**: Conventional Commits and `Refs: #N` in the message body — see [`.cursor/rules/commit-format.mdc`](../.cursor/rules/commit-format.mdc).
+- **Commands**: Thin procedures live under [`.cursor/commands/`](../.cursor/commands/) (`pr-create`, `review-fix`, `pr-merge`).
 
-## Continuous integration
+## CI and PR policy
+
+- Workflow [`ci.yaml`](workflows/ci.yaml) runs `go-ci`, and on pull requests calls [`pr-policy.yaml`](workflows/pr-policy.yaml) as reusable workflow job `check-policy`.
+- Job **`ci-pass`** aggregates `go-ci` and `check-policy` on PRs. Configure **branch protection** on `main` to require this single check.
+
+### Local PR policy pre-flight (optional)
+
+Before `gh pr create`, you can run the same checks locally (title, body sections, type label, base branch):
+
+```bash
+bash tools/check-pr-policy.sh \
+  --title "<type>(<scope>): <summary>" \
+  --body-file /path/to/pr-body.md \
+  --label <type> \
+  --base main
+```
+
+**Scope:** [`tools/check-pr-policy.sh`](../tools/check-pr-policy.sh) is **repository tooling for developing reinguard** (this GitHub repo’s PR template and labels). It is **not** part of the shipped **`rgd` CLI** and is not a general product feature. That boundary matches **[ADR-0001](../docs/adr/0001-substrate-positioning.md)**: the substrate does not become the semantic authority for repository policy; this repo keeps PR discipline in CI plus optional local helpers like this script.
+
+Agents: see also [`.cursor/commands/pr-create.md`](../.cursor/commands/pr-create.md).
+
+### Branch protection (maintainers)
+
+In GitHub: **Settings → Branches → Branch protection rule** for `main`:
+
+1. **Require a pull request before merging** (recommended).
+2. **Require status checks to pass**: enable **Require status checks to pass before merging** and add check **`ci-pass`** (from workflow *CI*).
+3. **Require conversation resolution before merging**: **enable** — all review threads must be resolved before merge (aligns with `HS-REVIEW-RESOLVE` in [`.cursor/rules/agent-safety.mdc`](../.cursor/rules/agent-safety.mdc)).
+4. Do not rely on bypassing checks (`gh pr merge --admin` is prohibited for agents).
+
+### Merge strategy
+
+- Prefer **`gh pr merge <N> --squash`** on `main` for a linear history, unless a specific PR or release note calls for a merge commit.
+
+Observation until `rgd observe` exists: use `gh` / `git` for read-only inspection per [`.cursor/rules/evidence-temporary.mdc`](../.cursor/rules/evidence-temporary.mdc).
+
+## Labels
+
+PRs must have exactly one **type** label (`feat`, `fix`, `docs`, …). Exception PRs also need `hotfix` or `no-issue`.
+
+From the repository root (once per org/repo):
+
+```bash
+go run ./cmd/rgd ensure-labels
+```
+
+With `rgd` on your `PATH` (for example `go install ./cmd/rgd`), run `rgd ensure-labels` instead.
+
+### Open PRs after policy changes
+
+After merging workflow updates to `main`, feature branches should **merge or rebase `main`** so they pick up `ci.yaml` / `pr-policy.yaml`. To add missing template sections and type labels on already-open PRs:
+
+```bash
+go run ./cmd/rgd backfill-pr-policy
+```
+
+The command shells out to `gh api` to update PR bodies and labels (some `gh` versions fail on `gh pr edit` due to deprecated Classic Projects GraphQL). With `rgd` on your `PATH` (for example `go install ./cmd/rgd`), run `rgd backfill-pr-policy` instead.
+
+## Review threads and merge
+
+Before merge: CI green (`ci-pass`), PR policy green, and **all review conversations resolved**. For each thread, leave a short **disposition** (e.g. Fixed / By design / False positive / Acknowledged) before resolving — see [`AGENTS.md`](../AGENTS.md) and the bridle consensus reference linked there.
+
+Do **not** enable **auto-merge** while a bot review is still pending or threads are unresolved.
+
+## Continuous integration (job reference)
 
 [`ci.yaml`](workflows/ci.yaml) is split so **fork pull requests** stay safe without
 running GitHub API collection on untrusted merge commits. Manual runs:
@@ -85,9 +149,7 @@ running GitHub API collection on untrusted merge commits. Manual runs:
 
 Fork PRs skip `rgd-github-dogfood` when the head repo is not the base repo.
 
-**Branch protection:** mark **`go-ci`** and **`rgd-dogfood`** as required checks.
-Do **not** require **`rgd-github-dogfood`** if you merge from forks — a skipped job
-does not satisfy a required check on GitHub.
+**Required check for merge:** use aggregate job **`ci-pass`** (see [Branch protection](#branch-protection-maintainers) above). Do **not** rely only on `go-ci` + `rgd-dogfood` if your branch protection expects the same gate as agents (`ci-pass` includes `check-policy` on PRs).
 
 ## License
 

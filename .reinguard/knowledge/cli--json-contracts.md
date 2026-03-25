@@ -1,5 +1,5 @@
 ---
-id: review-json-contracts
+id: cli-json-contracts
 description: Semantic JSON assertions and stable empty-list shape in tests and CLI output
 triggers:
   - json contract
