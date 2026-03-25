@@ -35,8 +35,7 @@ triggers:
 
 - Keep each file atomic (one concern per file).
 - Use required front matter: `id`, `description`, `triggers` (non-empty list).
-- Prefer stable guidance over PR-specific details.
-- Prefer stable guidance over PR-specific or evidence-only snapshots.
+- Prefer stable guidance over PR-specific details or evidence-only snapshots.
 
 ## Review/update loop
 

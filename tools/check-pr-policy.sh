@@ -18,10 +18,38 @@ LABELS=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --title)     TITLE="$2";     shift 2 ;;
-    --body-file) BODY_FILE="$2"; shift 2 ;;
-    --base)      BASE="$2";      shift 2 ;;
-    --label)     LABELS+=("$2"); shift 2 ;;
+    --title)
+      [[ $# -ge 2 && -n "${2:-}" && "${2:0:1}" != "-" ]] || {
+        echo "ERROR: --title requires a non-empty value" >&2
+        exit 2
+      }
+      TITLE="$2"
+      shift 2
+      ;;
+    --body-file)
+      [[ $# -ge 2 && -n "${2:-}" && "${2:0:1}" != "-" ]] || {
+        echo "ERROR: --body-file requires a non-empty path" >&2
+        exit 2
+      }
+      BODY_FILE="$2"
+      shift 2
+      ;;
+    --base)
+      [[ $# -ge 2 && -n "${2:-}" && "${2:0:1}" != "-" ]] || {
+        echo "ERROR: --base requires a non-empty branch name" >&2
+        exit 2
+      }
+      BASE="$2"
+      shift 2
+      ;;
+    --label)
+      [[ $# -ge 2 && -n "${2:-}" && "${2:0:1}" != "-" ]] || {
+        echo "ERROR: --label requires a non-empty value" >&2
+        exit 2
+      }
+      LABELS+=("$2")
+      shift 2
+      ;;
     *) echo "Unknown arg: $1" >&2; exit 2 ;;
   esac
 done
@@ -41,6 +69,8 @@ ERRORS=()
 WARNINGS=()
 
 strip_comments() {
+  # shellcheck disable=SC2001
+  # HTML comment strip needs sed regex; not replaceable by bash ${var//}.
   sed 's/<!--[^>]*-->//g' <<< "$1" | sed '/^[[:space:]]*$/d'
 }
 
@@ -89,8 +119,20 @@ elif [[ ${#TEST_PLAN_CLEAN} -lt 5 ]]; then
   ERRORS+=("Test plan: section exists but appears empty.")
 fi
 
-# 6. Risk / Impact section (non-empty)
-RISK=$(sed -n '/## Risk \/ Impact/,/^## /p' <<< "$BODY" | tail -n +2)
+# 6. Risk / Impact section (non-empty; case-insensitive like pr-policy.yaml)
+RISK=$(awk -v want="risk / impact" '
+  /^## / {
+    rest = $0
+    sub(/^##[[:space:]]+/, "", rest)
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", rest)
+    rl = tolower(rest)
+    gsub(/[[:space:]]+/, " ", rl)
+    if (rl == want) { on = 1; next }
+    if (on) { on = 0 }
+    next
+  }
+  on { print }
+' <<< "$BODY")
 RISK_CLEAN=$(strip_comments "$RISK")
 if [[ -z "$RISK" ]]; then
   ERRORS+=("Risk / Impact: section missing from body.")
@@ -98,8 +140,20 @@ elif [[ ${#RISK_CLEAN} -lt 5 ]]; then
   ERRORS+=("Risk / Impact: section exists but appears empty.")
 fi
 
-# 7. Rollback Plan section (non-empty)
-ROLLBACK=$(sed -n '/## Rollback Plan/,/^## /p' <<< "$BODY" | tail -n +2)
+# 7. Rollback Plan section (non-empty; case-insensitive like pr-policy.yaml)
+ROLLBACK=$(awk -v want="rollback plan" '
+  /^## / {
+    rest = $0
+    sub(/^##[[:space:]]+/, "", rest)
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", rest)
+    rl = tolower(rest)
+    gsub(/[[:space:]]+/, " ", rl)
+    if (rl == want) { on = 1; next }
+    if (on) { on = 0 }
+    next
+  }
+  on { print }
+' <<< "$BODY")
 ROLLBACK_CLEAN=$(strip_comments "$ROLLBACK")
 if [[ -z "$ROLLBACK" ]]; then
   ERRORS+=("Rollback Plan: section missing from body.")

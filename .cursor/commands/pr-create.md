@@ -16,6 +16,7 @@
 
 1. Push: `git push -u origin HEAD` (after `HS-LOCAL-VERIFY`).
 2. **Pre-flight PR policy** (before `gh pr create`): fill the template into a file, then run from repo root:
+
    ```bash
    bash tools/check-pr-policy.sh \
      --title "<same-as-gh-pr-create>" \
@@ -23,6 +24,7 @@
      --label "<type>" \
      --base main
    ```
+
    Fix any reported errors so `check-policy` CI does not fail on template/labels/title/base.
 3. Create PR targeting **main** only:
    `gh pr create --title "<type>(<scope>): <desc>" --base main --label "<type>" --body-file <filled-from-template>`.
