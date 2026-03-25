@@ -330,6 +330,35 @@ providers: []
 	}
 }
 
+func TestLoad_controlStatesTypeMismatchRejected(t *testing.T) {
+	t.Parallel()
+	// Given: state subtree contains a rule with wrong type
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
+default_branch: main
+providers: []
+`))
+	statesDir := filepath.Join(dir, "control", "states")
+	if err := os.MkdirAll(statesDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(statesDir, "bad.yaml"), []byte(`rules:
+  - type: route
+    id: r1
+    priority: 10
+    route_id: next
+    when: {op: eq, path: x, value: 1}
+`))
+
+	// When: Load is called
+	_, err := Load(dir)
+
+	// Then: type vs control/states mismatch is reported
+	if err == nil || !strings.Contains(err.Error(), `expected "state"`) {
+		t.Fatalf("got err=%v", err)
+	}
+}
+
 func writeFile(t *testing.T, path string, data []byte) {
 	t.Helper()
 	if err := os.WriteFile(path, data, 0o644); err != nil {

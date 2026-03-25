@@ -24,19 +24,22 @@
 
 Evaluate **every** review comment — regardless of severity label (P0, P1, nitpick, trivial, etc.). Severity does **not** exempt a comment from evaluation or reply. Classify each into exactly one category:
 
+These categories judge whether the *review finding* is right; they are **not** the GitHub thread disposition labels. Thread replies must use the four disposition names in Step 3, matching `.reinguard/policy/review--consensus-protocol.md`.
+
 | Category | Meaning | Action |
 |---|---|---|
-| **Valid** | The finding is correct and the code should change. | Fix in code or docs. |
-| **False positive** | The finding is factually wrong or based on a misunderstanding of the code. | Explain why in the reply. |
-| **By design** | The current behavior is intentional; the reviewer's suggestion conflicts with an explicit design decision (ADR, spec, etc.). | Cite the rationale in the reply. |
+| **Valid** | The finding is correct and the code should change in this PR. | Fix in code or docs; reply disposition **Fixed** after the change. |
+| **False positive** | The finding is factually wrong or based on a misunderstanding of the code. | Explain why in the reply; disposition **False positive**. |
+| **By design** | The current behavior is intentional; the reviewer's suggestion conflicts with an explicit design decision (ADR, spec, etc.). | Cite the rationale in the reply; disposition **By design**. |
+| **Deferred** | The finding is valid but out of this PR's scope. | File a tracking Issue (not the PR's `Closes` target); reply disposition **Acknowledged** with `Tracked in #<issue>`. |
 
 ### 2. Fix all Valid findings
 
-Apply code or doc changes for every comment classified as **Valid**. Do not defer Valid findings unless the fix requires a separate Issue (in which case, file the Issue and cite it in the reply).
+Apply code or doc changes for every comment classified as **Valid**. Do not defer **Valid** findings unless you follow the **Deferred** row (then use **Acknowledged**, not silence).
 
 ### 3. Reply on every thread — no exceptions
 
-For each **pull review comment** (file/line thread), post a disposition reply (**Fixed** / **By design** / **False positive**) as a **threaded reply** (`gh api POST repos/{owner}/{repo}/pulls/<N>/comments` with `in_reply_to=<root_comment_database_id>`).
+For each **pull review comment** (file/line thread), post a disposition reply (**Fixed** / **By design** / **False positive** / **Acknowledged**) as a **threaded reply** (`gh api POST repos/{owner}/{repo}/pulls/<N>/comments` with `in_reply_to=<root_comment_database_id>`).
 A generic PR body or issue-style comment **does not** substitute for a thread reply.
 For **outside-diff / summary-only** findings (see Sense) with no anchor id, a **targeted PR conversation comment** (quote + disposition) is the correct substitute — not silence.
 
@@ -65,7 +68,8 @@ After bot re-review: re-check threads and `gh pr checks <N>` until **`ci-pass`**
 
 ## Output
 
-- Classification table: every comment → Valid / False positive / By design.
+- Classification table: every comment → Valid / False positive / By design / Deferred.
+- Disposition posted per thread: Fixed / By design / False positive / Acknowledged.
 - Fixes applied; which threads got threaded replies; whether `@coderabbitai review` / `@codex review` was posted; remaining blockers.
 
 ## Guard
