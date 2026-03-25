@@ -72,15 +72,19 @@ func TestDegradedSet_multipleProvidersDeduped(t *testing.T) {
 
 func TestDocument_withDiagnosticsAndMeta(t *testing.T) {
 	t.Parallel()
+	// Given: two diagnostics from different providers with qualifying codes
 	diags := []observe.Diagnostic{
 		{Severity: "warn", Message: "m1", Provider: "git", Code: "provider_failed"},
 		{Severity: "warn", Message: "m2", Provider: "github", Code: "provider_degraded"},
 	}
+	// When: Document is built with degraded=true
 	doc := Document(map[string]any{"x": 1}, diags, true)
+	// Then: diagnostics array has 2 entries
 	raw, ok := doc["diagnostics"].([]any)
 	if !ok || len(raw) != 2 {
 		t.Fatalf("diagnostics: %v", doc["diagnostics"])
 	}
+	// Then: meta contains degraded_sources with both providers
 	meta, ok := doc["meta"].(map[string]any)
 	if !ok {
 		t.Fatal("expected meta")
