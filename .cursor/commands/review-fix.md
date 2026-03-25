@@ -3,6 +3,7 @@
 ## Context
 
 - `.reinguard/policy/review--consensus-protocol.md` — disposition categories, CodeRabbit resolution gate, no unilateral resolve
+- `.reinguard/policy/coding--standards.md` § **Change scope** — same-kind drift across code, `.reinguard/`, and `.cursor/` before hand-off
 
 **Review knowledge (discover via substrate):**
 

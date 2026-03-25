@@ -25,7 +25,7 @@ Follow these policy documents in every interaction:
   - **HS-NO-SKIP** — no skipping verification without documented exception
   - **HS-REVIEW-RESOLVE** — disposition reply before resolving threads
   - **HS-MERGE-CONSENSUS** — no auto-merge while review pending
-- [coding--standards.md](../../.reinguard/policy/coding--standards.md) — English artifacts, `gofmt`, `go vet`, ADR/CLI authority
+- [coding--standards.md](../../.reinguard/policy/coding--standards.md) — English artifacts, `gofmt`, `go vet`, **Change scope** (same-kind sweep), ADR/CLI authority
 
 ## Knowledge retrieval
 

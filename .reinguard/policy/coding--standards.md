@@ -1,10 +1,12 @@
 ---
 id: coding-standards
-description: Language policy for persisted artifacts, Go defaults, and documentation authority
+description: Language policy for persisted artifacts, Go defaults, change scope, and documentation authority
 triggers:
   - English artifacts
   - gofmt
   - ADR authority
+  - same-kind drift
+  - change scope
 ---
 
 # Coding standards
@@ -21,6 +23,11 @@ Repository-wide coding and documentation rules. The Cursor Adapter rule `reingua
 - Format with `gofmt` / `goimports` before commit.
 - Run `go vet ./...` and `go test ./...` locally before push (see `.reinguard/policy/safety--agent-invariants.md` § **HS-LOCAL-VERIFY**).
 - Prefer small packages under `internal/` and `cmd/` per repository layout conventions.
+
+## Change scope
+
+- Before hand-off, **search for same-kind** occurrences (parallel wording, config, or call sites), including **`.reinguard/`** and **`.cursor/`**, and reconcile them in the **same deliverable** when in scope for the task.
+- Intentional gaps need an **explicit rationale** (PR body or review disposition), not silent omission.
 
 ## Documentation authority
 

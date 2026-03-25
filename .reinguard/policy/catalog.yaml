@@ -17,4 +17,4 @@ entries:
     description: "Conventional Commits, Refs in message body, atomic commits, branch naming"
   - id: coding-standards
     path: coding--standards.md
-    description: "Language policy (English artifacts), Go formatting and verification"
+    description: "Language policy (English artifacts), Go formatting, same-kind change scope, ADR/CLI authority"
