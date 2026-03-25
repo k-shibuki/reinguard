@@ -45,7 +45,13 @@ func RunObserve(c *cli.Context, gitHubFacet string, providerOverride []string) e
 		return err
 	}
 	doc := observation.Document(signals, diags, deg)
-	return writeJSON(c.App.Writer, doc)
+	if err := writeJSON(c.App.Writer, doc); err != nil {
+		return err
+	}
+	if c.Bool("fail-on-non-resolved") && deg {
+		return cli.Exit("observation degraded", 1)
+	}
+	return nil
 }
 
 // RunSchemaExport exports embedded schemas.

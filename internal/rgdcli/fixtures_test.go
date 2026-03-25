@@ -31,6 +31,14 @@ providers:
     enabled: true
 `
 
+// Unknown provider id forces engine degradation without relying on gh or network.
+const testFixtureReinguardUnknownProvider = `schema_version: "0.2.0"
+default_branch: main
+providers:
+  - id: unknown-provider-xyz
+    enabled: true
+`
+
 // Single state rule: branch main -> Idle (used by state eval / context build smoke tests).
 const testFixtureRulesStateIdle = `rules:
   - type: state
@@ -96,6 +104,7 @@ const testFixtureRulesEmpty = "rules: []\n"
 // Reserved for upcoming observe/state CLI tests; keeps fixtures compiled and lint-clean.
 var _ = []string{
 	testFixtureReinguardRoot,
+	testFixtureReinguardUnknownProvider,
 	testFixtureRulesStateIdle,
 	testFixtureRulesContextBuild,
 	testFixtureRulesStateAmbiguous,
