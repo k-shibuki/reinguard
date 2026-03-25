@@ -65,9 +65,23 @@ func goldenSetupConfigDir(t *testing.T, rulesYAML string) string {
 	if err := os.Mkdir(filepath.Join(root, "knowledge"), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	writeFile(t, filepath.Join(root, "knowledge", "doc.md"), []byte(`---
+id: doc1
+description: fixture knowledge for golden tests
+triggers:
+  - fixture
+---
+
+# Doc
+`))
 	writeFile(t, filepath.Join(root, "knowledge", "manifest.json"), []byte(`{
-  "schema_version": "0.2.0",
-  "entries": [{"id": "doc1", "path": ".reinguard/README.md"}]
+  "schema_version": "0.3.0",
+  "entries": [{
+    "id": "doc1",
+    "path": "knowledge/doc.md",
+    "description": "fixture knowledge for golden tests",
+    "triggers": ["fixture"]
+  }]
 }`))
 	return root
 }

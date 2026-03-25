@@ -43,12 +43,12 @@ func TestRunContextBuild_gitOnly(t *testing.T) {
 	if !ok {
 		t.Fatalf("knowledge is not object: %T", out["knowledge"])
 	}
-	paths, ok := knowledge["paths"].([]any)
+	entries, ok := knowledge["entries"].([]any)
 	if !ok {
-		t.Fatalf("knowledge.paths must be array, got %T", knowledge["paths"])
+		t.Fatalf("knowledge.entries must be array, got %T", knowledge["entries"])
 	}
-	if len(paths) != 0 {
-		t.Fatalf("expected empty knowledge.paths, got %v", paths)
+	if len(entries) != 0 {
+		t.Fatalf("expected empty knowledge.entries, got %v", entries)
 	}
 }
 

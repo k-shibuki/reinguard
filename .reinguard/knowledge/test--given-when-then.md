@@ -1,5 +1,11 @@
 ---
-trigger: Given When Then, test comment format, GWT, Go testing
+id: gwt-test-comments
+description: Given / When / Then comment format for Go tests
+triggers:
+  - Given When Then
+  - test comment format
+  - GWT
+  - Go testing
 ---
 
 # Given / When / Then Comment Format (Go)

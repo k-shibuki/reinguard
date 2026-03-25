@@ -13,7 +13,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "path"],
+        "required": ["id", "path", "description", "triggers"],
         "properties": {
           "id": {
             "type": "string",
@@ -23,6 +23,18 @@
             "type": "string",
             "minLength": 1,
             "description": "Repo-relative path to a knowledge file"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          },
+          "triggers": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
           }
         },
         "additionalProperties": false

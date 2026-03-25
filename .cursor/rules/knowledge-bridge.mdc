@@ -1,0 +1,41 @@
+---
+description: Bridge Cursor agents to .reinguard knowledge via manifest.json (ADR-0010)
+alwaysApply: false
+---
+
+# Knowledge bridge (reinguard)
+
+## SSOT
+
+- **Catalog**: [.reinguard/knowledge/manifest.json](.reinguard/knowledge/manifest.json) — `entries[]` with `id`, `path`, `description`, `triggers`.
+- **Bodies**: repo-relative Markdown files listed in `path` (YAML front matter + body).
+
+## When to use
+
+- Code review, CI policy, or test-style tasks that match an entry’s `description` or `triggers`.
+- Prefer reading **only** the Markdown files you need after triaging `entries`.
+
+## Optional narrowing
+
+From the repo root (with `rgd` on `PATH`):
+
+```bash
+rgd knowledge pack --query '<keyword>'
+```
+
+Use keywords aligned with `triggers` in the manifest. Full operational context:
+
+```bash
+rgd context build
+```
+
+(inspect `knowledge.entries` in the JSON.)
+
+## After changing knowledge metadata
+
+Run `rgd knowledge index` and commit `manifest.json` so `rgd config validate` stays green.
+
+## Normative reference
+
+- ADR-0010: `docs/adr/0010-knowledge-management.md`
+- CLI contract: `docs/cli.md`
