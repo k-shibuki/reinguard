@@ -34,16 +34,7 @@ func TestRunRouteSelect_stateFileFlattensStateDottedKeys(t *testing.T) {
 	// Given: a route rule that matches dotted path state.kind
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
-	writeFile(t, filepath.Join(cfgDir, "control", "routes", "r.yaml"), []byte(`rules:
-  - type: route
-    id: by_state
-    priority: 10
-    route_id: next
-    when:
-      op: eq
-      path: state.kind
-      value: resolved
-`))
+	writeFile(t, filepath.Join(cfgDir, "control", "routes", "r.yaml"), []byte(testFixtureControlRoutesNext))
 	obsDir := t.TempDir()
 	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{"signals":{"x":1},"degraded":false}`))
 	stateDir := t.TempDir()
@@ -77,16 +68,7 @@ func TestRunRouteSelect_relativeObservationAndStateFileWithCwd(t *testing.T) {
 	t.Parallel()
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
-	writeFile(t, filepath.Join(cfgDir, "control", "routes", "r.yaml"), []byte(`rules:
-  - type: route
-    id: by_state
-    priority: 10
-    route_id: next
-    when:
-      op: eq
-      path: state.kind
-      value: resolved
-`))
+	writeFile(t, filepath.Join(cfgDir, "control", "routes", "r.yaml"), []byte(testFixtureControlRoutesNext))
 	dataDir := t.TempDir()
 	writeFile(t, filepath.Join(dataDir, "o.json"), []byte(`{"signals":{"x":1},"degraded":false}`))
 	writeFile(t, filepath.Join(dataDir, "s.json"), []byte(`{"kind":"resolved","state_id":"Idle"}`))

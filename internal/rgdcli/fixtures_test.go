@@ -43,7 +43,7 @@ const testFixtureRulesStateIdle = `rules:
       value: main
 `
 
-// Route rule for context build (keys off resolved state.kind); pair with testFixtureRulesStateIdle.
+// Route rule for context build (keys off resolved state.kind, id: r1); pair with testFixtureRulesStateIdle.
 const testFixtureControlRoutesNext = `rules:
   - type: route
     id: r1

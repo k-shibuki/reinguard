@@ -156,6 +156,25 @@ providers: []
 	}
 }
 
+func TestLoad_legacyRulesYAML_rejected(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
+default_branch: main
+providers: []
+`))
+	legacyDir := filepath.Join(dir, "rules")
+	if err := os.MkdirAll(legacyDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(legacyDir, "old.yaml"), []byte("rules: []\n"))
+
+	_, err := Load(dir)
+	if err == nil || !strings.Contains(err.Error(), "legacy rules") {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestLoad_minimalValid(t *testing.T) {
 	t.Parallel()
 	// Given: valid reinguard.yaml and no control/ directory

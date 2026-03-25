@@ -133,10 +133,23 @@ gh api graphql -f query='
 
 ### Enumerate unresolved threads
 
+REST `pulls/{N}/comments` and `pulls/{N}/reviews` return individual comments and reviews; they do **not** expose per-thread `isResolved`. Use GraphQL `pullRequest.reviewThreads` instead (paginate with `pageInfo.endCursor` while `hasNextPage` is true):
+
 ```bash
-gh api repos/{owner}/{repo}/pulls/{N}/comments
-gh api repos/{owner}/{repo}/pulls/{N}/reviews
+gh api graphql -f query='
+query($owner:String!, $name:String!, $number:Int!) {
+  repository(owner:$owner, name:$name) {
+    pullRequest(number:$number) {
+      reviewThreads(first:100) {
+        nodes { id isResolved isOutdated }
+        pageInfo { hasNextPage endCursor }
+      }
+    }
+  }
+}' -f owner=OWNER -f name=REPO -F number=N
 ```
+
+Count `nodes` where `isResolved` is false for unresolved threads.
 
 ## Edge Cases
 

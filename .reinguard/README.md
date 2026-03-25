@@ -53,7 +53,7 @@ See [`knowledge--ops.md`](knowledge/knowledge--ops.md) for retrieval flow.
 
 Pattern: **`<prefix>--<topic>.md`** (`--` separates prefix from topic).
 
-Prefixes align with `rgd` areas (see prior README table): `observation--`,
+Prefixes align with `rgd` areas (see the **Layout** table above): `observation--`,
 `resolve--`, `guard--`, `knowledge--`, `config--`, `schema--`, `cli--`,
 `match--`, plus cross-cutting `testing--`, `ci--`, `review--` for operational
 references that remain knowledge (not policy).

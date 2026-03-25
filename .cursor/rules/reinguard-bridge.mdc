@@ -10,10 +10,10 @@ and Substrate (`rgd`). Do not duplicate body text from `.reinguard/` here.
 
 ## Entry points
 
-- **Substrate config**: [.reinguard/reinguard.yaml](.reinguard/reinguard.yaml) — `schema_version`, `default_branch`, `providers` (ADR-0008, ADR-0009).
-- **Knowledge catalog**: [.reinguard/knowledge/manifest.json](.reinguard/knowledge/manifest.json) — `entries[]` with `id`, `path`, `description`, `triggers` (ADR-0010).
-- **Policy** (normative, not in manifest): [.reinguard/policy/](.reinguard/policy/) — e.g. review thread consensus rules.
-- **Control** (match rules): [.reinguard/control/states/](.reinguard/control/states/), [routes/](.reinguard/control/routes/), [guards/](.reinguard/control/guards/) — YAML consumed by `config.Load` / `rgd config validate`.
+- **Substrate config**: [.reinguard/reinguard.yaml](../../.reinguard/reinguard.yaml) — `schema_version`, `default_branch`, `providers` (ADR-0008, ADR-0009).
+- **Knowledge catalog**: [.reinguard/knowledge/manifest.json](../../.reinguard/knowledge/manifest.json) — `entries[]` with `id`, `path`, `description`, `triggers` (ADR-0010).
+- **Policy** (normative, not in manifest): [.reinguard/policy/](../../.reinguard/policy/) — e.g. review thread consensus rules.
+- **Control** (match rules): [.reinguard/control/states/](../../.reinguard/control/states/), [routes/](../../.reinguard/control/routes/), [guards/](../../.reinguard/control/guards/) — YAML consumed by `config.Load` / `rgd config validate`.
 
 ## Knowledge retrieval
 

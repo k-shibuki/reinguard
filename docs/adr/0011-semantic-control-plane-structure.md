@@ -34,9 +34,9 @@ Without explicit structure:
    avoid ambiguous naming.
 
 3. **Unified priority space** — ADR-0004 unchanged: all rules from the
-   three `control/` subtrees share one priority namespace. Prefer matching
-   each YAML file's `type` field to its subdirectory; validation may
-   enforce consistency in a later change.
+   three `control/` subtrees share one priority namespace. Each YAML
+   file's `type` field must match its subdirectory, and validation
+   enforces that consistency.
 
 4. **Placement heuristics** — When adding or moving documents:
 

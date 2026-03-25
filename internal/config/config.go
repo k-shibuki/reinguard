@@ -114,6 +114,24 @@ func Load(dir string) (*LoadResult, error) {
 		return nil, err
 	}
 
+	legacyRulesDir := filepath.Join(dir, "rules")
+	if entries, lerr := os.ReadDir(legacyRulesDir); lerr == nil {
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			lower := strings.ToLower(e.Name())
+			if strings.HasSuffix(lower, ".yaml") || strings.HasSuffix(lower, ".yml") {
+				return nil, fmt.Errorf(
+					"config: legacy rules/%s detected; migrate files to control/{states,routes,guards}/ with matching type",
+					e.Name(),
+				)
+			}
+		}
+	} else if !os.IsNotExist(lerr) {
+		return nil, fmt.Errorf("config: read rules dir: %w", lerr)
+	}
+
 	ruleFiles := make(map[string]RulesDocument)
 	// Alphabetical kind order so RuleFiles keys sort as guards < routes < states (ADR-0011, ADR-0004).
 	controlKinds := []string{"guards", "routes", "states"}
