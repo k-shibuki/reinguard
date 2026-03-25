@@ -8,7 +8,7 @@
 #       --body-file /tmp/pr-body.md --label chore [--base main]
 #
 # --title, --body-file, and at least one --label are required.
-# --base defaults to main (must be main or master to match check-policy CI).
+# --base defaults to main (must be main or master to match gate-policy CI).
 set -euo pipefail
 
 TITLE=""

@@ -20,7 +20,7 @@ Authoritative architecture: [docs/adr/](docs/adr/). Especially relevant for revi
 - ADR-0010: repository knowledge format, manifest generation, and agent-facing delivery
 - ADR-0011: semantic control plane directory structure (`.reinguard/` layout)
 
-CI: `golangci-lint`, `go vet`, `go test -race`; PRs must pass job **`ci-pass`** (aggregates `go-ci` and `check-policy`). Branch protection should require **`ci-pass`** and **conversation resolution before merge** — see [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md).
+CI: `golangci-lint`, `go vet`, `go test -race`; PRs must pass job **`ci-pass`** (aggregates `gate-policy`, `lint-markdown`, `lint-go`, `test-go`, and dogfood jobs). Branch protection should require **`ci-pass`** and **conversation resolution before merge** — see [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md).
 
 ## Review guidelines
 

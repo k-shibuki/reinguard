@@ -4,7 +4,7 @@
 
 - `.github/PULL_REQUEST_TEMPLATE.md` (body SSOT — **HS-PR-TEMPLATE**)
 - `.reinguard/policy/commit--format.md` (branch naming; Cursor: `commit-format.mdc`)
-- `tools/check-pr-policy.sh` (local pre-flight mirroring `check-policy` CI)
+- `tools/check-pr-policy.sh` (local pre-flight mirroring `gate-policy` CI)
 
 **Already in context** (do not re-list): `reinguard-bridge.mdc` (HS-*, catalogs), `workflow-policy.mdc` (exceptions, command separation).
 
@@ -23,13 +23,13 @@
      --base main
    ```
 
-   Fix any reported errors so `check-policy` CI does not fail on template/labels/title/base.
+   Fix any reported errors so `gate-policy` CI does not fail on template/labels/title/base.
 3. Create PR targeting **main** only:
    `gh pr create --title "<type>(<scope>): <desc>" --base main --label "<type>" --body-file <filled-from-template>`.
    Exception PRs: add `--label no-issue` or `--label hotfix` and complete `## Exception`.
 4. Trigger CodeRabbit: `gh pr comment <N> --body "@coderabbitai review"`.
 5. Wait for CI: `gh pr checks <N>` until **`ci-pass`** is success (do not merge on red).
-6. On `check-policy` failure: re-run `tools/check-pr-policy.sh` locally, then `gh pr edit <N> --body-file ...` or `--body` with corrected sections; add missing **type** label if needed.
+6. On `gate-policy` failure: re-run `tools/check-pr-policy.sh` locally, then `gh pr edit <N> --body-file ...` or `--body` with corrected sections; add missing **type** label if needed.
 
 ## Output
 

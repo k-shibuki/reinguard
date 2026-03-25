@@ -24,7 +24,7 @@ Never use `gh pr merge --admin` to bypass branch protection.
 
 ## HS-PR-TEMPLATE
 
-Every PR must follow `.github/PULL_REQUEST_TEMPLATE.md` (all required sections present). CI job `check-policy` enforces this.
+Every PR must follow `.github/PULL_REQUEST_TEMPLATE.md` (all required sections present). CI job `gate-policy` enforces this (logic in `.github/scripts/pr-policy-check.js`; reusable `pr-policy.yaml` remains available).
 
 ## HS-PR-BASE
 

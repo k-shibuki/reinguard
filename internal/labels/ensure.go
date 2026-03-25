@@ -92,13 +92,13 @@ func createLabel(spec RepoLabel) error {
 	return nil
 }
 
-// ParseTypeLabelsFromPRPolicy extracts TYPE_LABELS from pr-policy.yaml workflow source (for tests).
+// ParseTypeLabelsFromPRPolicy extracts TYPE_LABELS from PR policy script source (for tests).
+// Expected in .github/scripts/pr-policy-check.js: const TYPE_LABELS = [ "feat", ... ];
 func ParseTypeLabelsFromPRPolicy(yaml []byte) ([]string, error) {
-	// Match: const TYPE_LABELS = ['feat', 'fix', ...];
 	const prefix = "const TYPE_LABELS = ["
 	i := bytes.Index(yaml, []byte(prefix))
 	if i < 0 {
-		return nil, fmt.Errorf("TYPE_LABELS array not found in pr-policy workflow")
+		return nil, fmt.Errorf("TYPE_LABELS array not found in PR policy script")
 	}
 	i += len(prefix)
 	j := bytes.Index(yaml[i:], []byte("];"))
@@ -109,8 +109,14 @@ func ParseTypeLabelsFromPRPolicy(yaml []byte) ([]string, error) {
 	var names []string
 	for _, part := range bytes.Split(inner, []byte{','}) {
 		p := bytes.TrimSpace(part)
-		if len(p) >= 2 && p[0] == '\'' && p[len(p)-1] == '\'' {
-			names = append(names, string(p[1:len(p)-1]))
+		if len(p) >= 2 {
+			if p[0] == '\'' && p[len(p)-1] == '\'' {
+				names = append(names, string(p[1:len(p)-1]))
+				continue
+			}
+			if p[0] == '"' && p[len(p)-1] == '"' {
+				names = append(names, string(p[1:len(p)-1]))
+			}
 		}
 	}
 	if len(names) == 0 {

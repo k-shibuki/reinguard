@@ -27,7 +27,7 @@ Repository-wide coding and documentation rules. The Cursor Adapter rule `reingua
 ## Markdown
 
 - Lint with `markdownlint-cli2` before commit (config: `.markdownlint-cli2.yaml`).
-- Pre-commit hook and CI job `markdown-lint` enforce the same rules.
+- Pre-commit hook and CI job `lint-markdown` enforce the same rules.
 
 ## Change scope
 
