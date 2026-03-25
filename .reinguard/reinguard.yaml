@@ -1,2 +1,6 @@
 # Minimal repo-local config for MVP validation (see ADR-0008).
 schema_version: "0.1.0"
+default_branch: main
+providers:
+  - id: git
+    enabled: true
