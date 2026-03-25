@@ -35,6 +35,10 @@ func newObservationFileRequiredFlag() *cli.StringFlag {
 	return &cli.StringFlag{Name: "observation-file", Required: true}
 }
 
+func newKnowledgeQueryFlag() *cli.StringFlag {
+	return &cli.StringFlag{Name: "query", Usage: "case-insensitive substring match against entry triggers"}
+}
+
 func newStateFileFlag() *cli.StringFlag {
 	return &cli.StringFlag{Name: "state-file"}
 }

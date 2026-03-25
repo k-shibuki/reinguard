@@ -11,6 +11,7 @@ import (
 	"github.com/k-shibuki/reinguard/internal/config"
 	"github.com/k-shibuki/reinguard/internal/configdir"
 	"github.com/k-shibuki/reinguard/internal/guard"
+	"github.com/k-shibuki/reinguard/internal/knowledge"
 	"github.com/k-shibuki/reinguard/internal/observation"
 	"github.com/k-shibuki/reinguard/internal/observe"
 	"github.com/k-shibuki/reinguard/internal/resolve"
@@ -145,7 +146,7 @@ func RunRouteSelect(c *cli.Context) error {
 	return writeJSON(c.App.Writer, out)
 }
 
-// RunKnowledgePack lists knowledge paths from manifest.
+// RunKnowledgePack lists knowledge entries from manifest (ADR-0010).
 func RunKnowledgePack(c *cli.Context) error {
 	_, cfgDir, err := resolvePaths(c)
 	if err != nil {
@@ -156,13 +157,10 @@ func RunKnowledgePack(c *cli.Context) error {
 		return err
 	}
 	if !loaded.KnowledgePresent || loaded.Knowledge == nil {
-		return writeJSON(c.App.Writer, map[string]any{"paths": []any{}})
+		return writeJSON(c.App.Writer, map[string]any{"entries": []config.KnowledgeManifestEntry{}})
 	}
-	paths := []any{}
-	for _, e := range loaded.Knowledge.Entries {
-		paths = append(paths, e.Path)
-	}
-	return writeJSON(c.App.Writer, map[string]any{"paths": paths})
+	entries := knowledge.FilterByQuery(loaded.Knowledge.Entries, c.String("query"))
+	return writeJSON(c.App.Writer, map[string]any{"entries": entries})
 }
 
 // RunContextBuild runs the default operational-context pipeline.
@@ -215,11 +213,9 @@ func RunContextBuild(c *cli.Context) error {
 		return err
 	}
 	gr := guard.EvalMergeReadiness(flat)
-	kpaths := []any{}
+	kEntries := make([]config.KnowledgeManifestEntry, 0)
 	if loaded.KnowledgePresent && loaded.Knowledge != nil {
-		for _, e := range loaded.Knowledge.Entries {
-			kpaths = append(kpaths, e.Path)
-		}
+		kEntries = append(kEntries, loaded.Knowledge.Entries...)
 	}
 	ctxDoc := map[string]any{
 		"schema_version": schema.CurrentSchemaVersion,
@@ -229,7 +225,7 @@ func RunContextBuild(c *cli.Context) error {
 		"guards": map[string]any{
 			"merge-readiness": gr,
 		},
-		"knowledge": map[string]any{"paths": kpaths},
+		"knowledge": map[string]any{"entries": kEntries},
 		"diagnostics": append(diagsToMaps(diags), map[string]any{
 			"severity": "info",
 			"message":  "context build pipeline complete",
@@ -417,7 +413,44 @@ func runConfigValidate(c *cli.Context) error {
 	for _, w := range config.DeprecatedWarnings(&res.Root) {
 		_, _ = fmt.Fprintln(c.App.ErrWriter, w)
 	}
+	repoRoot := configdir.RepoRoot(dir)
+	knowledgeDir := filepath.Join(dir, "knowledge")
+	if res.KnowledgePresent && res.Knowledge != nil {
+		if e := knowledge.ValidateEntryPaths(repoRoot, res.Knowledge); e != nil {
+			return e
+		}
+		if e := knowledge.CheckFreshness(res.Knowledge, repoRoot, knowledgeDir); e != nil {
+			return e
+		}
+		for _, w := range knowledge.HintWarnings(repoRoot, res.Knowledge) {
+			_, _ = fmt.Fprintln(c.App.ErrWriter, w)
+		}
+	}
 	_, err = fmt.Fprintf(c.App.Writer, "config OK: %q\n", dir)
+	return err
+}
+
+func runKnowledgeIndex(c *cli.Context) error {
+	_, cfgDir, err := resolvePaths(c)
+	if err != nil {
+		return err
+	}
+	repoRoot := configdir.RepoRoot(cfgDir)
+	knowledgeDir := filepath.Join(cfgDir, "knowledge")
+	m, err := knowledge.BuildManifest(repoRoot, knowledgeDir)
+	if err != nil {
+		return err
+	}
+	outPath := filepath.Join(knowledgeDir, "manifest.json")
+	data, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		return err
+	}
+	data = append(data, '\n')
+	if werr := os.WriteFile(outPath, data, 0o644); werr != nil {
+		return werr
+	}
+	_, err = fmt.Fprintf(c.App.Writer, "wrote %d entries to %s\n", len(m.Entries), outPath)
 	return err
 }
 
@@ -557,9 +590,15 @@ func NewApp(version string) *cli.App {
 			Usage: "knowledge commands",
 			Subcommands: []*cli.Command{
 				{
-					Name:   "pack",
-					Usage:  "list knowledge paths from manifest",
+					Name:   "index",
+					Usage:  "generate knowledge/manifest.json from Markdown front matter",
 					Flags:  []cli.Flag{newCwdFlag(), newConfigDirFlag()},
+					Action: runKnowledgeIndex,
+				},
+				{
+					Name:   "pack",
+					Usage:  "list knowledge entries from manifest",
+					Flags:  []cli.Flag{newCwdFlag(), newConfigDirFlag(), newKnowledgeQueryFlag()},
 					Action: RunKnowledgePack,
 				},
 			},

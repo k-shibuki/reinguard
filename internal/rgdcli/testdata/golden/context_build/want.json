@@ -13,11 +13,18 @@
     }
   },
   "knowledge": {
-    "paths": [".reinguard/README.md"]
+    "entries": [
+      {
+        "id": "doc1",
+        "path": "knowledge/doc.md",
+        "description": "fixture knowledge for golden tests",
+        "triggers": ["fixture"]
+      }
+    ]
   },
   "observation": {
     "degraded": false,
-    "schema_version": "0.2.0",
+    "schema_version": "0.3.0",
     "signals": {
       "git": {
         "ahead_of_upstream": 0,
@@ -57,7 +64,7 @@
       ]
     }
   ],
-  "schema_version": "0.2.0",
+  "schema_version": "0.3.0",
   "state": {
     "kind": "resolved",
     "state_id": "Idle",

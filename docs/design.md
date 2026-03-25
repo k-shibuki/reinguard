@@ -32,6 +32,8 @@ The following ADRs are the source of truth for major decisions:
 - [ADR-0008](adr/0008-schema-versioning.md): synchronized semver + best-effort compatibility
 - [ADR-0009](adr/0009-observation-engine-abstraction.md): observation engine
   abstraction (providers + config-declared collection)
+- [ADR-0010](adr/0010-knowledge-management.md): repository knowledge format,
+  manifest generation, and agent-facing delivery
 
 If this document conflicts with an ADR, the ADR wins.
 

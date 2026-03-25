@@ -20,7 +20,7 @@ func TestRunConfigValidate_invalidDir(t *testing.T) {
 func TestRunConfigValidate_deprecatedLegacyToolHints(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.2.0"
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
 default_branch: main
 providers: []
 legacy_tool_hints:

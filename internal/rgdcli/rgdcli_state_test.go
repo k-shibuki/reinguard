@@ -19,7 +19,7 @@ func TestRunStateEval_observationFile(t *testing.T) {
 	writeFile(t, filepath.Join(cfgDir, "rules", "r.yaml"), []byte(testFixtureRulesStateIdle))
 	obsDir := t.TempDir()
 	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{
-  "schema_version": "0.2.0",
+  "schema_version": "0.3.0",
   "signals": {"git": {"branch": "main"}},
   "degraded": false
 }`))

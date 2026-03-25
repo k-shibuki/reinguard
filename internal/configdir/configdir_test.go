@@ -66,6 +66,23 @@ func TestResolve_emptyCwd(t *testing.T) {
 	}
 }
 
+func TestRepoRoot_dotReinguard(t *testing.T) {
+	t.Parallel()
+	got := RepoRoot(filepath.Join("/repo", ".reinguard"))
+	if got != filepath.Clean("/repo") {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestRepoRoot_flatLayout(t *testing.T) {
+	t.Parallel()
+	got := RepoRoot(filepath.Join("/tmp", "cfg"))
+	want := filepath.Clean(filepath.Join("/tmp", "cfg"))
+	if got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+}
+
 func runGit(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)

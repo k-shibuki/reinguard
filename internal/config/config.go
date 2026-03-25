@@ -49,13 +49,18 @@ type RulesDocument struct {
 	Rules []Rule `yaml:"rules" json:"rules"`
 }
 
+// KnowledgeManifestEntry is one knowledge file entry in manifest.json (ADR-0010).
+type KnowledgeManifestEntry struct {
+	ID          string   `json:"id"`
+	Path        string   `json:"path"`
+	Description string   `json:"description"`
+	Triggers    []string `json:"triggers"`
+}
+
 // KnowledgeManifest is .reinguard/knowledge/manifest.json.
 type KnowledgeManifest struct {
-	SchemaVersion string `json:"schema_version"`
-	Entries       []struct {
-		ID   string `json:"id"`
-		Path string `json:"path"`
-	} `json:"entries"`
+	SchemaVersion string                   `json:"schema_version"`
+	Entries       []KnowledgeManifestEntry `json:"entries"`
 }
 
 // LoadResult holds validated configuration from a config directory.
