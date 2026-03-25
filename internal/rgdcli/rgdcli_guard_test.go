@@ -2,6 +2,8 @@ package rgdcli
 
 import (
 	"bytes"
+	"encoding/json"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -39,9 +41,13 @@ func TestRunGuardEval_badJSON(t *testing.T) {
 	app.Writer = &buf
 	err := app.Run([]string{"rgd", "guard", "eval", "--observation-file", p, "merge-readiness"})
 
-	// Then: a JSON parse error is returned
+	// Then: a JSON parse error is returned (not some other failure)
 	if err == nil {
 		t.Fatal("expected json error")
+	}
+	var syn *json.SyntaxError
+	if !errors.As(err, &syn) {
+		t.Fatalf("expected JSON syntax error, got %T: %v", err, err)
 	}
 }
 
@@ -68,8 +74,14 @@ func TestRunGuardEval_ok(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Then: the output contains "ok": true
-	if !bytes.Contains(buf.Bytes(), []byte(`"ok": true`)) {
-		t.Fatalf("%s", buf.String())
+	// Then: decoded output has ok=true (not tied to pretty-print whitespace)
+	var out struct {
+		OK bool `json:"ok"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatalf("invalid JSON output: %v; raw=%s", err, buf.String())
+	}
+	if !out.OK {
+		t.Fatalf("expected ok=true, got %+v", buf.String())
 	}
 }
