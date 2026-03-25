@@ -111,7 +111,9 @@ func RunRouteSelect(c *cli.Context) error {
 		if jerr := json.Unmarshal(sf, &st); jerr != nil {
 			return jerr
 		}
-		flat["state"] = st
+		for k, v := range flattenSignals(map[string]any{"state": st}) {
+			flat[k] = v
+		}
 	}
 	degSet := observation.DegradedSet(diags, deg)
 	res, err := resolve.ResolveRoute(loaded.Rules(), flat, degSet)
@@ -155,7 +157,7 @@ func RunKnowledgePack(c *cli.Context) error {
 	if !loaded.KnowledgePresent || loaded.Knowledge == nil {
 		return writeJSON(c.App.Writer, map[string]any{"paths": []any{}})
 	}
-	var paths []any
+	paths := []any{}
 	for _, e := range loaded.Knowledge.Entries {
 		paths = append(paths, e.Path)
 	}
@@ -198,17 +200,21 @@ func RunContextBuild(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	flat["state"] = map[string]any{
-		"kind":     string(stateRes.Kind),
-		"state_id": stateRes.StateID,
-		"rule_id":  stateRes.RuleID,
+	for k, v := range flattenSignals(map[string]any{
+		"state": map[string]any{
+			"kind":     string(stateRes.Kind),
+			"state_id": stateRes.StateID,
+			"rule_id":  stateRes.RuleID,
+		},
+	}) {
+		flat[k] = v
 	}
 	routeRes, err := resolve.ResolveRoute(loaded.Rules(), flat, degSet)
 	if err != nil {
 		return err
 	}
 	gr := guard.EvalMergeReadiness(flat)
-	var kpaths []any
+	kpaths := []any{}
 	if loaded.KnowledgePresent && loaded.Knowledge != nil {
 		for _, e := range loaded.Knowledge.Entries {
 			kpaths = append(kpaths, e.Path)
@@ -245,11 +251,10 @@ func RunGuardEval(c *cli.Context, guardID string) error {
 	if err != nil {
 		return err
 	}
-	var doc map[string]any
-	if err := json.Unmarshal(data, &doc); err != nil {
+	signals, _, _, err := parseObservationJSON(data)
+	if err != nil {
 		return err
 	}
-	signals, _ := doc["signals"].(map[string]any)
 	res := guard.EvalMergeReadiness(signals)
 	return writeJSON(c.App.Writer, res)
 }
@@ -287,9 +292,13 @@ func parseObservationJSON(data []byte) (signals map[string]any, diags []observe.
 	if err := json.Unmarshal(data, &doc); err != nil {
 		return nil, nil, false, err
 	}
-	signals, _ = doc["signals"].(map[string]any)
-	if signals == nil {
-		signals = map[string]any{}
+	rawSignals, ok := doc["signals"]
+	if !ok {
+		return nil, nil, false, fmt.Errorf("observation JSON must include object field %q", "signals")
+	}
+	signals, ok = rawSignals.(map[string]any)
+	if !ok {
+		return nil, nil, false, fmt.Errorf("observation JSON field %q must be an object", "signals")
 	}
 	degraded, _ = doc["degraded"].(bool)
 	if raw, ok := doc["diagnostics"].([]any); ok {

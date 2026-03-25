@@ -28,4 +28,11 @@ func TestRunKnowledgePack_emptyManifest(t *testing.T) {
 	if _, ok := out["paths"]; !ok {
 		t.Fatalf("missing 'paths' key in output: %s", buf.String())
 	}
+	paths, ok := out["paths"].([]any)
+	if !ok {
+		t.Fatalf("expected 'paths' to be array, got %T", out["paths"])
+	}
+	if len(paths) != 0 {
+		t.Fatalf("expected empty paths, got %v", paths)
+	}
 }

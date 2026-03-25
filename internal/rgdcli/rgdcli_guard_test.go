@@ -85,3 +85,22 @@ func TestRunGuardEval_ok(t *testing.T) {
 		t.Fatalf("expected ok=true, got %+v", buf.String())
 	}
 }
+
+func TestRunGuardEval_missingSignalsField(t *testing.T) {
+	t.Parallel()
+	// Given: an observation JSON object without a signals field
+	tmp := t.TempDir()
+	p := filepath.Join(tmp, "o.json")
+	writeFile(t, p, []byte(`{"degraded":false}`))
+
+	// When: guard eval is invoked
+	var buf bytes.Buffer
+	app := NewApp("t")
+	app.Writer = &buf
+	err := app.Run([]string{"rgd", "guard", "eval", "--observation-file", p, "merge-readiness"})
+
+	// Then: validation fails with a clear signals-field error
+	if err == nil || !strings.Contains(err.Error(), "must include object field") {
+		t.Fatalf("expected signals validation error, got: %v", err)
+	}
+}

@@ -2,6 +2,7 @@ package rgdcli
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -31,8 +32,23 @@ func TestRunContextBuild_gitOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains(buf.Bytes(), []byte(`"schema_version"`)) {
-		t.Fatalf("%s", buf.String())
+	var out map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatalf("invalid JSON output: %v; raw=%s", err, buf.String())
+	}
+	if _, ok := out["schema_version"]; !ok {
+		t.Fatalf("missing schema_version: %v", out)
+	}
+	knowledge, ok := out["knowledge"].(map[string]any)
+	if !ok {
+		t.Fatalf("knowledge is not object: %T", out["knowledge"])
+	}
+	paths, ok := knowledge["paths"].([]any)
+	if !ok {
+		t.Fatalf("knowledge.paths must be array, got %T", knowledge["paths"])
+	}
+	if len(paths) != 0 {
+		t.Fatalf("expected empty knowledge.paths, got %v", paths)
 	}
 }
 
