@@ -2,6 +2,7 @@ package observe
 
 import (
 	"context"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
@@ -39,7 +40,7 @@ func TestGitProvider_stashCount(t *testing.T) {
 	runGit(t, dir, "init")
 	runGit(t, dir, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "init")
 	runGit(t, dir, "branch", "-M", "main")
-	if err := exec.Command("bash", "-c", "echo x > "+filepath.Join(dir, "f.txt")).Run(); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "f.txt"), []byte("x\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	runGit(t, dir, "add", "f.txt")
@@ -66,7 +67,7 @@ func TestGitProvider_aheadOfUpstream(t *testing.T) {
 	runGit(t, clone, "branch", "-M", "main")
 	runGit(t, clone, "push", "-u", "origin", "main")
 
-	if err := exec.Command("bash", "-c", "echo ahead > "+filepath.Join(clone, "ahead.txt")).Run(); err != nil {
+	if err := os.WriteFile(filepath.Join(clone, "ahead.txt"), []byte("ahead\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	runGit(t, clone, "add", "ahead.txt")
@@ -105,8 +106,9 @@ func TestGitProvider_staleRemoteBranchesCount(t *testing.T) {
 		t.Fatal(err)
 	}
 	n := frag.Signals["stale_remote_branches_count"].(int)
-	if n < 1 {
-		t.Fatalf("expected at least origin/main merged into itself, got %d", n)
+	// Only stale branches other than origin/<default> are counted.
+	if n != 0 {
+		t.Fatalf("stale_remote_branches_count want 0 got %d", n)
 	}
 }
 

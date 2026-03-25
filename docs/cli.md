@@ -196,7 +196,7 @@ Triggers: `push` to `main`, `pull_request` to `main`, and `workflow_dispatch`.
 
 The following commands mirror the **effective shell commands** run in CI (paths
 and env are as in GitHub Actions). Fork pull requests **skip** job (3); see
-[`CONTRIBUTING.md`](../.github/CONTRIBUTING.md).
+[`CONTRIBUTING.md`](contributing.md).
 
 ### Job `go-ci` (all PRs and pushes)
 

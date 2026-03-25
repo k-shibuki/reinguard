@@ -3,6 +3,8 @@ package match
 
 import (
 	"fmt"
+	"math"
+	"reflect"
 	"strconv"
 	"strings"
 )
@@ -225,7 +227,7 @@ func evalCount(m map[string]any, signals map[string]any) (bool, error) {
 	if !ok {
 		return false, nil
 	}
-	arr, ok := got.([]any)
+	arr, ok := asSignalSlice(got)
 	if !ok {
 		return false, nil
 	}
@@ -263,6 +265,9 @@ func expectCount(m map[string]any) (int, error) {
 		if err != nil {
 			return 0, err
 		}
+		if f < 0 || math.Trunc(f) != f {
+			return 0, fmt.Errorf("match: count eq must be a non-negative integer")
+		}
 		return int(f), nil
 	}
 	return 0, fmt.Errorf("match: count requires eq")
@@ -281,7 +286,7 @@ func evalQuant(kind string, m map[string]any, signals map[string]any) (bool, err
 	if !ok {
 		return false, nil
 	}
-	arr, ok := got.([]any)
+	arr, ok := asSignalSlice(got)
 	if !ok {
 		return false, nil
 	}
@@ -325,10 +330,31 @@ func asSlice(v any) ([]any, error) {
 	}
 }
 
+// asSignalSlice accepts []any and other slice/array kinds produced by observation or tests.
+func asSignalSlice(v any) ([]any, bool) {
+	if v == nil {
+		return nil, false
+	}
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Slice, reflect.Array:
+		n := rv.Len()
+		out := make([]any, n)
+		for i := 0; i < n; i++ {
+			out[i] = rv.Index(i).Interface()
+		}
+		return out, true
+	default:
+		return nil, false
+	}
+}
+
 func getPath(root map[string]any, path string) (any, bool) {
 	parts := strings.Split(path, ".")
 	var cur any = root
 	for _, p := range parts {
+		// Ignore empty segments so "a..b" addresses the same path as "a.b"
+		// (resilient to accidental double dots in config).
 		if p == "" {
 			continue
 		}
@@ -378,14 +404,24 @@ func eqScalar(a, b any) bool {
 		bv, ok := b.(string)
 		return ok && av == bv
 	case int:
-		return compareValues(float64(av), b) == 0
+		return numericEqual(float64(av), b)
 	case int64:
-		return compareValues(float64(av), b) == 0
+		return numericEqual(float64(av), b)
 	case float64:
-		return compareValues(av, b) == 0
+		return numericEqual(av, b)
 	default:
 		return false
 	}
+}
+
+// numericEqual reports whether a equals b when b is numeric; non-numeric b is false.
+// Used by eqScalar so we never recurse through compareValues (which would call eqScalar again).
+func numericEqual(a float64, b any) bool {
+	fb, err := toFloat(b)
+	if err != nil {
+		return false
+	}
+	return a == fb
 }
 
 func toFloat(v any) (float64, error) {
