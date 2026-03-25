@@ -79,3 +79,46 @@ func TestRunRouteSelect_stateFileFlattensStateDottedKeys(t *testing.T) {
 		t.Fatalf("unexpected route output: %v", out)
 	}
 }
+
+func TestRunRouteSelect_relativeObservationAndStateFileWithCwd(t *testing.T) {
+	t.Parallel()
+	cfgDir := t.TempDir()
+	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
+	if err := os.Mkdir(filepath.Join(cfgDir, "rules"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(cfgDir, "rules", "r.yaml"), []byte(`rules:
+  - type: route
+    id: by_state
+    priority: 10
+    route_id: next
+    when:
+      op: eq
+      path: state.kind
+      value: resolved
+`))
+	dataDir := t.TempDir()
+	writeFile(t, filepath.Join(dataDir, "o.json"), []byte(`{"signals":{"x":1},"degraded":false}`))
+	writeFile(t, filepath.Join(dataDir, "s.json"), []byte(`{"kind":"resolved","state_id":"Idle"}`))
+
+	var buf bytes.Buffer
+	app := NewApp("t")
+	app.Writer = &buf
+	err := app.Run([]string{
+		"rgd", "route", "select",
+		"--config-dir", cfgDir,
+		"--cwd", dataDir,
+		"--observation-file", "o.json",
+		"--state-file", "s.json",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatalf("invalid JSON output: %v; raw=%s", err, buf.String())
+	}
+	if out["kind"] != "resolved" || out["route_id"] != "next" {
+		t.Fatalf("unexpected route output: %v", out)
+	}
+}

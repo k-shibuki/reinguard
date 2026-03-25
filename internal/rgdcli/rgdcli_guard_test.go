@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -48,6 +49,53 @@ func TestRunGuardEval_badJSON(t *testing.T) {
 	var syn *json.SyntaxError
 	if !errors.As(err, &syn) {
 		t.Fatalf("expected JSON syntax error, got %T: %v", err, err)
+	}
+}
+
+func TestRunGuardEval_relativeObservationFileWithCwd(t *testing.T) {
+	t.Parallel()
+	// Given: config dir and observation JSON in a separate data dir (relative filename)
+	cfgDir := t.TempDir()
+	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
+	if err := os.Mkdir(filepath.Join(cfgDir, "rules"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(cfgDir, "rules", "d.yaml"), []byte(testFixtureRulesEmpty))
+
+	dataDir := t.TempDir()
+	writeFile(t, filepath.Join(dataDir, "o.json"), []byte(`{
+	  "signals": {
+	    "git": {"working_tree_clean": true},
+	    "github": {
+	      "ci": {"ci_status": "success"},
+	      "reviews": {"review_threads_unresolved": 0}
+	    }
+	  }
+	}`))
+
+	// When: guard eval uses --cwd, relative --observation-file, and explicit --config-dir
+	var buf bytes.Buffer
+	app := NewApp("t")
+	app.Writer = &buf
+	if err := app.Run([]string{
+		"rgd", "guard", "eval",
+		"--config-dir", cfgDir,
+		"--cwd", dataDir,
+		"--observation-file", "o.json",
+		"merge-readiness",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Then: output decodes as successful merge-readiness
+	var out struct {
+		OK bool `json:"ok"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatalf("invalid JSON output: %v; raw=%s", err, buf.String())
+	}
+	if !out.OK {
+		t.Fatalf("expected ok=true, got %+v", buf.String())
 	}
 }
 

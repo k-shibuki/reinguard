@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/k-shibuki/reinguard/internal/config"
 	"github.com/k-shibuki/reinguard/internal/configdir"
@@ -103,7 +104,7 @@ func RunRouteSelect(c *cli.Context) error {
 	}
 	flat := flattenSignals(signals)
 	if p := c.String("state-file"); p != "" {
-		sf, rerr := os.ReadFile(p)
+		sf, rerr := os.ReadFile(resolveInputPath(wd, p))
 		if rerr != nil {
 			return rerr
 		}
@@ -178,7 +179,7 @@ func RunContextBuild(c *cli.Context) error {
 	var diags []observe.Diagnostic
 	var deg bool
 	if p := c.String("observation-file"); p != "" {
-		data, rerr := os.ReadFile(p)
+		data, rerr := os.ReadFile(resolveInputPath(wd, p))
 		if rerr != nil {
 			return rerr
 		}
@@ -247,7 +248,11 @@ func RunGuardEval(c *cli.Context, guardID string) error {
 	if path == "" {
 		return fmt.Errorf("--observation-file is required")
 	}
-	data, err := os.ReadFile(path)
+	wd, _, err := resolvePaths(c)
+	if err != nil {
+		return err
+	}
+	data, err := os.ReadFile(resolveInputPath(wd, path))
 	if err != nil {
 		return err
 	}
@@ -270,15 +275,27 @@ func RunSchemaExport(c *cli.Context) error {
 }
 
 func resolvePaths(c *cli.Context) (wd string, cfgDir string, err error) {
-	wd, err = configdir.WorkingDir()
-	if err != nil {
-		return "", "", err
-	}
 	if v := c.String("cwd"); v != "" {
 		wd = v
+	} else {
+		wd, err = configdir.WorkingDir()
+		if err != nil {
+			return "", "", err
+		}
 	}
 	cfgDir, err = configdir.Resolve(wd, c.String("config-dir"))
 	return wd, cfgDir, err
+}
+
+// resolveInputPath joins a user path against baseDir when the path is relative.
+func resolveInputPath(baseDir, p string) string {
+	if p == "" {
+		return p
+	}
+	if filepath.IsAbs(p) {
+		return p
+	}
+	return filepath.Join(baseDir, p)
 }
 
 func writeJSON(w io.Writer, v any) error {
@@ -318,7 +335,7 @@ func parseObservationJSON(data []byte) (signals map[string]any, diags []observe.
 
 func loadOrObserve(c *cli.Context, wd, cfgDir string, loaded *config.LoadResult) (map[string]any, []observe.Diagnostic, bool, error) {
 	if p := c.String("observation-file"); p != "" {
-		data, err := os.ReadFile(p)
+		data, err := os.ReadFile(resolveInputPath(wd, p))
 		if err != nil {
 			return nil, nil, false, err
 		}
@@ -379,12 +396,15 @@ func diagsToMaps(diags []observe.Diagnostic) []any {
 }
 
 func runConfigValidate(c *cli.Context) error {
-	wd, err := configdir.WorkingDir()
-	if err != nil {
-		return err
-	}
+	var wd string
+	var err error
 	if v := c.String("cwd"); v != "" {
 		wd = v
+	} else {
+		wd, err = configdir.WorkingDir()
+		if err != nil {
+			return err
+		}
 	}
 	dir, err := configdir.Resolve(wd, c.String("config-dir"))
 	if err != nil {
@@ -572,6 +592,7 @@ func NewApp(version string) *cli.App {
 					Flags: []cli.Flag{
 						newObservationFileRequiredFlag(),
 						newCwdFlag(),
+						newConfigDirFlag(),
 					},
 					Action: func(c *cli.Context) error {
 						if c.NArg() < 1 {

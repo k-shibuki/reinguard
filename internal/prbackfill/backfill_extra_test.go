@@ -208,6 +208,24 @@ func TestDesiredLabelsWithInferredType_noExistingType(t *testing.T) {
 	}
 }
 
+func TestDesiredLabelsWithInferredType_replaceExisting(t *testing.T) {
+	t.Parallel()
+	// Given: an existing type label "feat" plus a non-type label, and inferred type "docs"
+	present := map[string]struct{}{"feat": {}, "no-issue": {}}
+	// When: desired labels are computed
+	got := desiredLabelsWithInferredType(present, "docs")
+	// Then: the old type label is removed, the inferred type is added, and non-type labels remain
+	if _, ok := got["docs"]; !ok {
+		t.Fatalf("expected docs label, got %v", got)
+	}
+	if _, ok := got["feat"]; ok {
+		t.Fatal("expected feat label to be replaced")
+	}
+	if _, ok := got["no-issue"]; !ok {
+		t.Fatal("expected no-issue preserved")
+	}
+}
+
 func TestMapStringSetEqual_diffSizes(t *testing.T) {
 	t.Parallel()
 	// Given: two maps of different sizes
