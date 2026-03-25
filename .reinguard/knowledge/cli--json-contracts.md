@@ -13,13 +13,16 @@ triggers:
 ## Rule 1: Assert JSON semantically
 
 Prefer:
+
 - decode JSON (`json.Unmarshal`)
 - assert typed fields / keys
 
 Avoid:
+
 - substring-only checks like `"kind"` or `"paths"` without structure checks
 
 Why:
+
 - Substring checks pass on malformed or unrelated output.
 - Semantic checks protect behavior, not formatting accidents.
 
@@ -28,10 +31,12 @@ Why:
 When returning list fields in JSON, emit `[]` for empty lists instead of `null`.
 
 Why:
+
 - Downstream consumers can treat the field as list without null branching.
 - Output contract remains consistent across boundary cases.
 
 Implementation pattern:
+
 - initialize slices as `[]any{}`
 - append items conditionally
 

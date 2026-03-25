@@ -63,6 +63,14 @@ jobs:
           /tmp/rgd config validate
           /tmp/rgd schema export --dir /tmp/rgd-schema-smoke
 
+  markdown-lint:
+    name: Markdown Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: DavidAnson/markdownlint-cli2-action@v22.0.0
+
   # Second stage: exercise this repository's real `.reinguard` (no GitHub REST).
   # Safe for fork PRs — only git + local schema validation.
   rgd-dogfood:
@@ -138,12 +146,13 @@ jobs:
   # Single required check for branch protection (include policy on PRs).
   ci-pass:
     if: always()
-    needs: [go-ci, rgd-dogfood, rgd-github-dogfood, check-policy]
+    needs: [go-ci, markdown-lint, rgd-dogfood, rgd-github-dogfood, check-policy]
     runs-on: ubuntu-latest
     steps:
       - name: Verify aggregate gate
         env:
           GO_RESULT: ${{ needs.go-ci.result }}
+          MDLINT_RESULT: ${{ needs.markdown-lint.result }}
           DOGFOOD_RESULT: ${{ needs.rgd-dogfood.result }}
           GITHUB_DOGFOOD_RESULT: ${{ needs.rgd-github-dogfood.result }}
           POLICY_RESULT: ${{ needs.check-policy.result }}
@@ -151,6 +160,10 @@ jobs:
         run: |
           if [ "$GO_RESULT" != "success" ]; then
             echo "go-ci did not succeed: $GO_RESULT"
+            exit 1
+          fi
+          if [ "$MDLINT_RESULT" != "success" ]; then
+            echo "markdown-lint did not succeed: $MDLINT_RESULT"
             exit 1
           fi
           if [ "$DOGFOOD_RESULT" != "success" ]; then

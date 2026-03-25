@@ -44,7 +44,7 @@ They differ in **urgency**, not kind — both go through PR.
 
 ## Body (bullet points)
 
-- List changes as `- ` bullet points in English.
+- List changes as `-`-prefixed bullet points in English.
 - Include impact scope, migration steps, risks, rollback as applicable.
 
 ## Issue reference (required in body)
@@ -76,13 +76,14 @@ When in doubt, fewer commits is safer.
 - Ambiguous summaries ("update", "fix bug")
 - Body without bullet points
 - Commits that only disable checks without improvement
-- Using interactive shell (`git commit` without `-m`)
+- Automation/agents submitting `git commit` without `-m` (human
+  developers may use the editor with `.github/gitmessage` template)
 
 ## Branch naming convention
 
 Feature branches include the Issue number for traceability:
 
-```
+```text
 <prefix>/<issue-number>-<short-description>
 ```
 

@@ -23,6 +23,7 @@ If branch protection relies on aggregate check `ci-pass`, ensure all
 must-pass jobs feed that aggregate outcome.
 
 Typical pitfall:
+
 - adding new validation jobs without adding them to aggregate `needs`
 
 ## Rule 3: Preserve explicit skip semantics
