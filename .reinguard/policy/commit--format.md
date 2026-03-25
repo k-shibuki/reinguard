@@ -37,17 +37,21 @@ They differ in **urgency**, not kind — both go through PR.
 
 ## Summary (first line)
 
-- English, imperative mood, no trailing period.
-- Target ~50 characters. Hard limit: 120 characters.
+- English, imperative mood, no trailing period (not enforced by the hook;
+  remains a code-review expectation).
+- Length: aim ~50 characters for readability. The `commit-msg` hook warns
+  above 72 characters and errors above 120 (`tools/check-commit-msg.sh`).
 
 ## Body (bullet points)
 
 - List changes as `- ` bullet points in English.
 - Include impact scope, migration steps, risks, rollback as applicable.
 
-## Footer (Issue reference required)
+## Issue reference (required in body)
 
-- **`Refs: #N`** (required): Every commit must reference the tracking Issue.
+- **`Refs: #N`** (required): Every commit must reference the tracking Issue
+  somewhere in the message body (the hook scans the full body, not only Git
+  trailer lines).
 - **`Closes: #N`**: Use in the final commit or PR body to auto-close the Issue.
 - **`BREAKING CHANGE:`**: Required for backward-incompatible changes (or use `!` notation: `fix!:`).
 - **Exception**: `hotfix`/`docs` may omit `Refs:` but must justify in body.

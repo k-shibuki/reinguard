@@ -69,13 +69,20 @@ is prohibited — the finding would be lost on merge.
 
 ## CodeRabbit Resolution Gate
 
+**Terminology**: A **turn** is one review-fix cycle (observe, post a
+disposition or push fixes, then observe again). A **step** is a single
+atomic API or automation action. *Turn* is about workflow pacing; *step*
+is about not batching incompatible actions together.
+
 For threads whose root review comment is from **CodeRabbit**
 (`coderabbitai[bot]`):
 
 - **If consensus evidence is not confirmed, `resolveReviewThread` is
   prohibited.**
-- **Same-turn resolve is allowed** when consensus evidence is already
-  available in that turn after posting the disposition reply.
+- **Same-turn resolve is allowed** only if consensus evidence already
+  exists **before** the resolve action (for example, a prior bot reply in
+  that turn). Do **not** resolve in the same API **step** as posting the
+  disposition reply.
 - **Resolve only after** at least one of:
   - CodeRabbit **auto-resolved** the thread; or
   - CodeRabbit **replied** on the thread without objecting to the
@@ -126,8 +133,9 @@ gh api graphql -f query='
 
 - `node_id`: thread's GraphQL node ID
 - **CodeRabbit threads**: Call this **only after** CodeRabbit has
-  reacted. Do **not** resolve in the same step as posting the
-  disposition reply.
+  reacted. Do **not** resolve in the same API **step** as posting the
+  disposition reply (post the reply, complete a new observation **turn**,
+  then resolve if consensus is clear).
 - **Human threads**: Do not resolve without acceptance or user
   instruction unless Reviewer Unavailable applies.
 
