@@ -2,6 +2,7 @@ package rgdcli
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -20,7 +21,11 @@ func TestRunKnowledgePack_emptyManifest(t *testing.T) {
 	if err := app.Run([]string{"rgd", "knowledge", "pack", "--config-dir", cfgDir}); err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains(buf.Bytes(), []byte(`"paths"`)) {
-		t.Fatalf("%s", buf.String())
+	var out map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatalf("invalid JSON output: %v; raw=%s", err, buf.String())
+	}
+	if _, ok := out["paths"]; !ok {
+		t.Fatalf("missing 'paths' key in output: %s", buf.String())
 	}
 }

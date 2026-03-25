@@ -48,7 +48,7 @@ func RunObserve(c *cli.Context, gitHubFacet string, providerOverride []string) e
 		return err
 	}
 	doc := observation.Document(signals, diags, deg)
-	return writeJSON(c.App.Writer, doc, false)
+	return writeJSON(c.App.Writer, doc)
 }
 
 // RunStateEval evaluates state rules.
@@ -84,7 +84,7 @@ func RunStateEval(c *cli.Context) error {
 	if c.Bool("fail-on-non-resolved") && (res.Kind == resolve.OutcomeAmbiguous || res.Kind == resolve.OutcomeDegraded) {
 		return fmt.Errorf("non-resolved state outcome: %s", res.Kind)
 	}
-	return writeJSON(c.App.Writer, out, false)
+	return writeJSON(c.App.Writer, out)
 }
 
 // RunRouteSelect evaluates route rules.
@@ -139,7 +139,7 @@ func RunRouteSelect(c *cli.Context) error {
 	if c.Bool("fail-on-non-resolved") && (res.Kind == resolve.OutcomeAmbiguous || res.Kind == resolve.OutcomeDegraded) {
 		return fmt.Errorf("non-resolved route outcome: %s", res.Kind)
 	}
-	return writeJSON(c.App.Writer, out, false)
+	return writeJSON(c.App.Writer, out)
 }
 
 // RunKnowledgePack lists knowledge paths from manifest.
@@ -153,13 +153,13 @@ func RunKnowledgePack(c *cli.Context) error {
 		return err
 	}
 	if !loaded.KnowledgePresent || loaded.Knowledge == nil {
-		return writeJSON(c.App.Writer, map[string]any{"paths": []any{}}, false)
+		return writeJSON(c.App.Writer, map[string]any{"paths": []any{}})
 	}
 	var paths []any
 	for _, e := range loaded.Knowledge.Entries {
 		paths = append(paths, e.Path)
 	}
-	return writeJSON(c.App.Writer, map[string]any{"paths": paths}, false)
+	return writeJSON(c.App.Writer, map[string]any{"paths": paths})
 }
 
 // RunContextBuild runs the default operational-context pipeline.
@@ -229,7 +229,7 @@ func RunContextBuild(c *cli.Context) error {
 			"code":     "context_built",
 		}),
 	}
-	return writeJSON(c.App.Writer, ctxDoc, false)
+	return writeJSON(c.App.Writer, ctxDoc)
 }
 
 // RunGuardEval runs a named guard.
@@ -251,7 +251,7 @@ func RunGuardEval(c *cli.Context, guardID string) error {
 	}
 	signals, _ := doc["signals"].(map[string]any)
 	res := guard.EvalMergeReadiness(signals)
-	return writeJSON(c.App.Writer, res, false)
+	return writeJSON(c.App.Writer, res)
 }
 
 // RunSchemaExport exports embedded schemas.
@@ -276,7 +276,7 @@ func resolvePaths(c *cli.Context) (wd string, cfgDir string, err error) {
 	return wd, cfgDir, err
 }
 
-func writeJSON(w io.Writer, v any, _ bool) error {
+func writeJSON(w io.Writer, v any) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	return enc.Encode(v)

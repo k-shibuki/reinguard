@@ -2,6 +2,7 @@ package rgdcli
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,8 +35,15 @@ func TestRunStateEval_observationFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains(buf.Bytes(), []byte(`"kind"`)) {
-		t.Fatalf("%s", buf.String())
+	var out map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatalf("invalid JSON: %v; raw=%s", err, buf.String())
+	}
+	if out["kind"] != "resolved" {
+		t.Fatalf("expected kind=resolved, got %v", out["kind"])
+	}
+	if out["state_id"] != "Idle" {
+		t.Fatalf("expected state_id=Idle, got %v", out["state_id"])
 	}
 }
 
