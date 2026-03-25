@@ -13,6 +13,7 @@ permissions:
 
 jobs:
   go-ci:
+    name: Go CI
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
@@ -66,7 +67,7 @@ jobs:
   # Second stage: exercise this repository's real `.reinguard` (no GitHub REST).
   # Safe for fork PRs — only git + local schema validation.
   rgd-dogfood:
-    name: Dogfood CLI (fork-safe)
+    name: Dogfood CLI
     needs: go-ci
     runs-on: ubuntu-latest
     steps:
@@ -93,7 +94,7 @@ jobs:
   # Third stage: live GitHub observation via `gh` + REST. Skip fork PRs so we
   # never run API collection against arbitrary merge commits from untrusted forks.
   rgd-github-dogfood:
-    name: Dogfood GitHub API (non-fork PRs)
+    name: Dogfood GitHub
     needs: go-ci
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
@@ -127,6 +128,7 @@ jobs:
           ' /tmp/observe-github.json >/dev/null
 
   check-policy:
+    name: PR Policy
     if: github.event_name == 'pull_request'
     uses: ./.github/workflows/pr-policy.yaml
     secrets: inherit
@@ -134,17 +136,27 @@ jobs:
   # Single required check for branch protection (include policy on PRs).
   ci-pass:
     if: always()
-    needs: [go-ci, check-policy]
+    needs: [go-ci, rgd-dogfood, rgd-github-dogfood, check-policy]
     runs-on: ubuntu-latest
     steps:
       - name: Verify aggregate gate
         env:
           GO_RESULT: ${{ needs.go-ci.result }}
+          DOGFOOD_RESULT: ${{ needs.rgd-dogfood.result }}
+          GITHUB_DOGFOOD_RESULT: ${{ needs.rgd-github-dogfood.result }}
           POLICY_RESULT: ${{ needs.check-policy.result }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
           if [ "$GO_RESULT" != "success" ]; then
             echo "go-ci did not succeed: $GO_RESULT"
+            exit 1
+          fi
+          if [ "$DOGFOOD_RESULT" != "success" ]; then
+            echo "rgd-dogfood did not succeed: $DOGFOOD_RESULT"
+            exit 1
+          fi
+          if [ "$GITHUB_DOGFOOD_RESULT" != "success" ] && [ "$GITHUB_DOGFOOD_RESULT" != "skipped" ]; then
+            echo "rgd-github-dogfood did not succeed: $GITHUB_DOGFOOD_RESULT"
             exit 1
           fi
           if [ "$EVENT_NAME" = "pull_request" ]; then
