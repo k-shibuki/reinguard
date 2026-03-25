@@ -81,6 +81,8 @@ go run ./cmd/rgd schema export --dir /tmp/rgd-schemas
 
 ## Contributing
 
+See **[docs/contributing.md](docs/contributing.md)** for branch protection, labels, PR policy, and review-thread rules.
+
 - Follow **Issue-driven** workflow: open an Issue, then a PR that `Closes #N`
   (see `.cursor/rules/workflow-policy.mdc`).
 - **Commit format** matches the bridle-style policy in `.cursor/rules/commit-format.mdc`

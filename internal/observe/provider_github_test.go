@@ -7,11 +7,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
 
 func TestGitHubProvider_Collect_fakeGH(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake gh executable is a Unix #!/bin/sh script")
+	}
 	tmp := t.TempDir()
 	ghBin := filepath.Join(tmp, "gh")
 	script := `#!/bin/sh
@@ -68,6 +72,9 @@ exit 1
 }
 
 func TestGitHubProvider_Collect_ghRepoViewFails(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake gh executable is a Unix #!/bin/sh script")
+	}
 	tmp := t.TempDir()
 	ghBin := filepath.Join(tmp, "gh")
 	script := `#!/bin/sh
@@ -92,6 +99,9 @@ exit 1
 }
 
 func TestGitHubProvider_Collect_ghAuthFails(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake gh executable is a Unix #!/bin/sh script")
+	}
 	tmp := t.TempDir()
 	ghBin := filepath.Join(tmp, "gh")
 	script := `#!/bin/sh

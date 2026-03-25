@@ -213,7 +213,19 @@ func TestDuplicatePriorityWarnings_separateTypes(t *testing.T) {
 		{Type: "route", ID: "r1", Priority: 1, When: map[string]any{}},
 		{Type: "route", ID: "r2", Priority: 1, When: map[string]any{}},
 	})
-	if len(w) != 2 {
+	// Two within-type duplicate warnings plus one cross-kind warning for the shared priority.
+	if len(w) != 3 {
+		t.Fatalf("%v", w)
+	}
+}
+
+func TestDuplicatePriorityWarnings_crossKindOnly(t *testing.T) {
+	t.Parallel()
+	w := DuplicatePriorityWarnings([]config.Rule{
+		{Type: "state", ID: "s1", Priority: 1, When: map[string]any{}},
+		{Type: "route", ID: "r1", Priority: 1, When: map[string]any{}},
+	})
+	if len(w) != 1 || !strings.Contains(w[0], "shared across rule kinds") {
 		t.Fatalf("%v", w)
 	}
 }

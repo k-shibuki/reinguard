@@ -5,7 +5,10 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
+
+	"github.com/k-shibuki/reinguard/internal/gitroot"
 )
 
 // GitProvider observes local git state via subprocess (ADR-0005).
@@ -37,7 +40,7 @@ func (*GitProvider) Collect(ctx context.Context, opts Options) (Fragment, error)
 		}, nil
 	}
 
-	branch, detached, berr := gitHead(ctx, wd)
+	branch, detached, berr := gitroot.CurrentBranch(ctx, wd)
 	porcelain, serr := gitRunOut(ctx, wd, "git", "status", "--porcelain")
 	uncommitted := 0
 	if serr == nil {
@@ -51,16 +54,25 @@ func (*GitProvider) Collect(ctx context.Context, opts Options) (Fragment, error)
 	ahead, behind, upstreamOK, upstreamErr := gitUpstreamAheadBehind(ctx, wd)
 	staleRemote, staleDiag := gitStaleRemoteBranchesMerged(ctx, wd, opts.DefaultBranch)
 
-	signals := map[string]any{
-		"branch":                      branch,
-		"detached_head":               detached,
-		"uncommitted_files":           uncommitted,
-		"working_tree_clean":          uncommitted == 0,
-		"stash_count":                 stashCount,
-		"ahead_of_upstream":           ahead,
-		"behind_of_upstream":          behind,
-		"has_upstream":                upstreamOK,
-		"stale_remote_branches_count": staleRemote,
+	signals := map[string]any{}
+	if berr == nil {
+		signals["branch"] = branch
+		signals["detached_head"] = detached
+	}
+	if serr == nil {
+		signals["uncommitted_files"] = uncommitted
+		signals["working_tree_clean"] = uncommitted == 0
+	}
+	if stashErr == nil {
+		signals["stash_count"] = stashCount
+	}
+	if upstreamErr == nil {
+		signals["ahead_of_upstream"] = ahead
+		signals["behind_of_upstream"] = behind
+		signals["has_upstream"] = upstreamOK
+	}
+	if len(staleDiag) == 0 {
+		signals["stale_remote_branches_count"] = staleRemote
 	}
 	var diags []Diagnostic
 	if berr != nil {
@@ -115,8 +127,8 @@ func gitUpstreamAheadBehind(ctx context.Context, wd string) (ahead, behind int, 
 	return ahead, behind, true, nil
 }
 
-// gitStaleRemoteBranchesMerged counts remote-tracking branches merged into origin/<DefaultBranch>.
-// Semantics: lines from `git branch -r --merged <mergeBaseRef>` minus HEAD pointer lines, when mergeBaseRef exists.
+// gitStaleRemoteBranchesMerged counts remote-tracking branches merged into origin/<DefaultBranch>,
+// excluding the merge base ref itself and HEAD pointer lines, when mergeBaseRef exists.
 func gitStaleRemoteBranchesMerged(ctx context.Context, wd, defaultBranch string) (int, []Diagnostic) {
 	var diags []Diagnostic
 	if strings.TrimSpace(defaultBranch) == "" {
@@ -146,7 +158,12 @@ func gitStaleRemoteBranchesMerged(ctx context.Context, wd, defaultBranch string)
 	n := 0
 	for _, line := range strings.Split(out, "\n") {
 		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "HEAD ->") {
+		// Skip symbolic refs (e.g. "origin/HEAD -> origin/main", "HEAD -> origin/main").
+		if line == "" || strings.Contains(line, " -> ") {
+			continue
+		}
+		// Exclude the merge base ref itself (every branch is trivially merged into itself).
+		if line == mergeRef {
 			continue
 		}
 		n++
@@ -155,29 +172,11 @@ func gitStaleRemoteBranchesMerged(ctx context.Context, wd, defaultBranch string)
 }
 
 func atoiNonneg(s string) int {
-	s = strings.TrimSpace(s)
-	if s == "" {
+	v, err := strconv.Atoi(strings.TrimSpace(s))
+	if err != nil || v < 0 {
 		return 0
 	}
-	var v int
-	for _, c := range s {
-		if c < '0' || c > '9' {
-			return 0
-		}
-		v = v*10 + int(c-'0')
-	}
 	return v
-}
-
-func gitHead(ctx context.Context, wd string) (branch string, detached bool, err error) {
-	out, err := gitRunOut(ctx, wd, "git", "symbolic-ref", "-q", "--short", "HEAD")
-	if err == nil {
-		return strings.TrimSpace(out), false, nil
-	}
-	if _, err2 := gitRunOut(ctx, wd, "git", "rev-parse", "--verify", "HEAD"); err2 == nil {
-		return "", true, nil
-	}
-	return "", false, err
 }
 
 func gitRunOut(ctx context.Context, wd string, name string, args ...string) (string, error) {
