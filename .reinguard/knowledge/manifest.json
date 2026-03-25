@@ -67,6 +67,31 @@
         "GWT",
         "Go testing"
       ]
+    },
+    {
+      "id": "review-consensus-protocol",
+      "path": ".reinguard/knowledge/review--consensus-protocol.md",
+      "description": "Disposition categories, consensus flow, and thread resolution rules for review threads",
+      "triggers": [
+        "consensus protocol",
+        "disposition reply",
+        "review thread resolve",
+        "HS-REVIEW-RESOLVE",
+        "resolve thread",
+        "unresolved thread"
+      ]
+    },
+    {
+      "id": "review-bot-operations",
+      "path": ".reinguard/knowledge/review--bot-operations.md",
+      "description": "Bot reviewer trigger, detection, timing, rate-limit recovery, and re-review procedures",
+      "triggers": [
+        "bot review trigger",
+        "CodeRabbit trigger",
+        "Codex trigger",
+        "re-review decision",
+        "rate limit recovery"
+      ]
     }
   ]
 }

@@ -131,7 +131,7 @@ The command shells out to `gh api` to update PR bodies and labels (some `gh` ver
 
 ## Review threads and merge
 
-Before merge: CI green (`ci-pass`), PR policy green, and **all review conversations resolved**. For each thread, leave a short **disposition** (e.g. Fixed / By design / False positive / Acknowledged) before resolving — see [`AGENTS.md`](../AGENTS.md) and the bridle consensus reference linked there.
+Before merge: CI green (`ci-pass`), PR policy green, and **all review conversations resolved**. For each thread, leave a short **disposition** (e.g. Fixed / By design / False positive / Acknowledged) before resolving — see [`AGENTS.md`](../AGENTS.md) and [`.reinguard/knowledge/review--consensus-protocol.md`](../.reinguard/knowledge/review--consensus-protocol.md).
 
 Do **not** enable **auto-merge** while a bot review is still pending or threads are unresolved.
 

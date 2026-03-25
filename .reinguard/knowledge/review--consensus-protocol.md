@@ -1,0 +1,157 @@
+---
+id: review-consensus-protocol
+description: Disposition categories, consensus flow, and thread resolution rules for review threads
+triggers:
+  - consensus protocol
+  - disposition reply
+  - review thread resolve
+  - Fixed By design False positive Acknowledged
+  - HS-REVIEW-RESOLVE
+  - resolve thread
+  - unresolved thread
+---
+
+# Review Consensus Protocol
+
+Bidirectional agreement model for review threads. All commands that
+interact with review threads (`review-fix`, `pr-merge`) reference this
+document as the SSOT for disposition and resolution.
+
+## Principle
+
+> Reach agreement with bot reviewers on ALL findings before proceeding
+> to merge. Findings without agreement remain unresolved and block merge.
+
+**Unilateral resolve is prohibited.** The agent must not resolve a thread
+until the reviewer's final response confirms the disposition.
+
+## Completeness Invariant
+
+```text
+unresolved threads == 0  ⟺  all review findings have consensus
+```
+
+GitHub Branch Protection (`required_conversation_resolution`) blocks
+merge until every thread is resolved. This is a deterministic guard.
+
+## Disposition Categories (4, exhaustive)
+
+Every thread receives a disposition reply before being resolved (per
+`HS-REVIEW-RESOLVE`). If the bot objects after the initial reply, the
+agent posts a new disposition reply per round until consensus is reached.
+
+| Category | When | Consensus requirement | Template |
+|---|---|---|---|
+| **Fixed** | Code change addresses the finding | Re-review confirms fix (no new finding on same lines) | `Fixed in \`<sha7>\`. <what changed>.` |
+| **By design** | Intentional design decision | Bot reply does not object (acceptance or no further comment after re-review) | `By design. <rationale> (ref: <source>).` |
+| **False positive** | Bot misidentified an issue | Bot reply does not object | `False positive. <why detection was wrong>.` |
+| **Acknowledged** | Valid but out of PR scope | Tracking Issue created; bot notified | `Acknowledged. <brief assessment>. Tracked in #<issue>.` |
+
+**Acknowledged invariant**: The tracking target (`#<issue>`) MUST differ
+from the Issue the PR closes. If the PR `Closes #N`, then `Tracked in #N`
+is prohibited — the finding would be lost on merge.
+
+## Consensus Flow
+
+```text
+1. Post disposition reply on thread
+2. Observe:
+   a. Thread state — isResolved? (bot may auto-resolve)
+   b. Thread replies — did bot confirm or object?
+   c. Re-review results — new findings on same area?
+3. Decide:
+   ├── Bot auto-resolved thread        → consensus confirmed
+   ├── Bot replied with confirmation   → resolve thread
+   ├── Bot replied with objection      → address, go to 1
+   ├── No response + reviewer available → trigger re-review, go to 2
+   └── No response + reviewer unavailable → agent resolves (see below)
+```
+
+## CodeRabbit Resolution Gate
+
+For threads whose root review comment is from **CodeRabbit**
+(`coderabbitai[bot]`):
+
+- **If consensus evidence is not confirmed, `resolveReviewThread` is
+  prohibited.**
+- **Same-turn resolve is allowed** when consensus evidence is already
+  available in that turn after posting the disposition reply.
+- **Resolve only after** at least one of:
+  - CodeRabbit **auto-resolved** the thread; or
+  - CodeRabbit **replied** on the thread without objecting to the
+    disposition; or
+  - A **qualifying pull review** after `@coderabbitai review` shows no
+    new finding on the same lines.
+- **Exception**: Reviewer Unavailable (see below).
+
+Human review threads: follow Consensus Flow above (no CodeRabbit gate;
+still no drive-by resolve without acceptance).
+
+## Reviewer Unavailable
+
+When a reviewer cannot respond (usage limit, service outage, timeout):
+
+- Agent resolves with justification: `<Category>. <explanation>.
+  Reviewer unavailable (<reason>); fix verified by <evidence>.`
+- Evidence examples: other bot confirmed, code change is mechanically
+  correct, independent reviewer verified.
+
+## API Reference
+
+### Post reply to a thread
+
+```bash
+gh api repos/{owner}/{repo}/pulls/{N}/comments -X POST \
+  -f body='<disposition text>' \
+  -F in_reply_to=<database_id> \
+  -f commit_id=<full_sha> \
+  -f path=<file_path> \
+  -F line=<line_number>
+```
+
+- `database_id`: root comment's `id` from
+  `gh api repos/{owner}/{repo}/pulls/{N}/comments`
+- `commit_id`: full 40-char SHA of HEAD (short SHA causes 422)
+- `path`, `line`: from the root comment
+
+### Resolve a thread (after consensus)
+
+```bash
+gh api graphql -f query='
+  mutation { resolveReviewThread(input: {threadId: "<node_id>"}) {
+    thread { isResolved }
+  }
+}'
+```
+
+- `node_id`: thread's GraphQL node ID
+- **CodeRabbit threads**: Call this **only after** CodeRabbit has
+  reacted. Do **not** resolve in the same step as posting the
+  disposition reply.
+- **Human threads**: Do not resolve without acceptance or user
+  instruction unless Reviewer Unavailable applies.
+
+### Enumerate unresolved threads
+
+```bash
+gh api repos/{owner}/{repo}/pulls/{N}/comments
+gh api repos/{owner}/{repo}/pulls/{N}/reviews
+```
+
+## Edge Cases
+
+- **CodeRabbit auto-resolve**: CR may confirm a fix and resolve the
+  thread itself. This IS consensus — no further action needed.
+- **`isOutdated` threads**: Still valid;
+  `required_conversation_resolution` does not distinguish outdated from
+  current.
+- **Multiple comments in one thread**: Reply once to the root comment.
+- **Human-replied threads**: Agent does not auto-resolve. Leave for the
+  human reviewer to resolve, or resolve only after explicit acceptance.
+
+## Related
+
+- `.reinguard/knowledge/review--bot-operations.md` — trigger, detection,
+  timing
+- `.cursor/rules/agent-safety.mdc` `HS-REVIEW-RESOLVE`
+- `.cursor/commands/review-fix.md` — CodeRabbit resolve gate

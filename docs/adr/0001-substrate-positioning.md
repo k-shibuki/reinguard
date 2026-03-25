@@ -17,10 +17,8 @@ Two broad architectural responses exist:
    deterministic checks, and auditable outputs. Semantic judgment stays
    with the agent.
 
-This project generalizes patterns proven in an existing agent-control
-system (structured evidence, finite-state workflow position, guard
-discipline) into a standalone, language-agnostic product delivered as a
-Go binary.
+reinguard addresses these problems as a standalone, language-agnostic
+product delivered as a Go binary (`rgd`).
 
 ## Decision
 
@@ -48,6 +46,18 @@ It does **not**:
 
 The primary way to constrain an agent is to design the **information
 space** in which it operates, not to script its thinking.
+
+## Responsibility split
+
+The substrate boundary implies a clear division of ownership:
+
+| Side | Owns |
+|------|------|
+| **Repository** (`.reinguard/`) | Configuration, policies, state/route/guard rules, knowledge manifests, fixtures and contract tests |
+| **reinguard** (`rgd`) | Observation engine, rule/evaluator runtime, schema tooling, CLI |
+
+The repository defines meaning; reinguard computes current status under
+that meaning.
 
 ## Consequences
 

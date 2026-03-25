@@ -19,4 +19,4 @@ alwaysApply: true
 ## Documentation authority
 
 - **ADRs** under `docs/adr/` are the normative architecture record.
-- `docs/design.md` is transitional and non-normative when it conflicts with an ADR.
+- `docs/cli.md` is the CLI SSOT (referenced by ADR-0008).

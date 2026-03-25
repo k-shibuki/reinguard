@@ -4,9 +4,8 @@
 
 - `agent-safety.mdc` (`HS-REVIEW-RESOLVE`, `HS-NO-SKIP`, `HS-LOCAL-VERIFY`)
 - `AGENTS.md` (dispositions, thread policy)
-- [bridle `review--consensus-protocol.md`](https://github.com/bridle-org/bridle/blob/main/.cursor/knowledge/review--consensus-protocol.md) — disposition categories, CodeRabbit resolution gate, no unilateral resolve
-- [bridle `review--bot-operations.md`](https://github.com/bridle-org/bridle/blob/main/.cursor/knowledge/review--bot-operations.md) — how CodeRabbit vs Codex signal agreement; re-review triggers
-- [bridle `review--disposition-reply.md` template](https://github.com/bridle-org/bridle/blob/main/.cursor/templates/review--disposition-reply.md) — copy-paste dispositions and **`gh api` reply/resolve** (`in_reply_to`, full `commit_id`)
+- `.reinguard/knowledge/review--consensus-protocol.md` — disposition categories, CodeRabbit resolution gate, no unilateral resolve
+- `.reinguard/knowledge/review--bot-operations.md` — how CodeRabbit vs Codex signal agreement; re-review triggers
 
 ## Sense
 
@@ -43,14 +42,14 @@ For **outside-diff / summary-only** findings (see Sense) with no anchor id, a **
 
 ### 4. CodeRabbit threads
 
-Follow [bridle § CodeRabbit resolution gate](https://github.com/bridle-org/bridle/blob/main/.cursor/knowledge/review--consensus-protocol.md#coderabbit-resolution-gate-resolvereviewthread): do **not** `resolve` until consensus evidence (CR auto-resolved, CR replied without objecting, or qualifying review after re-trigger). After you push fixes, trigger a new review cycle with a **PR conversation comment**:
+Follow the **CodeRabbit resolution gate** in `.reinguard/knowledge/review--consensus-protocol.md`: do **not** `resolve` until consensus evidence (CR auto-resolved, CR replied without objecting, or qualifying review after re-trigger). After you push fixes, trigger a new review cycle with a **PR conversation comment**:
 `gh pr comment <N> --body "@coderabbitai review"`
-(budget / skip rules: `review--bot-operations.md`.)
+(see `.reinguard/knowledge/review--bot-operations.md` for budget and skip rules.)
 
 ### 5. Codex threads
 
 Same as step 3: post disposition as a **reply on the bot's review thread**. **Then** request a new Codex pass with a **PR conversation comment** that includes **`@codex review`** (and a one-line summary of what changed). The connector generally **does not** re-run from a thread reply alone; without `@codex review` on the PR timeline, follow-up review often does not run.
-(Bridle's strict rule is "Codex only on user instruction"; if your org limits agent-posted `@codex`, have the human post that line.)
+If your org limits agent-posted `@codex`, have the human post that line.
 
 ### 6. Local verify, commit, push
 

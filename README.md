@@ -67,6 +67,7 @@ Authoritative decisions are recorded as ADRs under [docs/adr/](docs/adr/):
 | [ADR-0007](docs/adr/0007-ambiguity-as-evaluation-outcome.md) | Ambiguity as evaluation outcome |
 | [ADR-0008](docs/adr/0008-schema-versioning.md) | Schema versioning: synchronized semver with best-effort compatibility |
 | [ADR-0009](docs/adr/0009-observation-engine-abstraction.md) | Observation engine abstraction (providers + config) |
+| [ADR-0010](docs/adr/0010-knowledge-management.md) | Repository knowledge: format, manifest generation, and agent-facing delivery |
 
 ## Development
 
@@ -91,7 +92,7 @@ fork PRs), branch protection, labels, PR policy, and review-thread rules.
 
 - Follow **Issue-driven** workflow: open an Issue, then a PR that `Closes #N`
   (see `.cursor/rules/workflow-policy.mdc`).
-- **Commit format** matches the bridle-style policy in `.cursor/rules/commit-format.mdc`
+- **Commit format** follows `.cursor/rules/commit-format.mdc`
   (Conventional Commits + `Refs: #N` in the body). Optional local setup:
   - `git config commit.template .github/gitmessage`
   - `pip install pre-commit && pre-commit install --hook-type commit-msg`

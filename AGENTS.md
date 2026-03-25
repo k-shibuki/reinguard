@@ -41,16 +41,11 @@ CI: `golangci-lint`, `go vet`, `go test -race`; PRs must pass job **`ci-pass`** 
 - PR body: `Closes #<issue>` (or exception label + `## Exception` per template).
 - PR title: Conventional Commits (`<type>(<scope>): …`; types exclude `hotfix` in titles — see `tools/commit-types.txt`).
 
-### Review threads and merge (aligns with bridle-class repos)
+### Review threads and merge
 
 Before resolving a review thread (required when **Require conversation resolution** is on), leave a
-short **disposition**: **Fixed** / **By design** / **False positive** / **Acknowledged** — see the
-[bridle consensus protocol](https://github.com/bridle-org/bridle/blob/main/.cursor/knowledge/review--consensus-protocol.md)
-for the model reinguard aims to stay compatible with for future `rgd` merge-readiness semantics.
+short **disposition**: **Fixed** / **By design** / **False positive** / **Acknowledged** — see
+[`.reinguard/knowledge/review--consensus-protocol.md`](.reinguard/knowledge/review--consensus-protocol.md)
+for the full consensus model and resolution rules.
 
 Do **not** enable **auto-merge** while bot review is still pending or threads are unresolved.
-
-## Long-term alignment
-
-reinguard intends to **observe and evaluate** bridle-class workflows via `rgd`; keeping the same
-merge and review **invariants** here validates the substrate against real guard semantics.
