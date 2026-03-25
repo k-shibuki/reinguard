@@ -15,6 +15,7 @@ Authoritative architecture: [docs/adr/](docs/adr/). Especially relevant for revi
 - ADR-0006: GitHub auth via `gh` only (Phase 1)
 - ADR-0008: schema versioning and embedded JSON Schema
 - ADR-0009: observation engine abstraction
+- ADR-0010: repository knowledge format, manifest generation, and agent-facing delivery
 
 CI: `golangci-lint`, `go vet`, `go test -race`; PRs must pass job **`ci-pass`** (aggregates `go-ci` and `check-policy`). Branch protection should require **`ci-pass`** and **conversation resolution before merge** — see [docs/contributing.md](docs/contributing.md).
 

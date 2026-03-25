@@ -5,13 +5,14 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
-  pull-requests: read
 
 jobs:
   go-ci:
+    name: Go CI
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
@@ -39,12 +40,15 @@ jobs:
         run: go vet ./...
 
       - name: go test
-        run: go test ./... -race -coverprofile=coverage.out
+        run: go test ./... -race -coverpkg=./... -coverprofile=coverage.out -count=1
+
+      - name: Coverage threshold (module-wide)
+        run: bash tools/check-coverage-threshold.sh 80 coverage.out
 
       - name: Upload coverage artifact
         if: always()
         # v6+ runs on Node 24 (v4.x was node20; deprecated on GitHub-hosted runners).
-        uses: actions/upload-artifact@v6.0.0
+        uses: actions/upload-artifact@v7.0.0
         with:
           name: coverage
           path: coverage.out
@@ -59,25 +63,102 @@ jobs:
           /tmp/rgd config validate
           /tmp/rgd schema export --dir /tmp/rgd-schema-smoke
 
+  # Second stage: exercise this repository's real `.reinguard` (no GitHub REST).
+  # Safe for fork PRs — only git + local schema validation.
+  rgd-dogfood:
+    name: Dogfood CLI
+    needs: go-ci
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: actions/setup-go@v6.3.0
+        with:
+          go-version: "1.26.1"
+
+      - name: Build rgd
+        run: go build -o /tmp/rgd ./cmd/rgd
+
+      - name: Validate config and observe git
+        run: |
+          set -euo pipefail
+          /tmp/rgd --cwd "${GITHUB_WORKSPACE}" config validate
+          /tmp/rgd --cwd "${GITHUB_WORKSPACE}" observe git > /tmp/observe-git.json
+          jq -e '
+            (.signals.git | has("branch")) and
+            (.signals.git | has("detached_head")) and
+            (.signals.git | has("working_tree_clean"))
+          ' /tmp/observe-git.json >/dev/null
+
+  # Third stage: live GitHub observation via `gh` + REST. Skip fork PRs so we
+  # never run API collection against arbitrary merge commits from untrusted forks.
+  rgd-github-dogfood:
+    name: Dogfood GitHub
+    needs: go-ci
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+      checks: read
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: actions/setup-go@v6.3.0
+        with:
+          go-version: "1.26.1"
+
+      - name: Build rgd
+        run: go build -o /tmp/rgd ./cmd/rgd
+
+      - name: Observe GitHub (aggregate)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh --version
+          /tmp/rgd --cwd "${GITHUB_WORKSPACE}" observe github > /tmp/observe-github.json
+          jq -e '
+            ((.signals.github.repository.owner // "") | length > 0) and
+            ((.signals.github.repository.name // "") | length > 0) and
+            (([.diagnostics[]?.code] | index("auth_failed")) == null) and
+            (([.diagnostics[]?.code] | index("repo_resolve_failed")) == null)
+          ' /tmp/observe-github.json >/dev/null
+
   check-policy:
+    name: PR Policy
     if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: read
     uses: ./.github/workflows/pr-policy.yaml
     secrets: inherit
 
   # Single required check for branch protection (include policy on PRs).
   ci-pass:
     if: always()
-    needs: [go-ci, check-policy]
+    needs: [go-ci, rgd-dogfood, rgd-github-dogfood, check-policy]
     runs-on: ubuntu-latest
     steps:
       - name: Verify aggregate gate
         env:
           GO_RESULT: ${{ needs.go-ci.result }}
+          DOGFOOD_RESULT: ${{ needs.rgd-dogfood.result }}
+          GITHUB_DOGFOOD_RESULT: ${{ needs.rgd-github-dogfood.result }}
           POLICY_RESULT: ${{ needs.check-policy.result }}
           EVENT_NAME: ${{ github.event_name }}
         run: |
           if [ "$GO_RESULT" != "success" ]; then
             echo "go-ci did not succeed: $GO_RESULT"
+            exit 1
+          fi
+          if [ "$DOGFOOD_RESULT" != "success" ]; then
+            echo "rgd-dogfood did not succeed: $DOGFOOD_RESULT"
+            exit 1
+          fi
+          if [ "$GITHUB_DOGFOOD_RESULT" != "success" ] && [ "$GITHUB_DOGFOOD_RESULT" != "skipped" ]; then
+            echo "rgd-github-dogfood did not succeed: $GITHUB_DOGFOOD_RESULT"
             exit 1
           fi
           if [ "$EVENT_NAME" = "pull_request" ]; then

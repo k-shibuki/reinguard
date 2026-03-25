@@ -1,0 +1,33 @@
+# CODEOWNERS — reinguard / rgd
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for paths not listed below
+* @k-shibuki
+
+# rgd CLI entrypoint
+/cmd/rgd/ @k-shibuki
+
+# CLI wiring (urfave), flags, golden tests
+/internal/rgdcli/ @k-shibuki
+
+# Embedded JSON Schemas and compiler — affects `rgd config validate` and agents
+/pkg/schema/ @k-shibuki
+
+# Architecture record
+/docs/adr/ @k-shibuki
+
+# CLI contract (stdout/stderr, flags, exit codes)
+/docs/cli.md @k-shibuki
+
+# CI/CD
+/.github/workflows/ @k-shibuki
+
+# Local shortcuts and repo scripts
+/Makefile @k-shibuki
+/tools/ @k-shibuki
+
+# In-repo dogfood; CI runs `rgd` against this tree
+/.reinguard/ @k-shibuki
+
+# Agent / editor policy (Cursor rules)
+/.cursor/rules/ @k-shibuki

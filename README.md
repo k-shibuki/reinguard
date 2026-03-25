@@ -48,6 +48,10 @@ rgd config validate
 rgd schema export
 ```
 
+## CLI reference
+
+Command behavior, flags, and exit codes: [docs/cli.md](docs/cli.md).
+
 ## Architecture decisions
 
 Authoritative decisions are recorded as ADRs under [docs/adr/](docs/adr/):
@@ -62,6 +66,7 @@ Authoritative decisions are recorded as ADRs under [docs/adr/](docs/adr/):
 | [ADR-0006](docs/adr/0006-gh-cli-as-sole-authentication.md) | gh CLI as sole authentication source |
 | [ADR-0007](docs/adr/0007-ambiguity-as-evaluation-outcome.md) | Ambiguity as evaluation outcome |
 | [ADR-0008](docs/adr/0008-schema-versioning.md) | Schema versioning: synchronized semver with best-effort compatibility |
+| [ADR-0009](docs/adr/0009-observation-engine-abstraction.md) | Observation engine abstraction (providers + config) |
 
 ## Development
 
@@ -81,13 +86,14 @@ go run ./cmd/rgd schema export --dir /tmp/rgd-schemas
 
 ## Contributing
 
-See **[docs/contributing.md](docs/contributing.md)** for branch protection, labels, PR policy, and review-thread rules.
+See **[docs/contributing.md](docs/contributing.md)** for local checks, CI behavior (including
+fork PRs), branch protection, labels, PR policy, and review-thread rules.
 
 - Follow **Issue-driven** workflow: open an Issue, then a PR that `Closes #N`
   (see `.cursor/rules/workflow-policy.mdc`).
 - **Commit format** matches the bridle-style policy in `.cursor/rules/commit-format.mdc`
   (Conventional Commits + `Refs: #N` in the body). Optional local setup:
-  - `git config commit.template .gitmessage`
+  - `git config commit.template .github/gitmessage`
   - `pip install pre-commit && pre-commit install --hook-type commit-msg`
 - Use the PR template at `.github/PULL_REQUEST_TEMPLATE.md`.
 - Architecture decisions belong in `docs/adr/` (ADR).

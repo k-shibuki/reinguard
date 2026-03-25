@@ -7,7 +7,7 @@ alwaysApply: false
 ## Positioning
 
 - This file defines **policy (mandatory requirements)** for commit messages.
-- Format template: `.gitmessage` (install via `git config commit.template .gitmessage`).
+- Format template: `.github/gitmessage` (install via `git config commit.template .github/gitmessage`).
 - Machine validation: `commit-msg` stage in `.pre-commit-config.yaml` (runs `tools/check-commit-msg.sh`).
 
 ## Prefix (Type)
