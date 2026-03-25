@@ -5,8 +5,9 @@ rules:
     priority: 10
     state_id: ActiveBranch
     when:
-      op: exists
-      path: git.branch
+      op: eq
+      path: git.detached_head
+      value: false
   - type: route
     id: when_resolved
     priority: 10

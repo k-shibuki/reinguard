@@ -86,7 +86,16 @@ func TestDocument_withDiagnosticsAndMeta(t *testing.T) {
 		t.Fatal("expected meta")
 	}
 	srcs, ok := meta["degraded_sources"].([]any)
-	if !ok || len(srcs) < 1 {
+	if !ok || len(srcs) != 2 {
 		t.Fatalf("degraded_sources: %v", meta["degraded_sources"])
+	}
+	found := map[string]bool{}
+	for _, s := range srcs {
+		if str, ok := s.(string); ok {
+			found[str] = true
+		}
+	}
+	if !found["git"] || !found["github"] {
+		t.Fatalf("expected git and github in degraded_sources, got: %v", srcs)
 	}
 }

@@ -82,7 +82,11 @@ jobs:
           set -euo pipefail
           /tmp/rgd --cwd "${GITHUB_WORKSPACE}" config validate
           /tmp/rgd --cwd "${GITHUB_WORKSPACE}" observe git > /tmp/observe-git.json
-          grep -q '"schema_version"' /tmp/observe-git.json
+          jq -e '
+            (.signals | has("branch")) and
+            (.signals | has("detached_head")) and
+            (.signals | has("working_tree_clean"))
+          ' /tmp/observe-git.json >/dev/null
 
   # Third stage: live GitHub observation via `gh` + REST. Skip fork PRs so we
   # never run API collection against arbitrary merge commits from untrusted forks.
@@ -113,4 +117,9 @@ jobs:
           set -euo pipefail
           gh --version
           /tmp/rgd --cwd "${GITHUB_WORKSPACE}" observe github > /tmp/observe-github.json
-          grep -q '"schema_version"' /tmp/observe-github.json
+          jq -e '
+            ((.signals.repository.owner // "") | length > 0) and
+            ((.signals.repository.name // "") | length > 0) and
+            (([.diagnostics[]?.code] | index("auth_failed")) == null) and
+            (([.diagnostics[]?.code] | index("repo_resolve_failed")) == null)
+          ' /tmp/observe-github.json >/dev/null

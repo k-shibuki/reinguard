@@ -122,9 +122,21 @@ providers: []
 	if err := os.Mkdir(filepath.Join(dir, "rules"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(dir, "rules", "z.yml"), []byte(`rules: []
+	writeFile(t, filepath.Join(dir, "rules", "z.yml"), []byte(`rules:
+  - type: state
+    id: z
+    priority: 10
+    when:
+      op: eq
+    state_id: Z
 `))
-	writeFile(t, filepath.Join(dir, "rules", "a.yaml"), []byte(`rules: []
+	writeFile(t, filepath.Join(dir, "rules", "a.yaml"), []byte(`rules:
+  - type: state
+    id: a
+    priority: 10
+    when:
+      op: eq
+    state_id: A
 `))
 	if err := os.Mkdir(filepath.Join(dir, "rules", "skipdir"), 0o755); err != nil {
 		t.Fatal(err)
@@ -142,8 +154,8 @@ providers: []
 		t.Fatalf("files: %v", names)
 	}
 	rules := res.Rules()
-	if len(rules) != 0 {
-		t.Fatalf("expected empty rules, got %d", len(rules))
+	if len(rules) != 2 || rules[0].ID != "a" || rules[1].ID != "z" {
+		t.Fatalf("expected [a, z] ordering, got %+v", rules)
 	}
 }
 
