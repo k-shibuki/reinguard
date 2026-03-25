@@ -13,7 +13,11 @@ Never use `gh pr merge --admin` to bypass branch protection.
 
 ## HS-PR-TEMPLATE
 
-Every PR must follow `.github/PULL_REQUEST_TEMPLATE.md` (all required sections present).
+Every PR must follow `.github/PULL_REQUEST_TEMPLATE.md` (all required sections present). CI job `check-policy` enforces this.
+
+## HS-PR-BASE
+
+Never use `gh pr create --base <feature-branch>`. All PRs must target **`main`**. Document stack dependencies in the PR body instead.
 
 ## HS-LOCAL-VERIFY
 
@@ -26,3 +30,11 @@ Before pushing Go changes:
 ## HS-NO-SKIP
 
 Do not skip verification steps or merge with failing checks without an explicit documented exception.
+
+## HS-REVIEW-RESOLVE
+
+Never resolve a review thread without a **disposition reply** (Fixed / By design / False positive / Acknowledged) when substantive review comments exist. Branch Protection **Require conversation resolution** enforces resolution before merge; agent discipline must match. See `AGENTS.md` and the bridle [review consensus protocol](https://github.com/bridle-org/bridle/blob/main/.cursor/knowledge/review--consensus-protocol.md).
+
+## HS-MERGE-CONSENSUS
+
+Do **not** enable **auto-merge** while bot review is pending or review threads are unresolved. Confirm CI green and merge policy (`ci-pass`) before merge.

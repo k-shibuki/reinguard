@@ -34,7 +34,7 @@ Adopt a **hybrid observation model**:
    options. The engine **does not** infer which signals to collect beyond
    what configuration requests.
 
-3. **Side-effect free observation** — A single `rgd observe` invocation
+3. **Side-effect-free observation** — A single `rgd observe` invocation
    performs read-only queries (Git, GitHub API). It does not mutate repo
    state, post comments, or merge PRs. Parallel invocations are independent
    (ADR-0003).
@@ -54,9 +54,9 @@ Adopt a **hybrid observation model**:
    provider’s configured `id` (e.g. `signals.git`, `signals.github`).
    **Duplicate `id` values in `providers[]` are invalid** and rejected at
    config load. Within the GitHub aggregate provider, facet maps (issues,
-   pull_requests, `ci`, reviews) are merged with **last-writer-wins** on
-   duplicate top-level keys (`mergeSignals`); facets should use distinct
-   keys.
+   pull_requests, `ci`, reviews) are merged in a **deterministic facet order**
+   (alphabetical by facet key), with **last-writer-wins** on duplicate
+   top-level keys (`mergeSignals`); facets should use distinct keys.
 
 6. **Agent-internal exclusion** — Providers MUST NOT read agent session
    files, phase trackers, or other non-repo, non-platform observables

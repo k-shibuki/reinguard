@@ -37,3 +37,6 @@ vendor/
 
 # Schema export default output (local runs)
 /schema-export/
+
+# Python (if any maintainer scripts are run from tools/)
+tools/__pycache__/

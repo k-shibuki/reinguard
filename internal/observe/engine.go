@@ -23,6 +23,9 @@ func (e *Engine) Collect(ctx context.Context, root *config.Root, opts Options) (
 	if e == nil {
 		return nil, nil, false, fmt.Errorf("observe: nil engine")
 	}
+	if root == nil {
+		return nil, nil, false, fmt.Errorf("observe: nil config root")
+	}
 	enabled := root.EnabledProviderIDs()
 	if len(opts.ProviderIDs) > 0 {
 		enabled = append([]string(nil), opts.ProviderIDs...)
