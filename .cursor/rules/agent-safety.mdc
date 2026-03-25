@@ -33,7 +33,7 @@ Do not skip verification steps or merge with failing checks without an explicit 
 
 ## HS-REVIEW-RESOLVE
 
-Never resolve a review thread without a **disposition reply** (Fixed / By design / False positive / Acknowledged) when substantive review comments exist. Branch Protection **Require conversation resolution** enforces resolution before merge; agent discipline must match. See `AGENTS.md` and `.reinguard/knowledge/review--consensus-protocol.md`.
+Never resolve a review thread without a **disposition reply** (Fixed / By design / False positive / Acknowledged) when substantive review comments exist. Branch Protection **Require conversation resolution** enforces resolution before merge; agent discipline must match. See `AGENTS.md` and `.reinguard/policy/review--consensus-protocol.md`.
 
 ## HS-MERGE-CONSENSUS
 

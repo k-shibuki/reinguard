@@ -12,9 +12,6 @@ func TestRunKnowledgePack_emptyManifest(t *testing.T) {
 	t.Parallel()
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
-	if err := os.Mkdir(filepath.Join(cfgDir, "rules"), 0o755); err != nil {
-		t.Fatal(err)
-	}
 	var buf bytes.Buffer
 	app := NewApp("t")
 	app.Writer = &buf
@@ -43,9 +40,6 @@ func TestRunKnowledgePack_queryFilter(t *testing.T) {
 	//        (entry "a" has trigger "apple"; entry "b" has trigger "banana")
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
-	if err := os.Mkdir(filepath.Join(cfgDir, "rules"), 0o755); err != nil {
-		t.Fatal(err)
-	}
 	if err := os.Mkdir(filepath.Join(cfgDir, "knowledge"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -90,9 +84,6 @@ func TestRunKnowledgeIndex_writesManifest(t *testing.T) {
 	t.Parallel()
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
-	if err := os.Mkdir(filepath.Join(cfgDir, "rules"), 0o755); err != nil {
-		t.Fatal(err)
-	}
 	kdir := filepath.Join(cfgDir, "knowledge")
 	if err := os.Mkdir(kdir, 0o755); err != nil {
 		t.Fatal(err)
@@ -134,9 +125,6 @@ func TestRunConfigValidate_knowledgePathsAndFreshness_ok(t *testing.T) {
 	t.Parallel()
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
-	if err := os.Mkdir(filepath.Join(cfgDir, "rules"), 0o755); err != nil {
-		t.Fatal(err)
-	}
 	kdir := filepath.Join(cfgDir, "knowledge")
 	if err := os.Mkdir(kdir, 0o755); err != nil {
 		t.Fatal(err)
@@ -171,9 +159,6 @@ func TestRunConfigValidate_knowledgeStaleManifest(t *testing.T) {
 	t.Parallel()
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
-	if err := os.Mkdir(filepath.Join(cfgDir, "rules"), 0o755); err != nil {
-		t.Fatal(err)
-	}
 	kdir := filepath.Join(cfgDir, "knowledge")
 	if err := os.Mkdir(kdir, 0o755); err != nil {
 		t.Fatal(err)
@@ -209,9 +194,6 @@ func TestRunConfigValidate_knowledgeMissingPath(t *testing.T) {
 	t.Parallel()
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
-	if err := os.Mkdir(filepath.Join(cfgDir, "rules"), 0o755); err != nil {
-		t.Fatal(err)
-	}
 	kdir := filepath.Join(cfgDir, "knowledge")
 	if err := os.Mkdir(kdir, 0o755); err != nil {
 		t.Fatal(err)

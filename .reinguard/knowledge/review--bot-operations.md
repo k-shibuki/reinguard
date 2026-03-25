@@ -19,7 +19,7 @@ Operational reference for AI code reviewers (CodeRabbit and Codex).
 Covers trigger, detection, timing, rate limits, and re-review.
 
 For the consensus model (disposition, resolve, agreement), see
-`review--consensus-protocol.md`.
+`.reinguard/policy/review--consensus-protocol.md`.
 
 ## Reviewers
 
@@ -104,6 +104,6 @@ Deduplicate when both reviewers flag the same issue.
 
 ## Related
 
-- `review--consensus-protocol.md` — disposition, resolve, consensus
+- `.reinguard/policy/review--consensus-protocol.md` — disposition, resolve, consensus
 - `.cursor/rules/agent-safety.mdc` § `HS-REVIEW-RESOLVE`
 - `.cursor/commands/review-fix.md`

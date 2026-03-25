@@ -1,0 +1,43 @@
+---
+description: Bridge Cursor agents to .reinguard semantic control plane (ADR-0001, ADR-0011)
+alwaysApply: false
+---
+
+# reinguard bridge (Adapter layer)
+
+This file is an **adapter**: it points at the Semantics layer (`.reinguard/`)
+and Substrate (`rgd`). Do not duplicate body text from `.reinguard/` here.
+
+## Entry points
+
+- **Substrate config**: [.reinguard/reinguard.yaml](.reinguard/reinguard.yaml) — `schema_version`, `default_branch`, `providers` (ADR-0008, ADR-0009).
+- **Knowledge catalog**: [.reinguard/knowledge/manifest.json](.reinguard/knowledge/manifest.json) — `entries[]` with `id`, `path`, `description`, `triggers` (ADR-0010).
+- **Policy** (normative, not in manifest): [.reinguard/policy/](.reinguard/policy/) — e.g. review thread consensus rules.
+- **Control** (match rules): [.reinguard/control/states/](.reinguard/control/states/), [routes/](.reinguard/control/routes/), [guards/](.reinguard/control/guards/) — YAML consumed by `config.Load` / `rgd config validate`.
+
+## Knowledge retrieval
+
+- Triage with `entries` in `manifest.json` (or JSON from `rgd knowledge pack` / `rgd context build`).
+- Read only the Markdown paths you need.
+- Optional filter:
+
+```bash
+rgd knowledge pack --query '<keyword>'
+```
+
+Full operational context:
+
+```bash
+rgd context build
+```
+
+## After changing knowledge front matter
+
+Run `rgd knowledge index` and commit `manifest.json`; then `rgd config validate`.
+
+## Normative references
+
+- ADR-0001: `docs/adr/0001-substrate-positioning.md` (Adapter / Semantics / Substrate)
+- ADR-0010: `docs/adr/0010-knowledge-management.md`
+- ADR-0011: `docs/adr/0011-semantic-control-plane-structure.md`
+- CLI: `docs/cli.md`

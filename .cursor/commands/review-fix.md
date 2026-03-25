@@ -4,7 +4,7 @@
 
 - `agent-safety.mdc` (`HS-REVIEW-RESOLVE`, `HS-NO-SKIP`, `HS-LOCAL-VERIFY`)
 - `AGENTS.md` (dispositions, thread policy)
-- `.reinguard/knowledge/review--consensus-protocol.md` — disposition categories, CodeRabbit resolution gate, no unilateral resolve
+- `.reinguard/policy/review--consensus-protocol.md` — disposition categories, CodeRabbit resolution gate, no unilateral resolve
 - `.reinguard/knowledge/review--bot-operations.md` — how CodeRabbit vs Codex signal agreement; re-review triggers
 
 ## Sense
@@ -42,7 +42,7 @@ For **outside-diff / summary-only** findings (see Sense) with no anchor id, a **
 
 ### 4. CodeRabbit threads
 
-Follow the **CodeRabbit resolution gate** in `.reinguard/knowledge/review--consensus-protocol.md`: do **not** `resolve` until consensus evidence (CR auto-resolved, CR replied without objecting, or qualifying review after re-trigger). After you push fixes, trigger a new review cycle with a **PR conversation comment**:
+Follow the **CodeRabbit resolution gate** in `.reinguard/policy/review--consensus-protocol.md`: do **not** `resolve` until consensus evidence (CR auto-resolved, CR replied without objecting, or qualifying review after re-trigger). After you push fixes, trigger a new review cycle with a **PR conversation comment**:
 `gh pr comment <N> --body "@coderabbitai review"`
 (see `.reinguard/knowledge/review--bot-operations.md` for budget and skip rules.)
 

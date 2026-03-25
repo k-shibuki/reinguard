@@ -17,7 +17,7 @@ func writeFile(t *testing.T, path string, data []byte) {
 }
 
 // Shared fixtures for CLI tests: keep rule shapes aligned with config.Load expectations
-// (schema_version, default_branch, providers, rules/*.yaml).
+// (schema_version, default_branch, providers, control/{states,routes,guards}/*.yaml).
 
 const testFixtureReinguardRoot = `schema_version: "0.3.0"
 default_branch: main
@@ -43,16 +43,8 @@ const testFixtureRulesStateIdle = `rules:
       value: main
 `
 
-// State + route for context build (route keys off resolved state.kind).
-const testFixtureRulesContextBuild = `rules:
-  - type: state
-    id: idle
-    priority: 10
-    state_id: Idle
-    when:
-      op: eq
-      path: git.branch
-      value: main
+// Route rule for context build (keys off resolved state.kind); pair with testFixtureRulesStateIdle.
+const testFixtureControlRoutesNext = `rules:
   - type: route
     id: r1
     priority: 10

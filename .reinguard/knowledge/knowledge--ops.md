@@ -11,14 +11,16 @@ triggers:
 
 # Knowledge Operations for reinguard
 
-## Implemented behavior (ADR-0010)
+## Implemented behavior (ADR-0010, ADR-0011)
 
 - Each knowledge file is Markdown under `.reinguard/knowledge/` with YAML front matter
   (`id`, `description`, `triggers`).
-- **`rgd knowledge index`** scans `*.md`, reads front matter, and writes
+- **Policy** lives under `.reinguard/policy/` — not indexed here; open files by path when required.
+- **Control** match rules live under `.reinguard/control/{states,routes,guards}/` — loaded by `rgd`, not `knowledge pack`.
+- **`rgd knowledge index`** scans `knowledge/*.md`, reads front matter, and writes
   `.reinguard/knowledge/manifest.json` (committed; run after changing metadata).
 - **`rgd config validate`** checks the manifest schema, that paths exist, that the manifest
-  matches front matter (freshness), and emits optional size/trigger-count hints.
+  matches front matter (freshness), validates control YAML, and emits optional size/trigger-count hints.
 - **`rgd knowledge pack`** prints JSON `{ "entries": [...] }` with full metadata; optional
   **`--query`** filters by substring match on triggers.
 - **`rgd context build`** includes `knowledge.entries` in operational context JSON.

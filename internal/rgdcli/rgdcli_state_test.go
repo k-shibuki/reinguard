@@ -3,7 +3,6 @@ package rgdcli
 import (
 	"bytes"
 	"encoding/json"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -13,10 +12,7 @@ func TestRunStateEval_observationFile(t *testing.T) {
 	t.Parallel()
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
-	if err := os.Mkdir(filepath.Join(cfgDir, "rules"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	writeFile(t, filepath.Join(cfgDir, "rules", "r.yaml"), []byte(testFixtureRulesStateIdle))
+	writeFile(t, filepath.Join(cfgDir, "control", "states", "r.yaml"), []byte(testFixtureRulesStateIdle))
 	obsDir := t.TempDir()
 	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{
   "schema_version": "0.3.0",
@@ -51,10 +47,7 @@ func TestRunStateEval_failOnNonResolved(t *testing.T) {
 	t.Parallel()
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
-	if err := os.Mkdir(filepath.Join(cfgDir, "rules"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	writeFile(t, filepath.Join(cfgDir, "rules", "r.yaml"), []byte(testFixtureRulesStateAmbiguous))
+	writeFile(t, filepath.Join(cfgDir, "control", "states", "r.yaml"), []byte(testFixtureRulesStateAmbiguous))
 	obsDir := t.TempDir()
 	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{"signals":{"x":1}}`))
 	app := NewApp("t")

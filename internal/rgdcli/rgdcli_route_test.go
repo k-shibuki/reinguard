@@ -3,7 +3,6 @@ package rgdcli
 import (
 	"bytes"
 	"encoding/json"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -13,10 +12,7 @@ func TestRunRouteSelect_failOnNonResolved(t *testing.T) {
 	t.Parallel()
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
-	if err := os.Mkdir(filepath.Join(cfgDir, "rules"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	writeFile(t, filepath.Join(cfgDir, "rules", "r.yaml"), []byte(testFixtureRulesRouteAmbiguous))
+	writeFile(t, filepath.Join(cfgDir, "control", "routes", "r.yaml"), []byte(testFixtureRulesRouteAmbiguous))
 	obsDir := t.TempDir()
 	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{"signals":{"x":1},"degraded":false}`))
 	var buf bytes.Buffer
@@ -38,10 +34,7 @@ func TestRunRouteSelect_stateFileFlattensStateDottedKeys(t *testing.T) {
 	// Given: a route rule that matches dotted path state.kind
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
-	if err := os.Mkdir(filepath.Join(cfgDir, "rules"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	writeFile(t, filepath.Join(cfgDir, "rules", "r.yaml"), []byte(`rules:
+	writeFile(t, filepath.Join(cfgDir, "control", "routes", "r.yaml"), []byte(`rules:
   - type: route
     id: by_state
     priority: 10
@@ -84,10 +77,7 @@ func TestRunRouteSelect_relativeObservationAndStateFileWithCwd(t *testing.T) {
 	t.Parallel()
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
-	if err := os.Mkdir(filepath.Join(cfgDir, "rules"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	writeFile(t, filepath.Join(cfgDir, "rules", "r.yaml"), []byte(`rules:
+	writeFile(t, filepath.Join(cfgDir, "control", "routes", "r.yaml"), []byte(`rules:
   - type: route
     id: by_state
     priority: 10

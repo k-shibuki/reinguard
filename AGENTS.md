@@ -16,6 +16,7 @@ Authoritative architecture: [docs/adr/](docs/adr/). Especially relevant for revi
 - ADR-0008: schema versioning and embedded JSON Schema
 - ADR-0009: observation engine abstraction
 - ADR-0010: repository knowledge format, manifest generation, and agent-facing delivery
+- ADR-0011: semantic control plane directory structure (`.reinguard/` layout)
 
 CI: `golangci-lint`, `go vet`, `go test -race`; PRs must pass job **`ci-pass`** (aggregates `go-ci` and `check-policy`). Branch protection should require **`ci-pass`** and **conversation resolution before merge** — see [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md).
 
@@ -45,7 +46,7 @@ CI: `golangci-lint`, `go vet`, `go test -race`; PRs must pass job **`ci-pass`** 
 
 Before resolving a review thread (required when **Require conversation resolution** is on), leave a
 short **disposition**: **Fixed** / **By design** / **False positive** / **Acknowledged** — see
-[`.reinguard/knowledge/review--consensus-protocol.md`](.reinguard/knowledge/review--consensus-protocol.md)
+[`.reinguard/policy/review--consensus-protocol.md`](.reinguard/policy/review--consensus-protocol.md)
 for the full consensus model and resolution rules.
 
 Do **not** enable **auto-merge** while bot review is still pending or threads are unresolved.

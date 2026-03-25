@@ -47,17 +47,32 @@ It does **not**:
 The primary way to constrain an agent is to design the **information
 space** in which it operates, not to script its thinking.
 
-## Responsibility split
+## Responsibility layers
 
-The substrate boundary implies a clear division of ownership:
+Three layers separate **how agents integrate**, **what the repository
+means**, and **how the substrate evaluates**:
 
-| Side | Owns |
-|------|------|
-| **Repository** (`.reinguard/`) | Configuration, policies, state/route/guard rules, knowledge manifests, fixtures and contract tests |
-| **reinguard** (`rgd`) | Observation engine, rule/evaluator runtime, schema tooling, CLI |
+| Layer | Name | Verb | Location | SSOT for |
+|-------|------|------|----------|----------|
+| 3 | **Adapter** | adapt | `.cursor/`, `AGENTS.md` | Client-specific procedures, behavioral rules, bridge references |
+| 2 | **Semantics** | declare | `.reinguard/` | Knowledge, policy, and control definitions (see ADR-0011) |
+| 1 | **Substrate** | compute | `rgd` | Observation engine, rule/evaluator runtime, schema tooling, CLI |
 
-The repository defines meaning; reinguard computes current status under
-that meaning.
+**Dependency direction:** Adapter → Semantics → Substrate. Upper layers
+may reference lower layers; lower layers do not depend on upper layers.
+
+**Adapter principle:** The Adapter layer must not duplicate Semantics-layer
+content as a second source of truth; it points at `.reinguard/` paths and
+`rgd` commands instead.
+
+**Change drivers:**
+
+- **Adapter** — client tool updates, procedure changes
+- **Semantics** — repository meaning (new states, policies, knowledge)
+- **Substrate** — evaluator evolution (new providers, match operators)
+
+The Semantics layer defines meaning; the Substrate computes current status
+under that meaning.
 
 ## Consequences
 

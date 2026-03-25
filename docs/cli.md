@@ -204,7 +204,7 @@ default chain when not using `--observation-file`.
 
 ## `rgd config validate`
 
-Validates `reinguard.yaml`, `rules/*.yaml`, and `knowledge/manifest.json` when
+Validates `reinguard.yaml`, `control/{states,routes,guards}/*.yaml`, and `knowledge/manifest.json` when
 present, against embedded JSON Schemas. Non-zero exit on hard validation
 errors. **Deprecated** configuration keys (marked in JSON Schema) emit **warnings
 on stderr** but still exit **0** when validation succeeds.
@@ -222,7 +222,7 @@ When `knowledge/manifest.json` is present, validation also:
 Repositories may add editor-specific rules that point agents at
 `.reinguard/knowledge/manifest.json` and describe how to use `entries` and
 `--query` (see ADR-0010). `rgd` does not require a particular bridge file; this
-repo includes `.cursor/rules/knowledge-bridge.mdc` as an example.
+repo includes `.cursor/rules/reinguard-bridge.mdc` as an example.
 
 ## `rgd schema export`
 

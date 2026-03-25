@@ -46,9 +46,6 @@ func TestLoad_knowledgeManifest_ok(t *testing.T) {
 default_branch: main
 providers: []
 `))
-	if err := os.Mkdir(filepath.Join(dir, "rules"), 0o755); err != nil {
-		t.Fatal(err)
-	}
 	if err := os.Mkdir(filepath.Join(dir, "knowledge"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -81,9 +78,6 @@ func TestLoad_knowledgeManifest_invalidJSON(t *testing.T) {
 default_branch: main
 providers: []
 `))
-	if err := os.Mkdir(filepath.Join(dir, "rules"), 0o755); err != nil {
-		t.Fatal(err)
-	}
 	if err := os.Mkdir(filepath.Join(dir, "knowledge"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -102,9 +96,6 @@ func TestLoad_knowledgeManifest_schemaInvalid(t *testing.T) {
 default_branch: main
 providers: []
 `))
-	if err := os.Mkdir(filepath.Join(dir, "rules"), 0o755); err != nil {
-		t.Fatal(err)
-	}
 	if err := os.Mkdir(filepath.Join(dir, "knowledge"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -117,17 +108,18 @@ providers: []
 	}
 }
 
-func TestLoad_rulesDotYmlAndStableOrder(t *testing.T) {
+func TestLoad_controlStatesDotYmlAndStableOrder(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
 default_branch: main
 providers: []
 `))
-	if err := os.Mkdir(filepath.Join(dir, "rules"), 0o755); err != nil {
+	statesDir := filepath.Join(dir, "control", "states")
+	if err := os.MkdirAll(statesDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(dir, "rules", "z.yml"), []byte(`rules:
+	writeFile(t, filepath.Join(statesDir, "z.yml"), []byte(`rules:
   - type: state
     id: z
     priority: 10
@@ -135,7 +127,7 @@ providers: []
       op: eq
     state_id: Z
 `))
-	writeFile(t, filepath.Join(dir, "rules", "a.yaml"), []byte(`rules:
+	writeFile(t, filepath.Join(statesDir, "a.yaml"), []byte(`rules:
   - type: state
     id: a
     priority: 10
@@ -143,7 +135,7 @@ providers: []
       op: eq
     state_id: A
 `))
-	if err := os.Mkdir(filepath.Join(dir, "rules", "skipdir"), 0o755); err != nil {
+	if err := os.Mkdir(filepath.Join(statesDir, "skipdir"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -166,7 +158,7 @@ providers: []
 
 func TestLoad_minimalValid(t *testing.T) {
 	t.Parallel()
-	// Given: valid reinguard.yaml and empty rules directory
+	// Given: valid reinguard.yaml and no control/ directory
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
 default_branch: main
@@ -174,9 +166,6 @@ providers:
   - id: git
     enabled: true
 `))
-	if err := os.Mkdir(filepath.Join(dir, "rules"), 0o755); err != nil {
-		t.Fatal(err)
-	}
 
 	// When: Load is called
 	res, err := Load(dir)
@@ -263,18 +252,19 @@ providers:
 	}
 }
 
-func TestLoad_rulesFile(t *testing.T) {
+func TestLoad_controlStatesFile(t *testing.T) {
 	t.Parallel()
-	// Given: valid root and one rules file
+	// Given: valid root and one state rules file
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
 default_branch: main
 providers: []
 `))
-	if err := os.Mkdir(filepath.Join(dir, "rules"), 0o755); err != nil {
+	statesDir := filepath.Join(dir, "control", "states")
+	if err := os.MkdirAll(statesDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	rulePath := filepath.Join(dir, "rules", "a.yaml")
+	rulePath := filepath.Join(statesDir, "a.yaml")
 	writeFile(t, rulePath, []byte(`rules:
   - type: state
     id: s1
@@ -297,7 +287,7 @@ providers: []
 	}
 }
 
-func TestLoad_rulesSchemaInvalid(t *testing.T) {
+func TestLoad_controlStatesSchemaInvalid(t *testing.T) {
 	t.Parallel()
 	// Given: rules file missing required when shape (empty when object may still parse — use missing rules key)
 	dir := t.TempDir()
@@ -305,10 +295,11 @@ func TestLoad_rulesSchemaInvalid(t *testing.T) {
 default_branch: main
 providers: []
 `))
-	if err := os.Mkdir(filepath.Join(dir, "rules"), 0o755); err != nil {
+	statesDir := filepath.Join(dir, "control", "states")
+	if err := os.MkdirAll(statesDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(dir, "rules", "bad.yaml"), []byte(`rules: not-an-array
+	writeFile(t, filepath.Join(statesDir, "bad.yaml"), []byte(`rules: not-an-array
 `))
 
 	// When: Load is called
