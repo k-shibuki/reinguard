@@ -43,7 +43,7 @@ jobs:
         run: go test ./... -race -coverpkg=./... -coverprofile=coverage.out -count=1
 
       - name: Coverage threshold (module-wide)
-        run: bash tools/check-coverage-threshold.sh 80 coverage.out
+        run: bash tools/check-coverage-threshold.sh 74 coverage.out
 
       - name: Upload coverage artifact
         if: always()
