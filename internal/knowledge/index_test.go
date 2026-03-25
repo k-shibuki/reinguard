@@ -86,6 +86,22 @@ func TestBuildManifest_missingDir(t *testing.T) {
 	}
 }
 
+func TestBuildManifest_emptyDir(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	kdir := filepath.Join(root, "knowledge")
+	if err := os.MkdirAll(kdir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	m, err := BuildManifest(root, kdir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(m.Entries) != 0 {
+		t.Fatalf("expected empty entries, got %d", len(m.Entries))
+	}
+}
+
 func writeFile(t *testing.T, path string, data []byte) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

@@ -1,3 +1,5 @@
+# .reinguard
+
 This directory holds **repository-local** reinguard configuration and
 knowledge Markdown under `knowledge/`. The file `knowledge/manifest.json` is
 **generated** from knowledge front matter by `rgd knowledge index` (ADR-0010).

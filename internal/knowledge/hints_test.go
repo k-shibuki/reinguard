@@ -10,6 +10,21 @@ import (
 	"github.com/k-shibuki/reinguard/pkg/schema"
 )
 
+func TestHintWarnings_ok(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	m := &config.KnowledgeManifest{
+		SchemaVersion: schema.CurrentSchemaVersion,
+		Entries: []config.KnowledgeManifestEntry{
+			{ID: "x", Path: "knowledge/x.md", Description: "d", Triggers: []string{"t"}},
+		},
+	}
+	w := HintWarnings(root, m)
+	if len(w) != 0 {
+		t.Fatalf("%v", w)
+	}
+}
+
 func TestHintWarnings_oversizedFile(t *testing.T) {
 	t.Parallel()
 	root := t.TempDir()

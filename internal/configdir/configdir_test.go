@@ -66,20 +66,36 @@ func TestResolve_emptyCwd(t *testing.T) {
 	}
 }
 
-func TestRepoRoot_dotReinguard(t *testing.T) {
+func TestRepoRoot(t *testing.T) {
 	t.Parallel()
-	got := RepoRoot(filepath.Join("/repo", ".reinguard"))
-	if got != filepath.Clean("/repo") {
-		t.Fatalf("got %q", got)
+	tests := []struct {
+		name   string
+		cfgDir string
+		want   string
+	}{
+		{
+			name:   "dot_reinguard_layout",
+			cfgDir: filepath.Join("/repo", ".reinguard"),
+			want:   filepath.Clean("/repo"),
+		},
+		{
+			name:   "flat_layout",
+			cfgDir: filepath.Join("/tmp", "cfg"),
+			want:   filepath.Clean(filepath.Join("/tmp", "cfg")),
+		},
 	}
-}
-
-func TestRepoRoot_flatLayout(t *testing.T) {
-	t.Parallel()
-	got := RepoRoot(filepath.Join("/tmp", "cfg"))
-	want := filepath.Clean(filepath.Join("/tmp", "cfg"))
-	if got != want {
-		t.Fatalf("got %q want %q", got, want)
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			// Given: a config directory layout
+			// When: RepoRoot is called
+			got := RepoRoot(tt.cfgDir)
+			// Then: expected repository root is returned
+			if got != tt.want {
+				t.Fatalf("got %q want %q", got, tt.want)
+			}
+		})
 	}
 }
 

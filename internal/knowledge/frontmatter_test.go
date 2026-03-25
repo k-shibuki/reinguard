@@ -26,47 +26,56 @@ triggers:
 	}
 }
 
-func TestParseFrontMatter_missingOpen(t *testing.T) {
+func TestParseFrontMatter_errors(t *testing.T) {
 	t.Parallel()
-	_, err := ParseFrontMatter([]byte("# no front matter"))
-	if err == nil || !strings.Contains(err.Error(), "opening") {
-		t.Fatalf("got %v", err)
-	}
-}
-
-func TestParseFrontMatter_missingClose(t *testing.T) {
-	t.Parallel()
-	_, err := ParseFrontMatter([]byte("---\nid: x\ndescription: d\ntriggers:\n  - t\n"))
-	if err == nil || !strings.Contains(err.Error(), "closing") {
-		t.Fatalf("got %v", err)
-	}
-}
-
-func TestParseFrontMatter_missingId(t *testing.T) {
-	t.Parallel()
-	md := `---
+	tests := []struct {
+		name    string
+		input   string
+		contain string
+	}{
+		{
+			name:    "missing_open",
+			input:   "# no front matter",
+			contain: "opening",
+		},
+		{
+			name:    "missing_close",
+			input:   "---\nid: x\ndescription: d\ntriggers:\n  - t\n",
+			contain: "closing",
+		},
+		{
+			name: "missing_id",
+			input: `---
 description: d
 triggers:
   - t
 ---
-`
-	_, err := ParseFrontMatter([]byte(md))
-	if err == nil || !strings.Contains(err.Error(), "id") {
-		t.Fatalf("got %v", err)
-	}
-}
-
-func TestParseFrontMatter_emptyTriggers(t *testing.T) {
-	t.Parallel()
-	md := `---
+`,
+			contain: "id",
+		},
+		{
+			name: "empty_triggers",
+			input: `---
 id: x
 description: d
 triggers: []
 ---
-`
-	_, err := ParseFrontMatter([]byte(md))
-	if err == nil || !strings.Contains(err.Error(), "triggers") {
-		t.Fatalf("got %v", err)
+`,
+			contain: "triggers",
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			// Given: invalid or incomplete front matter
+			// When: ParseFrontMatter is called
+			_, err := ParseFrontMatter([]byte(tt.input))
+			// Then: error mentions the expected validation aspect
+			if err == nil || !strings.Contains(err.Error(), tt.contain) {
+				t.Fatalf("got %v", err)
+			}
+		})
 	}
 }
 

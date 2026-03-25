@@ -32,8 +32,8 @@ Most-commented paths by CodeRabbit root comments:
 5. `tools/backfill-open-pr-policy.py` (4)
 
 Recurring finding clusters (keyword-derived):
-- JSON contract / shape assertions: high frequency
-- Test rigor (Given/When/Then, boundary cases, explicit outcomes): high frequency
+- JSON contract / shape assertions: high-frequency
+- Test rigor (Given/When/Then, boundary cases, explicit outcomes): high-frequency
 - Observation `signals` validation: medium frequency
 - CI token permissions and aggregate gate semantics: medium frequency
 - `state.*` dotted-key resolution from nested maps: medium frequency

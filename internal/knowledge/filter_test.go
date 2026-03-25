@@ -39,3 +39,14 @@ func TestFilterByQuery_caseInsensitive(t *testing.T) {
 		t.Fatalf("%v", out)
 	}
 }
+
+func TestFilterByQuery_noMatchReturnsEmpty(t *testing.T) {
+	t.Parallel()
+	entries := []config.KnowledgeManifestEntry{
+		{ID: "a", Path: "p1", Description: "d", Triggers: []string{"alpha"}},
+	}
+	out := FilterByQuery(entries, "zzz")
+	if len(out) != 0 {
+		t.Fatalf("%v", out)
+	}
+}
