@@ -43,40 +43,6 @@ const testFixtureRulesStateIdle = `rules:
       value: main
 `
 
-// State + route for context build (route keys off resolved state.kind).
-const testFixtureRulesContextBuild = `rules:
-  - type: state
-    id: idle
-    priority: 10
-    state_id: Idle
-    when:
-      op: eq
-      path: git.branch
-      value: main
-  - type: route
-    id: r1
-    priority: 10
-    route_id: next
-    when:
-      op: eq
-      path: state.kind
-      value: resolved
-`
-
-// Two state rules with same priority and overlapping when -> ambiguous with fail-on-non-resolved.
-const testFixtureRulesStateAmbiguous = `rules:
-  - type: state
-    id: a
-    priority: 1
-    state_id: A
-    when: {op: eq, path: x, value: 1}
-  - type: state
-    id: b
-    priority: 1
-    state_id: B
-    when: {op: eq, path: x, value: 1}
-`
-
 // Two route rules with same priority and overlapping when -> ambiguous.
 const testFixtureRulesRouteAmbiguous = `rules:
   - type: route
