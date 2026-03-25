@@ -31,14 +31,6 @@ func newObservationFileFlag() *cli.StringFlag {
 	return &cli.StringFlag{Name: "observation-file"}
 }
 
-func newObservationFileRequiredFlag() *cli.StringFlag {
-	return &cli.StringFlag{Name: "observation-file", Required: true}
-}
-
-func newStateFileFlag() *cli.StringFlag {
-	return &cli.StringFlag{Name: "state-file"}
-}
-
 func newSchemaExportDirFlag() *cli.StringFlag {
 	return &cli.StringFlag{Name: "dir", Aliases: []string{"d"}, Value: "schema-export"}
 }
