@@ -17,20 +17,21 @@ jobs:
           script: |
             const run = async () => {
             const pr = context.payload.pull_request;
-            let body = pr.body || '';
-            // workflow_call reuse: payload.pull_request.labels is often empty even when labels exist.
-            let labels = (pr.labels || []).map((l) => l.name);
-            if (labels.length === 0 && pr.number) {
-              const { data: full } = await github.rest.pulls.get({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: pr.number,
-              });
-              labels = (full.labels || []).map((l) => l.name);
-              if (full.body) {
-                body = full.body;
-              }
+            if (!pr || !pr.number) {
+              core.setFailed(
+                'check-policy: missing pull_request in payload (expected pull_request event).',
+              );
+              return;
             }
+            // Always load body and labels via REST. Webhook / reusable-workflow payloads can
+            // omit labels or serve a stale or truncated body compared to the live PR.
+            const { data: full } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+            });
+            const body = full.body || '';
+            const labels = (full.labels || []).map((l) => l.name);
             const errors = [];
             const warnings = [];
 
@@ -105,7 +106,7 @@ jobs:
 
             // --- 5. PR title format (Conventional Commits) ---
             const titleRegex = /^(feat|fix|refactor|perf|test|docs|build|ci|chore|style|revert)(\(.+\))?!?:\s.+$/;
-            if (!titleRegex.test(pr.title)) {
+            if (!titleRegex.test(full.title)) {
               errors.push(
                 '**PR title**: Must follow Conventional Commits format: ' +
                 '`<type>(<scope>): <summary>`. ' +
@@ -115,7 +116,7 @@ jobs:
             }
 
             // --- 6. Base branch check (HS-PR-BASE) ---
-            if (pr.base.ref !== 'main' && pr.base.ref !== 'master') {
+            if (full.base.ref !== 'main' && full.base.ref !== 'master') {
               errors.push(
                 '**Base branch**: PR must target `main`. ' +
                 'Using `--base feat/<branch>` causes the PR to auto-close when the base branch is deleted on merge. ' +
