@@ -5,12 +5,12 @@ import "testing"
 func TestFlattenSignals(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name     string
-		input    map[string]any
-		wantKey  string
-		wantVal  any
-		wantMap  bool // true when the expected value is a map[string]any
-		nilVal   bool // true when the expected value is explicitly nil
+		wantVal any
+		input   map[string]any
+		name    string
+		wantKey string
+		wantMap bool
+		nilVal  bool
 	}{
 		{
 			name:    "nested dotted key",
