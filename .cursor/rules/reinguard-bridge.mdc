@@ -1,8 +1,6 @@
 ---
-description: Bridge Cursor agents to .reinguard semantic control plane (ADR-0001, ADR-0011)
-alwaysApply: false
+alwaysApply: true
 ---
-
 # reinguard bridge (Adapter layer)
 
 This file is an **adapter**: it points at the Semantics layer (`.reinguard/`)
@@ -12,8 +10,22 @@ and Substrate (`rgd`). Do not duplicate body text from `.reinguard/` here.
 
 - **Substrate config**: [.reinguard/reinguard.yaml](../../.reinguard/reinguard.yaml) — `schema_version`, `default_branch`, `providers` (ADR-0008, ADR-0009).
 - **Knowledge catalog**: [.reinguard/knowledge/manifest.json](../../.reinguard/knowledge/manifest.json) — `entries[]` with `id`, `path`, `description`, `triggers` (ADR-0010).
-- **Policy** (normative, not in manifest): [.reinguard/policy/](../../.reinguard/policy/) — e.g. review thread consensus rules.
-- **Control** (match rules): [.reinguard/control/states/](../../.reinguard/control/states/), [routes/](../../.reinguard/control/routes/), [guards/](../../.reinguard/control/guards/) — YAML consumed by `config.Load` / `rgd config validate`.
+- **Policy catalog** (normative, not in knowledge manifest): [.reinguard/policy/catalog.yaml](../../.reinguard/policy/catalog.yaml) — `entries[]` with `id`, `path`, `description`; bodies live under [.reinguard/policy/](../../.reinguard/policy/).
+- **Control catalog**: [.reinguard/control/catalog.yaml](../../.reinguard/control/catalog.yaml) — `entries[]` with `id`, `path`, `type`, `description`; rule files under [.reinguard/control/states/](../../.reinguard/control/states/), [routes/](../../.reinguard/control/routes/), [guards/](../../.reinguard/control/guards/) — consumed by `config.Load` / `rgd config validate`.
+
+## Always-active policy
+
+Follow these policy documents in every interaction:
+
+- [safety--agent-invariants.md](../../.reinguard/policy/safety--agent-invariants.md) — **HARD STOPS (HS-*)**:
+  - **HS-CI-MERGE** — green CI before merge; no `--admin`
+  - **HS-PR-TEMPLATE** — all PR template sections required
+  - **HS-PR-BASE** — PRs target `main` only
+  - **HS-LOCAL-VERIFY** — `go test` / `go vet` / `golangci-lint` before push
+  - **HS-NO-SKIP** — no skipping verification without documented exception
+  - **HS-REVIEW-RESOLVE** — disposition reply before resolving threads
+  - **HS-MERGE-CONSENSUS** — no auto-merge while review pending
+- [coding--standards.md](../../.reinguard/policy/coding--standards.md) — English artifacts, `gofmt`, `go vet`, ADR/CLI authority
 
 ## Knowledge retrieval
 

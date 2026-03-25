@@ -27,7 +27,7 @@ Optional: the repo **[`Makefile`](../Makefile)** provides `make test`, `make che
 (fmt, vet, lint, test — lint is `golangci-lint`), `make coverage`, `make build`, etc.
 It is **not** normative — CI and the shell commands below are the source of truth.
 
-Optional commit message template (see [`.cursor/rules/commit-format.mdc`](../.cursor/rules/commit-format.mdc)):
+Optional commit message template (see [`.reinguard/policy/commit--format.md`](../.reinguard/policy/commit--format.md); Cursor: [`.cursor/rules/commit-format.mdc`](../.cursor/rules/commit-format.mdc)):
 
 ```bash
 git config commit.template .github/gitmessage
@@ -35,7 +35,7 @@ git config commit.template .github/gitmessage
 
 ## Checks before you push
 
-Same gates as CI (see also [`.cursor/rules/agent-safety.mdc`](../.cursor/rules/agent-safety.mdc)):
+Same gates as CI (see also [`.reinguard/policy/safety--agent-invariants.md`](../.reinguard/policy/safety--agent-invariants.md); Cursor: [`.cursor/rules/reinguard-bridge.mdc`](../.cursor/rules/reinguard-bridge.mdc) § Always-active policy):
 
 ```bash
 go test ./... -race -count=1
@@ -68,7 +68,7 @@ Optional: `pre-commit install --hook-type commit-msg` and `pre-commit install` (
 ## Workflow
 
 - **Issue-driven**: Prefer one GitHub Issue per implementation PR; the PR body must include `Closes #N` (or `Fixes` / `Resolves`), unless you use an exception label and fill `## Exception` per [`.github/PULL_REQUEST_TEMPLATE.md`](PULL_REQUEST_TEMPLATE.md).
-- **Commits**: Conventional Commits and `Refs: #N` in the message body — see [`.cursor/rules/commit-format.mdc`](../.cursor/rules/commit-format.mdc).
+- **Commits**: Conventional Commits and `Refs: #N` in the message body — see [`.reinguard/policy/commit--format.md`](../.reinguard/policy/commit--format.md).
 - **Commands**: Thin procedures live under [`.cursor/commands/`](../.cursor/commands/) (`pr-create`, `review-fix`, `pr-merge`).
 
 ## CI and PR policy
@@ -98,7 +98,7 @@ In GitHub: **Settings → Branches → Branch protection rule** for `main`:
 
 1. **Require a pull request before merging** (recommended).
 2. **Require status checks to pass**: enable **Require status checks to pass before merging** and add check **`ci-pass`** (from workflow *CI*).
-3. **Require conversation resolution before merging**: **enable** — all review threads must be resolved before merge (aligns with `HS-REVIEW-RESOLVE` in [`.cursor/rules/agent-safety.mdc`](../.cursor/rules/agent-safety.mdc)).
+3. **Require conversation resolution before merging**: **enable** — all review threads must be resolved before merge (aligns with `HS-REVIEW-RESOLVE` in [`.reinguard/policy/safety--agent-invariants.md`](../.reinguard/policy/safety--agent-invariants.md)).
 4. Do not rely on bypassing checks (`gh pr merge --admin` is prohibited for agents).
 
 ### Merge strategy

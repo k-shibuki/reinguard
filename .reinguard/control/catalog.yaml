@@ -1,0 +1,12 @@
+# Control catalog — match-rule files discovered by `rgd config validate`.
+# Maintained manually; future `rgd` may auto-generate.
+schema_version: "0.3.0"
+entries:
+  - id: default-states
+    path: states/default.yaml
+    type: state
+    description: "Dogfood: normal clone detection (branch present)"
+  - id: default-routes
+    path: routes/default.yaml
+    type: route
+    description: "Dogfood: resolve route when state is resolved"

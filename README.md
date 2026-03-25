@@ -92,9 +92,9 @@ See **[.github/CONTRIBUTING.md](.github/CONTRIBUTING.md)** for local checks, CI 
 fork PRs), branch protection, labels, PR policy, and review-thread rules.
 
 - Follow **Issue-driven** workflow: open an Issue, then a PR that `Closes #N`
-  (see `.cursor/rules/workflow-policy.mdc`).
-- **Commit format** follows `.cursor/rules/commit-format.mdc`
-  (Conventional Commits + `Refs: #N` in the body). Optional local setup:
+  (SSOT: `.reinguard/policy/workflow--pr-discipline.md`; Cursor: `workflow-policy.mdc`).
+- **Commit format** follows `.reinguard/policy/commit--format.md`
+  (Conventional Commits + `Refs: #N` in the body; Cursor: `commit-format.mdc`). Optional local setup:
   - `git config commit.template .github/gitmessage`
   - `pip install pre-commit && pre-commit install --hook-type commit-msg`
 - Use the PR template at `.github/PULL_REQUEST_TEMPLATE.md`.

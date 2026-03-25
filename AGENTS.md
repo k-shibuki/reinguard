@@ -1,7 +1,9 @@
 # AGENTS.md
 
-Configuration for AI reviewers (e.g. CodeRabbit) and agents using this repository. Cursor
-policies live in `.cursor/rules/` and `.cursor/commands/`.
+Configuration for AI reviewers (e.g. CodeRabbit) and agents using this repository.
+
+- **Semantics (SSOT)**: `.reinguard/` — policy index: [`.reinguard/policy/catalog.yaml`](.reinguard/policy/catalog.yaml); knowledge index: [`.reinguard/knowledge/manifest.json`](.reinguard/knowledge/manifest.json).
+- **Adapter (Cursor)**: `.cursor/rules/` and `.cursor/commands/` point at Semantics; see [ADR-0001](docs/adr/0001-substrate-positioning.md).
 
 ## Project context
 
@@ -49,4 +51,4 @@ short **disposition**: **Fixed** / **By design** / **False positive** / **Acknow
 [`.reinguard/policy/review--consensus-protocol.md`](.reinguard/policy/review--consensus-protocol.md)
 for the full consensus model and resolution rules.
 
-Do **not** enable **auto-merge** while bot review is still pending or threads are unresolved.
+Do **not** enable **auto-merge** while bot review is still pending or threads are unresolved ([**HS-MERGE-CONSENSUS**](.reinguard/policy/safety--agent-invariants.md)).

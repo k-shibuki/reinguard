@@ -96,6 +96,20 @@
         "GWT",
         "Go testing"
       ]
+    },
+    {
+      "id": "testing-strategy",
+      "path": ".reinguard/knowledge/testing--strategy.md",
+      "description": "Go test strategy — coverage, perspectives, table-driven tests, CLI tests, mocks",
+      "triggers": [
+        "test strategy",
+        "coverage target",
+        "table-driven",
+        "CLI test",
+        "mock",
+        "httptest",
+        "urfave cli"
+      ]
     }
   ]
 }

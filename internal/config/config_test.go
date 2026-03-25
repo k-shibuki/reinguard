@@ -330,32 +330,70 @@ providers: []
 	}
 }
 
-func TestLoad_controlStatesTypeMismatchRejected(t *testing.T) {
+func TestLoad_controlKindTypeMismatchRejected(t *testing.T) {
 	t.Parallel()
-	// Given: state subtree contains a rule with wrong type
-	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
-default_branch: main
-providers: []
-`))
-	statesDir := filepath.Join(dir, "control", "states")
-	if err := os.MkdirAll(statesDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	writeFile(t, filepath.Join(statesDir, "bad.yaml"), []byte(`rules:
+	tests := []struct {
+		name     string
+		kind     string
+		yamlBody string
+		wantSub  string
+	}{
+		{
+			name: "states_dir_has_route_type",
+			kind: "states",
+			yamlBody: `rules:
   - type: route
     id: r1
     priority: 10
     route_id: next
     when: {op: eq, path: x, value: 1}
+`,
+			wantSub: `expected "state"`,
+		},
+		{
+			name: "routes_dir_has_state_type",
+			kind: "routes",
+			yamlBody: `rules:
+  - type: state
+    id: s1
+    priority: 10
+    state_id: idle
+    when: {op: eq, path: x, value: 1}
+`,
+			wantSub: `expected "route"`,
+		},
+		{
+			name: "guards_dir_has_state_type",
+			kind: "guards",
+			yamlBody: `rules:
+  - type: state
+    id: s1
+    priority: 10
+    state_id: idle
+    when: {op: eq, path: x, value: 1}
+`,
+			wantSub: `expected "guard"`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
+default_branch: main
+providers: []
 `))
+			kindDir := filepath.Join(dir, "control", tt.kind)
+			if err := os.MkdirAll(kindDir, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			writeFile(t, filepath.Join(kindDir, "bad.yaml"), []byte(tt.yamlBody))
 
-	// When: Load is called
-	_, err := Load(dir)
-
-	// Then: type vs control/states mismatch is reported
-	if err == nil || !strings.Contains(err.Error(), `expected "state"`) {
-		t.Fatalf("got err=%v", err)
+			_, err := Load(dir)
+			if err == nil || !strings.Contains(err.Error(), tt.wantSub) {
+				t.Fatalf("got err=%v, want substring %q", err, tt.wantSub)
+			}
+		})
 	}
 }
 

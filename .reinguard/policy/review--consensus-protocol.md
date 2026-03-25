@@ -166,5 +166,5 @@ Count `nodes` where `isResolved` is false for unresolved threads.
 
 - `.reinguard/knowledge/review--bot-operations.md` — trigger, detection,
   timing
-- `.cursor/rules/agent-safety.mdc` `HS-REVIEW-RESOLVE`
-- `.cursor/commands/review-fix.md` — CodeRabbit resolve gate
+- `.reinguard/policy/safety--agent-invariants.md` § **HS-REVIEW-RESOLVE** (Cursor: `reinguard-bridge.mdc` § Always-active policy)
+- `.cursor/commands/review-fix.md` — review-fix procedure
