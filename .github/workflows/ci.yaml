@@ -13,7 +13,7 @@ permissions:
 jobs:
   # Always runs: on PR runs policy script; on push/workflow_dispatch no-op (avoids skipped needs).
   gate-policy:
-    name: CI / Gate — PR policy
+    name: Gate — PR policy
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -39,7 +39,7 @@ jobs:
             return await fn(github, context, core);
 
   lint-markdown:
-    name: CI / Lint — Markdown
+    name: Lint — Markdown
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
@@ -47,7 +47,7 @@ jobs:
       - uses: DavidAnson/markdownlint-cli2-action@v22.0.0
 
   lint-go:
-    name: CI / Lint — Go
+    name: Lint — Go
     needs: [gate-policy]
     runs-on: ubuntu-latest
     steps:
@@ -76,7 +76,7 @@ jobs:
         run: go vet ./...
 
   test-go:
-    name: CI / Test — Go
+    name: Test — Go
     needs: [lint-go]
     runs-on: ubuntu-latest
     steps:
@@ -114,7 +114,7 @@ jobs:
 
   # Safe for fork PRs — only git + local schema validation.
   dogfood-rgd-cli:
-    name: CI / Dogfood — rgd (CLI)
+    name: Dogfood — rgd (CLI)
     needs: [test-go]
     runs-on: ubuntu-latest
     steps:
@@ -140,7 +140,7 @@ jobs:
 
   # Skip fork PRs — never run API collection against untrusted merge commits.
   dogfood-rgd-github:
-    name: CI / Dogfood — rgd (GitHub)
+    name: Dogfood — rgd (GitHub)
     needs: [test-go]
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
@@ -175,7 +175,7 @@ jobs:
 
   # Aggregate gate for branch protection (single required check).
   ci-pass:
-    name: CI / Gate — pass
+    name: Gate — Pass
     if: always()
     needs:
       - gate-policy
