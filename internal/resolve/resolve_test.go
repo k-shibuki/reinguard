@@ -12,10 +12,19 @@ func TestResolve_unsupportedRuleType(t *testing.T) {
 	t.Parallel()
 	// Given: an unsupported rule type "guard"
 	// When: Resolve is called
-	// Then: error mentions unsupported rule type
-	_, err := Resolve(nil, nil, nil, "guard")
-	if err == nil || !strings.Contains(err.Error(), `unsupported rule type "guard"`) {
-		t.Fatalf("got %v", err)
+	// Then: OutcomeUnsupported with re-entry metadata (ADR-0007)
+	res, err := Resolve(nil, nil, nil, "guard")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Kind != OutcomeUnsupported || !strings.Contains(res.Reason, `unsupported rule type "guard"`) {
+		t.Fatalf("got %+v", res)
+	}
+	if len(res.MissingEvidence) != 1 || res.MissingEvidence[0] != "rule_type:guard" {
+		t.Fatalf("missing_evidence: %v", res.MissingEvidence)
+	}
+	if res.ReEntryHint == "" {
+		t.Fatal("want ReEntryHint")
 	}
 }
 
@@ -149,10 +158,16 @@ func TestResolveState_missingStateID(t *testing.T) {
 		{Type: "state", ID: "bad", Priority: 10, StateID: "", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
 	}
 	// When: ResolveState runs
-	_, err := ResolveState(rules, map[string]any{"x": 1}, nil)
-	// Then: configuration error
-	if err == nil || !strings.Contains(err.Error(), `resolve: state rule "bad" missing state_id`) {
-		t.Fatalf("%v", err)
+	res, err := ResolveState(rules, map[string]any{"x": 1}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Then: unsupported outcome (invalid rule shape)
+	if res.Kind != OutcomeUnsupported || !strings.Contains(res.Reason, `state rule "bad" is missing state_id`) {
+		t.Fatalf("%+v", res)
+	}
+	if len(res.MissingEvidence) < 2 || res.MissingEvidence[0] != "rule_id:bad" {
+		t.Fatalf("missing_evidence: %v", res.MissingEvidence)
 	}
 }
 
@@ -163,10 +178,16 @@ func TestResolveState_ruleEvalError(t *testing.T) {
 		{Type: "state", ID: "r", Priority: 10, StateID: "S", When: map[string]any{"op": "bogus"}},
 	}
 	// When: ResolveState runs
-	_, err := ResolveState(rules, map[string]any{}, nil)
-	// Then: error names rule
-	if err == nil || !strings.Contains(err.Error(), "rule r:") {
-		t.Fatalf("%v", err)
+	res, err := ResolveState(rules, map[string]any{}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Then: unsupported — substrate cannot interpret the when-clause safely
+	if res.Kind != OutcomeUnsupported || !strings.Contains(res.Reason, "rule r:") {
+		t.Fatalf("%+v", res)
+	}
+	if len(res.MissingEvidence) != 1 || res.MissingEvidence[0] != "when_evaluation" {
+		t.Fatalf("missing_evidence: %v", res.MissingEvidence)
 	}
 }
 
@@ -247,12 +268,36 @@ func TestResolveRoute_missingRouteID(t *testing.T) {
 	t.Parallel()
 	// Given: route rule with empty route_id
 	// When: ResolveRoute runs
-	_, err := ResolveRoute([]config.Rule{
+	res, err := ResolveRoute([]config.Rule{
 		{Type: "route", ID: "bad", Priority: 1, RouteID: "", When: map[string]any{"op": "eq", "path": "a", "value": 1}},
 	}, map[string]any{"a": 1}, nil)
-	// Then: configuration error
-	if err == nil || !strings.Contains(err.Error(), `resolve: route rule "bad" missing route_id`) {
-		t.Fatalf("%v", err)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Then: unsupported outcome
+	if res.Kind != OutcomeUnsupported || !strings.Contains(res.Reason, `route rule "bad" is missing route_id`) {
+		t.Fatalf("%+v", res)
+	}
+}
+
+func TestResolveRoute_winnerMissingRouteID_preservesRouteCandidates(t *testing.T) {
+	t.Parallel()
+	// Given: best-priority match has empty route_id but a higher-priority-number match has a valid route_id
+	rules := []config.Rule{
+		{Type: "route", ID: "bad", Priority: 5, RouteID: "", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+		{Type: "route", ID: "ok", Priority: 10, RouteID: "R10", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+	}
+	// When: ResolveRoute runs
+	res, err := ResolveRoute(rules, map[string]any{"x": 1}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Then: unsupported on winner, but ordered alternatives with non-empty route_id are still attached
+	if res.Kind != OutcomeUnsupported {
+		t.Fatalf("want unsupported, got %+v", res)
+	}
+	if len(res.RouteCandidates) != 1 || res.RouteCandidates[0].RouteID != "R10" {
+		t.Fatalf("route_candidates: %+v", res.RouteCandidates)
 	}
 }
 

@@ -13,7 +13,7 @@ body or README.
 | `--cwd` | — | Working directory for git/gh subprocesses (default: process CWD) |
 | `-o`, `--output` | — | Reserved for future file output (optional) |
 | `--serial` | — | Run observation providers sequentially (default: parallel) |
-| `--fail-on-non-resolved` | — | Exit non-zero when state/route outcome is `ambiguous` or `degraded` |
+| `--fail-on-non-resolved` | — | Exit non-zero when state/route outcome is `ambiguous`, `degraded`, or `unsupported` |
 
 With **urfave/cli v2**, place flags that must apply to a **nested** subcommand
 **after** the subcommand name (e.g. `rgd state eval --config-dir DIR`), not only
@@ -28,7 +28,7 @@ before `state`.
 
 | Code | Meaning |
 |------|---------|
-| 0 | Success; default even for ambiguous/degraded evaluation unless `--fail-on-non-resolved` |
+| 0 | Success; default even for ambiguous/degraded/unsupported evaluation unless `--fail-on-non-resolved` |
 | 1 | Usage error, validation failure, or missing required flag |
 | 2 | Unexpected internal error |
 
@@ -130,11 +130,15 @@ JSON object:
 
 | Field | Description |
 |-------|-------------|
-| `kind` | `resolved` \| `ambiguous` \| `degraded` |
+| `kind` | `resolved` \| `ambiguous` \| `degraded` \| `unsupported` (ADR-0007) |
 | `state_id` | When `resolved` |
 | `rule_id` | Winning rule when `resolved` |
 | `candidates` | Rule ids when `ambiguous` |
-| `reason` | Human-readable when not `resolved` |
+| `reason` | Human-readable summary when not `resolved`, or details for `unsupported` |
+| `missing_evidence` | Present for `unsupported`: machine-oriented tags (e.g. `when_evaluation`, `rule_id:…`) |
+| `re_entry_hint` | Present for `unsupported`: what to do next (re-entry contract per ADR-0007) |
+
+**`degraded` vs `unsupported`:** `degraded` means evaluation ran but no trustworthy winner (no match, all suppressed by `depends_on`, etc.). `unsupported` means the substrate refused to interpret inputs safely (invalid `when` shape, wrong `rule_type` to `Resolve`, or a winning rule missing `state_id` / `route_id`).
 
 ## `rgd route select`
 
@@ -145,7 +149,7 @@ Evaluates `type: route` rules using:
 
 ### Output
 
-Same shape as state eval with `route_id` instead of `state_id` when resolved.
+Same shape as state eval with `route_id` instead of `state_id` when resolved, including `unsupported` and handoff fields.
 
 `route_candidates` is always present when at least one matching route rule has a
 non-empty `route_id` after `depends_on` suppression. It lists **all** such
@@ -211,6 +215,10 @@ The `knowledge` object in the output has **`entries`** (same shape as
 
 Optional per-step flags may be added in future issues; Phase 1 runs the full
 default chain when not using `--observation-file`.
+
+The `state` field is the state-resolution **Result** (same JSON shape as `rgd state eval` stdout).
+The `routes` array contains one route-resolution **Result** (same shape as `rgd route select` stdout,
+including `route_candidates` when applicable). See `pkg/schema/operational-context.json` (`resolutionResult`).
 
 ## `rgd config validate`
 

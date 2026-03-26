@@ -4,6 +4,7 @@
 
 - `.github/PULL_REQUEST_TEMPLATE.md` (body SSOT — **HS-PR-TEMPLATE**)
 - `.reinguard/policy/commit--format.md` (branch naming; Cursor: `commit-format.mdc`)
+- `.reinguard/policy/workflow--pr-discipline.md` § **PR body updates** — multiline `gh api` pitfalls (gate-policy)
 - `tools/check-pr-policy.sh` (local pre-flight mirroring `gate-policy` CI)
 
 **Already in context** (do not re-list): `reinguard-bridge.mdc` (HS-*, catalogs), `workflow-policy.mdc` (exceptions, command separation).
@@ -33,7 +34,7 @@
    Exception PRs: add `--label no-issue` or `--label hotfix` and complete `## Exception`.
 6. **CodeRabbit**: With `.coderabbit.yaml` auto-review enabled, a first review usually starts without action. If none appears (UI/org override, rate limit), or to force an immediate pass: `gh pr comment <N> --body "@coderabbitai review"`.
 7. Wait for CI: `gh pr checks <N>` until **`ci-pass`** is success (do not merge on red).
-8. On `gate-policy` failure: re-run `tools/check-pr-policy.sh` locally, then `gh pr edit <N> --body-file ...` or `--body` with corrected sections; add missing **type** label if needed.
+8. On `gate-policy` failure: re-run `tools/check-pr-policy.sh` locally, then `gh pr edit <N> --body-file ...` or `--body` with corrected sections; add missing **type** label if needed. If you patch the body via `gh api`, follow Semantics § **PR body updates** in `.reinguard/policy/workflow--pr-discipline.md` so newlines are not corrupted.
 
 ## Output
 

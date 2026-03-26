@@ -23,7 +23,7 @@ func newSerialFlag() *cli.BoolFlag {
 func newFailOnNonResolvedFlag() *cli.BoolFlag {
 	return &cli.BoolFlag{
 		Name:  "fail-on-non-resolved",
-		Usage: "exit non-zero for ambiguous/degraded outcomes where applicable",
+		Usage: "exit non-zero for ambiguous, degraded, or unsupported outcomes where applicable",
 	}
 }
 

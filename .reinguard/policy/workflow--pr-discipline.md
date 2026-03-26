@@ -50,6 +50,13 @@ Use `.github/ISSUE_TEMPLATE/task.md` as the starting point.
   Test plan, Linked issues, Exception if applicable).
 - Base branch is always **`main`**.
 
+### PR body updates (`gh api` and multiline text)
+
+Programmatic create/edit must preserve **real newlines** in the PR body. If GitHub stores the body as one physical line containing the two-character sequence `\` + `n` instead of line breaks, **Gate — PR policy** fails (required sections such as `Summary` are not detected).
+
+- **Preferred**: `gh pr create --body-file …` / `gh pr edit <N> --body-file …`, after `tools/check-pr-policy.sh` passes for create.
+- **If using `gh api`**: send JSON with `--input` and a `body` value that is an actual multiline string — for example `jq -n --rawfile b path/to/body.md '{body: $b}' > patch.json` then `gh api repos/<owner>/<repo>/pulls/<N> -X PATCH --input patch.json`. Do **not** rely on `-f body=…` with multiline shell values or on piping `jq -Rs` into form-style fields; form encoding can turn newlines into literal `\n` and break section checks.
+
 ## Exceptions
 
 - Use repository **labels** (`no-issue` / `hotfix`) and a `## Exception` section in the PR when bypassing the normal Issue flow (document justification).

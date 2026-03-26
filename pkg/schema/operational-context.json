@@ -2,6 +2,46 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/k-shibuki/reinguard/schemas/operational-context.json",
   "title": "OperationalContext",
+  "$defs": {
+    "resolutionResult": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["resolved", "ambiguous", "degraded", "unsupported"]
+        },
+        "state_id": { "type": "string" },
+        "route_id": { "type": "string" },
+        "target_id": { "type": "string" },
+        "rule_id": { "type": "string" },
+        "reason": { "type": "string" },
+        "priority": { "type": "number" },
+        "candidates": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "route_candidates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "rule_id": { "type": "string" },
+              "route_id": { "type": "string" },
+              "priority": { "type": "number" }
+            },
+            "additionalProperties": true
+          }
+        },
+        "missing_evidence": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "re_entry_hint": { "type": "string" }
+      },
+      "additionalProperties": true
+    }
+  },
   "type": "object",
   "required": ["schema_version"],
   "properties": {
@@ -14,14 +54,12 @@
       "additionalProperties": true
     },
     "state": {
-      "type": "object",
-      "additionalProperties": true
+      "$ref": "#/$defs/resolutionResult"
     },
     "routes": {
       "type": "array",
       "items": {
-        "type": "object",
-        "additionalProperties": true
+        "$ref": "#/$defs/resolutionResult"
       }
     },
     "guards": {
