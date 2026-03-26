@@ -61,7 +61,7 @@ func TestRunGuardEval_relativeObservationFileWithCwd(t *testing.T) {
 	dataDir := t.TempDir()
 	writeFile(t, filepath.Join(dataDir, "o.json"), []byte(`{
 	  "signals": {
-	    "git": {"working_tree_clean": true},
+	    "git": {"working_tree_clean": true, "detached_head": false},
 	    "github": {
 	      "ci": {"ci_status": "success"},
 	      "reviews": {"review_threads_unresolved": 0}
@@ -102,7 +102,7 @@ func TestRunGuardEval_ok(t *testing.T) {
 	p := filepath.Join(tmp, "o.json")
 	writeFile(t, p, []byte(`{
 	  "signals": {
-	    "git": {"working_tree_clean": true},
+	    "git": {"working_tree_clean": true, "detached_head": false},
 	    "github": {
 	      "ci": {"ci_status": "success"},
 	      "reviews": {"review_threads_unresolved": 0}

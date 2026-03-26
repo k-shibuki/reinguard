@@ -12,3 +12,7 @@ entries:
     path: routes/default.yaml
     type: route
     description: "Dogfood: resolve route when state is resolved"
+  - id: default-guards
+    path: guards/default.yaml
+    type: guard
+    description: "Dogfood: gate merge-readiness built-in when branch is attached"

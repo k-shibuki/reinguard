@@ -1,0 +1,10 @@
+# Dogfood guard rules: enable merge-readiness (built-in) when not on a detached HEAD.
+rules:
+  - type: guard
+    id: merge_readiness_when_branch_attached
+    priority: 10
+    guard_id: merge-readiness
+    when:
+      op: eq
+      path: git.detached_head
+      value: false

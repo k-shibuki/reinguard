@@ -1,6 +1,7 @@
 // Package guard evaluates coarse guard predicates over flattened observation signals for the
-// semantic control plane (ADR-0011). Phase 1 merge-readiness inspects git cleanliness,
-// CI status, and unresolved review thread counts embedded in the signal map.
+// semantic control plane (ADR-0011). Built-ins implement [Guard] and register on [DefaultRegistry];
+// declarative rules in control/guards/*.yaml gate when a built-in runs ([EvalWithRules]).
+// Phase 1 merge-readiness inspects git cleanliness, CI status, and unresolved review thread counts.
 //
 // # Inputs and outputs
 //
@@ -30,6 +31,16 @@ type MergeReadinessResult struct {
 	OK      bool   `json:"ok"`
 }
 
+type mergeReadinessGuard struct{}
+
+func (mergeReadinessGuard) ID() string {
+	return "merge-readiness"
+}
+
+func (mergeReadinessGuard) Eval(sigs map[string]any) MergeReadinessResult {
+	return evalMergeReadiness(sigs)
+}
+
 // EvalMergeReadiness checks Phase 1 merge signals: git working_tree_clean must be true,
 // github.ci.ci_status must be "success" (case-insensitive), and
 // github.reviews.review_threads_unresolved must be present, parseable as an integer
@@ -37,6 +48,10 @@ type MergeReadinessResult struct {
 // for that path fail closed. Missing top-level keys still yield empty nested maps for other
 // paths, so absent git / CI fields fail the clean/CI checks as before.
 func EvalMergeReadiness(sigs map[string]any) MergeReadinessResult {
+	return evalMergeReadiness(sigs)
+}
+
+func evalMergeReadiness(sigs map[string]any) MergeReadinessResult {
 	const id = "merge-readiness"
 
 	clean, _ := signals.GetBool(sigs, "git.working_tree_clean")

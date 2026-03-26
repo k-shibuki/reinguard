@@ -1,9 +1,9 @@
 # reinguard
 
-[![CI](https://github.com/k-shibuki/reinguard/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/k-shibuki/reinguard/actions/workflows/ci.yaml?query=branch%3Amain)
-[![Go version](https://img.shields.io/github/go-mod/go-version/k-shibuki/reinguard)](https://github.com/k-shibuki/reinguard/blob/main/go.mod)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/k-shibuki/reinguard/blob/main/LICENSE)
+[![Go version](https://img.shields.io/github/go-mod/go-version/k-shibuki/reinguard)](https://github.com/k-shibuki/reinguard/blob/main/go.mod)
 [![Go Report Card](https://goreportcard.com/badge/github.com/k-shibuki/reinguard)](https://goreportcard.com/report/github.com/k-shibuki/reinguard)
+[![CI](https://github.com/k-shibuki/reinguard/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/k-shibuki/reinguard/actions/workflows/ci.yaml?query=branch%3Amain)
 [![Pre-release](https://img.shields.io/badge/status-pre--release-orange)](https://github.com/k-shibuki/reinguard#status)
 
 **reinguard** is a repo-owned control system for agentic development. It stabilizes the information space in which AI agents reason—without turning into a workflow brain.

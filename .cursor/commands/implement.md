@@ -23,11 +23,16 @@ gh issue list --state open --limit 30 --json number,title,labels
 
 **Knowledge discovery** (substrate):
 
+1. **Read the Issue** (`gh issue view …` above): pull **1–3 concrete search terms** from the **title and body** — subsystem or package names, ADR/issue refs, CLI subcommands, domain nouns, error messages, or phrases from **Touches** / **Definition of Done**. These are not generic words (“fix”, “bug”); `rgd knowledge pack --query` matches **triggers** only (case-insensitive substring), not `description` text — use `description` in the manifest for human context when choosing terms.
+1. **Run retrieval** with each term (separate runs or one combined phrase if it reads naturally):
+
 ```bash
-rgd knowledge pack --query '<keyword from Issue>'
+rgd knowledge pack --query '<term derived from Issue title/body>'
 ```
 
-Open each `entries[].path` under `.reinguard/knowledge/` as needed. Optional full pipeline snapshot:
+Repeat for other salient terms if the first pack is thin or off-topic.
+
+1. Open each returned `entries[].path` under `.reinguard/knowledge/` as needed. Optional full pipeline snapshot:
 
 ```bash
 rgd context build
