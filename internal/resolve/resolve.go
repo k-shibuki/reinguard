@@ -27,6 +27,7 @@ type Result struct {
 	Kind            OutcomeKind      `json:"kind"`
 	StateID         string           `json:"state_id,omitempty"`
 	RouteID         string           `json:"route_id,omitempty"`
+	TargetID        string           `json:"target_id,omitempty"` // unified winning ID (mirrors state_id or route_id)
 	RuleID          string           `json:"rule_id,omitempty"`
 	Reason          string           `json:"reason,omitempty"`
 	Candidates      []string         `json:"candidates,omitempty"`
@@ -61,91 +62,80 @@ func filterType(rules []config.Rule, typ string) []config.Rule {
 	return out
 }
 
-// ResolveState evaluates state rules against signals and degraded sources.
-func ResolveState(rules []config.Rule, signals map[string]any, degraded map[string]struct{}) (Result, error) {
-	candidates, err := matchingRules(StateRules(rules), signals)
-	if err != nil {
-		return Result{}, err
-	}
-	if len(candidates) == 0 {
-		return Result{Kind: OutcomeDegraded, Reason: "no matching state rule"}, nil
-	}
-	active := suppressDependsOn(candidates, degraded)
-	if len(active) == 0 {
-		return Result{Kind: OutcomeDegraded, Reason: "all matches suppressed by depends_on"}, nil
-	}
-	best := active[0].Priority
-	for _, c := range active[1:] {
-		if c.Priority < best {
-			best = c.Priority
-		}
-	}
-	var atBest []config.Rule
-	for _, c := range active {
-		if nearlyEqual(c.Priority, best) {
-			atBest = append(atBest, c)
-		}
-	}
-	if len(atBest) > 1 {
-		ids := make([]string, len(atBest))
-		for i := range atBest {
-			ids[i] = atBest[i].ID
-		}
-		return Result{
-			Kind:       OutcomeAmbiguous,
-			Priority:   best,
-			Candidates: ids,
-			Reason:     "multiple rules at same best priority",
-		}, nil
-	}
-	r := atBest[0]
-	if r.StateID == "" {
-		return Result{}, fmt.Errorf("resolve: state rule %q missing state_id", r.ID)
-	}
-	return Result{
-		Kind:     OutcomeResolved,
-		StateID:  r.StateID,
-		RuleID:   r.ID,
-		Priority: r.Priority,
-	}, nil
+type resolveProfile struct {
+	ruleType            string
+	noMatchReason       string
+	allSuppressedReason string
+	ambiguousReason     string
+	routeStyle          bool
 }
 
-// ResolveRoute selects route rules (same priority semantics as state).
-func ResolveRoute(rules []config.Rule, signals map[string]any, degraded map[string]struct{}) (Result, error) {
-	candidates, err := matchingRules(RouteRules(rules), signals)
+func profileForRuleType(ruleType string) (resolveProfile, error) {
+	switch ruleType {
+	case "state":
+		return resolveProfile{
+			ruleType:            "state",
+			noMatchReason:       "no matching state rule",
+			allSuppressedReason: "all matches suppressed by depends_on",
+			ambiguousReason:     "multiple rules at same best priority",
+			routeStyle:          false,
+		}, nil
+	case "route":
+		return resolveProfile{
+			ruleType:            "route",
+			noMatchReason:       "no matching route rule",
+			allSuppressedReason: "all route matches suppressed",
+			ambiguousReason:     "multiple route rules at same best priority",
+			routeStyle:          true,
+		}, nil
+	default:
+		return resolveProfile{}, fmt.Errorf("resolve: unsupported rule type %q", ruleType)
+	}
+}
+
+// Resolve applies ADR-0004 selection to rules of a single type ("state" or "route").
+func Resolve(rules []config.Rule, signals map[string]any, degraded map[string]struct{}, ruleType string) (Result, error) {
+	p, err := profileForRuleType(ruleType)
+	if err != nil {
+		return Result{}, err
+	}
+	candidates, err := matchingRules(filterType(rules, p.ruleType), signals)
 	if err != nil {
 		return Result{}, err
 	}
 	if len(candidates) == 0 {
-		return Result{Kind: OutcomeDegraded, Reason: "no matching route rule"}, nil
+		return Result{Kind: OutcomeDegraded, Reason: p.noMatchReason}, nil
 	}
 	active := suppressDependsOn(candidates, degraded)
 	if len(active) == 0 {
-		return Result{Kind: OutcomeDegraded, Reason: "all route matches suppressed"}, nil
+		return Result{Kind: OutcomeDegraded, Reason: p.allSuppressedReason}, nil
 	}
 
-	sorted := append([]config.Rule(nil), active...)
-	sort.Slice(sorted, func(i, j int) bool {
-		if sorted[i].Priority != sorted[j].Priority {
-			return sorted[i].Priority < sorted[j].Priority
-		}
-		return sorted[i].ID < sorted[j].ID
-	})
+	ordered := active
 	var routeCandidates []RouteCandidate
-	for _, c := range sorted {
-		if c.RouteID == "" {
-			continue
-		}
-		routeCandidates = append(routeCandidates, RouteCandidate{
-			RuleID:   c.ID,
-			RouteID:  c.RouteID,
-			Priority: c.Priority,
+	if p.routeStyle {
+		ordered = append([]config.Rule(nil), active...)
+		sort.Slice(ordered, func(i, j int) bool {
+			if ordered[i].Priority != ordered[j].Priority {
+				return ordered[i].Priority < ordered[j].Priority
+			}
+			return ordered[i].ID < ordered[j].ID
 		})
+		for _, c := range ordered {
+			if c.RouteID == "" {
+				continue
+			}
+			routeCandidates = append(routeCandidates, RouteCandidate{
+				RuleID:   c.ID,
+				RouteID:  c.RouteID,
+				Priority: c.Priority,
+			})
+		}
 	}
 
-	best := sorted[0].Priority
+	best := minPriority(ordered)
 	var atBest []config.Rule
-	for _, c := range sorted {
+	for _, c := range ordered {
 		if nearlyEqual(c.Priority, best) {
 			atBest = append(atBest, c)
 		}
@@ -160,20 +150,53 @@ func ResolveRoute(rules []config.Rule, signals map[string]any, degraded map[stri
 			Priority:        best,
 			Candidates:      ids,
 			RouteCandidates: routeCandidates,
-			Reason:          "multiple route rules at same best priority",
+			Reason:          p.ambiguousReason,
 		}, nil
 	}
 	r := atBest[0]
-	if r.RouteID == "" {
-		return Result{}, fmt.Errorf("resolve: route rule %q missing route_id", r.ID)
+	if p.routeStyle {
+		if r.RouteID == "" {
+			return Result{}, fmt.Errorf("resolve: route rule %q missing route_id", r.ID)
+		}
+		return Result{
+			Kind:            OutcomeResolved,
+			RouteID:         r.RouteID,
+			TargetID:        r.RouteID,
+			RuleID:          r.ID,
+			Priority:        r.Priority,
+			RouteCandidates: routeCandidates,
+		}, nil
+	}
+	if r.StateID == "" {
+		return Result{}, fmt.Errorf("resolve: state rule %q missing state_id", r.ID)
 	}
 	return Result{
-		Kind:            OutcomeResolved,
-		RouteID:         r.RouteID,
-		RuleID:          r.ID,
-		Priority:        r.Priority,
-		RouteCandidates: routeCandidates,
+		Kind:     OutcomeResolved,
+		StateID:  r.StateID,
+		TargetID: r.StateID,
+		RuleID:   r.ID,
+		Priority: r.Priority,
 	}, nil
+}
+
+func minPriority(rules []config.Rule) float64 {
+	best := rules[0].Priority
+	for _, c := range rules[1:] {
+		if c.Priority < best {
+			best = c.Priority
+		}
+	}
+	return best
+}
+
+// ResolveState evaluates state rules against signals and degraded sources.
+func ResolveState(rules []config.Rule, signals map[string]any, degraded map[string]struct{}) (Result, error) {
+	return Resolve(rules, signals, degraded, "state")
+}
+
+// ResolveRoute selects route rules (same priority semantics as state).
+func ResolveRoute(rules []config.Rule, signals map[string]any, degraded map[string]struct{}) (Result, error) {
+	return Resolve(rules, signals, degraded, "route")
 }
 
 func matchingRules(rules []config.Rule, signals map[string]any) ([]config.Rule, error) {
