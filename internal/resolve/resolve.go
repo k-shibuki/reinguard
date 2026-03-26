@@ -179,6 +179,8 @@ func Resolve(rules []config.Rule, signals map[string]any, degraded map[string]st
 	}, nil
 }
 
+// minPriority returns the minimum priority in rules. rules must be non-empty;
+// Resolve only calls this after len(active) > 0.
 func minPriority(rules []config.Rule) float64 {
 	best := rules[0].Priority
 	for _, c := range rules[1:] {
