@@ -35,6 +35,10 @@ func newObservationFileRequiredFlag() *cli.StringFlag {
 	return &cli.StringFlag{Name: "observation-file", Required: true}
 }
 
+func newKnowledgeQueryFlag() *cli.StringFlag {
+	return &cli.StringFlag{Name: "query", Usage: "case-insensitive substring match against entry triggers"}
+}
+
 func newStateFileFlag() *cli.StringFlag {
 	return &cli.StringFlag{Name: "state-file"}
 }
@@ -43,9 +47,9 @@ func newSchemaExportDirFlag() *cli.StringFlag {
 	return &cli.StringFlag{Name: "dir", Aliases: []string{"d"}, Value: "schema-export"}
 }
 
-// observeFlags returns a new triple of flags for any observe-shaped command.
+// observeFlags returns flags for any observe-shaped command.
 func observeFlags() []cli.Flag {
-	return []cli.Flag{newSerialFlag(), newCwdFlag(), newFailOnNonResolvedFlag()}
+	return []cli.Flag{newSerialFlag(), newCwdFlag(), newConfigDirFlag(), newFailOnNonResolvedFlag()}
 }
 
 // Root-only clones of urfave's default HelpFlag / VersionFlag. The library keeps

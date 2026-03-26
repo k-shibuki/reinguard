@@ -18,10 +18,7 @@ func TestRunObserve_gitOnlyProvider(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(cfg, "reinguard.yaml"), []byte(testFixtureReinguardGitOnly))
-	if err := os.MkdirAll(filepath.Join(cfg, "rules"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	writeFile(t, filepath.Join(cfg, "rules", "d.yaml"), []byte(testFixtureRulesEmpty))
+	writeFile(t, filepath.Join(cfg, "control", "guards", "d.yaml"), []byte(testFixtureRulesEmpty))
 
 	var buf bytes.Buffer
 	app := NewApp("t")

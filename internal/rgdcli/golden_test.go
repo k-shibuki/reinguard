@@ -11,7 +11,7 @@ import (
 
 func TestGolden_stateEval(t *testing.T) {
 	t.Parallel()
-	cfgDir := goldenSetupConfigDir(t, testFixtureRulesContextBuild)
+	cfgDir := goldenSetupConfigDir(t, testFixtureRulesStateIdle, testFixtureControlRoutesNext)
 	dir := goldenCaseDir(t, "state_eval")
 	obs := filepath.Join(dir, "observation.json")
 	wantRaw := readFile(t, filepath.Join(dir, "want.json"))
@@ -29,7 +29,7 @@ func TestGolden_stateEval(t *testing.T) {
 
 func TestGolden_contextBuild(t *testing.T) {
 	t.Parallel()
-	cfgDir := goldenSetupConfigDir(t, testFixtureRulesContextBuild)
+	cfgDir := goldenSetupConfigDir(t, testFixtureRulesStateIdle, testFixtureControlRoutesNext)
 	dir := goldenCaseDir(t, "context_build")
 	obs := filepath.Join(dir, "observation.json")
 	wantRaw := readFile(t, filepath.Join(dir, "want.json"))
@@ -54,20 +54,36 @@ func goldenCaseDir(t *testing.T, name string) string {
 	return filepath.Join(filepath.Dir(file), "testdata", "golden", name)
 }
 
-func goldenSetupConfigDir(t *testing.T, rulesYAML string) string {
+func goldenSetupConfigDir(t *testing.T, stateYAML, routeYAML string) string {
 	t.Helper()
 	root := t.TempDir()
 	writeFile(t, filepath.Join(root, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
-	if err := os.Mkdir(filepath.Join(root, "rules"), 0o755); err != nil {
-		t.Fatal(err)
+	if stateYAML != "" {
+		writeFile(t, filepath.Join(root, "control", "states", "default.yaml"), []byte(stateYAML))
 	}
-	writeFile(t, filepath.Join(root, "rules", "default.yaml"), []byte(rulesYAML))
+	if routeYAML != "" {
+		writeFile(t, filepath.Join(root, "control", "routes", "default.yaml"), []byte(routeYAML))
+	}
 	if err := os.Mkdir(filepath.Join(root, "knowledge"), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	writeFile(t, filepath.Join(root, "knowledge", "doc.md"), []byte(`---
+id: doc1
+description: fixture knowledge for golden tests
+triggers:
+  - fixture
+---
+
+# Doc
+`))
 	writeFile(t, filepath.Join(root, "knowledge", "manifest.json"), []byte(`{
-  "schema_version": "0.2.0",
-  "entries": [{"id": "doc1", "path": ".reinguard/README.md"}]
+  "schema_version": "0.3.0",
+  "entries": [{
+    "id": "doc1",
+    "path": "knowledge/doc.md",
+    "description": "fixture knowledge for golden tests",
+    "triggers": ["fixture"]
+  }]
 }`))
 	return root
 }

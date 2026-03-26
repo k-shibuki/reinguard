@@ -1,0 +1,24 @@
+# Dependabot — dependency update PRs (not required for local `rgd` builds).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "build(deps)"
+
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      go-modules:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "build(deps)"

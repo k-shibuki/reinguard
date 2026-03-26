@@ -2,7 +2,7 @@
 package labels
 
 // TypeLabels is the set of PR type label names. Must stay aligned with
-// `const TYPE_LABELS` in .github/workflows/pr-policy.yaml.
+// `const TYPE_LABELS` in .github/scripts/pr-policy-check.js.
 var TypeLabels = map[string]struct{}{
 	"feat": {}, "fix": {}, "refactor": {}, "perf": {}, "docs": {},
 	"test": {}, "ci": {}, "build": {}, "chore": {}, "style": {}, "revert": {},

@@ -1,0 +1,15 @@
+# markdownlint-cli2 configuration
+# Runs via pre-commit (local) and CI (GitHub Actions).
+config:
+  MD013: false
+  MD033: false
+  MD060: false
+  MD010:
+    code_blocks: false
+    spaces_per_tab: 4
+  MD024:
+    siblings_only: true
+
+ignores:
+  - "node_modules/**"
+  - "vendor/**"
