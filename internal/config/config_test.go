@@ -105,8 +105,6 @@ func TestLoad_schemaVersion_policy(t *testing.T) {
 		olderSameMajor = fmt.Sprintf("%d.%d.%d", cm, ci, cp-1)
 	case ci > 0:
 		olderSameMajor = fmt.Sprintf("%d.%d.%d", cm, ci-1, 0)
-	default:
-		t.Skip("contract at x.0.0 with patch 0 — cannot derive older same-major")
 	}
 	newerPatch := fmt.Sprintf("%d.%d.%d", cm, ci, cp+1)
 	newerMinor := fmt.Sprintf("%d.%d.%d", cm, ci+1, 0)
@@ -118,6 +116,7 @@ func TestLoad_schemaVersion_policy(t *testing.T) {
 		wantErrSubstr  string
 		wantSkewSubstr string
 		wantLoadErr    bool
+		skipWhen       bool
 	}{
 		{
 			name:     "same_as_contract",
@@ -129,10 +128,12 @@ func TestLoad_schemaVersion_policy(t *testing.T) {
 		{
 			name:           "older_same_major",
 			declared:       olderSameMajor,
+			skipWhen:       olderSameMajor == "",
 			wantSkewSubstr: "schema_version",
 			// Given: same major, older minor or patch than contract
 			// When: Load runs
 			// Then: success; DeprecatedWarnings mentions schema_version skew
+			// (skipped when contract is x.0.0 — no older same-major exists)
 		},
 		{
 			name:           "newer_patch_same_major",
@@ -166,10 +167,20 @@ func TestLoad_schemaVersion_policy(t *testing.T) {
 			// When: Load runs
 			// Then: success; core matches so no skew warning
 		},
+		{
+			name:     "build_metadata_same_core_as_contract",
+			declared: cur + "+build.1",
+			// Given: build metadata on same MAJOR.MINOR.PATCH as contract
+			// When: Load runs
+			// Then: success; core matches so no skew warning
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+			if tt.skipWhen {
+				t.Skip("precondition unmet for this contract version")
+			}
 			dir := t.TempDir()
 			writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(fmt.Sprintf(`schema_version: %q
 default_branch: main
