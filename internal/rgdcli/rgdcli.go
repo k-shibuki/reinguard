@@ -39,15 +39,28 @@ func isNonResolvedOutcome(k resolve.OutcomeKind) bool {
 	return k == resolve.OutcomeAmbiguous || k == resolve.OutcomeDegraded || k == resolve.OutcomeUnsupported
 }
 
+// resolveEvalOutputMap matches resolve.Result JSON omitempty so CLI stdout aligns with context build.
 func resolveEvalOutputMap(res resolve.Result) map[string]any {
 	out := map[string]any{
-		"kind":      string(res.Kind),
-		"state_id":  res.StateID,
-		"route_id":  res.RouteID,
-		"target_id": res.TargetID,
-		"rule_id":   res.RuleID,
-		"priority":  res.Priority,
-		"reason":    res.Reason,
+		"kind": string(res.Kind),
+	}
+	if res.StateID != "" {
+		out["state_id"] = res.StateID
+	}
+	if res.RouteID != "" {
+		out["route_id"] = res.RouteID
+	}
+	if res.TargetID != "" {
+		out["target_id"] = res.TargetID
+	}
+	if res.RuleID != "" {
+		out["rule_id"] = res.RuleID
+	}
+	if res.Reason != "" {
+		out["reason"] = res.Reason
+	}
+	if res.Kind == resolve.OutcomeResolved || res.Kind == resolve.OutcomeAmbiguous {
+		out["priority"] = res.Priority
 	}
 	if len(res.Candidates) > 0 {
 		out["candidates"] = res.Candidates

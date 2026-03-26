@@ -214,7 +214,9 @@ func Resolve(rules []config.Rule, signals map[string]any, degraded map[string]st
 	r := atBest[0]
 	if p.routeStyle {
 		if r.RouteID == "" {
-			return unsupportedMissingRouteID(r.ID), nil
+			res := unsupportedMissingRouteID(r.ID)
+			res.RouteCandidates = routeCandidates
+			return res, nil
 		}
 		return Result{
 			Kind:            OutcomeResolved,

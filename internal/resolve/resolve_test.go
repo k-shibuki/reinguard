@@ -280,6 +280,27 @@ func TestResolveRoute_missingRouteID(t *testing.T) {
 	}
 }
 
+func TestResolveRoute_winnerMissingRouteID_preservesRouteCandidates(t *testing.T) {
+	t.Parallel()
+	// Given: best-priority match has empty route_id but a higher-priority-number match has a valid route_id
+	rules := []config.Rule{
+		{Type: "route", ID: "bad", Priority: 5, RouteID: "", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+		{Type: "route", ID: "ok", Priority: 10, RouteID: "R10", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+	}
+	// When: ResolveRoute runs
+	res, err := ResolveRoute(rules, map[string]any{"x": 1}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Then: unsupported on winner, but ordered alternatives with non-empty route_id are still attached
+	if res.Kind != OutcomeUnsupported {
+		t.Fatalf("want unsupported, got %+v", res)
+	}
+	if len(res.RouteCandidates) != 1 || res.RouteCandidates[0].RouteID != "R10" {
+		t.Fatalf("route_candidates: %+v", res.RouteCandidates)
+	}
+}
+
 func TestResolveRoute_tieAmbiguous(t *testing.T) {
 	t.Parallel()
 	// Given: two matching routes at same priority
