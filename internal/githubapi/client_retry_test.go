@@ -12,6 +12,7 @@ import (
 )
 
 func TestClient_GetJSON_retry429(t *testing.T) {
+	// Given: server that returns 429 once then 200
 	var hits int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		n := atomic.AddInt32(&hits, 1)
@@ -24,15 +25,18 @@ func TestClient_GetJSON_retry429(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := &Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
 	var out map[string]any
+	// When: GetJSON runs
 	if err := c.GetJSON(context.Background(), srv.URL+"/ok", &out); err != nil {
 		t.Fatal(err)
 	}
+	// Then: success after retry
 	if atomic.LoadInt32(&hits) < 2 {
 		t.Fatal("expected retry")
 	}
 }
 
 func TestClient_GetJSON_retry403RateLimit(t *testing.T) {
+	// Given: rate-limit 403 then success
 	var hits int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		n := atomic.AddInt32(&hits, 1)
@@ -46,15 +50,18 @@ func TestClient_GetJSON_retry403RateLimit(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := &Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
 	var out map[string]any
+	// When: GetJSON runs
 	if err := c.GetJSON(context.Background(), srv.URL+"/ok", &out); err != nil {
 		t.Fatal(err)
 	}
+	// Then: retried once
 	if atomic.LoadInt32(&hits) < 2 {
 		t.Fatal("expected retry on rate-limit 403")
 	}
 }
 
 func TestClient_GetJSON_retry403RateLimit_usesRateLimitReset(t *testing.T) {
+	// Given: 403 with X-RateLimit-Reset then success
 	var hits int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		n := atomic.AddInt32(&hits, 1)
@@ -72,15 +79,18 @@ func TestClient_GetJSON_retry403RateLimit_usesRateLimitReset(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := &Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
 	var out map[string]any
+	// When: GetJSON runs
 	if err := c.GetJSON(context.Background(), srv.URL+"/ok", &out); err != nil {
 		t.Fatal(err)
 	}
+	// Then: delayed retry succeeded
 	if atomic.LoadInt32(&hits) < 2 {
 		t.Fatal("expected retry after X-RateLimit-Reset delay")
 	}
 }
 
 func TestClient_GetJSON_contextCancelsDuring429Backoff(t *testing.T) {
+	// Given: 429 with long Retry-After and short-lived context
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Retry-After", "120")
 		w.WriteHeader(http.StatusTooManyRequests)
@@ -92,7 +102,9 @@ func TestClient_GetJSON_contextCancelsDuring429Backoff(t *testing.T) {
 
 	c := &Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
 	var out map[string]any
+	// When: GetJSON runs
 	err := c.GetJSON(ctx, srv.URL+"/x", &out)
+	// Then: context deadline exceeded
 	if err == nil {
 		t.Fatal("expected error")
 	}

@@ -9,7 +9,10 @@ import (
 
 func TestLoad_emptyConfigDir(t *testing.T) {
 	t.Parallel()
+	// Given: empty config directory path
+	// When: Load is called
 	_, err := Load("")
+	// Then: error mentions empty directory
 	if err == nil || !strings.Contains(err.Error(), "empty directory") {
 		t.Fatalf("got %v", err)
 	}
@@ -17,6 +20,9 @@ func TestLoad_emptyConfigDir(t *testing.T) {
 
 func TestDeprecatedWarnings_nilRoot(t *testing.T) {
 	t.Parallel()
+	// Given: nil Root
+	// When: DeprecatedWarnings is called
+	// Then: no warnings
 	if w := DeprecatedWarnings(nil); len(w) != 0 {
 		t.Fatalf("got %v", w)
 	}
@@ -24,7 +30,9 @@ func TestDeprecatedWarnings_nilRoot(t *testing.T) {
 
 func TestDeprecatedWarnings_noLegacyHints(t *testing.T) {
 	t.Parallel()
+	// Given: root without legacy_tool_hints
 	r := &Root{SchemaVersion: "0.3.0", DefaultBranch: "main"}
+	// When/Then: DeprecatedWarnings is empty
 	if w := DeprecatedWarnings(r); len(w) != 0 {
 		t.Fatalf("got %v", w)
 	}
@@ -32,8 +40,11 @@ func TestDeprecatedWarnings_noLegacyHints(t *testing.T) {
 
 func TestDeprecatedWarnings_legacyHints(t *testing.T) {
 	t.Parallel()
+	// Given: root with legacy_tool_hints set
 	r := &Root{LegacyToolHints: map[string]any{"x": 1}}
+	// When: DeprecatedWarnings runs
 	w := DeprecatedWarnings(r)
+	// Then: one warning references legacy_tool_hints
 	if len(w) != 1 || !strings.Contains(w[0], "legacy_tool_hints") {
 		t.Fatalf("got %v", w)
 	}
@@ -41,6 +52,7 @@ func TestDeprecatedWarnings_legacyHints(t *testing.T) {
 
 func TestLoad_knowledgeManifest_ok(t *testing.T) {
 	t.Parallel()
+	// Given: valid root YAML and valid knowledge manifest.json
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
 default_branch: main
@@ -59,6 +71,7 @@ providers: []
   }]
 }`))
 
+	// When: Load runs
 	res, err := Load(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -66,6 +79,7 @@ providers: []
 	if !res.KnowledgePresent || res.Knowledge == nil {
 		t.Fatal("expected knowledge manifest")
 	}
+	// Then: knowledge manifest is loaded with expected entry
 	if len(res.Knowledge.Entries) != 1 || res.Knowledge.Entries[0].ID != "doc1" {
 		t.Fatalf("%+v", res.Knowledge)
 	}
@@ -73,6 +87,7 @@ providers: []
 
 func TestLoad_knowledgeManifest_invalidJSON(t *testing.T) {
 	t.Parallel()
+	// Given: root OK but manifest.json is invalid JSON
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
 default_branch: main
@@ -83,7 +98,9 @@ providers: []
 	}
 	writeFile(t, filepath.Join(dir, "knowledge", "manifest.json"), []byte(`{`))
 
+	// When: Load runs
 	_, err := Load(dir)
+	// Then: parse knowledge manifest error
 	if err == nil || !strings.Contains(err.Error(), "parse knowledge manifest") {
 		t.Fatalf("got %v", err)
 	}
@@ -91,6 +108,7 @@ providers: []
 
 func TestLoad_knowledgeManifest_schemaInvalid(t *testing.T) {
 	t.Parallel()
+	// Given: manifest missing required fields
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
 default_branch: main
@@ -102,7 +120,9 @@ providers: []
 	// Missing required "entries"
 	writeFile(t, filepath.Join(dir, "knowledge", "manifest.json"), []byte(`{"schema_version":"0.1.0"}`))
 
+	// When: Load runs
 	_, err := Load(dir)
+	// Then: schema validation error
 	if err == nil || !strings.Contains(err.Error(), "schema validation") {
 		t.Fatalf("got %v", err)
 	}
@@ -110,6 +130,7 @@ providers: []
 
 func TestLoad_controlStatesDotYmlAndStableOrder(t *testing.T) {
 	t.Parallel()
+	// Given: two state rule files (.yml and .yaml) under control/states
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
 default_branch: main
@@ -139,6 +160,7 @@ providers: []
 		t.Fatal(err)
 	}
 
+	// When: Load runs
 	res, err := Load(dir)
 	if err != nil {
 		t.Fatal(err)
@@ -151,6 +173,7 @@ providers: []
 		t.Fatalf("files: %v", names)
 	}
 	rules := res.Rules()
+	// Then: both files load and rules sort by id (a before z)
 	if len(rules) != 2 || rules[0].ID != "a" || rules[1].ID != "z" {
 		t.Fatalf("expected [a, z] ordering, got %+v", rules)
 	}
@@ -158,6 +181,7 @@ providers: []
 
 func TestLoad_legacyRulesYAML_rejected(t *testing.T) {
 	t.Parallel()
+	// Given: legacy top-level rules/ directory exists
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
 default_branch: main
@@ -169,7 +193,9 @@ providers: []
 	}
 	writeFile(t, filepath.Join(legacyDir, "old.yaml"), []byte("rules: []\n"))
 
+	// When: Load runs
 	_, err := Load(dir)
+	// Then: legacy rules rejection error
 	if err == nil || !strings.Contains(err.Error(), "legacy rules") {
 		t.Fatalf("got %v", err)
 	}
@@ -255,6 +281,7 @@ func TestLoad_missingConfigFile(t *testing.T) {
 
 func TestLoad_duplicateProviderID(t *testing.T) {
 	t.Parallel()
+	// Given: two providers with the same id
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
 default_branch: main
@@ -265,7 +292,9 @@ providers:
     enabled: false
 `))
 
+	// When: Load runs
 	_, err := Load(dir)
+	// Then: duplicate provider id error
 	if err == nil || !strings.Contains(err.Error(), "duplicate provider id") {
 		t.Fatalf("got err=%v", err)
 	}
@@ -332,6 +361,7 @@ providers: []
 
 func TestLoad_controlKindTypeMismatchRejected(t *testing.T) {
 	t.Parallel()
+	// Given/When/Then: each case places a rule of the wrong type under control/{states,routes,guards}; Load must error with wantSub
 	tests := []struct {
 		name     string
 		kind     string
@@ -378,6 +408,7 @@ func TestLoad_controlKindTypeMismatchRejected(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+			// Given: rule type in wrong control/ subdirectory (see tt)
 			dir := t.TempDir()
 			writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
 default_branch: main
@@ -389,7 +420,9 @@ providers: []
 			}
 			writeFile(t, filepath.Join(kindDir, "bad.yaml"), []byte(tt.yamlBody))
 
+			// When: Load runs
 			_, err := Load(dir)
+			// Then: error contains expected mismatch substring
 			if err == nil || !strings.Contains(err.Error(), tt.wantSub) {
 				t.Fatalf("got err=%v, want substring %q", err, tt.wantSub)
 			}

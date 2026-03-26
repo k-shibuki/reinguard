@@ -1,9 +1,10 @@
-package rgdcli
+package signals
 
 import "testing"
 
-func TestFlattenSignals(t *testing.T) {
+func TestFlatten(t *testing.T) {
 	t.Parallel()
+	// Given/When/Then: each subtest supplies nested signals, runs Flatten, and asserts leaf keys and values
 	tests := []struct {
 		wantVal any
 		input   map[string]any
@@ -45,8 +46,8 @@ func TestFlattenSignals(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			// Given: input signals from test case
-			// When: flattenSignals runs
-			out := flattenSignals(tc.input)
+			// When: Flatten runs
+			out := Flatten(tc.input)
 			// Then: output matches expected key/value
 			if tc.wantKey == "" {
 				if len(out) != 0 {

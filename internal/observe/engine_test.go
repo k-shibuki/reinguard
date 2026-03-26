@@ -53,10 +53,12 @@ func TestEngine_Collect_serial(t *testing.T) {
 
 func TestEngine_Collect_parallelSameSignals(t *testing.T) {
 	t.Parallel()
+	// Given: one enabled stub provider
 	e := &Engine{Providers: map[string]Provider{
 		"a": &stubProv{id: "a", frag: Fragment{Signals: map[string]any{"v": 1}}},
 	}}
 	root := config.Root{Providers: []config.ProviderSpec{{ID: "a", Enabled: true}}}
+	// When: Collect runs without Serial
 	signals, _, _, err := e.Collect(context.Background(), &root, Options{Serial: false, WorkDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
@@ -65,6 +67,7 @@ func TestEngine_Collect_parallelSameSignals(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected signals[a] map, got %T", signals["a"])
 	}
+	// Then: merged fragment under provider id
 	if aMap["v"] != 1 {
 		t.Fatalf("%v", signals)
 	}
@@ -72,8 +75,11 @@ func TestEngine_Collect_parallelSameSignals(t *testing.T) {
 
 func TestEngine_Collect_nilRoot(t *testing.T) {
 	t.Parallel()
+	// Given: nil root
 	e := NewEngine()
+	// When: Collect runs
 	_, _, _, err := e.Collect(context.Background(), nil, Options{Serial: true})
+	// Then: nil config root error
 	if err == nil || !strings.Contains(err.Error(), "nil config root") {
 		t.Fatalf("got err=%v", err)
 	}

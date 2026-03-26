@@ -10,16 +10,19 @@ import (
 
 func TestGitProvider_Collect(t *testing.T) {
 	t.Parallel()
+	// Given: fresh git repo on main with no upstream
 	dir := t.TempDir()
 	runGit(t, dir, "init")
 	runGit(t, dir, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "init")
 	runGit(t, dir, "branch", "-M", "main")
 
 	p := NewGitProvider()
+	// When: Collect runs
 	frag, err := p.Collect(context.Background(), Options{WorkDir: dir, DefaultBranch: "main"})
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: expected branch and upstream-related signals
 	if frag.Signals["branch"].(string) != "main" {
 		t.Fatalf("branch: %v", frag.Signals)
 	}
@@ -36,6 +39,7 @@ func TestGitProvider_Collect(t *testing.T) {
 
 func TestGitProvider_stashCount(t *testing.T) {
 	t.Parallel()
+	// Given: repo with one stash entry
 	dir := t.TempDir()
 	runGit(t, dir, "init")
 	runGit(t, dir, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "init")
@@ -47,10 +51,12 @@ func TestGitProvider_stashCount(t *testing.T) {
 	runGit(t, dir, "stash", "push", "-m", "wip")
 
 	p := NewGitProvider()
+	// When: Collect runs
 	frag, err := p.Collect(context.Background(), Options{WorkDir: dir, DefaultBranch: "main"})
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: stash_count is 1
 	if frag.Signals["stash_count"].(int) != 1 {
 		t.Fatalf("stash_count want 1 got %v", frag.Signals["stash_count"])
 	}
@@ -58,6 +64,7 @@ func TestGitProvider_stashCount(t *testing.T) {
 
 func TestGitProvider_aheadOfUpstream(t *testing.T) {
 	t.Parallel()
+	// Given: clone with upstream and one local commit not pushed
 	bare := t.TempDir()
 	runGit(t, bare, "init", "--bare")
 
@@ -74,10 +81,12 @@ func TestGitProvider_aheadOfUpstream(t *testing.T) {
 	runGit(t, clone, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-m", "ahead")
 
 	p := NewGitProvider()
+	// When: Collect runs
 	frag, err := p.Collect(context.Background(), Options{WorkDir: clone, DefaultBranch: "main"})
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: ahead_of_upstream reflects unpushed commit
 	if !frag.Signals["has_upstream"].(bool) {
 		t.Fatal("expected upstream after push -u")
 	}
@@ -91,6 +100,7 @@ func TestGitProvider_aheadOfUpstream(t *testing.T) {
 
 func TestGitProvider_staleRemoteBranchesCount(t *testing.T) {
 	t.Parallel()
+	// Given: simple clone tracking default branch only
 	bare := t.TempDir()
 	runGit(t, bare, "init", "--bare")
 
@@ -101,10 +111,12 @@ func TestGitProvider_staleRemoteBranchesCount(t *testing.T) {
 	runGit(t, clone, "push", "-u", "origin", "main")
 
 	p := NewGitProvider()
+	// When: Collect runs
 	frag, err := p.Collect(context.Background(), Options{WorkDir: clone, DefaultBranch: "main"})
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: no stale remote branches beyond default
 	n := frag.Signals["stale_remote_branches_count"].(int)
 	// Only stale branches other than origin/<default> are counted.
 	if n != 0 {

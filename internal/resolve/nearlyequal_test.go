@@ -4,6 +4,7 @@ import "testing"
 
 func TestNearlyEqual(t *testing.T) {
 	t.Parallel()
+	// Given/When/Then: each subtest compares two floats against priorityEpsilon semantics
 	tests := []struct {
 		name string
 		a, b float64
@@ -18,6 +19,9 @@ func TestNearlyEqual(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+			// Given: pair (tc.a, tc.b)
+			// When: NearlyEqual runs
+			// Then: result is tc.want
 			if got := NearlyEqual(tc.a, tc.b); got != tc.want {
 				t.Fatalf("NearlyEqual(%v, %v) = %v, want %v", tc.a, tc.b, got, tc.want)
 			}

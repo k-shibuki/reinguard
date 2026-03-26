@@ -11,6 +11,7 @@ import (
 
 func TestBuildManifest_ok(t *testing.T) {
 	t.Parallel()
+	// Given: two markdown knowledge files with valid front matter
 	root := t.TempDir()
 	kdir := filepath.Join(root, ".reinguard", "knowledge")
 	if err := os.MkdirAll(kdir, 0o755); err != nil {
@@ -35,6 +36,7 @@ triggers:
 # A
 `))
 
+	// When: BuildManifest runs
 	m, err := BuildManifest(root, kdir)
 	if err != nil {
 		t.Fatal(err)
@@ -49,6 +51,7 @@ triggers:
 	if m.Entries[0].ID != "first" || m.Entries[0].Path != ".reinguard/knowledge/a.md" {
 		t.Fatalf("%+v", m.Entries[0])
 	}
+	// Then: entries sorted by path with correct schema and ids
 	if m.Entries[1].ID != "second" {
 		t.Fatalf("%+v", m.Entries[1])
 	}
@@ -56,6 +59,7 @@ triggers:
 
 func TestBuildManifest_duplicateID(t *testing.T) {
 	t.Parallel()
+	// Given: two files declaring the same id
 	root := t.TempDir()
 	kdir := filepath.Join(root, "knowledge")
 	if err := os.MkdirAll(kdir, 0o755); err != nil {
@@ -71,7 +75,9 @@ triggers:
 	writeFile(t, filepath.Join(kdir, "a.md"), []byte(body))
 	writeFile(t, filepath.Join(kdir, "b.md"), []byte(body))
 
+	// When: BuildManifest runs
 	_, err := BuildManifest(root, kdir)
+	// Then: duplicate id error
 	if err == nil || !strings.Contains(err.Error(), "duplicate id") {
 		t.Fatalf("got %v", err)
 	}
@@ -79,8 +85,11 @@ triggers:
 
 func TestBuildManifest_missingDir(t *testing.T) {
 	t.Parallel()
+	// Given: knowledge directory path that does not exist
 	root := t.TempDir()
+	// When: BuildManifest runs
 	_, err := BuildManifest(root, filepath.Join(root, "nope"))
+	// Then: does not exist error
 	if err == nil || !strings.Contains(err.Error(), "does not exist") {
 		t.Fatalf("got %v", err)
 	}
@@ -88,15 +97,18 @@ func TestBuildManifest_missingDir(t *testing.T) {
 
 func TestBuildManifest_emptyDir(t *testing.T) {
 	t.Parallel()
+	// Given: empty knowledge directory
 	root := t.TempDir()
 	kdir := filepath.Join(root, "knowledge")
 	if err := os.MkdirAll(kdir, 0o755); err != nil {
 		t.Fatal(err)
 	}
+	// When: BuildManifest runs
 	m, err := BuildManifest(root, kdir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	// Then: empty manifest entries
 	if len(m.Entries) != 0 {
 		t.Fatalf("expected empty entries, got %d", len(m.Entries))
 	}

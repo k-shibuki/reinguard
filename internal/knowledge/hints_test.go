@@ -12,6 +12,7 @@ import (
 
 func TestHintWarnings(t *testing.T) {
 	t.Parallel()
+	// Given/When/Then: each subtest uses tt.setup for disk+manifest, runs HintWarnings, expects tt.wantLen / wantPart
 	tests := []struct {
 		setup    func(t *testing.T) (root string, m *config.KnowledgeManifest)
 		name     string

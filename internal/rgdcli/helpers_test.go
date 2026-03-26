@@ -7,28 +7,16 @@ import (
 	"testing"
 )
 
-func TestStringField(t *testing.T) {
-	t.Parallel()
-	m := map[string]any{"name": "alice", "count": 42}
-	if got := stringField(m, "name"); got != "alice" {
-		t.Fatalf("got %q", got)
-	}
-	if got := stringField(m, "count"); got != "" {
-		t.Fatalf("expected empty for non-string, got %q", got)
-	}
-	if got := stringField(m, "missing"); got != "" {
-		t.Fatalf("expected empty for missing key, got %q", got)
-	}
-}
-
 func TestRunSchemaExport_writesFiles(t *testing.T) {
 	t.Parallel()
+	// Given: empty export directory and CLI app writing to a buffer
 	dir := filepath.Join(t.TempDir(), "schemas")
 
 	var buf bytes.Buffer
 	app := NewApp("test")
 	app.Writer = &buf
 
+	// When: schema export runs
 	if err := app.Run([]string{"rgd", "schema", "export", "--dir", dir}); err != nil {
 		t.Fatal(err)
 	}
@@ -36,6 +24,7 @@ func TestRunSchemaExport_writesFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: at least one file exists under dir
 	if len(entries) == 0 {
 		t.Fatal("expected schema files to be exported")
 	}
@@ -43,13 +32,16 @@ func TestRunSchemaExport_writesFiles(t *testing.T) {
 
 func TestVersion_subcommand(t *testing.T) {
 	t.Parallel()
+	// Given: app with a fixed version string
 	var buf bytes.Buffer
 	app := NewApp("1.2.3")
 	app.Writer = &buf
 
+	// When: version subcommand runs
 	if err := app.Run([]string{"rgd", "version"}); err != nil {
 		t.Fatal(err)
 	}
+	// Then: stdout contains that version
 	if !bytes.Contains(buf.Bytes(), []byte("1.2.3")) {
 		t.Fatalf("expected version output, got %q", buf.String())
 	}
