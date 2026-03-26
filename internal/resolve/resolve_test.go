@@ -53,11 +53,13 @@ func TestResolve_stateMatchesResolveState(t *testing.T) {
 
 func TestResolve_guardMatchesResolveGuard(t *testing.T) {
 	t.Parallel()
+	// Given: two guard rules for the same guard_id and matching signals
 	rules := []config.Rule{
 		{Type: "guard", ID: "a", Priority: 20, GuardID: "g1", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
 		{Type: "guard", ID: "b", Priority: 10, GuardID: "g1", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
 	}
 	signals := map[string]any{"x": 1}
+	// When: ResolveGuard vs Resolve on pre-scoped rules
 	a, err := ResolveGuard(rules, signals, nil, "g1")
 	if err != nil {
 		t.Fatal(err)
@@ -70,6 +72,7 @@ func TestResolve_guardMatchesResolveGuard(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: identical results
 	if !reflect.DeepEqual(a, b) {
 		t.Fatalf("Resolve vs ResolveGuard: %+v vs %+v", a, b)
 	}
@@ -77,14 +80,17 @@ func TestResolve_guardMatchesResolveGuard(t *testing.T) {
 
 func TestResolveGuard_priorityWins(t *testing.T) {
 	t.Parallel()
+	// Given: two matching guard rules at different priorities for g1
 	rules := []config.Rule{
 		{Type: "guard", ID: "a", Priority: 20, GuardID: "g1", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
 		{Type: "guard", ID: "b", Priority: 10, GuardID: "g1", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
 	}
+	// When: ResolveGuard selects for g1
 	res, err := ResolveGuard(rules, map[string]any{"x": 1}, nil, "g1")
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: lower priority number wins (rule b)
 	if res.Kind != OutcomeResolved || res.GuardID != "g1" || res.RuleID != "b" {
 		t.Fatalf("%+v", res)
 	}
@@ -92,13 +98,16 @@ func TestResolveGuard_priorityWins(t *testing.T) {
 
 func TestResolveGuard_otherGuardIDIgnored(t *testing.T) {
 	t.Parallel()
+	// Given: only rules for guard_id "other" while resolving "g1"
 	rules := []config.Rule{
 		{Type: "guard", ID: "x", Priority: 10, GuardID: "other", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
 	}
+	// When: ResolveGuard runs for g1
 	res, err := ResolveGuard(rules, map[string]any{"x": 1}, nil, "g1")
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: degraded — no rule targets g1
 	if res.Kind != OutcomeDegraded || !strings.Contains(res.Reason, "no matching guard rule") {
 		t.Fatalf("%+v", res)
 	}
@@ -106,13 +115,16 @@ func TestResolveGuard_otherGuardIDIgnored(t *testing.T) {
 
 func TestResolve_guardMissingGuardID(t *testing.T) {
 	t.Parallel()
+	// Given: a winning guard rule with empty guard_id (invalid shape)
 	rules := []config.Rule{
 		{Type: "guard", ID: "bad", Priority: 10, GuardID: "", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
 	}
+	// When: Resolve(..., "guard") runs
 	res, err := Resolve(rules, map[string]any{"x": 1}, nil, "guard")
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: unsupported with missing guard_id reason
 	if res.Kind != OutcomeUnsupported || !strings.Contains(res.Reason, `guard rule "bad" is missing guard_id`) {
 		t.Fatalf("%+v", res)
 	}

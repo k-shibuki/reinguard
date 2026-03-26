@@ -8,6 +8,10 @@
 // resolved, ambiguous, degraded, or unsupported; TargetID mirrors the winning state_id,
 // route_id, or guard_id when resolved. Route rules additionally populate RouteCandidates for ordered alternatives.
 //
+// Guard rules are only meaningful within a single guard_id: pass rules already scoped to one id
+// (as [ResolveGuard] does) or ensure the slice contains only one guard_id before calling
+// Resolve(..., "guard").
+//
 // # Error semantics
 //
 // Invalid ruleType, match evaluation errors, or missing state_id/route_id/guard_id on the single
@@ -170,6 +174,8 @@ func unsupportedMissingGuardID(ruleID string) Result {
 // Resolve applies ADR-0004 selection to rules of a single type ("state", "route", or "guard"). On success
 // Kind is OutcomeResolved; otherwise Kind may be OutcomeDegraded, OutcomeAmbiguous, or
 // OutcomeUnsupported (ADR-0007) with Reason and optional handoff fields.
+//
+// For ruleType "guard", rules must share one logical guard_id (or use [ResolveGuard], which filters).
 func Resolve(rules []config.Rule, signals map[string]any, degraded map[string]struct{}, ruleType string) (Result, error) {
 	p, err := profileForRuleType(ruleType)
 	if err != nil {
@@ -292,7 +298,8 @@ func ResolveRoute(rules []config.Rule, signals map[string]any, degraded map[stri
 }
 
 // ResolveGuard selects among guard rules that declare the given guard_id using the same priority
-// and depends_on semantics as ResolveState (ADR-0004).
+// and depends_on semantics as ResolveState (ADR-0004). It is the supported entry point for guard
+// resolution; callers should not mix multiple guard_id values in one Resolve(..., "guard") call.
 func ResolveGuard(rules []config.Rule, signals map[string]any, degraded map[string]struct{}, guardID string) (Result, error) {
 	var scoped []config.Rule
 	for _, r := range rules {
