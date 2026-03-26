@@ -49,7 +49,6 @@ func TestDeprecatedWarnings_legacyHints(t *testing.T) {
 		SchemaVersion:   schema.CurrentSchemaVersion,
 		LegacyToolHints: map[string]any{"x": 1},
 		DefaultBranch:   "main",
-		Providers:       nil,
 	}
 	// When: DeprecatedWarnings runs
 	w := DeprecatedWarnings(r)
