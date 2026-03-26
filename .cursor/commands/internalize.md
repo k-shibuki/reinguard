@@ -5,7 +5,7 @@ implementations avoid the same class of review comments.
 
 ## Context
 
-- `.reinguard/policy/coding--preflight.md` — current preflight obligations (target for updates)
+- `.reinguard/policy/coding--preflight.md` — **Preflight verification** (HS-LOCAL-VERIFY); SSOT for commands — do not duplicate its checklists here
 - `.reinguard/policy/catalog.yaml` / `.reinguard/knowledge/manifest.json` — indexes
 - ADR-0001 § Responsibility layers — Adapter must not duplicate Semantics content
 
@@ -34,8 +34,7 @@ gh pr view <N> --json reviews,comments
 6. **Apply and validate**:
    - Edit knowledge / policy / command files per the diffs.
    - `rgd knowledge index` (when knowledge files changed).
-   - `rgd config validate` from repo root.
-   - `markdownlint-cli2 '**/*.md'` when Markdown changed.
+   - **Preflight** per `coding--preflight.md` (covers `rgd config validate`, `markdownlint-cli2`, and Go checks when those paths change).
 
 ## Output
 
@@ -48,4 +47,4 @@ gh pr view <N> --json reviews,comments
 
 - Do not duplicate Semantics content in Adapter (ADR-0001 § Adapter principle)
 - Do not automate judgment — the substrate computes, agents reason (ADR-0001 § Decision)
-- HS-NO-SKIP applies to validation steps
+- **HS-LOCAL-VERIFY**, **HS-NO-SKIP** — enforced via `coding--preflight.md` (Act step 6)

@@ -33,6 +33,23 @@ func TestProviderRegistry_Register_nilFactory(t *testing.T) {
 	}
 }
 
+func TestProviderRegistry_Register_zeroValue(t *testing.T) {
+	t.Parallel()
+	var r ProviderRegistry
+	if err := r.Register("a", func(map[string]any) (Provider, error) {
+		return &stubProv{id: "a"}, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	out, err := r.Build([]config.ProviderSpec{{ID: "a", Enabled: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out) != 1 {
+		t.Fatalf("got %d providers", len(out))
+	}
+}
+
 func TestProviderRegistry_Build_unknownProvider(t *testing.T) {
 	t.Parallel()
 	r := NewRegistry()

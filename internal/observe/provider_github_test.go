@@ -13,7 +13,7 @@ import (
 )
 
 func TestGitHubProvider_Collect_fakeGH(t *testing.T) {
-	// Given: fake gh on PATH and httptest API stubs for a repo
+	// Given: fake gh on PATH (auth + repo view succeed)
 	if runtime.GOOS == "windows" {
 		t.Skip("fake gh executable is a Unix #!/bin/sh script")
 	}
@@ -35,6 +35,7 @@ exit 1
 	}
 	t.Setenv("PATH", tmp+string(os.PathListSeparator)+os.Getenv("PATH"))
 
+	// Given: a git repo with at least one commit (HEAD sha used by status stub)
 	repoDir := t.TempDir()
 	runGitCmd(t, repoDir, "init")
 	runGitCmd(t, repoDir, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "init")
@@ -44,6 +45,7 @@ exit 1
 	}
 	sha := strings.TrimSpace(string(shaBytes))
 
+	// Given: httptest server returning minimal GitHub REST payloads for this repo/sha
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.URL.Path == "/search/issues":
@@ -60,15 +62,16 @@ exit 1
 	}))
 	t.Cleanup(srv.Close)
 
+	// Given: provider targeting the test server as API base
 	p := NewGitHubProvider()
 	p.APIBase = srv.URL
 
-	// When: Collect runs
+	// When: Collect runs against the repo
 	frag, err := p.Collect(context.Background(), Options{WorkDir: repoDir})
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Then: signals include issues subtree
+	// Then: issues facet is present under signals
 	if frag.Signals["issues"] == nil {
 		t.Fatalf("%v", frag.Signals)
 	}
@@ -159,6 +162,21 @@ func TestGitHubProviderFactory_apiBase_emptyWhenSet(t *testing.T) {
 	_, err := GitHubProviderFactory(map[string]any{"api_base": "  "})
 	if err == nil || !strings.Contains(err.Error(), "non-empty") {
 		t.Fatalf("got %v", err)
+	}
+}
+
+func TestGitHubProviderFactory_apiBase_notAbsoluteHTTPURL(t *testing.T) {
+	t.Parallel()
+	for _, raw := range []string{
+		"api.example.com",
+		"://bad",
+		"/relative-only",
+		"ftp://api.example.com/",
+	} {
+		_, err := GitHubProviderFactory(map[string]any{"api_base": raw})
+		if err == nil {
+			t.Fatalf("api_base=%q: want error", raw)
+		}
 	}
 }
 

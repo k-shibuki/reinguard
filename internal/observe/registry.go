@@ -32,6 +32,9 @@ func (r *ProviderRegistry) Register(id string, factory ProviderFactory) error {
 	if factory == nil {
 		return fmt.Errorf("observe: register provider %q: nil factory", id)
 	}
+	if r.factories == nil {
+		r.factories = make(map[string]ProviderFactory)
+	}
 	if _, exists := r.factories[id]; exists {
 		return fmt.Errorf("observe: register provider %q: duplicate", id)
 	}

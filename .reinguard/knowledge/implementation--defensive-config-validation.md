@@ -63,6 +63,20 @@ if v, ok := opts["api_base"].(string); ok {
 }
 ```
 
+### URL-shaped option strings
+
+When an option is documented as an API base URL, validate at factory time with
+`net/url.Parse`: require a non-empty scheme and host (and typically `http` or
+`https` for REST clients) so malformed values fail during config load, not on
+first request.
+
+## Zero-value types with map fields
+
+Exported types that store registrations in a map must not panic when used as a
+zero value (`var r T` then mutating methods). Either document that callers must
+use a constructor, or lazily allocate the map on first write (e.g. in
+`Register` before assignment).
+
 ## Blank and duplicate ID rejection
 
 When iterating enabled collection entries (e.g. provider specs), treat
