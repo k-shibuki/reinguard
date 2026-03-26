@@ -35,6 +35,32 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+func isNonResolvedOutcome(k resolve.OutcomeKind) bool {
+	return k == resolve.OutcomeAmbiguous || k == resolve.OutcomeDegraded || k == resolve.OutcomeUnsupported
+}
+
+func resolveEvalOutputMap(res resolve.Result) map[string]any {
+	out := map[string]any{
+		"kind":      string(res.Kind),
+		"state_id":  res.StateID,
+		"route_id":  res.RouteID,
+		"target_id": res.TargetID,
+		"rule_id":   res.RuleID,
+		"priority":  res.Priority,
+		"reason":    res.Reason,
+	}
+	if len(res.Candidates) > 0 {
+		out["candidates"] = res.Candidates
+	}
+	if len(res.MissingEvidence) > 0 {
+		out["missing_evidence"] = res.MissingEvidence
+	}
+	if res.ReEntryHint != "" {
+		out["re_entry_hint"] = res.ReEntryHint
+	}
+	return out
+}
+
 // RunObserve loads config, runs the observation engine (see package observe), and writes
 // observation JSON to the CLI writer. Provider overrides replace the configured provider list
 // when non-empty. Errors propagate from config load, engine build, or Collect.
@@ -74,7 +100,7 @@ func RunObserve(c *cli.Context, gitHubFacet string, providerOverride []string) e
 }
 
 // RunStateEval loads signals from --observation-file or live collect, then runs resolve on
-// state rules. With --fail-on-non-resolved, ambiguous or degraded outcomes return an error.
+// state rules. With --fail-on-non-resolved, ambiguous, degraded, or unsupported outcomes return an error.
 func RunStateEval(c *cli.Context) error {
 	wd, cfgDir, err := resolvePaths(c)
 	if err != nil {
@@ -93,26 +119,15 @@ func RunStateEval(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	out := map[string]any{
-		"kind":      string(res.Kind),
-		"state_id":  res.StateID,
-		"route_id":  res.RouteID,
-		"target_id": res.TargetID,
-		"rule_id":   res.RuleID,
-		"priority":  res.Priority,
-		"reason":    res.Reason,
-	}
-	if len(res.Candidates) > 0 {
-		out["candidates"] = res.Candidates
-	}
-	if c.Bool("fail-on-non-resolved") && (res.Kind == resolve.OutcomeAmbiguous || res.Kind == resolve.OutcomeDegraded) {
+	out := resolveEvalOutputMap(res)
+	if c.Bool("fail-on-non-resolved") && isNonResolvedOutcome(res.Kind) {
 		return fmt.Errorf("non-resolved state outcome: %s", res.Kind)
 	}
 	return writeJSON(c.App.Writer, out)
 }
 
 // RunRouteSelect loads signals (and optional --state-file merge into the flat map), resolves
-// route rules, and emits JSON. --fail-on-non-resolved turns ambiguous/degraded into errors.
+// route rules, and emits JSON. --fail-on-non-resolved turns ambiguous/degraded/unsupported into errors.
 func RunRouteSelect(c *cli.Context) error {
 	wd, cfgDir, err := resolvePaths(c)
 	if err != nil {
@@ -145,18 +160,7 @@ func RunRouteSelect(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	out := map[string]any{
-		"kind":      string(res.Kind),
-		"state_id":  res.StateID,
-		"route_id":  res.RouteID,
-		"target_id": res.TargetID,
-		"rule_id":   res.RuleID,
-		"priority":  res.Priority,
-		"reason":    res.Reason,
-	}
-	if len(res.Candidates) > 0 {
-		out["candidates"] = res.Candidates
-	}
+	out := resolveEvalOutputMap(res)
 	if len(res.RouteCandidates) > 0 {
 		rc := make([]any, len(res.RouteCandidates))
 		for i, x := range res.RouteCandidates {
@@ -164,7 +168,7 @@ func RunRouteSelect(c *cli.Context) error {
 		}
 		out["route_candidates"] = rc
 	}
-	if c.Bool("fail-on-non-resolved") && (res.Kind == resolve.OutcomeAmbiguous || res.Kind == resolve.OutcomeDegraded) {
+	if c.Bool("fail-on-non-resolved") && isNonResolvedOutcome(res.Kind) {
 		return fmt.Errorf("non-resolved route outcome: %s", res.Kind)
 	}
 	return writeJSON(c.App.Writer, out)

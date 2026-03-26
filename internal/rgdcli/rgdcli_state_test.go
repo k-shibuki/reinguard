@@ -68,3 +68,35 @@ func TestRunStateEval_failOnNonResolved(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 }
+
+func TestRunStateEval_failOnUnsupported(t *testing.T) {
+	t.Parallel()
+	// Given: state rule whose when-clause cannot be evaluated (unsupported outcome)
+	cfgDir := t.TempDir()
+	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
+	writeFile(t, filepath.Join(cfgDir, "control", "states", "bad.yaml"), []byte(`rules:
+  - type: state
+    id: bad
+    priority: 1
+    state_id: X
+    when:
+      op: bogus
+      path: git.branch
+      value: main
+`))
+	obsDir := t.TempDir()
+	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{"signals":{"git":{"branch":"main"}}}`))
+	app := NewApp("t")
+	app.Writer = &bytes.Buffer{}
+	// When: state eval runs with --fail-on-non-resolved
+	err := app.Run([]string{
+		"rgd", "state", "eval",
+		"--config-dir", cfgDir,
+		"--observation-file", filepath.Join(obsDir, "o.json"),
+		"--fail-on-non-resolved",
+	})
+	// Then: non-nil error mentioning unsupported
+	if err == nil || !strings.Contains(err.Error(), "unsupported") {
+		t.Fatalf("%v", err)
+	}
+}

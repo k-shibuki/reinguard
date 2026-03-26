@@ -5,15 +5,15 @@
 // Callers pass loaded config.Rule values filtered to type "state" or "route", a flattened
 // observation signal map (see package signals), and a set of degraded provider IDs for
 // depends_on suppression. Resolve and ResolveState/ResolveRoute return Result with Kind
-// resolved, ambiguous, or degraded; TargetID mirrors the winning state_id or route_id when
-// resolved. Route rules additionally populate RouteCandidates for ordered alternatives.
+// resolved, ambiguous, degraded, or unsupported; TargetID mirrors the winning state_id or
+// route_id when resolved. Route rules additionally populate RouteCandidates for ordered alternatives.
 //
 // # Error semantics
 //
-// Unsupported ruleType, match evaluation errors, or missing state_id/route_id on the
-// single winning rule return a non-nil error. No matching rules, all rules suppressed,
-// or duplicate best priority return a nil error with OutcomeDegraded or OutcomeAmbiguous
-// and a Reason string.
+// Invalid ruleType, match evaluation errors, or missing state_id/route_id on the single
+// winning rule yield OutcomeUnsupported with Reason, MissingEvidence, and ReEntryHint (ADR-0007).
+// No matching rules, all rules suppressed, or duplicate best priority return OutcomeDegraded or
+// OutcomeAmbiguous with a Reason string. Resolve returns a nil error; callers inspect Result.Kind.
 //
 // ADR-0004 (priority and selection), ADR-0007 (outcomes and reporting).
 package resolve
@@ -34,9 +34,10 @@ const priorityEpsilon = 1e-9
 type OutcomeKind string
 
 const (
-	OutcomeResolved  OutcomeKind = "resolved"
-	OutcomeAmbiguous OutcomeKind = "ambiguous"
-	OutcomeDegraded  OutcomeKind = "degraded"
+	OutcomeResolved    OutcomeKind = "resolved"
+	OutcomeAmbiguous   OutcomeKind = "ambiguous"
+	OutcomeDegraded    OutcomeKind = "degraded"
+	OutcomeUnsupported OutcomeKind = "unsupported"
 )
 
 // Result is the outcome of resolving among matching rules of one type.
@@ -44,11 +45,13 @@ type Result struct {
 	Kind            OutcomeKind      `json:"kind"`
 	StateID         string           `json:"state_id,omitempty"`
 	RouteID         string           `json:"route_id,omitempty"`
-	TargetID        string           `json:"target_id,omitempty"` // unified winning ID (mirrors state_id or route_id)
+	TargetID        string           `json:"target_id,omitempty"`
 	RuleID          string           `json:"rule_id,omitempty"`
 	Reason          string           `json:"reason,omitempty"`
+	ReEntryHint     string           `json:"re_entry_hint,omitempty"`
 	Candidates      []string         `json:"candidates,omitempty"`
 	RouteCandidates []RouteCandidate `json:"route_candidates,omitempty"`
+	MissingEvidence []string         `json:"missing_evidence,omitempty"`
 	Priority        float64          `json:"priority,omitempty"`
 }
 
@@ -106,20 +109,57 @@ func profileForRuleType(ruleType string) (resolveProfile, error) {
 			routeStyle:          true,
 		}, nil
 	default:
-		return resolveProfile{}, fmt.Errorf("resolve: unsupported rule type %q", ruleType)
+		return resolveProfile{}, fmt.Errorf("unsupported rule type %q", ruleType)
+	}
+}
+
+func unsupportedRuleType(ruleType, profileErr string) Result {
+	return Result{
+		Kind:            OutcomeUnsupported,
+		Reason:          fmt.Sprintf("resolve: %s", profileErr),
+		MissingEvidence: []string{fmt.Sprintf("rule_type:%s", ruleType)},
+		ReEntryHint:     `Pass rule_type "state" or "route" only.`,
+	}
+}
+
+func unsupportedMatchError(cause error) Result {
+	return Result{
+		Kind:            OutcomeUnsupported,
+		Reason:          fmt.Sprintf("resolve: %v", cause),
+		MissingEvidence: []string{"when_evaluation"},
+		ReEntryHint:     "Fix the failing rule's when-clause (see reason) or supply observation values it requires; see ADR-0002.",
+	}
+}
+
+func unsupportedMissingStateID(ruleID string) Result {
+	return Result{
+		Kind:            OutcomeUnsupported,
+		Reason:          fmt.Sprintf("state rule %q is missing state_id", ruleID),
+		MissingEvidence: []string{fmt.Sprintf("rule_id:%s", ruleID), "state_id"},
+		ReEntryHint:     "Set state_id on the rule under control/states and run rgd config validate.",
+	}
+}
+
+func unsupportedMissingRouteID(ruleID string) Result {
+	return Result{
+		Kind:            OutcomeUnsupported,
+		Reason:          fmt.Sprintf("route rule %q is missing route_id", ruleID),
+		MissingEvidence: []string{fmt.Sprintf("rule_id:%s", ruleID), "route_id"},
+		ReEntryHint:     "Set route_id on the rule under control/routes and run rgd config validate.",
 	}
 }
 
 // Resolve applies ADR-0004 selection to rules of a single type ("state" or "route"). On success
-// Kind is OutcomeResolved; otherwise Kind is OutcomeDegraded or OutcomeAmbiguous with Reason set.
+// Kind is OutcomeResolved; otherwise Kind may be OutcomeDegraded, OutcomeAmbiguous, or
+// OutcomeUnsupported (ADR-0007) with Reason and optional handoff fields.
 func Resolve(rules []config.Rule, signals map[string]any, degraded map[string]struct{}, ruleType string) (Result, error) {
 	p, err := profileForRuleType(ruleType)
 	if err != nil {
-		return Result{}, err
+		return unsupportedRuleType(ruleType, err.Error()), nil
 	}
 	candidates, err := matchingRules(filterType(rules, p.ruleType), signals)
 	if err != nil {
-		return Result{}, err
+		return unsupportedMatchError(err), nil
 	}
 	if len(candidates) == 0 {
 		return Result{Kind: OutcomeDegraded, Reason: p.noMatchReason}, nil
@@ -174,7 +214,7 @@ func Resolve(rules []config.Rule, signals map[string]any, degraded map[string]st
 	r := atBest[0]
 	if p.routeStyle {
 		if r.RouteID == "" {
-			return Result{}, fmt.Errorf("resolve: route rule %q missing route_id", r.ID)
+			return unsupportedMissingRouteID(r.ID), nil
 		}
 		return Result{
 			Kind:            OutcomeResolved,
@@ -186,7 +226,7 @@ func Resolve(rules []config.Rule, signals map[string]any, degraded map[string]st
 		}, nil
 	}
 	if r.StateID == "" {
-		return Result{}, fmt.Errorf("resolve: state rule %q missing state_id", r.ID)
+		return unsupportedMissingStateID(r.ID), nil
 	}
 	return Result{
 		Kind:     OutcomeResolved,
