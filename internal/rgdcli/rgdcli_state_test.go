@@ -10,6 +10,7 @@ import (
 
 func TestRunStateEval_observationFile(t *testing.T) {
 	t.Parallel()
+	// Given: config with idle-on-main rule and observation JSON on main branch
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
 	writeFile(t, filepath.Join(cfgDir, "control", "states", "r.yaml"), []byte(testFixtureRulesStateIdle))
@@ -23,6 +24,7 @@ func TestRunStateEval_observationFile(t *testing.T) {
 	var buf bytes.Buffer
 	app := NewApp("test")
 	app.Writer = &buf
+	// When: state eval runs with --observation-file
 	err := app.Run([]string{
 		"rgd", "state", "eval",
 		"--config-dir", cfgDir,
@@ -31,6 +33,7 @@ func TestRunStateEval_observationFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: resolved Idle state
 	var out map[string]any
 	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
 		t.Fatalf("invalid JSON: %v; raw=%s", err, buf.String())
@@ -45,6 +48,7 @@ func TestRunStateEval_observationFile(t *testing.T) {
 
 func TestRunStateEval_failOnNonResolved(t *testing.T) {
 	t.Parallel()
+	// Given: ambiguous overlapping state rules and matching signals
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
 	writeFile(t, filepath.Join(cfgDir, "control", "states", "r.yaml"), []byte(testFixtureRulesStateAmbiguous))
@@ -52,12 +56,14 @@ func TestRunStateEval_failOnNonResolved(t *testing.T) {
 	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{"signals":{"x":1}}`))
 	app := NewApp("t")
 	app.Writer = &bytes.Buffer{}
+	// When: state eval runs with --fail-on-non-resolved
 	err := app.Run([]string{
 		"rgd", "state", "eval",
 		"--config-dir", cfgDir,
 		"--observation-file", filepath.Join(obsDir, "o.json"),
 		"--fail-on-non-resolved",
 	})
+	// Then: non-nil error mentioning ambiguity
 	if err == nil || !strings.Contains(err.Error(), "ambiguous") {
 		t.Fatalf("%v", err)
 	}

@@ -13,6 +13,7 @@ import (
 )
 
 func TestGitHubProvider_Collect_fakeGH(t *testing.T) {
+	// Given: fake gh on PATH and httptest API stubs for a repo
 	if runtime.GOOS == "windows" {
 		t.Skip("fake gh executable is a Unix #!/bin/sh script")
 	}
@@ -62,16 +63,19 @@ exit 1
 	p := NewGitHubProvider()
 	p.APIBase = srv.URL
 
+	// When: Collect runs
 	frag, err := p.Collect(context.Background(), Options{WorkDir: repoDir})
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: signals include issues subtree
 	if frag.Signals["issues"] == nil {
 		t.Fatalf("%v", frag.Signals)
 	}
 }
 
 func TestGitHubProvider_Collect_ghRepoViewFails(t *testing.T) {
+	// Given: gh auth OK but repo view fails
 	if runtime.GOOS == "windows" {
 		t.Skip("fake gh executable is a Unix #!/bin/sh script")
 	}
@@ -89,16 +93,19 @@ exit 1
 	}
 	t.Setenv("PATH", tmp+string(os.PathListSeparator)+os.Getenv("PATH"))
 	p := NewGitHubProvider()
+	// When: Collect runs
 	frag, err := p.Collect(context.Background(), Options{WorkDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: degraded with repo_resolve_failed diagnostic
 	if !frag.Degraded || len(frag.Diagnostics) != 1 || frag.Diagnostics[0].Code != "repo_resolve_failed" {
 		t.Fatalf("%+v", frag)
 	}
 }
 
 func TestGitHubProvider_Collect_ghAuthFails(t *testing.T) {
+	// Given: gh exits non-zero immediately (auth failure)
 	if runtime.GOOS == "windows" {
 		t.Skip("fake gh executable is a Unix #!/bin/sh script")
 	}
@@ -112,10 +119,12 @@ exit 1
 	}
 	t.Setenv("PATH", tmp+string(os.PathListSeparator)+os.Getenv("PATH"))
 	p := NewGitHubProvider()
+	// When: Collect runs
 	frag, err := p.Collect(context.Background(), Options{WorkDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: degraded with auth_failed diagnostic
 	if !frag.Degraded || len(frag.Diagnostics) != 1 || frag.Diagnostics[0].Code != "auth_failed" {
 		t.Fatalf("%+v", frag)
 	}

@@ -13,6 +13,7 @@ import (
 
 func TestCollect_prForBranch_usesPullsListExactHead(t *testing.T) {
 	t.Parallel()
+	// Given: repo on branch feature and API listing open PR with head o:feature
 	dir := t.TempDir()
 	run(t, "git", dir, "init")
 	run(t, "git", dir, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "init")
@@ -35,6 +36,7 @@ func TestCollect_prForBranch_usesPullsListExactHead(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "tok", BaseURL: srv.URL}
+	// When: Collect runs
 	m, warns, err := Collect(context.Background(), c, "o", "r", dir)
 	if err != nil {
 		t.Fatal(err)
@@ -46,6 +48,7 @@ func TestCollect_prForBranch_usesPullsListExactHead(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected pull_requests map, got %T", m["pull_requests"])
 	}
+	// Then: pr_exists_for_branch and pr number 99
 	if !pr["pr_exists_for_branch"].(bool) {
 		t.Fatalf("want pr for branch, got %v", pr)
 	}
@@ -56,6 +59,7 @@ func TestCollect_prForBranch_usesPullsListExactHead(t *testing.T) {
 
 func TestCollect_withGitRepo(t *testing.T) {
 	t.Parallel()
+	// Given: main branch, empty PR list
 	dir := t.TempDir()
 	run(t, "git", dir, "init")
 	run(t, "git", dir, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "init")
@@ -79,6 +83,7 @@ func TestCollect_withGitRepo(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "tok", BaseURL: srv.URL}
+	// When: Collect runs
 	m, warns, err := Collect(context.Background(), c, "o", "r", dir)
 	if err != nil {
 		t.Fatal(err)
@@ -90,6 +95,7 @@ func TestCollect_withGitRepo(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected pull_requests map, got %T", m["pull_requests"])
 	}
+	// Then: current_branch main, open_count 0
 	if pr["current_branch"].(string) != "main" {
 		t.Fatalf("%v", pr)
 	}
@@ -109,6 +115,7 @@ func run(t *testing.T, name, dir string, args ...string) {
 
 func TestCollect_detachedHeadWarning(t *testing.T) {
 	t.Parallel()
+	// Given: detached HEAD checkout
 	dir := t.TempDir()
 	run(t, "git", dir, "init")
 	run(t, "git", dir, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "init")
@@ -123,10 +130,12 @@ func TestCollect_detachedHeadWarning(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "tok", BaseURL: srv.URL}
+	// When: Collect runs
 	_, warns, err := Collect(context.Background(), c, "o", "r", dir)
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: non-empty warnings (detached head)
 	if len(warns) == 0 {
 		t.Fatal("expected warning")
 	}

@@ -11,6 +11,7 @@ import (
 
 func TestRunContextBuild_gitOnly(t *testing.T) {
 	t.Parallel()
+	// Given: git repo on main with minimal .reinguard, state+route rules
 	root := t.TempDir()
 	runGit(t, root, "init")
 	runGit(t, root, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "init")
@@ -26,10 +27,12 @@ func TestRunContextBuild_gitOnly(t *testing.T) {
 	var buf bytes.Buffer
 	app := NewApp("test")
 	app.Writer = &buf
+	// When: context build runs from cwd
 	err := app.Run([]string{"rgd", "context", "build", "--cwd", root})
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: JSON has schema_version and empty knowledge.entries
 	var out map[string]any
 	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
 		t.Fatalf("invalid JSON output: %v; raw=%s", err, buf.String())

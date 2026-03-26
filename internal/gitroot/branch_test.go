@@ -9,15 +9,18 @@ import (
 
 func TestCurrentBranch_named(t *testing.T) {
 	t.Parallel()
+	// Given: git repo on branch main
 	dir := t.TempDir()
 	runGitBranchTest(t, dir, "init")
 	runGitBranchTest(t, dir, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "init")
 	runGitBranchTest(t, dir, "branch", "-M", "main")
 
+	// When: CurrentBranch runs
 	b, detached, err := CurrentBranch(context.Background(), dir)
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: named branch, not detached
 	if detached || b != "main" {
 		t.Fatalf("got branch=%q detached=%v", b, detached)
 	}
@@ -25,8 +28,11 @@ func TestCurrentBranch_named(t *testing.T) {
 
 func TestCurrentBranch_nonGitDir(t *testing.T) {
 	t.Parallel()
+	// Given: plain directory without .git
 	dir := t.TempDir()
+	// When: CurrentBranch runs
 	_, _, err := CurrentBranch(context.Background(), dir)
+	// Then: error
 	if err == nil {
 		t.Fatal("expected error for non-git directory")
 	}
@@ -34,6 +40,7 @@ func TestCurrentBranch_nonGitDir(t *testing.T) {
 
 func TestCurrentBranch_detached(t *testing.T) {
 	t.Parallel()
+	// Given: detached HEAD at a commit
 	dir := t.TempDir()
 	runGitBranchTest(t, dir, "init")
 	runGitBranchTest(t, dir, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "init")
@@ -44,10 +51,12 @@ func TestCurrentBranch_detached(t *testing.T) {
 	commit := strings.TrimSpace(string(out))
 	runGitBranchTest(t, dir, "checkout", "--detach", commit)
 
+	// When: CurrentBranch runs
 	b, detached, err := CurrentBranch(context.Background(), dir)
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: detached with empty branch name
 	if !detached || b != "" {
 		t.Fatalf("got branch=%q detached=%v", b, detached)
 	}

@@ -51,8 +51,11 @@ func TestResolve_gitRepo(t *testing.T) {
 
 func TestResolve_noGitRepoIncludesHint(t *testing.T) {
 	t.Parallel()
+	// Given: directory that is not a git repo
 	dir := t.TempDir()
+	// When: Resolve runs with empty explicit name
 	_, err := Resolve(dir, "")
+	// Then: error hints --config-dir
 	if err == nil || !strings.Contains(err.Error(), "config-dir") {
 		t.Fatalf("%v", err)
 	}
@@ -60,7 +63,10 @@ func TestResolve_noGitRepoIncludesHint(t *testing.T) {
 
 func TestResolve_emptyCwd(t *testing.T) {
 	t.Parallel()
+	// Given: empty cwd
+	// When: Resolve runs
 	_, err := Resolve("", "x")
+	// Then: empty cwd error
 	if err == nil || !strings.Contains(err.Error(), "empty cwd") {
 		t.Fatalf("%v", err)
 	}

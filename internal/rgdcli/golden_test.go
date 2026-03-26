@@ -11,6 +11,7 @@ import (
 
 func TestGolden_stateEval(t *testing.T) {
 	t.Parallel()
+	// Given: fixture config dir and golden observation/want JSON
 	cfgDir := goldenSetupConfigDir(t, testFixtureRulesStateIdle, testFixtureControlRoutesNext)
 	dir := goldenCaseDir(t, "state_eval")
 	obs := filepath.Join(dir, "observation.json")
@@ -20,15 +21,18 @@ func TestGolden_stateEval(t *testing.T) {
 	app := NewApp("test")
 	app.Writer = &buf
 	app.ErrWriter = &bytes.Buffer{}
+	// When: state eval runs against golden observation
 	err := app.Run([]string{"rgd", "state", "eval", "--config-dir", cfgDir, "--observation-file", obs})
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: stdout JSON matches want.json canonically
 	assertCanonicalJSONEqual(t, buf.Bytes(), wantRaw)
 }
 
 func TestGolden_contextBuild(t *testing.T) {
 	t.Parallel()
+	// Given: fixture config dir and golden observation/want JSON
 	cfgDir := goldenSetupConfigDir(t, testFixtureRulesStateIdle, testFixtureControlRoutesNext)
 	dir := goldenCaseDir(t, "context_build")
 	obs := filepath.Join(dir, "observation.json")
@@ -38,10 +42,12 @@ func TestGolden_contextBuild(t *testing.T) {
 	app := NewApp("test")
 	app.Writer = &buf
 	app.ErrWriter = &bytes.Buffer{}
+	// When: context build runs against golden observation
 	err := app.Run([]string{"rgd", "context", "build", "--config-dir", cfgDir, "--observation-file", obs})
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: stdout JSON matches want.json canonically
 	assertCanonicalJSONEqual(t, buf.Bytes(), wantRaw)
 }
 

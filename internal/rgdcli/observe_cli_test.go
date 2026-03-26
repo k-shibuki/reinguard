@@ -10,6 +10,7 @@ import (
 
 func TestRunObserve_gitOnlyProvider(t *testing.T) {
 	t.Parallel()
+	// Given: git repo with .reinguard and git-only provider enabled
 	root := t.TempDir()
 	runGitForObserve(t, root, "init")
 	runGitForObserve(t, root, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "init")
@@ -23,9 +24,11 @@ func TestRunObserve_gitOnlyProvider(t *testing.T) {
 	var buf bytes.Buffer
 	app := NewApp("t")
 	app.Writer = &buf
+	// When: observe git runs from repo root
 	if err := app.Run([]string{"rgd", "observe", "git", "--cwd", root}); err != nil {
 		t.Fatal(err)
 	}
+	// Then: stdout contains git provider and signals
 	if !bytes.Contains(buf.Bytes(), []byte(`"git"`)) || !bytes.Contains(buf.Bytes(), []byte(`"signals"`)) {
 		t.Fatalf("%s", buf.String())
 	}

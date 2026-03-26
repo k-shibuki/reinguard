@@ -40,6 +40,7 @@ func TestParseObservationJSON_diagnosticsNonStringFieldsOmitted(t *testing.T) {
 
 func TestParseObservationJSON_stringDiagnostics(t *testing.T) {
 	t.Parallel()
+	// Given: observation JSON with string-typed diagnostic fields
 	data, err := json.Marshal(map[string]any{
 		"signals": map[string]any{"a": true},
 		"diagnostics": []any{
@@ -49,10 +50,12 @@ func TestParseObservationJSON_stringDiagnostics(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// When: ParseObservationJSON runs
 	_, diags, _, err := ParseObservationJSON(data)
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: diagnostics decode with all string fields preserved
 	if len(diags) != 1 || diags[0].Severity != "warn" || diags[0].Message != "m" || diags[0].Provider != "git" || diags[0].Code != "x" {
 		t.Fatalf("unexpected diags: %+v", diags)
 	}
@@ -73,7 +76,10 @@ func TestParseObservationJSON_errors(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+			// Given: malformed or invalid observation payload (see name)
+			// When: ParseObservationJSON runs
 			_, _, _, err := ParseObservationJSON(tc.data)
+			// Then: non-nil error; when wantSubstr set, message mentions it
 			if err == nil {
 				t.Fatal("expected error")
 			}
@@ -86,6 +92,7 @@ func TestParseObservationJSON_errors(t *testing.T) {
 
 func TestLoadSignalsFileOrCollect_readsObservationFile(t *testing.T) {
 	t.Parallel()
+	// Given: a valid observation JSON file on disk
 	dir := t.TempDir()
 	path := filepath.Join(dir, "obs.json")
 	doc := map[string]any{
@@ -102,10 +109,12 @@ func TestLoadSignalsFileOrCollect_readsObservationFile(t *testing.T) {
 	if writeErr := os.WriteFile(path, raw, 0o600); writeErr != nil {
 		t.Fatal(writeErr)
 	}
+	// When: LoadSignalsFileOrCollect is called with that path
 	signals, diags, deg, err := LoadSignalsFileOrCollect(context.Background(), &config.Root{}, LoadSignalsOptions{ObservationPath: path})
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: signals, diagnostics, and degraded flag match the file contents
 	if !deg {
 		t.Fatal("expected degraded true from file")
 	}
@@ -120,8 +129,11 @@ func TestLoadSignalsFileOrCollect_readsObservationFile(t *testing.T) {
 
 func TestLoadSignalsFileOrCollect_readFileError(t *testing.T) {
 	t.Parallel()
+	// Given: ObservationPath points to a non-existent file
 	missing := filepath.Join(t.TempDir(), "nope.json")
+	// When: LoadSignalsFileOrCollect reads it
 	_, _, _, err := LoadSignalsFileOrCollect(context.Background(), &config.Root{}, LoadSignalsOptions{ObservationPath: missing})
+	// Then: error wraps os.ErrNotExist
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -134,10 +146,12 @@ func TestLoadSignalsFileOrCollect_collectWhenNoObservationPath(t *testing.T) {
 	t.Parallel()
 	// Given: no observation file and no enabled providers, live Collect returns empty signals without I/O.
 	root := &config.Root{Providers: []config.ProviderSpec{}}
+	// When: LoadSignalsFileOrCollect runs with empty ObservationPath
 	signals, diags, deg, err := LoadSignalsFileOrCollect(context.Background(), root, LoadSignalsOptions{WorkDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: empty signals, no diagnostics, not degraded
 	if deg || len(diags) != 0 {
 		t.Fatalf("deg=%v diags=%+v", deg, diags)
 	}

@@ -78,15 +78,20 @@ func TestEval_andNotArray(t *testing.T) {
 
 func TestEval_orNotArray(t *testing.T) {
 	t.Parallel()
+	// Given: or with non-array value
+	// When: Eval is called
 	_, err := Eval(map[string]any{"or": "x"}, map[string]any{})
+	// Then: match error
 	requireMatchErr(t, err)
 }
 
 func TestEval_missingPath(t *testing.T) {
 	t.Parallel()
 	// Given: eq without path
+	// When: Eval is called
 	_, err := Eval(map[string]any{"op": "eq", "value": 1}, map[string]any{})
 	requireMatchErr(t, err)
+	// Then: missing path error
 	if !strings.Contains(err.Error(), "missing path") {
 		t.Fatal(err)
 	}
@@ -94,8 +99,11 @@ func TestEval_missingPath(t *testing.T) {
 
 func TestEval_eqMissingValue(t *testing.T) {
 	t.Parallel()
+	// Given: eq without value
+	// When: Eval is called
 	_, err := Eval(map[string]any{"op": "eq", "path": "a"}, map[string]any{"a": 1})
 	requireMatchErr(t, err)
+	// Then: requires value error
 	if !strings.Contains(err.Error(), "requires value") {
 		t.Fatal(err)
 	}
@@ -103,11 +111,13 @@ func TestEval_eqMissingValue(t *testing.T) {
 
 func TestEval_eq_numericSignal_nonNumericValue(t *testing.T) {
 	t.Parallel()
-	// Regression: int signal compared to non-numeric value must be false without stack overflow.
+	// Given: numeric signal compared to non-numeric string value (regression: no stack overflow)
+	// When: Eval runs
 	ok, err := Eval(map[string]any{"op": "eq", "path": "n", "value": "not-a-number"}, map[string]any{"n": 1})
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: false, no error
 	if ok {
 		t.Fatal("expected false")
 	}
@@ -115,8 +125,11 @@ func TestEval_eq_numericSignal_nonNumericValue(t *testing.T) {
 
 func TestEval_inValueNotArray(t *testing.T) {
 	t.Parallel()
+	// Given: in-op with non-array value
+	// When: Eval is called
 	_, err := Eval(map[string]any{"op": "in", "path": "p", "value": "not-array"}, map[string]any{"p": "x"})
 	requireMatchErr(t, err)
+	// Then: validation error
 	if !strings.Contains(err.Error(), "in value must be array") {
 		t.Fatal(err)
 	}
@@ -124,8 +137,11 @@ func TestEval_inValueNotArray(t *testing.T) {
 
 func TestEval_containsValueNotString(t *testing.T) {
 	t.Parallel()
+	// Given: contains-op with non-string value
+	// When: Eval is called
 	_, err := Eval(map[string]any{"op": "contains", "path": "a", "value": 1}, map[string]any{"a": "hi"})
 	requireMatchErr(t, err)
+	// Then: validation error
 	if !strings.Contains(err.Error(), "contains value must be string") {
 		t.Fatal(err)
 	}
@@ -133,8 +149,11 @@ func TestEval_containsValueNotString(t *testing.T) {
 
 func TestEval_countRequiresEq(t *testing.T) {
 	t.Parallel()
+	// Given: count-op without eq
+	// When: Eval is called
 	_, err := Eval(map[string]any{"op": "count", "path": "xs"}, map[string]any{"xs": []any{1}})
 	requireMatchErr(t, err)
+	// Then: count requires eq error
 	if !strings.Contains(err.Error(), "count requires eq") {
 		t.Fatal(err)
 	}
@@ -142,8 +161,11 @@ func TestEval_countRequiresEq(t *testing.T) {
 
 func TestEval_countEqMustBeInteger(t *testing.T) {
 	t.Parallel()
+	// Given: count with non-integer eq
+	// When: Eval is called
 	_, err := Eval(map[string]any{"op": "count", "path": "xs", "eq": 1.9}, map[string]any{"xs": []any{1, 2}})
 	requireMatchErr(t, err)
+	// Then: non-negative integer error
 	if !strings.Contains(err.Error(), "non-negative integer") {
 		t.Fatal(err)
 	}
@@ -151,10 +173,13 @@ func TestEval_countEqMustBeInteger(t *testing.T) {
 
 func TestEval_countOnTypedSlice(t *testing.T) {
 	t.Parallel()
+	// Given: count over []int-backed signal
+	// When: Eval runs
 	ok, err := Eval(map[string]any{"op": "count", "path": "xs", "eq": 2}, map[string]any{"xs": []int{1, 2}})
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: true
 	if !ok {
 		t.Fatal("expected match on []int-backed signal")
 	}
@@ -162,8 +187,11 @@ func TestEval_countOnTypedSlice(t *testing.T) {
 
 func TestEval_anyRequiresWhen(t *testing.T) {
 	t.Parallel()
+	// Given: any-op without nested when
+	// When: Eval is called
 	_, err := Eval(map[string]any{"op": "any", "path": "items"}, map[string]any{"items": []any{1}})
 	requireMatchErr(t, err)
+	// Then: any requires when error
 	if !strings.Contains(err.Error(), "any requires when") {
 		t.Fatal(err)
 	}
@@ -171,8 +199,11 @@ func TestEval_anyRequiresWhen(t *testing.T) {
 
 func TestEval_allRequiresWhen(t *testing.T) {
 	t.Parallel()
+	// Given: all-op without nested when
+	// When: Eval is called
 	_, err := Eval(map[string]any{"op": "all", "path": "items"}, map[string]any{"items": []any{1}})
 	requireMatchErr(t, err)
+	// Then: all requires when error
 	if !strings.Contains(err.Error(), "all requires when") {
 		t.Fatal(err)
 	}
@@ -180,8 +211,11 @@ func TestEval_allRequiresWhen(t *testing.T) {
 
 func TestEval_cmpNumNonNumericValue(t *testing.T) {
 	t.Parallel()
+	// Given: numeric comparison with non-numeric value
+	// When: Eval is called
 	_, err := Eval(map[string]any{"op": "gt", "path": "a", "value": "x"}, map[string]any{"a": 1.0})
 	requireMatchErr(t, err)
+	// Then: value not numeric error
 	if !strings.Contains(err.Error(), "value not numeric") {
 		t.Fatal(err)
 	}
@@ -189,6 +223,7 @@ func TestEval_cmpNumNonNumericValue(t *testing.T) {
 
 func TestEvalOperatorMatrix(t *testing.T) {
 	t.Parallel()
+	// Given/When/Then: each row exercises Eval(tc.when, tc.sig) and expects tc.want
 	tests := []struct {
 		when any
 		sig  map[string]any
@@ -312,6 +347,7 @@ func TestEvalOperatorMatrix(t *testing.T) {
 
 func TestEvalLteGteTable(t *testing.T) {
 	t.Parallel()
+	// Given: fixed signal n=5
 	s := map[string]any{"n": 5.0}
 	for _, tc := range []struct {
 		op   string

@@ -10,14 +10,17 @@ import (
 
 func TestRunKnowledgePack_emptyManifest(t *testing.T) {
 	t.Parallel()
+	// Given: config without knowledge manifest on disk
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
 	var buf bytes.Buffer
 	app := NewApp("t")
 	app.Writer = &buf
+	// When: knowledge pack runs
 	if err := app.Run([]string{"rgd", "knowledge", "pack", "--config-dir", cfgDir}); err != nil {
 		t.Fatal(err)
 	}
+	// Then: entries key present and empty array
 	var out map[string]any
 	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
 		t.Fatalf("invalid JSON output: %v; raw=%s", err, buf.String())
@@ -82,6 +85,7 @@ func TestRunKnowledgePack_queryFilter(t *testing.T) {
 
 func TestRunKnowledgeIndex_writesManifest(t *testing.T) {
 	t.Parallel()
+	// Given: one markdown knowledge file under knowledge/
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
 	kdir := filepath.Join(cfgDir, "knowledge")
@@ -101,9 +105,11 @@ triggers:
 	var buf bytes.Buffer
 	app := NewApp("t")
 	app.Writer = &buf
+	// When: knowledge index runs
 	if err := app.Run([]string{"rgd", "knowledge", "index", "--config-dir", cfgDir}); err != nil {
 		t.Fatal(err)
 	}
+	// Then: stdout reports write; manifest.json lists one entry
 	if !bytes.Contains(buf.Bytes(), []byte("wrote 1 entries")) {
 		t.Fatalf("stdout: %s", buf.String())
 	}
@@ -123,6 +129,7 @@ triggers:
 
 func TestRunConfigValidate_knowledgePathsAndFreshness_ok(t *testing.T) {
 	t.Parallel()
+	// Given: knowledge file indexed to a fresh manifest
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
 	kdir := filepath.Join(cfgDir, "knowledge")
@@ -147,9 +154,11 @@ triggers:
 	app := NewApp("t")
 	app.Writer = &out
 	app.ErrWriter = &errBuf
+	// When: config validate runs
 	if err := app.Run([]string{"rgd", "config", "validate", "--config-dir", cfgDir}); err != nil {
 		t.Fatalf("err=%v stderr=%q", err, errBuf.String())
 	}
+	// Then: success on stdout
 	if !bytes.Contains(out.Bytes(), []byte("config OK")) {
 		t.Fatalf("stdout=%q", out.String())
 	}
@@ -157,6 +166,7 @@ triggers:
 
 func TestRunConfigValidate_knowledgeStaleManifest(t *testing.T) {
 	t.Parallel()
+	// Given: on-disk knowledge and manifest listing wrong entry id
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
 	kdir := filepath.Join(cfgDir, "knowledge")
@@ -184,7 +194,9 @@ triggers:
 	app := NewApp("t")
 	app.Writer = &out
 	app.ErrWriter = &errBuf
+	// When: config validate runs
 	err := app.Run([]string{"rgd", "config", "validate", "--config-dir", cfgDir})
+	// Then: error (stale manifest)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -192,6 +204,7 @@ triggers:
 
 func TestRunConfigValidate_knowledgeMissingPath(t *testing.T) {
 	t.Parallel()
+	// Given: manifest references a missing markdown path
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
 	kdir := filepath.Join(cfgDir, "knowledge")
@@ -211,7 +224,9 @@ func TestRunConfigValidate_knowledgeMissingPath(t *testing.T) {
 	app := NewApp("t")
 	app.Writer = &bytes.Buffer{}
 	app.ErrWriter = &bytes.Buffer{}
+	// When: config validate runs
 	err := app.Run([]string{"rgd", "config", "validate", "--config-dir", cfgDir})
+	// Then: error
 	if err == nil {
 		t.Fatal("expected error")
 	}

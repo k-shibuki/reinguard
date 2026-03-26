@@ -9,9 +9,12 @@ import (
 
 func TestRunConfigValidate_invalidDir(t *testing.T) {
 	t.Parallel()
+	// Given: non-existent config-dir
 	app := NewApp("t")
 	app.Writer = &bytes.Buffer{}
+	// When: config validate runs
 	err := app.Run([]string{"rgd", "config", "validate", "--config-dir", filepath.Join(t.TempDir(), "missing-sub")})
+	// Then: error
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -19,6 +22,7 @@ func TestRunConfigValidate_invalidDir(t *testing.T) {
 
 func TestRunConfigValidate_deprecatedLegacyToolHints(t *testing.T) {
 	t.Parallel()
+	// Given: valid config with legacy_tool_hints set
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
 default_branch: main
@@ -30,9 +34,11 @@ legacy_tool_hints:
 	app := NewApp("t")
 	app.Writer = &out
 	app.ErrWriter = &errBuf
+	// When: config validate runs
 	if err := app.Run([]string{"rgd", "config", "validate", "--config-dir", dir}); err != nil {
 		t.Fatal(err)
 	}
+	// Then: stderr warns about deprecation; stdout still reports OK
 	if !strings.Contains(errBuf.String(), "legacy_tool_hints") || !strings.Contains(errBuf.String(), "deprecated") {
 		t.Fatalf("stderr=%q", errBuf.String())
 	}

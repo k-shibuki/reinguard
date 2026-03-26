@@ -13,6 +13,7 @@ import (
 
 func TestCollect_status(t *testing.T) {
 	t.Parallel()
+	// Given: git repo with HEAD and API returning commit status success
 	dir := t.TempDir()
 	gitInit(t, dir)
 
@@ -21,6 +22,7 @@ func TestCollect_status(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	// When: Collect runs
 	m, warns, err := Collect(context.Background(), c, "o", "r", dir)
 	if err != nil {
 		t.Fatal(err)
@@ -36,6 +38,7 @@ func TestCollect_status(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected ci_status string, got %T", cimap["ci_status"])
 	}
+	// Then: ci_status success, no warnings
 	if st != "success" {
 		t.Fatalf("%v", cimap)
 	}
@@ -43,6 +46,7 @@ func TestCollect_status(t *testing.T) {
 
 func TestCollect_http500(t *testing.T) {
 	t.Parallel()
+	// Given: API returns 500
 	dir := t.TempDir()
 	gitInit(t, dir)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -50,7 +54,9 @@ func TestCollect_http500(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	// When: Collect runs
 	_, _, err := Collect(context.Background(), c, "o", "r", dir)
+	// Then: error mentions 500
 	if err == nil || !strings.Contains(err.Error(), "500") {
 		t.Fatalf("got %v", err)
 	}
@@ -58,9 +64,10 @@ func TestCollect_http500(t *testing.T) {
 
 func TestCollect_nonGitWorkDir(t *testing.T) {
 	t.Parallel()
+	// Given: non-git workdir (no HTTP round-trip; head fails first)
 	dir := t.TempDir()
-	// No HTTP round-trip: headSHA fails before GetJSON when workDir is not a git repo.
 	c := &githubapi.Client{HTTP: http.DefaultClient, Token: "t", BaseURL: "http://unused.invalid"}
+	// When: Collect runs
 	m, warns, err := Collect(context.Background(), c, "o", "r", dir)
 	if err != nil {
 		t.Fatal(err)
@@ -73,6 +80,7 @@ func TestCollect_nonGitWorkDir(t *testing.T) {
 		t.Fatalf("expected ci map, got %T", m["ci"])
 	}
 	st, ok := cimap["ci_status"].(string)
+	// Then: warning and ci_status unknown
 	if !ok || st != "unknown" {
 		t.Fatalf("ci_status=%v (%T)", cimap["ci_status"], cimap["ci_status"])
 	}

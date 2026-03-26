@@ -12,6 +12,7 @@ import (
 
 func TestCollect_openCount(t *testing.T) {
 	t.Parallel()
+	// Given: search API returns total_count 3 for repo query
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/search/issues" {
 			http.NotFound(w, r)
@@ -31,10 +32,12 @@ func TestCollect_openCount(t *testing.T) {
 		Token:   "test-token",
 		BaseURL: srv.URL,
 	}
+	// When: Collect runs
 	m, err := Collect(context.Background(), c, "o", "r")
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: open_count is 3
 	inner, ok := m["issues"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected issues map, got %T", m["issues"])
@@ -50,6 +53,7 @@ func TestCollect_openCount(t *testing.T) {
 
 func TestCollect_trimmedOwnerRepo_query(t *testing.T) {
 	t.Parallel()
+	// Given: owner/repo args with surrounding whitespace
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/search/issues" {
 			http.NotFound(w, r)
@@ -62,7 +66,9 @@ func TestCollect_trimmedOwnerRepo_query(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	// When: Collect runs
 	_, err := Collect(context.Background(), c, "  o ", " r ")
+	// Then: no error (handler asserts trimmed query)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,6 +76,7 @@ func TestCollect_trimmedOwnerRepo_query(t *testing.T) {
 
 func TestCollect_validationBoundaries(t *testing.T) {
 	t.Parallel()
+	// Given/When/Then: table of invalid client or owner/repo inputs
 	c := &githubapi.Client{HTTP: http.DefaultClient, Token: "t", BaseURL: "http://unused"}
 	tests := []struct {
 		name  string
@@ -86,7 +93,10 @@ func TestCollect_validationBoundaries(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+			// Given: tc fields
+			// When: Collect runs
 			_, err := Collect(context.Background(), tc.cli, tc.owner, tc.repo)
+			// Then: error contains tc.want
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("got %v, want substring %q", err, tc.want)
 			}
@@ -96,12 +106,15 @@ func TestCollect_validationBoundaries(t *testing.T) {
 
 func TestCollect_http500(t *testing.T) {
 	t.Parallel()
+	// Given: search endpoint returns 500
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "server boom", http.StatusInternalServerError)
 	}))
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	// When: Collect runs
 	_, err := Collect(context.Background(), c, "o", "r")
+	// Then: wrapped error mentions fetch and status/body
 	if err == nil || !strings.Contains(err.Error(), "fetch open issues") {
 		t.Fatalf("expected wrap: %v", err)
 	}

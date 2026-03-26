@@ -4,6 +4,7 @@ import "testing"
 
 func TestFlatten(t *testing.T) {
 	t.Parallel()
+	// Given/When/Then: each subtest supplies nested signals, runs Flatten, and asserts leaf keys and values
 	tests := []struct {
 		wantVal any
 		input   map[string]any

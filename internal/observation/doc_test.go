@@ -41,8 +41,11 @@ func TestDocument_noDiagnosticsNoMeta(t *testing.T) {
 
 func TestDegradedSet_providerDegradedCode(t *testing.T) {
 	t.Parallel()
+	// Given: diagnostic with provider_degraded code
 	diags := []observe.Diagnostic{{Provider: "github", Code: "provider_degraded", Severity: "warning", Message: "m"}}
+	// When: DegradedSet runs
 	ds := DegradedSet(diags, false)
+	// Then: provider in set
 	if _, ok := ds["github"]; !ok {
 		t.Fatal()
 	}
@@ -60,11 +63,14 @@ func TestDegradedSet_fallbackErrorSeverity(t *testing.T) {
 
 func TestDegradedSet_multipleProvidersDeduped(t *testing.T) {
 	t.Parallel()
+	// Given: duplicate diagnostics for same provider/code
 	diags := []observe.Diagnostic{
 		{Provider: "git", Code: "provider_failed", Severity: "error", Message: "a"},
 		{Provider: "git", Code: "provider_failed", Severity: "error", Message: "b"},
 	}
+	// When: DegradedSet runs
 	ds := DegradedSet(diags, false)
+	// Then: single provider entry (deduped)
 	if len(ds) != 1 {
 		t.Fatal(ds)
 	}

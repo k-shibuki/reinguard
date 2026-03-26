@@ -7,6 +7,7 @@ import (
 
 func TestParseFrontMatter_ok(t *testing.T) {
 	t.Parallel()
+	// Given: markdown with valid YAML front matter
 	md := `---
 id: doc-a
 description: Short summary
@@ -17,10 +18,12 @@ triggers:
 
 # Body
 `
+	// When: ParseFrontMatter runs
 	fm, err := ParseFrontMatter([]byte(md))
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: id, description, triggers parsed
 	if fm.ID != "doc-a" || fm.Description != "Short summary" || len(fm.Triggers) != 2 {
 		t.Fatalf("%+v", fm)
 	}
@@ -81,6 +84,7 @@ triggers: []
 
 func TestParseFrontMatter_triggersSkipBlank(t *testing.T) {
 	t.Parallel()
+	// Given: triggers list with whitespace-only and empty entries
 	md := `---
 id: x
 description: d
@@ -90,10 +94,12 @@ triggers:
   - b
 ---
 `
+	// When: ParseFrontMatter runs
 	fm, err := ParseFrontMatter([]byte(md))
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: blanks skipped; trimmed non-empty kept
 	if len(fm.Triggers) != 2 || fm.Triggers[0] != "a" || fm.Triggers[1] != "b" {
 		t.Fatalf("%v", fm.Triggers)
 	}
