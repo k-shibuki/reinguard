@@ -13,7 +13,7 @@ triggers:
 # Preflight verification
 
 Verification obligations before commit/push and hand-off. Referenced by
-`implement`, `pr-create`, and `pr-inspect` commands; details delegated
+`implement`, `change-inspect`, and `pr-create` commands; details delegated
 to Knowledge documents where noted.
 
 ## HS-LOCAL-VERIFY (conditional)

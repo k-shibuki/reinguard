@@ -47,6 +47,7 @@ rgd observe
 4. Implement per Issue **Definition of Done** and **Test plan**; include tests in the same deliverable unless the Issue explicitly defers them.
 5. Same-kind sweep per coding--standards § Change scope before hand-off.
 6. **Preflight** per `coding--preflight.md` before commit/push.
+7. **Commit organization**: review the commit history (`git log origin/main..HEAD`) and organize into logical, self-contained commits where needed (interactive rebase, amend, or squash). Each commit should represent one coherent change. This step is the primary location for commit restructuring — `change-inspect` may *recommend* restructuring but does not execute it.
 
 ## Output
 
@@ -56,6 +57,7 @@ rgd observe
 - DoD progress vs Issue checklist
 - Doc impact list from step 3
 - Preflight result (step 6 passed / exceptions documented)
+- Commit status: organized / needs restructuring (carried forward to `change-inspect`)
 
 ## Guard
 
