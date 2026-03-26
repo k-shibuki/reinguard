@@ -144,13 +144,13 @@ Do **not** enable **auto-merge** while a bot review is still pending or threads 
 
 | Job ID | `name` (UI) | Runs on | Purpose |
 |--------|-------------|---------|---------|
-| `gate-policy` | CI / Gate — PR policy | All events | PR: template/labels/title/base checks; push: no-op success |
-| `lint-markdown` | CI / Lint — Markdown | All events | `markdownlint-cli2` |
-| `lint-go` | CI / Lint — Go | After `gate-policy` | `go mod`, `golangci-lint`, `go vet` |
-| `test-go` | CI / Test — Go | After `lint-go` | `go test -race`, coverage gate, `rgd` smoke |
-| `dogfood-rgd-cli` | CI / Dogfood — rgd (CLI) | After `test-go` | `config validate` + `observe git` |
-| `dogfood-rgd-github` | CI / Dogfood — rgd (GitHub) | After `test-go`; **not** fork PRs | `observe github` with token |
-| `ci-pass` | CI / Gate — pass | Always (aggregate) | Fails if any required job failed (`dogfood-rgd-github` may be `skipped`) |
+| `gate-policy` | Gate — PR policy | All events | PR: template/labels/title/base checks; push: no-op success |
+| `lint-markdown` | Lint — Markdown | All events | `markdownlint-cli2` |
+| `lint-go` | Lint — Go | After `gate-policy` | `go mod`, `golangci-lint`, `go vet` |
+| `test-go` | Test — Go | After `lint-go` | `go test -race`, coverage gate, `rgd` smoke |
+| `dogfood-rgd-cli` | Dogfood — rgd (CLI) | After `test-go` | `config validate` + `observe git` |
+| `dogfood-rgd-github` | Dogfood — rgd (GitHub) | After `test-go`; **not** fork PRs | `observe github` with token |
+| `ci-pass` | Gate — Pass | Always (aggregate) | Fails if any required job failed (`dogfood-rgd-github` may be `skipped`) |
 
 **Required check for merge:** aggregate job **`ci-pass`** only (see [Branch protection](#branch-protection-maintainers) above).
 

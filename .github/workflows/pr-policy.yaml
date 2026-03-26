@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   check-policy:
-    name: CI / Gate — PR policy (reusable)
+    name: Gate — PR policy (reusable)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
