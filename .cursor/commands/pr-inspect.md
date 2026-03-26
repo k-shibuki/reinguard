@@ -2,7 +2,7 @@
 
 ## Context
 
-- `.reinguard/policy/review--self-inspection.md` — **7 inspection dimensions** (Issue alignment, ADR compliance, defensive meta-verification, test adequacy, same-kind sweep, PR template substance, doc impact)
+- `.reinguard/policy/review--self-inspection.md` — SSOT for inspection dimensions (open the file; do not duplicate its criteria here)
 - `.reinguard/policy/coding--preflight.md` — prerequisite; meta-verify its obligations were met
 - `.reinguard/policy/coding--standards.md` § **Change scope** — same-kind sweep across code, `.reinguard/`, `.cursor/`
 - `AGENTS.md` (severity P0/P1, review guidelines)
@@ -36,15 +36,7 @@ gh issue view <ISSUE> --json title,body,labels
 
 ### 2. Inspect each dimension
 
-Walk through **all 7 dimensions** in `review--self-inspection.md` against the diff:
-
-1. **Issue alignment** — every DoD item addressed, no scope creep
-2. **ADR compliance** — no contradiction with referenced ADRs
-3. **Defensive implementation** — nil guards, no silent ignore, blank/duplicate ID rejection present in changed code
-4. **Test adequacy** — Normal/Abnormal/Boundary, table-driven, GWT, no `_ = <fallible call>` in setup
-5. **Same-kind sweep** — parallel wording/config/call-sites reconciled; gaps have explicit rationale
-6. **PR template substance** — Summary, Traceability, DoD, Test plan, Risk, Rollback all substantive
-7. **Documentation impact** — ADR, `docs/cli.md`, `.reinguard/` updates present or deferred with rationale
+Open [`.reinguard/policy/review--self-inspection.md`](../../.reinguard/policy/review--self-inspection.md) and evaluate the PR against **every** dimension and subsection defined there. Do **not** restate normative criteria in this command file — that policy is SSOT (ADR-0001: Adapter points at Semantics, no duplicate body text).
 
 ### 3. Report findings
 
