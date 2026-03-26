@@ -202,26 +202,31 @@ providers: []
 	}
 }
 
+// reinguardYAMLMinimal returns reinguard.yaml body with schema_version aligned to the binary contract.
+func reinguardYAMLMinimal() []byte {
+	return []byte(fmt.Sprintf(`schema_version: %q
+default_branch: main
+providers: []
+`, schema.CurrentSchemaVersion))
+}
+
 func TestLoad_knowledgeManifest_ok(t *testing.T) {
 	t.Parallel()
 	// Given: valid root YAML and valid knowledge manifest.json
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
-default_branch: main
-providers: []
-`))
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
 	if err := os.Mkdir(filepath.Join(dir, "knowledge"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(dir, "knowledge", "manifest.json"), []byte(`{
-  "schema_version": "0.3.0",
+	writeFile(t, filepath.Join(dir, "knowledge", "manifest.json"), []byte(fmt.Sprintf(`{
+  "schema_version": %q,
   "entries": [{
     "id": "doc1",
     "path": "docs/a.md",
     "description": "test doc",
     "triggers": ["test"]
   }]
-}`))
+}`, schema.CurrentSchemaVersion)))
 
 	// When: Load runs
 	res, err := Load(dir)
@@ -241,10 +246,7 @@ func TestLoad_knowledgeManifest_invalidJSON(t *testing.T) {
 	t.Parallel()
 	// Given: root OK but manifest.json is invalid JSON
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
-default_branch: main
-providers: []
-`))
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
 	if err := os.Mkdir(filepath.Join(dir, "knowledge"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -262,10 +264,7 @@ func TestLoad_knowledgeManifest_schemaInvalid(t *testing.T) {
 	t.Parallel()
 	// Given: manifest missing required fields
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
-default_branch: main
-providers: []
-`))
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
 	if err := os.Mkdir(filepath.Join(dir, "knowledge"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -284,10 +283,7 @@ func TestLoad_controlStatesDotYmlAndStableOrder(t *testing.T) {
 	t.Parallel()
 	// Given: two state rule files (.yml and .yaml) under control/states
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
-default_branch: main
-providers: []
-`))
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
 	statesDir := filepath.Join(dir, "control", "states")
 	if err := os.MkdirAll(statesDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -335,10 +331,7 @@ func TestLoad_legacyRulesYAML_rejected(t *testing.T) {
 	t.Parallel()
 	// Given: legacy top-level rules/ directory exists
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
-default_branch: main
-providers: []
-`))
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
 	legacyDir := filepath.Join(dir, "rules")
 	if err := os.MkdirAll(legacyDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -357,12 +350,12 @@ func TestLoad_minimalValid(t *testing.T) {
 	t.Parallel()
 	// Given: valid reinguard.yaml and no control/ directory
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(fmt.Sprintf(`schema_version: %q
 default_branch: main
 providers:
   - id: git
     enabled: true
-`))
+`, schema.CurrentSchemaVersion)))
 
 	// When: Load is called
 	res, err := Load(dir)
@@ -371,7 +364,7 @@ providers:
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if res.Root.SchemaVersion != "0.3.0" {
+	if res.Root.SchemaVersion != schema.CurrentSchemaVersion {
 		t.Fatalf("schema_version: got %q", res.Root.SchemaVersion)
 	}
 	if res.Root.DefaultBranch != "main" {
@@ -383,9 +376,9 @@ func TestLoad_missingDefaultBranch(t *testing.T) {
 	t.Parallel()
 	// Given: root config missing required default_branch
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(fmt.Sprintf(`schema_version: %q
 providers: []
-`))
+`, schema.CurrentSchemaVersion)))
 
 	// When: Load is called
 	_, err := Load(dir)
@@ -435,14 +428,14 @@ func TestLoad_duplicateProviderID(t *testing.T) {
 	t.Parallel()
 	// Given: two providers with the same id
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(fmt.Sprintf(`schema_version: %q
 default_branch: main
 providers:
   - id: git
     enabled: true
   - id: git
     enabled: false
-`))
+`, schema.CurrentSchemaVersion)))
 
 	// When: Load runs
 	_, err := Load(dir)
@@ -456,10 +449,7 @@ func TestLoad_controlStatesFile(t *testing.T) {
 	t.Parallel()
 	// Given: valid root and one state rules file
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
-default_branch: main
-providers: []
-`))
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
 	statesDir := filepath.Join(dir, "control", "states")
 	if err := os.MkdirAll(statesDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -491,10 +481,7 @@ func TestLoad_controlStatesSchemaInvalid(t *testing.T) {
 	t.Parallel()
 	// Given: rules file missing required when shape (empty when object may still parse — use missing rules key)
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
-default_branch: main
-providers: []
-`))
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
 	statesDir := filepath.Join(dir, "control", "states")
 	if err := os.MkdirAll(statesDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -562,10 +549,7 @@ func TestLoad_controlKindTypeMismatchRejected(t *testing.T) {
 			t.Parallel()
 			// Given: rule type in wrong control/ subdirectory (see tt)
 			dir := t.TempDir()
-			writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
-default_branch: main
-providers: []
-`))
+			writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
 			kindDir := filepath.Join(dir, "control", tt.kind)
 			if err := os.MkdirAll(kindDir, 0o755); err != nil {
 				t.Fatal(err)
