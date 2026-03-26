@@ -2,15 +2,15 @@
 //
 // # Inputs and outputs
 //
-// Callers pass loaded config.Rule values filtered to type "state" or "route", a flattened
+// Callers pass loaded config.Rule values filtered to type "state", "route", or "guard", a flattened
 // observation signal map (see package signals), and a set of degraded provider IDs for
-// depends_on suppression. Resolve and ResolveState/ResolveRoute return Result with Kind
-// resolved, ambiguous, degraded, or unsupported; TargetID mirrors the winning state_id or
-// route_id when resolved. Route rules additionally populate RouteCandidates for ordered alternatives.
+// depends_on suppression. Resolve and ResolveState/ResolveRoute/ResolveGuard return Result with Kind
+// resolved, ambiguous, degraded, or unsupported; TargetID mirrors the winning state_id,
+// route_id, or guard_id when resolved. Route rules additionally populate RouteCandidates for ordered alternatives.
 //
 // # Error semantics
 //
-// Invalid ruleType, match evaluation errors, or missing state_id/route_id on the single
+// Invalid ruleType, match evaluation errors, or missing state_id/route_id/guard_id on the single
 // winning rule yield OutcomeUnsupported with Reason, MissingEvidence, and ReEntryHint (ADR-0007).
 // No matching rules, all rules suppressed, or duplicate best priority return OutcomeDegraded or
 // OutcomeAmbiguous with a Reason string. Resolve returns a nil error; callers inspect Result.Kind.
@@ -45,6 +45,7 @@ type Result struct {
 	Kind            OutcomeKind      `json:"kind"`
 	StateID         string           `json:"state_id,omitempty"`
 	RouteID         string           `json:"route_id,omitempty"`
+	GuardID         string           `json:"guard_id,omitempty"`
 	TargetID        string           `json:"target_id,omitempty"`
 	RuleID          string           `json:"rule_id,omitempty"`
 	Reason          string           `json:"reason,omitempty"`
@@ -108,6 +109,14 @@ func profileForRuleType(ruleType string) (resolveProfile, error) {
 			ambiguousReason:     "multiple route rules at same best priority",
 			routeStyle:          true,
 		}, nil
+	case "guard":
+		return resolveProfile{
+			ruleType:            "guard",
+			noMatchReason:       "no matching guard rule",
+			allSuppressedReason: "all guard matches suppressed by depends_on",
+			ambiguousReason:     "multiple guard rules at same best priority",
+			routeStyle:          false,
+		}, nil
 	default:
 		return resolveProfile{}, fmt.Errorf("unsupported rule type %q", ruleType)
 	}
@@ -118,7 +127,7 @@ func unsupportedRuleType(ruleType, profileErr string) Result {
 		Kind:            OutcomeUnsupported,
 		Reason:          fmt.Sprintf("resolve: %s", profileErr),
 		MissingEvidence: []string{fmt.Sprintf("rule_type:%s", ruleType)},
-		ReEntryHint:     `Pass rule_type "state" or "route" only.`,
+		ReEntryHint:     `Pass rule_type "state", "route", or "guard" only.`,
 	}
 }
 
@@ -149,7 +158,16 @@ func unsupportedMissingRouteID(ruleID string) Result {
 	}
 }
 
-// Resolve applies ADR-0004 selection to rules of a single type ("state" or "route"). On success
+func unsupportedMissingGuardID(ruleID string) Result {
+	return Result{
+		Kind:            OutcomeUnsupported,
+		Reason:          fmt.Sprintf("guard rule %q is missing guard_id", ruleID),
+		MissingEvidence: []string{fmt.Sprintf("rule_id:%s", ruleID), "guard_id"},
+		ReEntryHint:     "Set guard_id on the rule under control/guards and run rgd config validate.",
+	}
+}
+
+// Resolve applies ADR-0004 selection to rules of a single type ("state", "route", or "guard"). On success
 // Kind is OutcomeResolved; otherwise Kind may be OutcomeDegraded, OutcomeAmbiguous, or
 // OutcomeUnsupported (ADR-0007) with Reason and optional handoff fields.
 func Resolve(rules []config.Rule, signals map[string]any, degraded map[string]struct{}, ruleType string) (Result, error) {
@@ -227,6 +245,18 @@ func Resolve(rules []config.Rule, signals map[string]any, degraded map[string]st
 			RouteCandidates: routeCandidates,
 		}, nil
 	}
+	if p.ruleType == "guard" {
+		if r.GuardID == "" {
+			return unsupportedMissingGuardID(r.ID), nil
+		}
+		return Result{
+			Kind:     OutcomeResolved,
+			GuardID:  r.GuardID,
+			TargetID: r.GuardID,
+			RuleID:   r.ID,
+			Priority: r.Priority,
+		}, nil
+	}
 	if r.StateID == "" {
 		return unsupportedMissingStateID(r.ID), nil
 	}
@@ -259,6 +289,18 @@ func ResolveState(rules []config.Rule, signals map[string]any, degraded map[stri
 // ResolveRoute selects route rules with the same priority and depends_on semantics as state rules.
 func ResolveRoute(rules []config.Rule, signals map[string]any, degraded map[string]struct{}) (Result, error) {
 	return Resolve(rules, signals, degraded, "route")
+}
+
+// ResolveGuard selects among guard rules that declare the given guard_id using the same priority
+// and depends_on semantics as ResolveState (ADR-0004).
+func ResolveGuard(rules []config.Rule, signals map[string]any, degraded map[string]struct{}, guardID string) (Result, error) {
+	var scoped []config.Rule
+	for _, r := range rules {
+		if r.Type == "guard" && r.GuardID == guardID {
+			scoped = append(scoped, r)
+		}
+	}
+	return Resolve(scoped, signals, degraded, "guard")
 }
 
 func matchingRules(rules []config.Rule, signals map[string]any) ([]config.Rule, error) {

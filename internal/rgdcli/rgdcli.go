@@ -50,6 +50,9 @@ func resolveEvalOutputMap(res resolve.Result) map[string]any {
 	if res.RouteID != "" {
 		out["route_id"] = res.RouteID
 	}
+	if res.GuardID != "" {
+		out["guard_id"] = res.GuardID
+	}
 	if res.TargetID != "" {
 		out["target_id"] = res.TargetID
 	}
@@ -238,7 +241,7 @@ func RunContextBuild(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	gr := guard.EvalMergeReadiness(flat)
+	gr := guard.EvalWithRules(loaded.Rules(), guard.DefaultRegistry(), "merge-readiness", flat, degSet)
 	kEntries := make([]config.KnowledgeManifestEntry, 0)
 	if loaded.KnowledgePresent && loaded.Knowledge != nil {
 		kEntries = append(kEntries, loaded.Knowledge.Entries...)
@@ -263,14 +266,18 @@ func RunContextBuild(c *cli.Context) error {
 
 // RunGuardEval runs a named guard.
 func RunGuardEval(c *cli.Context, guardID string) error {
-	if guardID != "merge-readiness" {
-		return fmt.Errorf("unknown guard %q", guardID)
-	}
 	path := c.String("observation-file")
 	if path == "" {
 		return fmt.Errorf("--observation-file is required")
 	}
-	wd, _, err := resolvePaths(c)
+	wd, cfgDir, err := resolvePaths(c)
+	if err != nil {
+		return err
+	}
+	if _, ok := guard.DefaultRegistry().Lookup(guardID); !ok {
+		return fmt.Errorf("unknown guard %q", guardID)
+	}
+	loaded, err := config.Load(cfgDir)
 	if err != nil {
 		return err
 	}
@@ -278,11 +285,13 @@ func RunGuardEval(c *cli.Context, guardID string) error {
 	if err != nil {
 		return err
 	}
-	sig, _, _, err := observe.ParseObservationJSON(data)
+	sig, diags, deg, err := observe.ParseObservationJSON(data)
 	if err != nil {
 		return err
 	}
-	res := guard.EvalMergeReadiness(sig)
+	flat := signals.Flatten(sig)
+	degSet := observation.DegradedSet(diags, deg)
+	res := guard.EvalWithRules(loaded.Rules(), guard.DefaultRegistry(), guardID, flat, degSet)
 	return writeJSON(c.App.Writer, res)
 }
 

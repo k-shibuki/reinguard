@@ -10,17 +10,17 @@ import (
 
 func TestResolve_unsupportedRuleType(t *testing.T) {
 	t.Parallel()
-	// Given: an unsupported rule type "guard"
+	// Given: an unsupported rule type
 	// When: Resolve is called
 	// Then: OutcomeUnsupported with re-entry metadata (ADR-0007)
-	res, err := Resolve(nil, nil, nil, "guard")
+	res, err := Resolve(nil, nil, nil, "not-a-rule-type")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Kind != OutcomeUnsupported || !strings.Contains(res.Reason, `unsupported rule type "guard"`) {
+	if res.Kind != OutcomeUnsupported || !strings.Contains(res.Reason, `unsupported rule type "not-a-rule-type"`) {
 		t.Fatalf("got %+v", res)
 	}
-	if len(res.MissingEvidence) != 1 || res.MissingEvidence[0] != "rule_type:guard" {
+	if len(res.MissingEvidence) != 1 || res.MissingEvidence[0] != "rule_type:not-a-rule-type" {
 		t.Fatalf("missing_evidence: %v", res.MissingEvidence)
 	}
 	if res.ReEntryHint == "" {
@@ -48,6 +48,73 @@ func TestResolve_stateMatchesResolveState(t *testing.T) {
 	}
 	if !reflect.DeepEqual(a, b) {
 		t.Fatalf("Resolve vs ResolveState: %+v vs %+v", a, b)
+	}
+}
+
+func TestResolve_guardMatchesResolveGuard(t *testing.T) {
+	t.Parallel()
+	rules := []config.Rule{
+		{Type: "guard", ID: "a", Priority: 20, GuardID: "g1", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+		{Type: "guard", ID: "b", Priority: 10, GuardID: "g1", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+	}
+	signals := map[string]any{"x": 1}
+	a, err := ResolveGuard(rules, signals, nil, "g1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	scoped := []config.Rule{
+		{Type: "guard", ID: "a", Priority: 20, GuardID: "g1", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+		{Type: "guard", ID: "b", Priority: 10, GuardID: "g1", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+	}
+	b, err := Resolve(scoped, signals, nil, "guard")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(a, b) {
+		t.Fatalf("Resolve vs ResolveGuard: %+v vs %+v", a, b)
+	}
+}
+
+func TestResolveGuard_priorityWins(t *testing.T) {
+	t.Parallel()
+	rules := []config.Rule{
+		{Type: "guard", ID: "a", Priority: 20, GuardID: "g1", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+		{Type: "guard", ID: "b", Priority: 10, GuardID: "g1", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+	}
+	res, err := ResolveGuard(rules, map[string]any{"x": 1}, nil, "g1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Kind != OutcomeResolved || res.GuardID != "g1" || res.RuleID != "b" {
+		t.Fatalf("%+v", res)
+	}
+}
+
+func TestResolveGuard_otherGuardIDIgnored(t *testing.T) {
+	t.Parallel()
+	rules := []config.Rule{
+		{Type: "guard", ID: "x", Priority: 10, GuardID: "other", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+	}
+	res, err := ResolveGuard(rules, map[string]any{"x": 1}, nil, "g1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Kind != OutcomeDegraded || !strings.Contains(res.Reason, "no matching guard rule") {
+		t.Fatalf("%+v", res)
+	}
+}
+
+func TestResolve_guardMissingGuardID(t *testing.T) {
+	t.Parallel()
+	rules := []config.Rule{
+		{Type: "guard", ID: "bad", Priority: 10, GuardID: "", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+	}
+	res, err := Resolve(rules, map[string]any{"x": 1}, nil, "guard")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Kind != OutcomeUnsupported || !strings.Contains(res.Reason, `guard rule "bad" is missing guard_id`) {
+		t.Fatalf("%+v", res)
 	}
 }
 

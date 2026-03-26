@@ -164,6 +164,12 @@ When no route rule matches, `kind` is `degraded` and `route_candidates` is omitt
 
 Phase 1 uses **flags only** for guard intent (no stdin JSON for guards).
 
+Like `state` / `route` commands, this loads `reinguard.yaml` and `control/**/*.yaml` from
+`--config-dir` (or the repo’s `.reinguard`). Built-in guards (for example `merge-readiness`)
+run only after declarative resolution succeeds when `control/guards/*.yaml` contains rules with
+matching `guard_id`; if there are no rules for that id, the built-in runs without a resolution
+step (backward compatible).
+
 ### `merge-readiness` (built-in)
 
 | Flag | Required | Description |
