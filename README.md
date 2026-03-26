@@ -1,56 +1,39 @@
 # reinguard
 
 [![CI](https://github.com/k-shibuki/reinguard/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/k-shibuki/reinguard/actions/workflows/ci.yaml?query=branch%3Amain)
+[![Go version](https://img.shields.io/github/go-mod/go-version/k-shibuki/reinguard)](https://github.com/k-shibuki/reinguard/blob/main/go.mod)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/k-shibuki/reinguard/blob/main/LICENSE)
+[![Go Report Card](https://goreportcard.com/badge/github.com/k-shibuki/reinguard)](https://goreportcard.com/report/github.com/k-shibuki/reinguard)
+[![Pre-release](https://img.shields.io/badge/status-pre--release-orange)](https://github.com/k-shibuki/reinguard#status)
 
-**reinguard** is a three-layer control system (Adapter / Semantics /
-Substrate) that stabilizes the information space in which AI agents
-reason—without taking over semantic judgment. Its runtime, `rgd`, is a
-stateless CLI that computes operational context from repository-declared
-specifications and platform observation.
+**reinguard** is a repo-owned control system for agentic development. It stabilizes the information space in which AI agents reason—without turning into a workflow brain.
 
-## What reinguard is
+Its runtime, **`rgd`**, is a stateless CLI that computes operational context from repository-declared semantics and platform observation.
 
-reinguard is the **complete control system** spanning three layers
-(see [ADR-0001](docs/adr/0001-system-positioning.md)):
+## Why it exists
 
-- **Spec-driven**: workflow position, guards, routes, knowledge, and
-  policy are expressed in version-controlled configuration under
-  `.reinguard/`, not hard-coded in the binary.
-- **Feedback-aware**: review findings flow back into the Semantics layer
-  through `internalize`, improving future operational context without
-  making the runtime stateful (design-time correction, not online
-  adaptation).
-- **Layered**: Adapter (`.cursor/`, `AGENTS.md`) adapts for specific
-  clients; Semantics (`.reinguard/`) declares repository meaning;
-  Substrate (`rgd`) computes.
+AI agents often fail not because they cannot generate code, but because they reason over unstable inputs:
 
-## What `rgd` does
+- incomplete or inconsistent observation
+- missing guard checks
+- ambiguous workflow position
+- poor reachability to repository knowledge and policy
 
-`rgd` is the **Substrate layer**—a single Go binary that agents invoke
-on demand:
+reinguard addresses that problem by making repository meaning explicit, version-controlled, and auditable.
 
-- **Pull-based and stateless**: each invocation observes current
-  repository and platform state, evaluates it, and exits. No durable
-  state is carried between runs.
-- Stabilizes the **information surface** (structured observation,
-  declarative rules, deterministic guards) that agents use to decide
-  what to do next.
-- **Auditable**: outputs are typed, versioned, and intended to support
-  golden testing and CI validation.
+## How it is structured
 
-## What reinguard is not
+reinguard spans three layers:
 
-- A **workflow orchestrator** or autonomous planner
-- A **code generator** or application framework
-- A **project management** or issue tracker
-- A substitute for **human or agent judgment** on design, review
-  substance, or exception policy
-- A system that **tracks agent-internal** progress files or session state
+- **Adapter** — client-specific procedures and bridge files (`.cursor/`, `AGENTS.md`)
+- **Semantics** — repository meaning: knowledge, policy, states, routes, and guards (`.reinguard/`)
+- **Substrate** — the runtime (`rgd`) that computes operational context from observation and declared rules
 
-## CLI (representative)
+`rgd` is intentionally **pull-based and stateless**: each invocation observes current repository and platform state, evaluates it, and exits. Improvement happens through **design-time feedback** into the Semantics layer, not through runtime memory or online adaptation.
 
-These illustrate the intended command surface; behavior is defined by the
-implementation and configuration.
+## What `rgd` provides
+
+Representative commands:
 
 ```text
 rgd observe workflow-position
@@ -63,37 +46,36 @@ rgd config validate
 rgd schema export
 ```
 
-## CLI reference
+Command behavior, flags, and exit codes: [docs/cli.md](docs/cli.md)
 
-Command behavior, flags, and exit codes: [docs/cli.md](docs/cli.md).
+## What reinguard is not
 
-## Architecture decisions
+- a workflow orchestrator or autonomous planner
+- a code generator or application framework
+- a project management tool
+- a substitute for human or agent judgment on design or review substance
+- a system that tracks agent-internal progress files or session state
 
-Authoritative decisions are recorded as ADRs under [docs/adr/](docs/adr/):
+## Design
 
-| ADR | Title |
-|-----|--------|
-| [ADR-0001](docs/adr/0001-system-positioning.md) | System positioning: not a workflow brain |
-| [ADR-0002](docs/adr/0002-spec-driven-evaluation.md) | Spec-driven evaluation: match rules and named evaluators |
-| [ADR-0003](docs/adr/0003-pull-based-stateless-invocation.md) | Pull-based stateless invocation |
-| [ADR-0004](docs/adr/0004-unified-priority-based-state-resolution.md) | Unified priority-based state resolution |
-| [ADR-0005](docs/adr/0005-agent-internal-state-exclusion.md) | Agent-internal state exclusion |
-| [ADR-0006](docs/adr/0006-gh-cli-as-sole-authentication.md) | gh CLI as sole authentication source |
-| [ADR-0007](docs/adr/0007-ambiguity-as-evaluation-outcome.md) | Ambiguity as evaluation outcome |
-| [ADR-0008](docs/adr/0008-schema-versioning.md) | Schema versioning: synchronized semver with best-effort compatibility |
-| [ADR-0009](docs/adr/0009-observation-engine-abstraction.md) | Observation engine abstraction (providers + config) |
-| [ADR-0010](docs/adr/0010-knowledge-management.md) | Repository knowledge: format, manifest generation, and agent-facing delivery |
-| [ADR-0011](docs/adr/0011-semantic-control-plane-structure.md) | Semantic control plane directory structure |
+Key design decisions are recorded as ADRs under [docs/adr/](docs/adr/).
+
+Start with:
+
+- [ADR-0001](docs/adr/0001-system-positioning.md) — system positioning: not a workflow brain
+- [ADR-0003](docs/adr/0003-pull-based-stateless-invocation.md) — pull-based stateless invocation
+- [ADR-0010](docs/adr/0010-knowledge-management.md) — repository knowledge and agent-facing delivery
+- [ADR-0011](docs/adr/0011-semantic-control-plane-structure.md) — semantic control plane layout
 
 ## Development
 
-- **Go**: 1.25.8 or newer; CI uses 1.26.1 (see [`go.mod`](go.mod)).
+- **Go**: 1.25.8+ (CI: 1.26.1; see [`go.mod`](go.mod))
 - **Build**: `go build -o rgd ./cmd/rgd`
 - **Test**: `go test ./...`
 - **Vet**: `go vet ./...`
-- **Lint** (optional locally): install [golangci-lint](https://golangci-lint.run/) and run `golangci-lint run` (CI enforces it).
+- **Lint**: [golangci-lint](https://golangci-lint.run/) — `golangci-lint run` (CI enforces it)
 
-### CLI smoke (from repository root)
+Smoke check:
 
 ```bash
 go run ./cmd/rgd version
@@ -101,25 +83,12 @@ go run ./cmd/rgd config validate
 go run ./cmd/rgd schema export --dir /tmp/rgd-schemas
 ```
 
-## Contributing
-
-See **[.github/CONTRIBUTING.md](.github/CONTRIBUTING.md)** for local checks, CI behavior (including
-fork PRs), branch protection, labels, PR policy, and review-thread rules.
-
-- Follow **Issue-driven** workflow: open an Issue, then a PR that `Closes #N`
-  (SSOT: `.reinguard/policy/workflow--pr-discipline.md`; Cursor: `workflow-policy.mdc`).
-- **Commit format** follows `.reinguard/policy/commit--format.md`
-  (Conventional Commits + `Refs: #N` in the body; Cursor: `commit-format.mdc`). Optional local setup:
-  - `git config commit.template .github/gitmessage`
-  - `pip install pre-commit && pre-commit install --hook-type commit-msg`
-- Use the PR template at `.github/PULL_REQUEST_TEMPLATE.md`.
-- Architecture decisions belong in `docs/adr/` (ADR).
-
-## License
-
-Distributed under the Apache License 2.0. See [LICENSE](LICENSE).
+Contribution and workflow policy: [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md)
 
 ## Status
 
-**Pre-release.** The CLI and schemas are under active design; ADRs are the
-source of truth for architectural intent.
+**Pre-release.** The CLI and schemas are still evolving. ADRs are the source of truth for architectural intent.
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE).
