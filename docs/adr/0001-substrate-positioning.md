@@ -17,10 +17,8 @@ Two broad architectural responses exist:
    deterministic checks, and auditable outputs. Semantic judgment stays
    with the agent.
 
-This project generalizes patterns proven in an existing agent-control
-system (structured evidence, finite-state workflow position, guard
-discipline) into a standalone, language-agnostic product delivered as a
-Go binary.
+reinguard addresses these problems as a standalone, language-agnostic
+product delivered as a Go binary (`rgd`).
 
 ## Decision
 
@@ -48,6 +46,33 @@ It does **not**:
 
 The primary way to constrain an agent is to design the **information
 space** in which it operates, not to script its thinking.
+
+## Responsibility layers
+
+Three layers separate **how agents integrate**, **what the repository
+means**, and **how the substrate evaluates**:
+
+| Layer | Name | Verb | Location | SSOT for |
+|-------|------|------|----------|----------|
+| 3 | **Adapter** | adapt | `.cursor/`, `AGENTS.md` | Client-specific procedures, behavioral rules, bridge references |
+| 2 | **Semantics** | declare | `.reinguard/` | Knowledge, policy, and control definitions (see ADR-0011) |
+| 1 | **Substrate** | compute | `rgd` | Observation engine, rule/evaluator runtime, schema tooling, CLI |
+
+**Dependency direction:** Adapter → Semantics → Substrate. Upper layers
+may reference lower layers; lower layers do not depend on upper layers.
+
+**Adapter principle:** The Adapter layer must not duplicate Semantics-layer
+content as a second source of truth; it points at `.reinguard/` paths and
+`rgd` commands instead.
+
+**Change drivers:**
+
+- **Adapter** — client tool updates, procedure changes
+- **Semantics** — repository meaning (new states, policies, knowledge)
+- **Substrate** — evaluator evolution (new providers, match operators)
+
+The Semantics layer defines meaning; the Substrate computes current status
+under that meaning.
 
 ## Consequences
 

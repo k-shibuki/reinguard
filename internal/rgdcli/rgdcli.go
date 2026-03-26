@@ -6,15 +6,16 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/k-shibuki/reinguard/internal/config"
 	"github.com/k-shibuki/reinguard/internal/configdir"
 	"github.com/k-shibuki/reinguard/internal/guard"
+	"github.com/k-shibuki/reinguard/internal/knowledge"
 	"github.com/k-shibuki/reinguard/internal/observation"
 	"github.com/k-shibuki/reinguard/internal/observe"
 	"github.com/k-shibuki/reinguard/internal/resolve"
 	"github.com/k-shibuki/reinguard/internal/schemaexport"
-	"github.com/k-shibuki/reinguard/internal/validate"
 	"github.com/k-shibuki/reinguard/pkg/schema"
 	"github.com/urfave/cli/v2"
 )
@@ -49,7 +50,7 @@ func RunObserve(c *cli.Context, gitHubFacet string, providerOverride []string) e
 		return err
 	}
 	doc := observation.Document(signals, diags, deg)
-	return writeJSON(c.App.Writer, doc, false)
+	return writeJSON(c.App.Writer, doc)
 }
 
 // RunStateEval evaluates state rules.
@@ -85,7 +86,7 @@ func RunStateEval(c *cli.Context) error {
 	if c.Bool("fail-on-non-resolved") && (res.Kind == resolve.OutcomeAmbiguous || res.Kind == resolve.OutcomeDegraded) {
 		return fmt.Errorf("non-resolved state outcome: %s", res.Kind)
 	}
-	return writeJSON(c.App.Writer, out, false)
+	return writeJSON(c.App.Writer, out)
 }
 
 // RunRouteSelect evaluates route rules.
@@ -104,7 +105,7 @@ func RunRouteSelect(c *cli.Context) error {
 	}
 	flat := flattenSignals(signals)
 	if p := c.String("state-file"); p != "" {
-		sf, rerr := os.ReadFile(p)
+		sf, rerr := os.ReadFile(resolveInputPath(wd, p))
 		if rerr != nil {
 			return rerr
 		}
@@ -112,7 +113,9 @@ func RunRouteSelect(c *cli.Context) error {
 		if jerr := json.Unmarshal(sf, &st); jerr != nil {
 			return jerr
 		}
-		flat["state"] = st
+		for k, v := range flattenSignals(map[string]any{"state": st}) {
+			flat[k] = v
+		}
 	}
 	degSet := observation.DegradedSet(diags, deg)
 	res, err := resolve.ResolveRoute(loaded.Rules(), flat, degSet)
@@ -140,10 +143,10 @@ func RunRouteSelect(c *cli.Context) error {
 	if c.Bool("fail-on-non-resolved") && (res.Kind == resolve.OutcomeAmbiguous || res.Kind == resolve.OutcomeDegraded) {
 		return fmt.Errorf("non-resolved route outcome: %s", res.Kind)
 	}
-	return writeJSON(c.App.Writer, out, false)
+	return writeJSON(c.App.Writer, out)
 }
 
-// RunKnowledgePack lists knowledge paths from manifest.
+// RunKnowledgePack lists knowledge entries from manifest (ADR-0010).
 func RunKnowledgePack(c *cli.Context) error {
 	_, cfgDir, err := resolvePaths(c)
 	if err != nil {
@@ -154,13 +157,10 @@ func RunKnowledgePack(c *cli.Context) error {
 		return err
 	}
 	if !loaded.KnowledgePresent || loaded.Knowledge == nil {
-		return writeJSON(c.App.Writer, map[string]any{"paths": []any{}}, false)
+		return writeJSON(c.App.Writer, map[string]any{"entries": []config.KnowledgeManifestEntry{}})
 	}
-	var paths []any
-	for _, e := range loaded.Knowledge.Entries {
-		paths = append(paths, e.Path)
-	}
-	return writeJSON(c.App.Writer, map[string]any{"paths": paths}, false)
+	entries := knowledge.FilterByQuery(loaded.Knowledge.Entries, c.String("query"))
+	return writeJSON(c.App.Writer, map[string]any{"entries": entries})
 }
 
 // RunContextBuild runs the default operational-context pipeline.
@@ -177,7 +177,7 @@ func RunContextBuild(c *cli.Context) error {
 	var diags []observe.Diagnostic
 	var deg bool
 	if p := c.String("observation-file"); p != "" {
-		data, rerr := os.ReadFile(p)
+		data, rerr := os.ReadFile(resolveInputPath(wd, p))
 		if rerr != nil {
 			return rerr
 		}
@@ -199,21 +199,23 @@ func RunContextBuild(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	flat["state"] = map[string]any{
-		"kind":     string(stateRes.Kind),
-		"state_id": stateRes.StateID,
-		"rule_id":  stateRes.RuleID,
+	for k, v := range flattenSignals(map[string]any{
+		"state": map[string]any{
+			"kind":     string(stateRes.Kind),
+			"state_id": stateRes.StateID,
+			"rule_id":  stateRes.RuleID,
+		},
+	}) {
+		flat[k] = v
 	}
 	routeRes, err := resolve.ResolveRoute(loaded.Rules(), flat, degSet)
 	if err != nil {
 		return err
 	}
 	gr := guard.EvalMergeReadiness(flat)
-	var kpaths []any
+	kEntries := make([]config.KnowledgeManifestEntry, 0)
 	if loaded.KnowledgePresent && loaded.Knowledge != nil {
-		for _, e := range loaded.Knowledge.Entries {
-			kpaths = append(kpaths, e.Path)
-		}
+		kEntries = append(kEntries, loaded.Knowledge.Entries...)
 	}
 	ctxDoc := map[string]any{
 		"schema_version": schema.CurrentSchemaVersion,
@@ -223,14 +225,14 @@ func RunContextBuild(c *cli.Context) error {
 		"guards": map[string]any{
 			"merge-readiness": gr,
 		},
-		"knowledge": map[string]any{"paths": kpaths},
+		"knowledge": map[string]any{"entries": kEntries},
 		"diagnostics": append(diagsToMaps(diags), map[string]any{
 			"severity": "info",
 			"message":  "context build pipeline complete",
 			"code":     "context_built",
 		}),
 	}
-	return writeJSON(c.App.Writer, ctxDoc, false)
+	return writeJSON(c.App.Writer, ctxDoc)
 }
 
 // RunGuardEval runs a named guard.
@@ -242,17 +244,20 @@ func RunGuardEval(c *cli.Context, guardID string) error {
 	if path == "" {
 		return fmt.Errorf("--observation-file is required")
 	}
-	data, err := os.ReadFile(path)
+	wd, _, err := resolvePaths(c)
 	if err != nil {
 		return err
 	}
-	var doc map[string]any
-	if err := json.Unmarshal(data, &doc); err != nil {
+	data, err := os.ReadFile(resolveInputPath(wd, path))
+	if err != nil {
 		return err
 	}
-	signals, _ := doc["signals"].(map[string]any)
+	signals, _, _, err := parseObservationJSON(data)
+	if err != nil {
+		return err
+	}
 	res := guard.EvalMergeReadiness(signals)
-	return writeJSON(c.App.Writer, res, false)
+	return writeJSON(c.App.Writer, res)
 }
 
 // RunSchemaExport exports embedded schemas.
@@ -266,18 +271,30 @@ func RunSchemaExport(c *cli.Context) error {
 }
 
 func resolvePaths(c *cli.Context) (wd string, cfgDir string, err error) {
-	wd, err = configdir.WorkingDir()
-	if err != nil {
-		return "", "", err
-	}
 	if v := c.String("cwd"); v != "" {
 		wd = v
+	} else {
+		wd, err = configdir.WorkingDir()
+		if err != nil {
+			return "", "", err
+		}
 	}
 	cfgDir, err = configdir.Resolve(wd, c.String("config-dir"))
 	return wd, cfgDir, err
 }
 
-func writeJSON(w io.Writer, v any, _ bool) error {
+// resolveInputPath joins a user path against baseDir when the path is relative.
+func resolveInputPath(baseDir, p string) string {
+	if p == "" {
+		return p
+	}
+	if filepath.IsAbs(p) {
+		return p
+	}
+	return filepath.Join(baseDir, p)
+}
+
+func writeJSON(w io.Writer, v any) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	return enc.Encode(v)
@@ -288,9 +305,13 @@ func parseObservationJSON(data []byte) (signals map[string]any, diags []observe.
 	if err := json.Unmarshal(data, &doc); err != nil {
 		return nil, nil, false, err
 	}
-	signals, _ = doc["signals"].(map[string]any)
-	if signals == nil {
-		signals = map[string]any{}
+	rawSignals, ok := doc["signals"]
+	if !ok {
+		return nil, nil, false, fmt.Errorf("observation JSON must include object field %q", "signals")
+	}
+	signals, ok = rawSignals.(map[string]any)
+	if !ok {
+		return nil, nil, false, fmt.Errorf("observation JSON field %q must be an object", "signals")
 	}
 	degraded, _ = doc["degraded"].(bool)
 	if raw, ok := doc["diagnostics"].([]any); ok {
@@ -310,7 +331,7 @@ func parseObservationJSON(data []byte) (signals map[string]any, diags []observe.
 
 func loadOrObserve(c *cli.Context, wd, cfgDir string, loaded *config.LoadResult) (map[string]any, []observe.Diagnostic, bool, error) {
 	if p := c.String("observation-file"); p != "" {
-		data, err := os.ReadFile(p)
+		data, err := os.ReadFile(resolveInputPath(wd, p))
 		if err != nil {
 			return nil, nil, false, err
 		}
@@ -370,22 +391,66 @@ func diagsToMaps(diags []observe.Diagnostic) []any {
 	return out
 }
 
-func runConfigValidateLegacy(c *cli.Context) error {
-	wd, err := configdir.WorkingDir()
-	if err != nil {
-		return err
-	}
+func runConfigValidate(c *cli.Context) error {
+	var wd string
+	var err error
 	if v := c.String("cwd"); v != "" {
 		wd = v
+	} else {
+		wd, err = configdir.WorkingDir()
+		if err != nil {
+			return err
+		}
 	}
 	dir, err := configdir.Resolve(wd, c.String("config-dir"))
 	if err != nil {
 		return err
 	}
-	if err = validate.Dir(dir); err != nil {
+	res, err := config.Load(dir)
+	if err != nil {
 		return err
 	}
+	for _, w := range config.DeprecatedWarnings(&res.Root) {
+		_, _ = fmt.Fprintln(c.App.ErrWriter, w)
+	}
+	repoRoot := configdir.RepoRoot(dir)
+	knowledgeDir := filepath.Join(dir, "knowledge")
+	if res.KnowledgePresent && res.Knowledge != nil {
+		if e := knowledge.ValidateEntryPaths(repoRoot, res.Knowledge); e != nil {
+			return e
+		}
+		if e := knowledge.CheckFreshness(res.Knowledge, repoRoot, knowledgeDir); e != nil {
+			return e
+		}
+		for _, w := range knowledge.HintWarnings(repoRoot, res.Knowledge) {
+			_, _ = fmt.Fprintln(c.App.ErrWriter, w)
+		}
+	}
 	_, err = fmt.Fprintf(c.App.Writer, "config OK: %q\n", dir)
+	return err
+}
+
+func runKnowledgeIndex(c *cli.Context) error {
+	_, cfgDir, err := resolvePaths(c)
+	if err != nil {
+		return err
+	}
+	repoRoot := configdir.RepoRoot(cfgDir)
+	knowledgeDir := filepath.Join(cfgDir, "knowledge")
+	m, err := knowledge.BuildManifest(repoRoot, knowledgeDir)
+	if err != nil {
+		return err
+	}
+	outPath := filepath.Join(knowledgeDir, "manifest.json")
+	data, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		return err
+	}
+	data = append(data, '\n')
+	if werr := os.WriteFile(outPath, data, 0o644); werr != nil {
+		return werr
+	}
+	_, err = fmt.Fprintf(c.App.Writer, "wrote %d entries to %s\n", len(m.Entries), outPath)
 	return err
 }
 
@@ -415,9 +480,9 @@ func NewApp(version string) *cli.App {
 			Subcommands: []*cli.Command{
 				{
 					Name:   "validate",
-					Usage:  "validate .reinguard directory (legacy MVP check)",
+					Usage:  "validate .reinguard against JSON Schemas",
 					Flags:  []cli.Flag{newConfigDirFlag(), newCwdFlag()},
-					Action: runConfigValidateLegacy,
+					Action: runConfigValidate,
 				},
 			},
 		},
@@ -525,9 +590,15 @@ func NewApp(version string) *cli.App {
 			Usage: "knowledge commands",
 			Subcommands: []*cli.Command{
 				{
-					Name:   "pack",
-					Usage:  "list knowledge paths from manifest",
+					Name:   "index",
+					Usage:  "generate knowledge/manifest.json from Markdown front matter",
 					Flags:  []cli.Flag{newCwdFlag(), newConfigDirFlag()},
+					Action: runKnowledgeIndex,
+				},
+				{
+					Name:   "pack",
+					Usage:  "list knowledge entries from manifest",
+					Flags:  []cli.Flag{newCwdFlag(), newConfigDirFlag(), newKnowledgeQueryFlag()},
 					Action: RunKnowledgePack,
 				},
 			},
@@ -560,6 +631,7 @@ func NewApp(version string) *cli.App {
 					Flags: []cli.Flag{
 						newObservationFileRequiredFlag(),
 						newCwdFlag(),
+						newConfigDirFlag(),
 					},
 					Action: func(c *cli.Context) error {
 						if c.NArg() < 1 {

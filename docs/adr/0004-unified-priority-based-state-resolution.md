@@ -27,8 +27,9 @@ suppressed without hiding the failure behind logs.
 
 **Unified priority resolution** in a single rule set:
 
-**Phase 1 configuration layout:** Rules loaded from `.reinguard/rules/*.yaml`
-share **one priority space** across rule kinds. Each rule entry includes a
+**Phase 1 configuration layout:** Rules loaded from
+`.reinguard/control/{states,routes,guards}/*.yaml` share **one priority
+space** across rule kinds. Each rule entry includes a
 `type` discriminator (for example `state`, `route`, `guard`). **The same
 numeric priority semantics apply to all `type` values** — there is no
 separate merge artifact or tier-specific ordering. Authors order

@@ -66,6 +66,39 @@ func TestResolve_emptyCwd(t *testing.T) {
 	}
 }
 
+func TestRepoRoot(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		cfgDir string
+		want   string
+	}{
+		{
+			name:   "dot_reinguard_layout",
+			cfgDir: filepath.Join("/repo", ".reinguard"),
+			want:   filepath.Clean("/repo"),
+		},
+		{
+			name:   "flat_layout",
+			cfgDir: filepath.Join("/tmp", "cfg"),
+			want:   filepath.Clean(filepath.Join("/tmp", "cfg")),
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			// Given: a config directory layout
+			// When: RepoRoot is called
+			got := RepoRoot(tt.cfgDir)
+			// Then: expected repository root is returned
+			if got != tt.want {
+				t.Fatalf("got %q want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func runGit(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)

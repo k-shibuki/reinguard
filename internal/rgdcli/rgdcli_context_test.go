@@ -2,6 +2,7 @@ package rgdcli
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,10 +20,8 @@ func TestRunContextBuild_gitOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(cfg, "reinguard.yaml"), []byte(testFixtureReinguardGitOnly))
-	if err := os.Mkdir(filepath.Join(cfg, "rules"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	writeFile(t, filepath.Join(cfg, "rules", "r.yaml"), []byte(testFixtureRulesContextBuild))
+	writeFile(t, filepath.Join(cfg, "control", "states", "r.yaml"), []byte(testFixtureRulesStateIdle))
+	writeFile(t, filepath.Join(cfg, "control", "routes", "r.yaml"), []byte(testFixtureControlRoutesNext))
 
 	var buf bytes.Buffer
 	app := NewApp("test")
@@ -31,8 +30,23 @@ func TestRunContextBuild_gitOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains(buf.Bytes(), []byte(`"schema_version"`)) {
-		t.Fatalf("%s", buf.String())
+	var out map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatalf("invalid JSON output: %v; raw=%s", err, buf.String())
+	}
+	if _, ok := out["schema_version"]; !ok {
+		t.Fatalf("missing schema_version: %v", out)
+	}
+	knowledge, ok := out["knowledge"].(map[string]any)
+	if !ok {
+		t.Fatalf("knowledge is not object: %T", out["knowledge"])
+	}
+	entries, ok := knowledge["entries"].([]any)
+	if !ok {
+		t.Fatalf("knowledge.entries must be array, got %T", knowledge["entries"])
+	}
+	if len(entries) != 0 {
+		t.Fatalf("expected empty knowledge.entries, got %v", entries)
 	}
 }
 
