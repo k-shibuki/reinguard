@@ -2,6 +2,7 @@ package observe
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -32,10 +33,16 @@ func GitHubProviderFactory(opts map[string]any) (Provider, error) {
 	if len(opts) == 0 {
 		return p, nil
 	}
-	if v, ok := opts["api_base"].(string); ok {
-		if s := strings.TrimSpace(v); s != "" {
-			p.APIBase = s
+	if raw, exists := opts["api_base"]; exists {
+		v, ok := raw.(string)
+		if !ok {
+			return nil, fmt.Errorf("github provider: options.api_base must be a string")
 		}
+		s := strings.TrimSpace(v)
+		if s == "" {
+			return nil, fmt.Errorf("github provider: options.api_base must be non-empty when set")
+		}
+		p.APIBase = s
 	}
 	return p, nil
 }

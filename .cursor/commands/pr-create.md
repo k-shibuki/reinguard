@@ -12,8 +12,9 @@
 
 ## Act
 
-1. Push: `git push -u origin HEAD` (after **HS-LOCAL-VERIFY**).
-2. **Pre-flight PR policy** (before `gh pr create`): fill the template into a file, then run from repo root:
+1. Confirm `implement` output: preflight passed, doc impact addressed (see `coding--preflight.md`).
+2. Push: `git push -u origin HEAD` (after **HS-LOCAL-VERIFY**).
+3. **Pre-flight PR policy** (before `gh pr create`): fill the template into a file, then run from repo root:
 
    ```bash
    bash tools/check-pr-policy.sh \
@@ -24,12 +25,12 @@
    ```
 
    Fix any reported errors so `gate-policy` CI does not fail on template/labels/title/base.
-3. Create PR targeting **main** only:
+4. Create PR targeting **main** only:
    `gh pr create --title "<type>(<scope>): <desc>" --base main --label "<type>" --body-file <filled-from-template>`.
    Exception PRs: add `--label no-issue` or `--label hotfix` and complete `## Exception`.
-4. Trigger CodeRabbit: `gh pr comment <N> --body "@coderabbitai review"`.
-5. Wait for CI: `gh pr checks <N>` until **`ci-pass`** is success (do not merge on red).
-6. On `gate-policy` failure: re-run `tools/check-pr-policy.sh` locally, then `gh pr edit <N> --body-file ...` or `--body` with corrected sections; add missing **type** label if needed.
+5. Trigger CodeRabbit: `gh pr comment <N> --body "@coderabbitai review"`.
+6. Wait for CI: `gh pr checks <N>` until **`ci-pass`** is success (do not merge on red).
+7. On `gate-policy` failure: re-run `tools/check-pr-policy.sh` locally, then `gh pr edit <N> --body-file ...` or `--body` with corrected sections; add missing **type** label if needed.
 
 ## Output
 

@@ -42,12 +42,35 @@ func TestProviderRegistry_Build_unknownProvider(t *testing.T) {
 	}
 }
 
+func TestProviderRegistry_Build_emptyEnabledID(t *testing.T) {
+	t.Parallel()
+	r := NewRegistry()
+	_, err := r.Build([]config.ProviderSpec{{ID: "   ", Enabled: true}})
+	if err == nil || !strings.Contains(err.Error(), "empty id") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestProviderRegistry_Build_duplicateEnabledID(t *testing.T) {
+	t.Parallel()
+	reg := DefaultRegistry()
+	_, err := reg.Build([]config.ProviderSpec{
+		{ID: "git", Enabled: true},
+		{ID: "git", Enabled: true},
+	})
+	if err == nil || !strings.Contains(err.Error(), "duplicate") {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestProviderRegistry_Build_skipsDisabled(t *testing.T) {
 	t.Parallel()
 	r := NewRegistry()
-	_ = r.Register("a", func(map[string]any) (Provider, error) {
+	if err := r.Register("a", func(map[string]any) (Provider, error) {
 		return &stubProv{id: "a", frag: Fragment{Signals: map[string]any{"k": 1}}}, nil
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 	m, err := r.Build([]config.ProviderSpec{
 		{ID: "a", Enabled: false},
 	})
@@ -62,9 +85,11 @@ func TestProviderRegistry_Build_skipsDisabled(t *testing.T) {
 func TestProviderRegistry_Build_factoryError(t *testing.T) {
 	t.Parallel()
 	r := NewRegistry()
-	_ = r.Register("bad", func(map[string]any) (Provider, error) {
+	if err := r.Register("bad", func(map[string]any) (Provider, error) {
 		return nil, errors.New("boom")
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 	_, err := r.Build([]config.ProviderSpec{{ID: "bad", Enabled: true}})
 	if err == nil || !strings.Contains(err.Error(), "build provider") {
 		t.Fatalf("got %v", err)
@@ -74,9 +99,11 @@ func TestProviderRegistry_Build_factoryError(t *testing.T) {
 func TestProviderRegistry_Build_nilProvider(t *testing.T) {
 	t.Parallel()
 	r := NewRegistry()
-	_ = r.Register("nilp", func(map[string]any) (Provider, error) {
+	if err := r.Register("nilp", func(map[string]any) (Provider, error) {
 		return nil, nil
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 	_, err := r.Build([]config.ProviderSpec{{ID: "nilp", Enabled: true}})
 	if err == nil || !strings.Contains(err.Error(), "returned nil") {
 		t.Fatalf("got %v", err)
@@ -86,9 +113,11 @@ func TestProviderRegistry_Build_nilProvider(t *testing.T) {
 func TestProviderRegistry_Build_idMismatch(t *testing.T) {
 	t.Parallel()
 	r := NewRegistry()
-	_ = r.Register("x", func(map[string]any) (Provider, error) {
+	if err := r.Register("x", func(map[string]any) (Provider, error) {
 		return &stubProv{id: "wrong"}, nil
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 	_, err := r.Build([]config.ProviderSpec{{ID: "x", Enabled: true}})
 	if err == nil || !strings.Contains(err.Error(), "returned provider id") {
 		t.Fatalf("got %v", err)
@@ -118,13 +147,15 @@ func TestDefaultRegistry_shallowCopyOptions(t *testing.T) {
 	t.Parallel()
 	reg := NewRegistry()
 	var captured map[string]any
-	_ = reg.Register("mut", func(opts map[string]any) (Provider, error) {
+	if err := reg.Register("mut", func(opts map[string]any) (Provider, error) {
 		captured = opts
 		if opts != nil {
 			opts["injected"] = true
 		}
 		return &stubProv{id: "mut"}, nil
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 	specOpts := map[string]any{"a": 1}
 	_, err := reg.Build([]config.ProviderSpec{{ID: "mut", Enabled: true, Options: specOpts}})
 	if err != nil {

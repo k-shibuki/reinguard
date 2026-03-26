@@ -28,6 +28,9 @@ func LoadSignalsFileOrCollect(ctx context.Context, root *config.Root, opts LoadS
 		}
 		return ParseObservationJSON(data)
 	}
+	if root == nil {
+		return nil, nil, false, fmt.Errorf("observe: nil config root")
+	}
 	engine, err := NewEngineFromConfig(root.Providers)
 	if err != nil {
 		return nil, nil, false, err

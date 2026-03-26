@@ -142,6 +142,17 @@ func TestLoadSignalsFileOrCollect_readFileError(t *testing.T) {
 	}
 }
 
+func TestLoadSignalsFileOrCollect_nilRoot(t *testing.T) {
+	t.Parallel()
+	// Given: nil config root and live collect path
+	// When: LoadSignalsFileOrCollect runs without observation file
+	_, _, _, err := LoadSignalsFileOrCollect(context.Background(), nil, LoadSignalsOptions{WorkDir: t.TempDir()})
+	// Then: clear error (no panic)
+	if err == nil || !strings.Contains(err.Error(), "nil config root") {
+		t.Fatalf("got err=%v", err)
+	}
+}
+
 func TestLoadSignalsFileOrCollect_collectWhenNoObservationPath(t *testing.T) {
 	t.Parallel()
 	// Given: no observation file and no enabled providers, live Collect returns empty signals without I/O.

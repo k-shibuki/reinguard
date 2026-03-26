@@ -2,6 +2,7 @@
 
 ## Context
 
+- `.reinguard/policy/coding--preflight.md` — **Preflight verification** (HS-LOCAL-VERIFY, defensive checks, test design, self-review)
 - `.reinguard/policy/coding--standards.md` — **Change scope** (same-kind sweep across code, `.reinguard/`, `.cursor/`)
 - `.reinguard/policy/commit--format.md` — branch naming; Cursor: `commit-format.mdc`
 - `.cursor/rules/test-strategy.mdc` — GWT, table tests (points at `.reinguard/knowledge/testing--*.md`)
@@ -45,6 +46,7 @@ rgd observe
 3. **Doc impact**: list candidate updates (`docs/adr/`, `docs/cli.md`, `.reinguard/`). Carry this list forward to commit/PR; align finalized diffs before merge.
 4. Implement per Issue **Definition of Done** and **Test plan**; include tests in the same deliverable unless the Issue explicitly defers them.
 5. Same-kind sweep per coding--standards § Change scope before hand-off.
+6. **Preflight** per `coding--preflight.md` before commit/push.
 
 ## Output
 
@@ -53,10 +55,10 @@ rgd observe
 - Files changed: paths
 - DoD progress vs Issue checklist
 - Doc impact list from step 3
+- Preflight result (step 6 passed / exceptions documented)
 
 ## Guard
 
 - All work traceable to an Issue (`Refs: #N` in commits per `commit--format.md`)
-- **HS-LOCAL-VERIFY**: `go test ./... -race`, `go vet ./...`, `golangci-lint run`; `rgd config validate` from repo root when config/schemas change
-- **HS-NO-SKIP**: do not skip verification without documented exception
+- **HS-LOCAL-VERIFY**, **HS-NO-SKIP** — enforced via `coding--preflight.md` (Act step 6)
 - Prefer **`rgd`** for observation/context/knowledge; use **`gh`** / **`git`** for GitHub/git inspection per `evidence-temporary.mdc`

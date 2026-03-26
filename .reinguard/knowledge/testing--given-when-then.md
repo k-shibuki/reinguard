@@ -10,8 +10,9 @@ triggers:
 
 # Given / When / Then Comment Format (Go)
 
-Every non-trivial test case should use the following comment format above
-the test body or at the start of a subtest:
+Use the following comment format on **non-trivial** test cases — those
+with multi-step setup or multiple assertions. Trivial single-assertion
+tests (e.g. one-line error check) may omit GWT comments.
 
 ```text
 // Given: Preconditions

@@ -130,6 +130,38 @@ exit 1
 	}
 }
 
+func TestGitHubProviderFactory_apiBase_valid(t *testing.T) {
+	t.Parallel()
+	want := "https://api.example.test/"
+	p, err := GitHubProviderFactory(map[string]any{"api_base": want})
+	if err != nil {
+		t.Fatal(err)
+	}
+	gp, ok := p.(*GitHubProvider)
+	if !ok {
+		t.Fatalf("got %T", p)
+	}
+	if gp.APIBase != want {
+		t.Fatalf("APIBase=%q want %q", gp.APIBase, want)
+	}
+}
+
+func TestGitHubProviderFactory_apiBase_wrongType(t *testing.T) {
+	t.Parallel()
+	_, err := GitHubProviderFactory(map[string]any{"api_base": 123})
+	if err == nil || !strings.Contains(err.Error(), "api_base must be a string") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestGitHubProviderFactory_apiBase_emptyWhenSet(t *testing.T) {
+	t.Parallel()
+	_, err := GitHubProviderFactory(map[string]any{"api_base": "  "})
+	if err == nil || !strings.Contains(err.Error(), "non-empty") {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func runGitCmd(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)

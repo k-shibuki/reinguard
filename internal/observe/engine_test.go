@@ -85,32 +85,63 @@ func TestEngine_Collect_nilRoot(t *testing.T) {
 	}
 }
 
-func TestNewEngineFromConfig_success(t *testing.T) {
+func TestNewEngineFromConfig(t *testing.T) {
 	t.Parallel()
-	e, err := NewEngineFromConfig([]config.ProviderSpec{
-		{ID: "git", Enabled: true},
-	})
-	if err != nil {
-		t.Fatal(err)
+	//nolint:govet // table-driven case struct; fieldalignment is not worth obfuscating field order
+	tests := []struct {
+		name         string
+		wantErr      string
+		wantGit      bool
+		wantNoGitHub bool
+		specs        []config.ProviderSpec
+	}{
+		{
+			name: "git_only",
+			specs: []config.ProviderSpec{
+				{ID: "git", Enabled: true},
+			},
+			wantGit:      true,
+			wantNoGitHub: true,
+		},
+		{
+			name:    "unknown_provider",
+			wantErr: "unknown provider",
+			specs: []config.ProviderSpec{
+				{ID: "unknown", Enabled: true},
+			},
+		},
 	}
-	if e == nil || e.Providers == nil {
-		t.Fatal("nil engine")
-	}
-	if _, ok := e.Providers["git"]; !ok {
-		t.Fatal("missing git provider")
-	}
-	if _, ok := e.Providers["github"]; ok {
-		t.Fatal("unexpected github provider")
-	}
-}
-
-func TestNewEngineFromConfig_unknownProvider(t *testing.T) {
-	t.Parallel()
-	_, err := NewEngineFromConfig([]config.ProviderSpec{
-		{ID: "unknown", Enabled: true},
-	})
-	if err == nil || !strings.Contains(err.Error(), "unknown provider") {
-		t.Fatalf("got %v", err)
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			// Given: provider specs (see subtest name)
+			// When: NewEngineFromConfig builds the engine
+			e, err := NewEngineFromConfig(tt.specs)
+			// Then: error or providers match expectations
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("got %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if e == nil || e.Providers == nil {
+				t.Fatal("nil engine")
+			}
+			if tt.wantGit {
+				if _, ok := e.Providers["git"]; !ok {
+					t.Fatal("missing git provider")
+				}
+			}
+			if tt.wantNoGitHub {
+				if _, ok := e.Providers["github"]; ok {
+					t.Fatal("unexpected github provider")
+				}
+			}
+		})
 	}
 }
 

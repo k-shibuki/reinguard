@@ -46,13 +46,16 @@ func (r *ProviderRegistry) Build(specs []config.ProviderSpec) (map[string]Provid
 		return nil, fmt.Errorf("observe: nil registry")
 	}
 	out := make(map[string]Provider)
-	for _, spec := range specs {
+	for i, spec := range specs {
 		if !spec.Enabled {
 			continue
 		}
 		id := strings.TrimSpace(spec.ID)
 		if id == "" {
-			continue
+			return nil, fmt.Errorf("observe: providers[%d]: empty id", i)
+		}
+		if _, dup := out[id]; dup {
+			return nil, fmt.Errorf("observe: duplicate provider id %q", id)
 		}
 		f, ok := r.factories[id]
 		if !ok {

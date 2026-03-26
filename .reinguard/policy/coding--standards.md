@@ -33,6 +33,7 @@ Repository-wide coding and documentation rules. The Cursor Adapter rule `reingua
 
 - Before hand-off, **search for same-kind** occurrences (parallel wording, config, or call sites), including **`.reinguard/`** and **`.cursor/`**, and reconcile them in the **same deliverable** when in scope for the task.
 - Intentional gaps need an **explicit rationale** (PR body or review disposition), not silent omission.
+- Before hand-off, verify per `.reinguard/policy/coding--preflight.md` (defensive checks, test design, self-review).
 
 ## Documentation authority
 
