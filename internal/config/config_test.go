@@ -1,10 +1,13 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/k-shibuki/reinguard/pkg/schema"
 )
 
 func TestLoad_emptyConfigDir(t *testing.T) {
@@ -30,9 +33,10 @@ func TestDeprecatedWarnings_nilRoot(t *testing.T) {
 
 func TestDeprecatedWarnings_noLegacyHints(t *testing.T) {
 	t.Parallel()
-	// Given: root without legacy_tool_hints
-	r := &Root{SchemaVersion: "0.3.0", DefaultBranch: "main"}
-	// When/Then: DeprecatedWarnings is empty
+	// Given: root without legacy_tool_hints and schema_version matches rgd contract
+	r := &Root{SchemaVersion: schema.CurrentSchemaVersion, DefaultBranch: "main"}
+	// When: DeprecatedWarnings is called
+	// Then: no warnings
 	if w := DeprecatedWarnings(r); len(w) != 0 {
 		t.Fatalf("got %v", w)
 	}
@@ -40,13 +44,162 @@ func TestDeprecatedWarnings_noLegacyHints(t *testing.T) {
 
 func TestDeprecatedWarnings_legacyHints(t *testing.T) {
 	t.Parallel()
-	// Given: root with legacy_tool_hints set
-	r := &Root{LegacyToolHints: map[string]any{"x": 1}}
+	// Given: root with legacy_tool_hints and schema_version matches contract (no skew)
+	r := &Root{
+		SchemaVersion:   schema.CurrentSchemaVersion,
+		LegacyToolHints: map[string]any{"x": 1},
+		DefaultBranch:   "main",
+		Providers:       nil,
+	}
 	// When: DeprecatedWarnings runs
 	w := DeprecatedWarnings(r)
-	// Then: one warning references legacy_tool_hints
+	// Then: exactly one warning references legacy_tool_hints
 	if len(w) != 1 || !strings.Contains(w[0], "legacy_tool_hints") {
 		t.Fatalf("got %v", w)
+	}
+}
+
+func TestDeprecatedWarnings_schemaSkewAndLegacy(t *testing.T) {
+	t.Parallel()
+	cm, ci, cp, err := parseSemverCore(schema.CurrentSchemaVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cp == 0 && ci == 0 {
+		t.Skip("need non-zero minor or patch on contract to build older skew")
+	}
+	// Given: older same-major schema_version and legacy_tool_hints
+	older := fmt.Sprintf("%d.%d.%d", cm, ci, cp-1)
+	if cp == 0 {
+		older = fmt.Sprintf("%d.%d.%d", cm, ci-1, 0)
+	}
+	r := &Root{
+		SchemaVersion:   older,
+		DefaultBranch:   "main",
+		LegacyToolHints: map[string]any{"x": 1},
+	}
+	// When: DeprecatedWarnings runs
+	w := DeprecatedWarnings(r)
+	// Then: skew warning first, legacy second
+	if len(w) != 2 {
+		t.Fatalf("want 2 warnings, got %v", w)
+	}
+	if !strings.Contains(w[0], "schema_version") {
+		t.Fatalf("first line should be schema skew: %q", w[0])
+	}
+	if !strings.Contains(w[1], "legacy_tool_hints") {
+		t.Fatalf("second line should be legacy: %q", w[1])
+	}
+}
+
+func TestLoad_schemaVersion_policy(t *testing.T) {
+	t.Parallel()
+	cur := schema.CurrentSchemaVersion
+	cm, ci, cp, err := parseSemverCore(cur)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var olderSameMajor string
+	switch {
+	case cp > 0:
+		olderSameMajor = fmt.Sprintf("%d.%d.%d", cm, ci, cp-1)
+	case ci > 0:
+		olderSameMajor = fmt.Sprintf("%d.%d.%d", cm, ci-1, 0)
+	default:
+		t.Skip("contract at x.0.0 with patch 0 — cannot derive older same-major")
+	}
+	newerPatch := fmt.Sprintf("%d.%d.%d", cm, ci, cp+1)
+	newerMinor := fmt.Sprintf("%d.%d.%d", cm, ci+1, 0)
+	majorMismatch := fmt.Sprintf("%d.%d.%d", cm+1, ci, cp)
+
+	tests := []struct {
+		name           string
+		declared       string
+		wantErrSubstr  string
+		wantSkewSubstr string
+		wantLoadErr    bool
+	}{
+		{
+			name:     "same_as_contract",
+			declared: cur,
+			// Given: schema_version equals rgd contract
+			// When: Load runs
+			// Then: success and no skew warning from DeprecatedWarnings
+		},
+		{
+			name:           "older_same_major",
+			declared:       olderSameMajor,
+			wantSkewSubstr: "schema_version",
+			// Given: same major, older minor or patch than contract
+			// When: Load runs
+			// Then: success; DeprecatedWarnings mentions schema_version skew
+		},
+		{
+			name:           "newer_patch_same_major",
+			declared:       newerPatch,
+			wantSkewSubstr: "schema_version",
+			// Given: same major, newer patch than contract
+			// When: Load runs
+			// Then: success with skew warning
+		},
+		{
+			name:           "newer_minor_same_major",
+			declared:       newerMinor,
+			wantSkewSubstr: "schema_version",
+			// Given: same major, newer minor than contract
+			// When: Load runs
+			// Then: success with skew warning
+		},
+		{
+			name:          "major_mismatch",
+			declared:      majorMismatch,
+			wantLoadErr:   true,
+			wantErrSubstr: "incompatible",
+			// Given: declared major differs from rgd contract
+			// When: Load runs
+			// Then: error (no silent load)
+		},
+		{
+			name:     "prerelease_same_core_as_contract",
+			declared: cur + "-rc.1",
+			// Given: prerelease tag on same MAJOR.MINOR.PATCH as contract
+			// When: Load runs
+			// Then: success; core matches so no skew warning
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(fmt.Sprintf(`schema_version: %q
+default_branch: main
+providers: []
+`, tt.declared)))
+
+			res, lerr := Load(dir)
+			if tt.wantLoadErr {
+				// Then: Load returns an error
+				if lerr == nil || !strings.Contains(lerr.Error(), tt.wantErrSubstr) {
+					t.Fatalf("Load: got %v, want err containing %q", lerr, tt.wantErrSubstr)
+				}
+				return
+			}
+			// Then: Load succeeds
+			if lerr != nil {
+				t.Fatal(lerr)
+			}
+			w := DeprecatedWarnings(&res.Root)
+			if tt.wantSkewSubstr != "" {
+				if len(w) != 1 || !strings.Contains(w[0], tt.wantSkewSubstr) {
+					t.Fatalf("want one skew warning containing %q, got %v", tt.wantSkewSubstr, w)
+				}
+				return
+			}
+			if len(w) != 0 {
+				t.Fatalf("want no warnings, got %v", w)
+			}
+		})
 	}
 }
 

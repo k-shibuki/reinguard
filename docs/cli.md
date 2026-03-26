@@ -219,6 +219,18 @@ present, against embedded JSON Schemas. Non-zero exit on hard validation
 errors. **Deprecated** configuration keys (marked in JSON Schema) emit **warnings
 on stderr** but still exit **0** when validation succeeds.
 
+**`schema_version` vs this binary (ADR-0008):** `reinguard.yaml` declares a
+semver `schema_version` synchronized with embedded JSON Schemas. This `rgd`
+build compares it to its contract version (`MAJOR.MINOR.PATCH`):
+
+| Relationship | Behavior |
+|----------------|----------|
+| **Major** differs from the binary’s contract | **Error** (exit non-zero); do not load an incompatible major line silently. |
+| **Same major**, **minor or patch** differs | **Warning on stderr**, validation and load **continue** (older or newer skew). |
+| **Exact match** | No schema-skew warning from this rule. |
+
+Skew and deprecation messages go to **stderr**; success messages go to **stdout**.
+
 When `knowledge/manifest.json` is present, validation also:
 
 - Ensures each `entries[].path` exists under the repository root and is a file.
