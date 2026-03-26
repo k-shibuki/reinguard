@@ -1,4 +1,19 @@
-// Package match evaluates ADR-0002 match expressions against signal maps.
+// Package match evaluates ADR-0002 match expressions (when-clauses) against observation signal maps.
+//
+// # Inputs and outputs
+//
+// When values come from YAML/JSON decoding (maps, slices, or legacy scalar shapes per
+// ADR-0002). Signals are nested maps addressed by dot paths (for example "git.branch").
+// Eval returns whether the clause matches.
+//
+// # Error semantics
+//
+// Eval returns an error for nil when, unsupported top-level types, unknown operators or
+// clause shapes, or invalid operands (such as a missing path). Many operations return
+// false with a nil error when the path is absent or the signal type does not fit the
+// operation (for example non-numeric operands for numeric compares).
+//
+// ADR-0002 (spec-driven match rules and evaluators).
 package match
 
 import (
@@ -9,8 +24,9 @@ import (
 	"strings"
 )
 
-// Eval evaluates a when-clause (YAML/JSON decoded as map, slice, or scalar)
-// against signals. Dot paths address nested maps (e.g. "git.branch").
+// Eval evaluates a when-clause (YAML/JSON decoded as map, slice, or scalar per ADR-0002)
+// against signals. Dot paths address nested maps (for example "git.branch"). A nil signals
+// map is treated like an empty map for path lookups.
 func Eval(when any, signals map[string]any) (bool, error) {
 	if when == nil {
 		return false, fmt.Errorf("match: nil when")

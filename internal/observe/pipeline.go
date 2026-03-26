@@ -18,10 +18,11 @@ type LoadSignalsOptions struct {
 	Serial          bool
 }
 
-// LoadSignalsFileOrCollect reads observation JSON from ObservationPath when set;
-// otherwise builds an engine from root.Providers via NewEngineFromConfig and
-// runs Collect (ADR-0003 pull-based collect). An empty provider list yields an
-// engine with no providers, not a legacy fixed default.
+// LoadSignalsFileOrCollect reads observation JSON from ObservationPath when set (signals,
+// diagnostics, degraded per observation document shape); otherwise builds an engine from
+// root.Providers via NewEngineFromConfig and runs Collect (ADR-0003). An empty provider list
+// yields an engine with no providers, not a legacy fixed default. Returns file/JSON errors
+// on read path; nil root with no observation file returns an error.
 func LoadSignalsFileOrCollect(ctx context.Context, root *config.Root, opts LoadSignalsOptions) (map[string]any, []Diagnostic, bool, error) {
 	if opts.ObservationPath != "" {
 		data, err := os.ReadFile(opts.ObservationPath)

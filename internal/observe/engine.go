@@ -8,7 +8,8 @@ import (
 	"github.com/k-shibuki/reinguard/internal/config"
 )
 
-// Engine runs configured providers and merges into an observation-shaped map.
+// Engine runs configured providers concurrently or serially and merges fragments into a
+// provider-keyed signal map with aggregated diagnostics (see package doc).
 type Engine struct {
 	Providers map[string]Provider
 }
@@ -35,7 +36,8 @@ func NewEngineFromConfig(specs []config.ProviderSpec) (*Engine, error) {
 	return &Engine{Providers: providers}, nil
 }
 
-// Collect runs enabled providers from root config and returns merged signals + diagnostics.
+// Collect runs enabled providers from root (or opts.ProviderIDs when set) and returns merged
+// signals, diagnostics, degraded, and an error only for invalid inputs or missing providers.
 func (e *Engine) Collect(ctx context.Context, root *config.Root, opts Options) (map[string]any, []Diagnostic, bool, error) {
 	if e == nil {
 		return nil, nil, false, fmt.Errorf("observe: nil engine")

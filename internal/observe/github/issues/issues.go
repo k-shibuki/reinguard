@@ -1,3 +1,5 @@
+// Package issues implements open-issue count signals via GitHub search for the observe GitHub
+// provider (ADR-0006). Collect returns an issues subtree or an error on invalid input or API failure.
 package issues
 
 import (

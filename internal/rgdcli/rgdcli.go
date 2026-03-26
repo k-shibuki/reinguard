@@ -1,3 +1,17 @@
+// Package rgdcli implements rgd CLI command handlers by delegating to config load, observation,
+// resolve, guard, knowledge, and schema export. User-facing command names, flags, and JSON
+// output shapes are documented in docs/cli.md at the repository root.
+//
+// # ADR traceability
+//
+// ADR-0001 (adapter vs substrate boundaries), ADR-0003 (observe and pull-based flow),
+// ADR-0010 (knowledge pack and manifest), ADR-0011 (control plane and guards). Subcommands
+// that touch observation and GitHub align with ADR-0005 and ADR-0006.
+//
+// # Errors
+//
+// Run* entry points return errors from path resolution, config load, I/O, observation,
+// JSON decode, or resolve when the CLI is configured to fail on non-resolved outcomes.
 package rgdcli
 
 import (
@@ -21,7 +35,9 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-// RunObserve executes observation with optional provider / facet narrowing.
+// RunObserve loads config, runs the observation engine (see package observe), and writes
+// observation JSON to the CLI writer. Provider overrides replace the configured provider list
+// when non-empty. Errors propagate from config load, engine build, or Collect.
 func RunObserve(c *cli.Context, gitHubFacet string, providerOverride []string) error {
 	wd, cfgDir, err := resolvePaths(c)
 	if err != nil {
@@ -57,7 +73,8 @@ func RunObserve(c *cli.Context, gitHubFacet string, providerOverride []string) e
 	return writeJSON(c.App.Writer, doc)
 }
 
-// RunStateEval evaluates state rules.
+// RunStateEval loads signals from --observation-file or live collect, then runs resolve on
+// state rules. With --fail-on-non-resolved, ambiguous or degraded outcomes return an error.
 func RunStateEval(c *cli.Context) error {
 	wd, cfgDir, err := resolvePaths(c)
 	if err != nil {
@@ -94,7 +111,8 @@ func RunStateEval(c *cli.Context) error {
 	return writeJSON(c.App.Writer, out)
 }
 
-// RunRouteSelect evaluates route rules.
+// RunRouteSelect loads signals (and optional --state-file merge into the flat map), resolves
+// route rules, and emits JSON. --fail-on-non-resolved turns ambiguous/degraded into errors.
 func RunRouteSelect(c *cli.Context) error {
 	wd, cfgDir, err := resolvePaths(c)
 	if err != nil {

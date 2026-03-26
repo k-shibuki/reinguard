@@ -1,3 +1,5 @@
+// Package pullrequests implements PR-related signals (open count and current-branch context)
+// for the observe GitHub provider (ADR-0006). Collect returns maps and warnings or an error on failure.
 package pullrequests
 
 import (
