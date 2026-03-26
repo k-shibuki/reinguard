@@ -1,7 +1,14 @@
 # yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 #
-# CodeRabbit — primary bot reviewer. Auto-review OFF: agents trigger with
-# @coderabbitai review per .cursor/commands/pr-create.md and review-fix.md.
+# CodeRabbit — primary bot reviewer.
+#
+# Auto-review: CodeRabbit offers free reviews for public OSS repos (see
+# https://www.coderabbit.ai/oss ). Automatic PR review is a normal product
+# feature; docs default is auto_review.enabled: true. This repo enables it
+# so every PR to the default branch is reviewed without relying only on
+# @coderabbitai review. Agents may still comment @coderabbitai review for
+# an extra pass after pushes. Override or pause anytime in the CodeRabbit UI
+# if org policy differs.
 
 language: "en-US"
 early_access: false
@@ -28,32 +35,56 @@ reviews:
   suggested_reviewers: false
   auto_assign_reviewers: false
   auto_review:
-    enabled: false
+    enabled: true
     drafts: false
     ignore_title_keywords:
       - "WIP"
       - "DO NOT MERGE"
+    # Skip dependency and CI bots (exact GitHub usernames; see CodeRabbit docs).
+    ignore_usernames:
+      - "dependabot[bot]"
+      - "renovate[bot]"
+      - "github-actions[bot]"
   finishing_touches:
     docstrings:
       enabled: false
     unit_tests:
       enabled: false
   path_instructions:
+    - path: ".reinguard/**"
+      instructions: |
+        Semantics layer (ADR-0001, ADR-0010, ADR-0011): repository meaning — policy, knowledge, control
+        rules, and `reinguard.yaml` for `rgd`. P0: contradictions between `policy/catalog.yaml` or
+        `knowledge/manifest.json` and files on disk; broken YAML consumed by `rgd config validate`.
+        Knowledge/policy prose is English; stable front-matter `id` values. Code examples here must match
+        current `rgd`/Go APIs (spec-based providers, not stale signatures). After knowledge front-matter
+        edits, maintainers run `rgd knowledge index` and commit `manifest.json`.
+    - path: ".cursor/**"
+      instructions: |
+        Adapter layer (Cursor) per ADR-0001: bridge to Semantics and Substrate. Commands/rules should
+        point at `.reinguard/` paths and `rgd` CLI — do not duplicate long policy or knowledge checklists
+        (SSOT drift vs `coding--preflight.md` / knowledge docs). P1 when Adapter text copies normative
+        paragraphs that belong only under `.reinguard/`.
+    - path: "AGENTS.md"
+      instructions: |
+        Top-level agent orientation; should mirror catalog entry points (policy `catalog.yaml`, knowledge
+        `manifest.json`) and ADR pointers — not replace `.reinguard/` bodies.
     - path: "cmd/**"
       instructions: |
-        CLI surface and flags. P0: broken commands or unsafe defaults; missing tests for new behavior.
-        Public CLI changes should match ADRs and be reflected in docs / README where applicable.
+        `rgd` CLI surface and flags. P0: broken commands or unsafe defaults; missing tests for new behavior.
+        Align with `docs/cli.md` and ADRs; substrate must not embed workflow-brain semantics (ADR-0001).
     - path: "internal/**"
       instructions: |
-        Non-public implementation. P0: logic bugs, silent failures, resource leaks. New packages need
-        tests where behavior is non-trivial (table-driven Go tests preferred).
+        Non-public implementation for `rgd`. P0: logic bugs, silent failures, resource leaks. Observation
+        and GitHub paths: ADR-0005 (no agent-internal files), ADR-0006 (`gh` for auth). Prefer table-driven
+        Go tests; GWT comments per `.reinguard/knowledge/testing--*.md` for non-trivial tests.
     - path: "pkg/**"
       instructions: |
         Library code toward stable APIs. P0: breaking changes without ADR or migration path; missing
         tests for exported behavior; JSON/schema drift vs embedded contracts (see ADR-0008).
     - path: "docs/adr/**"
       instructions: |
-        ADRs are normative. P1 if code contradicts an accepted ADR without a superseding ADR.
+        ADRs are normative. P1 if code or `.reinguard/` contradicts an accepted ADR without a superseding ADR.
     - path: ".github/workflows/**"
       instructions: |
         Job `ci-pass` is the single aggregate required check for branch protection. PR policy runs in job

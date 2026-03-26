@@ -24,6 +24,20 @@
       ]
     },
     {
+      "id": "implementation-defensive-config-validation",
+      "path": ".reinguard/knowledge/implementation--defensive-config-validation.md",
+      "description": "Defensive coding patterns for config-driven Go code — nil guards, typed option validation, blank/duplicate ID rejection",
+      "triggers": [
+        "defensive config",
+        "nil guard",
+        "silent ignore",
+        "blank id",
+        "duplicate id",
+        "typed options",
+        "config validation pattern"
+      ]
+    },
+    {
       "id": "knowledge-ops",
       "path": ".reinguard/knowledge/knowledge--ops.md",
       "description": "How rgd indexes knowledge, validates manifests, and how agents retrieve review docs",

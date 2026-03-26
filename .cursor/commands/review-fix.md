@@ -52,7 +52,7 @@ For **outside-diff / summary-only** findings (see Context) with no anchor id, a 
 
 ### 4. CodeRabbit threads
 
-Follow `.reinguard/policy/review--consensus-protocol.md` § **CodeRabbit Resolution Gate** (do **not** `resolve` until consensus evidence). After you push fixes, trigger a new review cycle with a **PR conversation comment**:
+Follow `.reinguard/policy/review--consensus-protocol.md` § **CodeRabbit Resolution Gate** (do **not** `resolve` until consensus evidence). After you push fixes, **incremental auto-review** often runs on its own (`.coderabbit.yaml`). If it does not (pause threshold, skip, or you need a guaranteed pass), trigger a new review cycle with a **PR conversation comment**:
 `gh pr comment <N> --body "@coderabbitai review"`
 (budget and skip rules: paths from `rgd knowledge pack --query "review"`.)
 

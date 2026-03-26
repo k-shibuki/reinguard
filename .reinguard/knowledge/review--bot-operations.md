@@ -25,16 +25,23 @@ For the consensus model (disposition, resolve, agreement), see
 
 | Role | Reviewer | When triggered | Strength |
 |---|---|---|---|
-| **Primary** | CodeRabbit (Pro/OSS) | Every PR (agent-triggered) | Walkthrough, tool integrations, incremental review |
+| **Primary** | CodeRabbit (Pro/OSS) | Every PR (automatic + optional manual) | Walkthrough, tool integrations, incremental review |
 | **Supplementary** | Codex Cloud | User instruction only | Cross-file logic, deep semantic understanding |
 
 Both read `AGENTS.md` and apply its review guidelines.
 
 ## Trigger
 
-- **CodeRabbit**: Agent-triggered on every PR via
-  `gh pr comment <N> --body "@coderabbitai review"`.
-  Auto-review is OFF in `.coderabbit.yaml`.
+- **CodeRabbit**: **Automatic** review on eligible PRs per `.coderabbit.yaml`
+  (`reviews.auto_review`; this repo uses `enabled: true` on the default
+  branch, with title/bot exclusions). **Incremental** re-review on new
+  pushes is on by default (`auto_incremental_review`); after enough
+  commits CodeRabbit may **pause** until you comment
+  `@coderabbitai review` (see CodeRabbit docs).
+- **Manual**: `gh pr comment <N> --body "@coderabbitai review"` — use to
+  force a pass when auto-review was skipped (org/UI override, rate limit,
+  voided review after head moved), after `@coderabbitai resume`, or when
+  you want an explicit re-run alongside auto behavior.
 - **Codex**: User instruction only — the agent never triggers Codex
   autonomously.
 
@@ -96,7 +103,7 @@ is needed. For Codex, re-review is the only path to consensus.
 
 | Condition | CodeRabbit | Codex |
 |---|---|---|
-| Push to PR branch | `@coderabbitai review` | — |
+| Push to PR branch | Usually **automatic** incremental review; if paused/skipped, `@coderabbitai review` | — |
 | User instructs Codex re-review | — | `@codex review` |
 
 All findings receive equal evaluation regardless of source.

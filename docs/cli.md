@@ -62,6 +62,16 @@ Phase 1 does **not** define command aliases (e.g. no `pr` for `pull-requests`).
 | `git` | `rgd observe git` or aggregate `observe` / `observe github` (indirect for branch) |
 | `github` | `rgd observe github` (aggregate) or subcommands |
 
+### Provider options (`reinguard.yaml`)
+
+Each `providers[]` entry may include `options` (object). Built-in factories consume:
+
+| Provider `id` | Key        | Type   | Description |
+|-----------------|------------|--------|-------------|
+| `github`        | `api_base` | string | Optional GitHub REST API root override (e.g. tests or GitHub Enterprise); leading/trailing space trimmed |
+
+The `git` provider accepts `options` for forward compatibility; keys are currently unused.
+
 Subcommands filter which facets run inside the GitHub provider for faster targeted runs.
 
 ## `rgd observe`

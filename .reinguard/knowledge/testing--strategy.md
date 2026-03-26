@@ -45,8 +45,26 @@ for non-trivial logic (match engine, resolution, schema validation).
 
 ## Table-driven tests
 
-Prefer table-driven tests for operator matrices, resolution ties, and
-config variants. Use `t.Run(name, ...)` for clear failure attribution.
+Prefer table-driven tests when the **same function has two or more test
+scenarios** (operator matrices, resolution ties, config variants). Use
+`t.Run(name, ...)` for clear failure attribution.
+
+A function with only **one scenario** may use a standalone test — do not
+force table-driven structure on single-case tests.
+
+## Test setup error handling
+
+Never discard errors from test setup or helper calls:
+
+```go
+// BAD — masks root cause
+_ = r.Register("a", factory)
+
+// GOOD — fails fast with diagnostic message
+if err := r.Register("a", factory); err != nil {
+    t.Fatal(err)
+}
+```
 
 ## CLI tests (urfave/cli v2)
 

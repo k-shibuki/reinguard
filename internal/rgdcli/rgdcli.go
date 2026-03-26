@@ -31,13 +31,6 @@ func RunObserve(c *cli.Context, gitHubFacet string, providerOverride []string) e
 	if err != nil {
 		return err
 	}
-	engine := observe.NewEngine()
-	opts := observe.Options{
-		WorkDir:     wd,
-		Serial:      c.Bool("serial"),
-		ProviderIDs: providerOverride,
-		GitHubFacet: gitHubFacet,
-	}
 	root := loaded.Root
 	if len(providerOverride) > 0 {
 		var ps []config.ProviderSpec
@@ -45,6 +38,16 @@ func RunObserve(c *cli.Context, gitHubFacet string, providerOverride []string) e
 			ps = append(ps, config.ProviderSpec{ID: id, Enabled: true})
 		}
 		root = config.Root{SchemaVersion: loaded.Root.SchemaVersion, DefaultBranch: loaded.Root.DefaultBranch, Providers: ps}
+	}
+	engine, err := observe.NewEngineFromConfig(root.Providers)
+	if err != nil {
+		return err
+	}
+	opts := observe.Options{
+		WorkDir:     wd,
+		Serial:      c.Bool("serial"),
+		ProviderIDs: providerOverride,
+		GitHubFacet: gitHubFacet,
 	}
 	signals, diags, deg, err := engine.Collect(context.Background(), &root, opts)
 	if err != nil {

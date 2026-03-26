@@ -2,7 +2,10 @@ package observe
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/k-shibuki/reinguard/internal/githubapi"
@@ -22,6 +25,34 @@ type GitHubProvider struct {
 // NewGitHubProvider returns a GitHub aggregate provider.
 func NewGitHubProvider() *GitHubProvider {
 	return &GitHubProvider{HTTPClient: &http.Client{Timeout: 30 * time.Second}}
+}
+
+// GitHubProviderFactory builds a GitHub provider from config options (ADR-0009).
+// Supported keys: api_base (string) — absolute http(s) REST API root override for tests or enterprise endpoints.
+func GitHubProviderFactory(opts map[string]any) (Provider, error) {
+	p := NewGitHubProvider()
+	if len(opts) == 0 {
+		return p, nil
+	}
+	if raw, exists := opts["api_base"]; exists {
+		v, ok := raw.(string)
+		if !ok {
+			return nil, fmt.Errorf("github provider: options.api_base must be a string")
+		}
+		s := strings.TrimSpace(v)
+		if s == "" {
+			return nil, fmt.Errorf("github provider: options.api_base must be non-empty when set")
+		}
+		u, err := url.Parse(s)
+		if err != nil || u.Scheme == "" || u.Host == "" {
+			return nil, fmt.Errorf("github provider: options.api_base must be an absolute URL with scheme and host")
+		}
+		if u.Scheme != "http" && u.Scheme != "https" {
+			return nil, fmt.Errorf("github provider: options.api_base scheme must be http or https")
+		}
+		p.APIBase = s
+	}
+	return p, nil
 }
 
 // ID implements Provider.
