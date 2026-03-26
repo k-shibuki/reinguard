@@ -64,11 +64,7 @@ func TestResolve_guardMatchesResolveGuard(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	scoped := []config.Rule{
-		{Type: "guard", ID: "a", Priority: 20, GuardID: "g1", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
-		{Type: "guard", ID: "b", Priority: 10, GuardID: "g1", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
-	}
-	b, err := Resolve(scoped, signals, nil, "guard")
+	b, err := Resolve(rules, signals, nil, "guard")
 	if err != nil {
 		t.Fatal(err)
 	}
