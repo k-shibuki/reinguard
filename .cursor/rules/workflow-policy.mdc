@@ -5,12 +5,12 @@ alwaysApply: true
 
 Follow [.reinguard/policy/workflow--pr-discipline.md](../../.reinguard/policy/workflow--pr-discipline.md) for Issue-driven work, PR discipline, branch naming, and exceptions.
 
-## Command separation (review vs merge)
+## Command separation (inspect → address → merge)
 
-Treat **review**, **fix**, and **merge** as distinct steps (supports future `rgd` semantics):
+Treat **inspect**, **address**, and **merge** as distinct steps (supports future `rgd` semantics):
 
-- **Ready for review** → use **`pr-review`** (or human/CodeRabbit review only): judgment, no merge.
-- **Unresolved threads / changes requested** → **`review-fix`**: address findings, disposition replies, resolve threads.
+- **PR created** → **`pr-inspect`** (self-inspection gate, always run): whole-change review against 7 dimensions before external reviewers see the PR.
+- **External review findings / unresolved threads** → **`review-address`**: classify, fix, disposition reply, resolve threads.
 - **Review done, CI green, policy satisfied** → **`pr-merge`**: execute merge only after checks.
 
 ## Evidence targets
@@ -20,7 +20,7 @@ Treat **review**, **fix**, and **merge** as distinct steps (supports future `rgd
 ## Agent procedure reference
 
 Commit, PR, and review procedures are defined in `.cursor/commands/`
-(`implement.md`, `pr-create.md`, `pr-review.md`, `review-fix.md`, `pr-merge.md`).
+(`implement.md`, `pr-create.md`, `pr-inspect.md`, `review-address.md`, `pr-merge.md`).
 **Semantics feedback**: `internalize.md` — feed review findings back into `.reinguard/` knowledge and policy.
 Use `gh` CLI for observation (`gh issue view`, `gh pr view`, `gh pr checks`, etc.).
 

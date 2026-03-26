@@ -14,7 +14,7 @@ triggers:
 # Review Consensus Protocol
 
 Bidirectional agreement model for review threads. All commands that
-interact with review threads (`review-fix`, `pr-merge`) reference this
+interact with review threads (`review-address`, `pr-merge`) reference this
 document as the SSOT for disposition and resolution.
 
 ## Principle
@@ -69,7 +69,7 @@ is prohibited — the finding would be lost on merge.
 
 ## CodeRabbit Resolution Gate
 
-**Terminology**: A **turn** is one review-fix cycle (observe, post a
+**Terminology**: A **turn** is one review-address cycle (observe, post a
 disposition or push fixes, then observe again). A **step** is a single
 atomic API or automation action. *Turn* is about workflow pacing; *step*
 is about not batching incompatible actions together.
@@ -175,4 +175,4 @@ Count `nodes` where `isResolved` is false for unresolved threads.
 - `.reinguard/knowledge/review--bot-operations.md` — trigger, detection,
   timing
 - `.reinguard/policy/safety--agent-invariants.md` § **HS-REVIEW-RESOLVE** (Cursor: `reinguard-bridge.mdc` § Always-active policy)
-- `.cursor/commands/review-fix.md` — review-fix procedure
+- `.cursor/commands/review-address.md` — review-address procedure

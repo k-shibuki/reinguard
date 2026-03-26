@@ -21,3 +21,6 @@ entries:
   - id: coding-preflight
     path: coding--preflight.md
     description: "Pre-commit verification obligations — HS-LOCAL-VERIFY expansion, defensive checks, test design, self-review"
+  - id: review-self-inspection
+    path: review--self-inspection.md
+    description: "Whole-change self-inspection dimensions for PR readiness — complements line-level preflight"

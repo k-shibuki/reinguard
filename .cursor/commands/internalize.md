@@ -18,11 +18,13 @@ gh api repos/{owner}/{repo}/pulls/<N>/comments
 gh pr view <N> --json reviews,comments
 ```
 
-**Disposition history**: from `review-fix` output or PR thread replies.
+**Disposition history**: from `review-address` output or PR thread replies.
+
+**Self-inspection findings**: from `pr-inspect` output (dimension-level findings that were fixed before external review).
 
 ## Act
 
-1. **Collect**: gather all review comments and disposition replies for the PR.
+1. **Collect**: gather all review comments, disposition replies, and `pr-inspect` findings for the PR.
 2. **Classify root causes** into categories:
    - Defensive implementation gap (nil, silent ignore, blank/duplicate id)
    - Test design gap (missing perspective, wrong format, setup error ignored)

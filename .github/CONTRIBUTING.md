@@ -70,7 +70,7 @@ Optional: `pre-commit install --hook-type commit-msg` and `pre-commit install` (
 
 - **Issue-driven**: Prefer one GitHub Issue per implementation PR; the PR body must include `Closes #N` (or `Fixes` / `Resolves`), unless you use an exception label and fill `## Exception` per [`.github/PULL_REQUEST_TEMPLATE.md`](PULL_REQUEST_TEMPLATE.md).
 - **Commits**: Conventional Commits and `Refs: #N` in the message body — see [`.reinguard/policy/commit--format.md`](../.reinguard/policy/commit--format.md).
-- **Commands**: Thin procedures live under [`.cursor/commands/`](../.cursor/commands/) (`pr-create`, `review-fix`, `pr-merge`).
+- **Commands**: Thin procedures live under [`.cursor/commands/`](../.cursor/commands/) (`pr-create`, `pr-inspect`, `review-address`, `pr-merge`).
 
 ## CI and PR policy
 
