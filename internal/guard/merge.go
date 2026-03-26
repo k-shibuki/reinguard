@@ -28,10 +28,11 @@ type MergeReadinessResult struct {
 	OK      bool   `json:"ok"`
 }
 
-// EvalMergeReadiness checks coarse substrate signals (Phase 1): working tree clean,
-// github.ci.ci_status == "success", and github.reviews.review_threads_unresolved == 0.
-// Missing or wrongly-typed nested maps are treated as failing conditions (empty CI status,
-// unresolved count defaulting from zero only when absent or numeric).
+// EvalMergeReadiness checks Phase 1 merge signals: git working_tree_clean must be true,
+// github.ci.ci_status must be "success" (case-insensitive), and
+// github.reviews.review_threads_unresolved must be zero (int or float64 JSON numbers; absent
+// or other types are treated as zero). Missing top-level keys yield empty nested maps, so
+// absent git.github fields fail the clean/CI checks as expected.
 func EvalMergeReadiness(signals map[string]any) MergeReadinessResult {
 	const id = "merge-readiness"
 	git := mapString(signals, "git")
