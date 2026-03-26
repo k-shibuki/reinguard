@@ -47,6 +47,35 @@
       ]
     },
     {
+      "id": "review-bot-operations",
+      "path": ".reinguard/knowledge/review--bot-operations.md",
+      "description": "Bot reviewer trigger, detection, timing, rate-limit recovery, and re-review procedures",
+      "triggers": [
+        "bot review trigger",
+        "bot review detection",
+        "CodeRabbit trigger",
+        "Codex trigger",
+        "coderabbit polling",
+        "re-review decision",
+        "@coderabbitai review",
+        "@codex review",
+        "rate limit recovery"
+      ]
+    },
+    {
+      "id": "review-github-thread-api",
+      "path": ".reinguard/knowledge/review--github-thread-api.md",
+      "description": "GitHub REST vs GraphQL for PR review thread resolution state (isResolved) and enumeration",
+      "triggers": [
+        "isResolved",
+        "unresolved thread count",
+        "review thread status",
+        "GraphQL reviewThreads",
+        "thread resolution API",
+        "gh api graphql"
+      ]
+    },
+    {
       "id": "testing-assertions",
       "path": ".reinguard/knowledge/testing--assertions.md",
       "description": "Test assertion quality, failure messages, and boundary coverage",
@@ -66,6 +95,20 @@
         "test comment format",
         "GWT",
         "Go testing"
+      ]
+    },
+    {
+      "id": "testing-strategy",
+      "path": ".reinguard/knowledge/testing--strategy.md",
+      "description": "Go test strategy — coverage, perspectives, table-driven tests, CLI tests, mocks",
+      "triggers": [
+        "test strategy",
+        "coverage target",
+        "table-driven",
+        "CLI test",
+        "mock",
+        "httptest",
+        "urfave cli"
       ]
     }
   ]

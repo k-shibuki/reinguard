@@ -1,55 +1,13 @@
 ---
-description: Issue-driven workflow and PR discipline (reinguard)
 alwaysApply: true
 ---
+# Workflow Policy (Adapter)
 
-# Workflow Policy (reinguard)
-
-## Issue-driven work
-
-- Prefer **one GitHub Issue per PR** (1 Issue ≈ 1 PR) for implementation work.
-- Commit messages follow **`@.cursor/rules/commit-format.mdc`** (Conventional Commits + `Refs: #<issue>` footer).
-- PR body includes `Closes #<issue>` (or `Fixes`) when applicable.
-
-## Issue title patterns
-
-- Use **Conventional Commits**-style titles where practical:
-  `feat(scope): …`, `fix(scope): …`, `docs(adr): …`, `chore(test): …`.
-- Title should be imperative and English (same language rule as commits).
-
-## Recommended Issue sections (bridle-inspired)
-
-New implementation Issues SHOULD include:
-
-1. **Context** — problem and constraints
-2. **Refs: ADR** — which ADRs apply, or `none`
-3. **ADR Impact** — `none`, `new`, or `amend` with target file
-4. **Acceptance ↔ ADR** — how completion is verified against ADRs
-5. **Definition of Done** — checklist
-6. **Test plan** — concrete cases (table encouraged); not only “tests pass”
-
-Use `.github/ISSUE_TEMPLATE/task.md` as the starting point.
-
-## Branch naming (bridle-inspired)
-
-Follow the same traceable branch convention as **bridle** (and as documented in reinguard's commit policy). **SSOT**: `@.cursor/rules/commit-format.mdc` § Branch Naming Convention.
-
-- Pattern: `<prefix>/<issue-number>-<short-description>` (examples: `feat/42-cli-version`, `fix/15-config-validate`, `docs/3-adr-0009`).
-- **Exception**: `hotfix/<short-description>` may omit the Issue number when it meets the hotfix criteria in `@.cursor/rules/commit-format.mdc` and the **Exceptions** section below.
-
-## PR discipline
-
-- Fill **every** section of `.github/PULL_REQUEST_TEMPLATE.md` (Summary, DoD,
-  Test plan, Linked issues, Exception if applicable).
-- Base branch is always **`main`**.
-
-## Exceptions
-
-- Use repository **labels** (`no-issue` / `hotfix`) and a `## Exception` section in the PR when bypassing the normal Issue flow (document justification).
+Follow [.reinguard/policy/workflow--pr-discipline.md](../../.reinguard/policy/workflow--pr-discipline.md) for Issue-driven work, PR discipline, branch naming, and exceptions.
 
 ## Command separation (review vs merge)
 
-Treat **review**, **fix**, and **merge** as distinct steps (bridle-aligned; supports future `rgd` semantics):
+Treat **review**, **fix**, and **merge** as distinct steps (supports future `rgd` semantics):
 
 - **Ready for review** → use **`pr-review`** (or human/CodeRabbit review only): judgment, no merge.
 - **Unresolved threads / changes requested** → **`review-fix`**: address findings, disposition replies, resolve threads.
@@ -57,15 +15,13 @@ Treat **review**, **fix**, and **merge** as distinct steps (bridle-aligned; supp
 
 ## Evidence targets
 
-- This repository does **not** use bridle-style `make evidence-*` targets.
 - Until `rgd observe` ships, see `evidence-temporary.mdc` for GitHub observation (`gh` / `git` read-only).
 
-## Agent procedure reference (optional)
+## Agent procedure reference
 
-For commit / PR / review **procedure shape**, agents may read bridle’s
-`.cursor/commands/commit.md`, `pr-create.md`, and `pr-review.md` and adapt:
-replace `make evidence-*` observation with `gh issue view`, `gh pr view`,
-`gh pr checks`, etc.
+Commit, PR, and review procedures are defined in `.cursor/commands/`
+(`pr-create.md`, `pr-review.md`, `review-fix.md`, `pr-merge.md`). Use `gh` CLI for
+observation (`gh issue view`, `gh pr view`, `gh pr checks`, etc.).
 
 ## Maintainer reference
 

@@ -1,0 +1,10 @@
+# Dogfood state rules: match any normal clone (current branch exists).
+rules:
+  - type: state
+    id: branch_present
+    priority: 10
+    state_id: ActiveBranch
+    when:
+      op: eq
+      path: git.detached_head
+      value: false

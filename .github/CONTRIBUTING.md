@@ -27,7 +27,7 @@ Optional: the repo **[`Makefile`](../Makefile)** provides `make test`, `make che
 (fmt, vet, lint, test — lint is `golangci-lint`), `make coverage`, `make build`, etc.
 It is **not** normative — CI and the shell commands below are the source of truth.
 
-Optional commit message template (see [`.cursor/rules/commit-format.mdc`](../.cursor/rules/commit-format.mdc)):
+Optional commit message template (see [`.reinguard/policy/commit--format.md`](../.reinguard/policy/commit--format.md); Cursor: [`.cursor/rules/commit-format.mdc`](../.cursor/rules/commit-format.mdc)):
 
 ```bash
 git config commit.template .github/gitmessage
@@ -35,12 +35,13 @@ git config commit.template .github/gitmessage
 
 ## Checks before you push
 
-Same gates as CI (see also [`.cursor/rules/agent-safety.mdc`](../.cursor/rules/agent-safety.mdc)):
+Same gates as CI (see also [`.reinguard/policy/safety--agent-invariants.md`](../.reinguard/policy/safety--agent-invariants.md); Cursor: [`.cursor/rules/reinguard-bridge.mdc`](../.cursor/rules/reinguard-bridge.mdc) § Always-active policy):
 
 ```bash
 go test ./... -race -count=1
 go vet ./...
 golangci-lint run --timeout=5m ./...
+markdownlint-cli2 '**/*.md'
 ```
 
 **Coverage** (module-wide threshold **80%**, same as CI):
@@ -59,7 +60,7 @@ Optional: `pre-commit install --hook-type commit-msg` and `pre-commit install` (
 | [`cmd/rgd/`](../cmd/rgd) | `main`, thin entry — delegates to `internal/rgdcli` |
 | [`internal/rgdcli/`](../internal/rgdcli) | Command tree, flags, JSON output |
 | [`pkg/schema/`](../pkg/schema) | Embedded JSON Schemas; `rgd schema export` writes them to disk |
-| [`internal/config/`](../internal/config) | Loads `.reinguard` / `rules/*.yaml`; `rgd config validate` |
+| [`internal/config/`](../internal/config) | Loads `.reinguard` / `control/{states,routes,guards}/*.yaml`; `rgd config validate` |
 | [`internal/observe/`](../internal/observe) | Observation providers (`git`, `github`, …) |
 
 - Command tree, flags, stdout/stderr, exit codes: **`docs/cli.md`**.
@@ -68,13 +69,13 @@ Optional: `pre-commit install --hook-type commit-msg` and `pre-commit install` (
 ## Workflow
 
 - **Issue-driven**: Prefer one GitHub Issue per implementation PR; the PR body must include `Closes #N` (or `Fixes` / `Resolves`), unless you use an exception label and fill `## Exception` per [`.github/PULL_REQUEST_TEMPLATE.md`](PULL_REQUEST_TEMPLATE.md).
-- **Commits**: Conventional Commits and `Refs: #N` in the message body — see [`.cursor/rules/commit-format.mdc`](../.cursor/rules/commit-format.mdc).
+- **Commits**: Conventional Commits and `Refs: #N` in the message body — see [`.reinguard/policy/commit--format.md`](../.reinguard/policy/commit--format.md).
 - **Commands**: Thin procedures live under [`.cursor/commands/`](../.cursor/commands/) (`pr-create`, `review-fix`, `pr-merge`).
 
 ## CI and PR policy
 
-- Workflow [`ci.yaml`](workflows/ci.yaml) runs `go-ci`, and on pull requests calls [`pr-policy.yaml`](workflows/pr-policy.yaml) as reusable workflow job `check-policy`.
-- Job **`ci-pass`** aggregates `go-ci` and `check-policy` on PRs. Configure **branch protection** on `main` to require this single check.
+- Workflow [`ci.yaml`](workflows/ci.yaml) runs jobs in dependency order: **`gate-policy`** (always; PR body runs [`.github/scripts/pr-policy-check.js`](../.github/scripts/pr-policy-check.js), non-PR events no-op), **`lint-markdown`**, **`lint-go`** (after policy), **`test-go`** (after lint-go), **`dogfood-rgd-cli`** / **`dogfood-rgd-github`** (after `test-go`). [`pr-policy.yaml`](workflows/pr-policy.yaml) remains a **reusable** workflow with the same script for callers outside this file.
+- Job **`ci-pass`** aggregates all of the above. Configure **branch protection** on `main` to require this single check.
 
 ### Local PR policy pre-flight (optional)
 
@@ -98,7 +99,7 @@ In GitHub: **Settings → Branches → Branch protection rule** for `main`:
 
 1. **Require a pull request before merging** (recommended).
 2. **Require status checks to pass**: enable **Require status checks to pass before merging** and add check **`ci-pass`** (from workflow *CI*).
-3. **Require conversation resolution before merging**: **enable** — all review threads must be resolved before merge (aligns with `HS-REVIEW-RESOLVE` in [`.cursor/rules/agent-safety.mdc`](../.cursor/rules/agent-safety.mdc)).
+3. **Require conversation resolution before merging**: **enable** — all review threads must be resolved before merge (aligns with `HS-REVIEW-RESOLVE` in [`.reinguard/policy/safety--agent-invariants.md`](../.reinguard/policy/safety--agent-invariants.md)).
 4. Do not rely on bypassing checks (`gh pr merge --admin` is prohibited for agents).
 
 ### Merge strategy
@@ -131,25 +132,27 @@ The command shells out to `gh api` to update PR bodies and labels (some `gh` ver
 
 ## Review threads and merge
 
-Before merge: CI green (`ci-pass`), PR policy green, and **all review conversations resolved**. For each thread, leave a short **disposition** (e.g. Fixed / By design / False positive / Acknowledged) before resolving — see [`AGENTS.md`](../AGENTS.md) and the bridle consensus reference linked there.
+Before merge: CI green (`ci-pass`), PR policy green, and **all review conversations resolved**. For each thread, leave a short **disposition** (e.g. Fixed / By design / False positive / Acknowledged) before resolving — see [`AGENTS.md`](../AGENTS.md) and [`.reinguard/policy/review--consensus-protocol.md`](../.reinguard/policy/review--consensus-protocol.md).
 
 Do **not** enable **auto-merge** while a bot review is still pending or threads are unresolved.
 
 ## Continuous integration (job reference)
 
-[`ci.yaml`](workflows/ci.yaml) is split so **fork pull requests** stay safe without
-running GitHub API collection on untrusted merge commits. Manual runs:
-**`workflow_dispatch`**.
+[`ci.yaml`](workflows/ci.yaml) orders jobs so **PR template failures skip Go work**, **Go lint failures skip tests**, and **fork pull requests** skip GitHub API dogfood. Manual runs: **`workflow_dispatch`**.
 
-| Job | Runs on | Purpose |
-|-----|---------|---------|
-| `go-ci` | All pushes and PRs | Lint, vet, tests, coverage gate, basic `rgd` smoke |
-| `rgd-dogfood` | All pushes and PRs | This repo’s `.reinguard` + `rgd config validate` + `rgd observe git` |
-| `rgd-github-dogfood` | **Not** fork PRs | `rgd observe github` with `GH_TOKEN` |
+**DAG (summary):** `gate-policy` → `lint-go` → `test-go` → `dogfood-rgd-cli` / `dogfood-rgd-github`; `lint-markdown` runs in parallel with `gate-policy` (no Go dependency).
 
-Fork PRs skip `rgd-github-dogfood` when the head repo is not the base repo.
+| Job ID | `name` (UI) | Runs on | Purpose |
+|--------|-------------|---------|---------|
+| `gate-policy` | Gate — PR policy | All events | PR: template/labels/title/base checks; push: no-op success |
+| `lint-markdown` | Lint — Markdown | All events | `markdownlint-cli2` |
+| `lint-go` | Lint — Go | After `gate-policy` | `go mod`, `golangci-lint`, `go vet` |
+| `test-go` | Test — Go | After `lint-go` | `go test -race`, coverage gate, `rgd` smoke |
+| `dogfood-rgd-cli` | Dogfood — rgd (CLI) | After `test-go` | `config validate` + `observe git` |
+| `dogfood-rgd-github` | Dogfood — rgd (GitHub) | After `test-go`; **not** fork PRs | `observe github` with token |
+| `ci-pass` | Gate — Pass | Always (aggregate) | Fails if any required job failed (`dogfood-rgd-github` may be `skipped`) |
 
-**Required check for merge:** use aggregate job **`ci-pass`** (see [Branch protection](#branch-protection-maintainers) above). Do **not** rely only on `go-ci` + `rgd-dogfood` if your branch protection expects the same gate as agents (`ci-pass` includes `check-policy` on PRs).
+**Required check for merge:** aggregate job **`ci-pass`** only (see [Branch protection](#branch-protection-maintainers) above).
 
 ## License
 

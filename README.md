@@ -67,6 +67,8 @@ Authoritative decisions are recorded as ADRs under [docs/adr/](docs/adr/):
 | [ADR-0007](docs/adr/0007-ambiguity-as-evaluation-outcome.md) | Ambiguity as evaluation outcome |
 | [ADR-0008](docs/adr/0008-schema-versioning.md) | Schema versioning: synchronized semver with best-effort compatibility |
 | [ADR-0009](docs/adr/0009-observation-engine-abstraction.md) | Observation engine abstraction (providers + config) |
+| [ADR-0010](docs/adr/0010-knowledge-management.md) | Repository knowledge: format, manifest generation, and agent-facing delivery |
+| [ADR-0011](docs/adr/0011-semantic-control-plane-structure.md) | Semantic control plane directory structure |
 
 ## Development
 
@@ -90,9 +92,9 @@ See **[.github/CONTRIBUTING.md](.github/CONTRIBUTING.md)** for local checks, CI 
 fork PRs), branch protection, labels, PR policy, and review-thread rules.
 
 - Follow **Issue-driven** workflow: open an Issue, then a PR that `Closes #N`
-  (see `.cursor/rules/workflow-policy.mdc`).
-- **Commit format** matches the bridle-style policy in `.cursor/rules/commit-format.mdc`
-  (Conventional Commits + `Refs: #N` in the body). Optional local setup:
+  (SSOT: `.reinguard/policy/workflow--pr-discipline.md`; Cursor: `workflow-policy.mdc`).
+- **Commit format** follows `.reinguard/policy/commit--format.md`
+  (Conventional Commits + `Refs: #N` in the body; Cursor: `commit-format.mdc`). Optional local setup:
   - `git config commit.template .github/gitmessage`
   - `pip install pre-commit && pre-commit install --hook-type commit-msg`
 - Use the PR template at `.github/PULL_REQUEST_TEMPLATE.md`.

@@ -13,6 +13,7 @@ triggers:
 ## Rule 1: Reject invalid observation JSON shape
 
 When loading observation documents from file:
+
 - require top-level `signals`
 - require `signals` to be an object
 
@@ -22,17 +23,20 @@ evaluation paths. Return validation errors instead.
 ## Rule 2: Dotted-path rules require flattened keys
 
 If rules match paths like:
+
 - `state.kind`
 - `state.state_id`
 
 then nested maps must be flattened into dotted keys before resolution.
 
 Implementation pattern:
+
 - merge `flattenSignals(map[string]any{"state": nestedState})` into the input map
 
 ## Rule 3: Keep route and context pipelines consistent
 
 If route selection logic is used in both:
+
 - `route select --state-file`
 - `context build`
 

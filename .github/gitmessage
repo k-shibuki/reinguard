@@ -1,5 +1,5 @@
 
-# <type>(<scope>): <summary (~50 chars, imperative, English)>
+# <type>(<scope>): <summary (aim ~50 chars; hook warns >72, max 120; imperative English)>
 #
 # - Change item 1
 # - Change item 2
@@ -7,5 +7,5 @@
 # Refs: #<issue-number>
 #
 # ---- Types: feat fix hotfix refactor perf test docs build ci chore style revert
-# ---- Footer: Refs: #N (required) | BREAKING CHANGE: (optional)
+# ---- Refs: #N required in message body (not trailer-specific) | BREAKING CHANGE: (optional)
 # ---- Exception: hotfix/no-issue may omit Refs but must justify in body

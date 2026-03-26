@@ -1,5 +1,6 @@
-# reinguard — optional dev shortcuts (not an SSOT; CI remains authoritative).
-# No bridle-style evidence targets. Run `make help` for targets.
+# reinguard — optional dev shortcuts for the Go toolchain only.
+# CI remains authoritative; rgd commands should be invoked directly.
+# Run `make help` for targets.
 
 .PHONY: help fmt vet test lint coverage build check
 

@@ -15,6 +15,7 @@ triggers:
 For negative tests, verify the intended failure mode, not just `err != nil`.
 
 Examples:
+
 - missing file path should mention the missing file
 - malformed JSON should be a parse/syntax error category
 
@@ -26,11 +27,13 @@ instead of only checking that some JSON exists.
 ## Rule 3: Keep Given/When/Then in edited tests
 
 When creating or substantially editing non-trivial tests:
+
 - add concise Given/When/Then comments
 - keep test intent readable in code review
 
 ## Rule 4: Add boundary checks when changing contracts
 
 If behavior around empty/missing inputs changes:
+
 - add at least one explicit boundary test
 - assert both key presence and value shape/type
