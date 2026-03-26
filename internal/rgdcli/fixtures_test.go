@@ -17,14 +17,14 @@ func writeFile(t *testing.T, path string, data []byte) {
 }
 
 // Shared fixtures for CLI tests: keep rule shapes aligned with config.Load expectations
-// (schema_version, default_branch, providers, rules/*.yaml).
+// (schema_version, default_branch, providers, control/{states,routes,guards}/*.yaml).
 
-const testFixtureReinguardRoot = `schema_version: "0.2.0"
+const testFixtureReinguardRoot = `schema_version: "0.3.0"
 default_branch: main
 providers: []
 `
 
-const testFixtureReinguardGitOnly = `schema_version: "0.2.0"
+const testFixtureReinguardGitOnly = `schema_version: "0.3.0"
 default_branch: main
 providers:
   - id: git
@@ -41,6 +41,32 @@ const testFixtureRulesStateIdle = `rules:
       op: eq
       path: git.branch
       value: main
+`
+
+// Route rule for context build (keys off resolved state.kind, id: r1); pair with testFixtureRulesStateIdle.
+const testFixtureControlRoutesNext = `rules:
+  - type: route
+    id: r1
+    priority: 10
+    route_id: next
+    when:
+      op: eq
+      path: state.kind
+      value: resolved
+`
+
+// Two state rules with same priority and overlapping when -> ambiguous with fail-on-non-resolved.
+const testFixtureRulesStateAmbiguous = `rules:
+  - type: state
+    id: a
+    priority: 1
+    state_id: A
+    when: {op: eq, path: x, value: 1}
+  - type: state
+    id: b
+    priority: 1
+    state_id: B
+    when: {op: eq, path: x, value: 1}
 `
 
 // Two route rules with same priority and overlapping when -> ambiguous.

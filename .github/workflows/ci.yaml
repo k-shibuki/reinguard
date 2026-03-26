@@ -5,13 +5,50 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
-  pull-requests: read
 
 jobs:
-  go-ci:
+  # Always runs: on PR runs policy script; on push/workflow_dispatch no-op (avoids skipped needs).
+  gate-policy:
+    name: Gate — PR policy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Skip policy check (non-PR events)
+        if: github.event_name != 'pull_request'
+        run: echo "Not a pull request; policy gate passes."
+
+      - name: Check PR policy compliance
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const p = path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/pr-policy-check.js');
+            const code = fs.readFileSync(p, 'utf8');
+            const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+            const fn = new AsyncFunction('github', 'context', 'core', code);
+            return await fn(github, context, core);
+
+  lint-markdown:
+    name: Lint — Markdown
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: DavidAnson/markdownlint-cli2-action@v22.0.0
+
+  lint-go:
+    name: Lint — Go
+    needs: [gate-policy]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
@@ -38,13 +75,29 @@ jobs:
       - name: go vet
         run: go vet ./...
 
+  test-go:
+    name: Test — Go
+    needs: [lint-go]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: actions/setup-go@v6.3.0
+        with:
+          go-version: "1.26.1"
+
+      - name: Download modules
+        run: go mod download
+
       - name: go test
-        run: go test ./... -race -coverprofile=coverage.out
+        run: go test ./... -race -coverpkg=./... -coverprofile=coverage.out -count=1
+
+      - name: Coverage threshold (module-wide)
+        run: bash tools/check-coverage-threshold.sh 80 coverage.out
 
       - name: Upload coverage artifact
         if: always()
-        # v6+ runs on Node 24 (v4.x was node20; deprecated on GitHub-hosted runners).
-        uses: actions/upload-artifact@v6.0.0
+        uses: actions/upload-artifact@v7.0.0
         with:
           name: coverage
           path: coverage.out
@@ -59,31 +112,112 @@ jobs:
           /tmp/rgd config validate
           /tmp/rgd schema export --dir /tmp/rgd-schema-smoke
 
-  check-policy:
-    if: github.event_name == 'pull_request'
-    uses: ./.github/workflows/pr-policy.yaml
-    secrets: inherit
+  # Safe for fork PRs — only git + local schema validation.
+  dogfood-rgd-cli:
+    name: Dogfood — rgd (CLI)
+    needs: [test-go]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
 
-  # Single required check for branch protection (include policy on PRs).
+      - uses: actions/setup-go@v6.3.0
+        with:
+          go-version: "1.26.1"
+
+      - name: Build rgd
+        run: go build -o /tmp/rgd ./cmd/rgd
+
+      - name: Validate config and observe git
+        run: |
+          set -euo pipefail
+          /tmp/rgd --cwd "${GITHUB_WORKSPACE}" config validate
+          /tmp/rgd --cwd "${GITHUB_WORKSPACE}" observe git > /tmp/observe-git.json
+          jq -e '
+            (.signals.git | has("branch")) and
+            (.signals.git | has("detached_head")) and
+            (.signals.git | has("working_tree_clean"))
+          ' /tmp/observe-git.json >/dev/null
+
+  # Skip fork PRs — never run API collection against untrusted merge commits.
+  dogfood-rgd-github:
+    name: Dogfood — rgd (GitHub)
+    needs: [test-go]
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+      checks: read
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: actions/setup-go@v6.3.0
+        with:
+          go-version: "1.26.1"
+
+      - name: Build rgd
+        run: go build -o /tmp/rgd ./cmd/rgd
+
+      - name: Observe GitHub (aggregate)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh --version
+          /tmp/rgd --cwd "${GITHUB_WORKSPACE}" observe github > /tmp/observe-github.json
+          jq -e '
+            ((.signals.github.repository.owner // "") | length > 0) and
+            ((.signals.github.repository.name // "") | length > 0) and
+            (([.diagnostics[]?.code] | index("auth_failed")) == null) and
+            (([.diagnostics[]?.code] | index("repo_resolve_failed")) == null)
+          ' /tmp/observe-github.json >/dev/null
+
+  # Aggregate gate for branch protection (single required check).
   ci-pass:
+    name: Gate — Pass
     if: always()
-    needs: [go-ci, check-policy]
+    needs:
+      - gate-policy
+      - lint-markdown
+      - lint-go
+      - test-go
+      - dogfood-rgd-cli
+      - dogfood-rgd-github
     runs-on: ubuntu-latest
     steps:
       - name: Verify aggregate gate
         env:
-          GO_RESULT: ${{ needs.go-ci.result }}
-          POLICY_RESULT: ${{ needs.check-policy.result }}
-          EVENT_NAME: ${{ github.event_name }}
+          # Job IDs: gate-policy, lint-markdown, lint-go, test-go, dogfood-rgd-cli, dogfood-rgd-github
+          GATE_POLICY_RESULT: ${{ needs.gate-policy.result }}
+          LINT_MARKDOWN_RESULT: ${{ needs.lint-markdown.result }}
+          LINT_GO_RESULT: ${{ needs.lint-go.result }}
+          TEST_GO_RESULT: ${{ needs.test-go.result }}
+          DOGFOOD_CLI_RESULT: ${{ needs.dogfood-rgd-cli.result }}
+          DOGFOOD_GITHUB_RESULT: ${{ needs.dogfood-rgd-github.result }}
         run: |
-          if [ "$GO_RESULT" != "success" ]; then
-            echo "go-ci did not succeed: $GO_RESULT"
+          if [ "$GATE_POLICY_RESULT" != "success" ]; then
+            echo "gate-policy did not succeed: $GATE_POLICY_RESULT"
             exit 1
           fi
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            if [ "$POLICY_RESULT" != "success" ]; then
-              echo "check-policy did not succeed: $POLICY_RESULT"
-              exit 1
-            fi
+          if [ "$LINT_MARKDOWN_RESULT" != "success" ]; then
+            echo "lint-markdown did not succeed: $LINT_MARKDOWN_RESULT"
+            exit 1
+          fi
+          if [ "$LINT_GO_RESULT" != "success" ]; then
+            echo "lint-go did not succeed: $LINT_GO_RESULT"
+            exit 1
+          fi
+          if [ "$TEST_GO_RESULT" != "success" ]; then
+            echo "test-go did not succeed: $TEST_GO_RESULT"
+            exit 1
+          fi
+          if [ "$DOGFOOD_CLI_RESULT" != "success" ]; then
+            echo "dogfood-rgd-cli did not succeed: $DOGFOOD_CLI_RESULT"
+            exit 1
+          fi
+          if [ "$DOGFOOD_GITHUB_RESULT" != "success" ] && [ "$DOGFOOD_GITHUB_RESULT" != "skipped" ]; then
+            echo "dogfood-rgd-github did not succeed: $DOGFOOD_GITHUB_RESULT"
+            exit 1
           fi
           echo "ci-pass: OK"

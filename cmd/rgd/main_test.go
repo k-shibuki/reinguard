@@ -2,6 +2,7 @@ package main
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -17,9 +18,9 @@ func TestRun_guardEval_missingObservationFile(t *testing.T) {
 	err := run([]string{
 		"rgd", "guard", "eval",
 		"--observation-file", filepath.Join(t.TempDir(), "missing.json"),
-		"any-guard",
+		"merge-readiness",
 	}, "t")
-	if err == nil {
-		t.Fatal("expected error")
+	if err == nil || !strings.Contains(err.Error(), "missing.json") {
+		t.Fatalf("expected missing observation-file error, got: %v", err)
 	}
 }

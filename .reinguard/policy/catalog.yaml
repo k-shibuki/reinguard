@@ -1,0 +1,20 @@
+# Policy catalog — normative documents referenced by Adapter and AGENTS.md.
+# Not indexed by `rgd knowledge index`. Not read by `rgd config validate`
+# (manual index only). Maintained manually.
+schema_version: "0.3.0"
+entries:
+  - id: review-consensus-protocol
+    path: review--consensus-protocol.md
+    description: "Disposition categories, consensus flow, thread resolution rules"
+  - id: safety-agent-invariants
+    path: safety--agent-invariants.md
+    description: "HS-* safety codes — CI merge, PR template/base, local verify, review resolve, merge consensus"
+  - id: workflow-pr-discipline
+    path: workflow--pr-discipline.md
+    description: "Issue-driven work, PR discipline, branch naming, exceptions"
+  - id: commit-format
+    path: commit--format.md
+    description: "Conventional Commits, Refs in message body, atomic commits, branch naming"
+  - id: coding-standards
+    path: coding--standards.md
+    description: "Language policy (English artifacts), Go formatting, same-kind change scope, ADR/CLI authority"

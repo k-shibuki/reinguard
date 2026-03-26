@@ -48,7 +48,8 @@ rgd observe github reviews
 rgd state eval [--observation-file FILE]
 rgd route select [--observation-file FILE] [--state-file FILE]
 rgd guard eval <guard-id> [flags...]
-rgd knowledge pack
+rgd knowledge index
+rgd knowledge pack [--query STRING]
 rgd context build [--observation-file FILE]
 ```
 
@@ -162,10 +163,29 @@ Evaluates coarse signals: `github.ci.ci_status == success`,
 
 JSON `{ "guard_id": "merge-readiness", "ok": true|false, "reason": "..." }`
 
+## `rgd knowledge index`
+
+Scans `.reinguard/knowledge/*.md`, parses YAML front matter (`id`, `description`,
+`triggers`), and writes `.reinguard/knowledge/manifest.json` with
+`schema_version` set to the binary’s current contract version (ADR-0010). Prints
+a one-line summary to stdout (human-readable).
+
+After editing knowledge metadata in front matter, run this command and commit the
+updated manifest so `rgd config validate` freshness checks pass.
+
 ## `rgd knowledge pack`
 
-Reads `.reinguard/knowledge/manifest.json` and prints JSON `{ "paths": [...] }`
-of repo-relative file paths for the agent (no file bodies embedded).
+Reads `.reinguard/knowledge/manifest.json` and prints JSON:
+
+```json
+{ "entries": [ { "id": "...", "path": "...", "description": "...", "triggers": ["..."] } ] }
+```
+
+Repo-relative `path` values point at Markdown files; bodies are not embedded.
+
+| Flag | Description |
+|------|-------------|
+| `--query` | Optional. Case-insensitive substring match against each entry’s `triggers`; only matching entries are returned. If omitted, all entries are returned. |
 
 ## `rgd context build`
 
@@ -176,15 +196,33 @@ Runs the default pipeline: **observe → state eval → route select → guard e
   given observation document JSON as input (same shape as `rgd observe` stdout).
   Useful for tests and golden fixtures.
 
+The `knowledge` object in the output has **`entries`** (same shape as
+`rgd knowledge pack` stdout), not `paths` (ADR-0010).
+
 Optional per-step flags may be added in future issues; Phase 1 runs the full
 default chain when not using `--observation-file`.
 
 ## `rgd config validate`
 
-Validates `reinguard.yaml`, `rules/*.yaml`, and `knowledge/manifest.json` when
+Validates `reinguard.yaml`, `control/{states,routes,guards}/*.yaml`, and `knowledge/manifest.json` when
 present, against embedded JSON Schemas. Non-zero exit on hard validation
 errors. **Deprecated** configuration keys (marked in JSON Schema) emit **warnings
 on stderr** but still exit **0** when validation succeeds.
+
+When `knowledge/manifest.json` is present, validation also:
+
+- Ensures each `entries[].path` exists under the repository root and is a file.
+- Re-indexes knowledge Markdown front matter and **errors** if the committed
+  manifest is stale (run `rgd knowledge index` and commit).
+- May emit **warnings** on stderr for large knowledge files or many triggers per
+  entry (authoring hints only).
+
+## Agent bootstrap (Cursor and other tools)
+
+Repositories may add editor-specific rules that point agents at
+`.reinguard/knowledge/manifest.json` and describe how to use `entries` and
+`--query` (see ADR-0010). `rgd` does not require a particular bridge file; this
+repo includes `.cursor/rules/reinguard-bridge.mdc` as an example.
 
 ## `rgd schema export`
 
@@ -195,10 +233,10 @@ Writes all embedded schemas from `pkg/schema/` to `--dir`.
 Triggers: `push` to `main`, `pull_request` to `main`, and `workflow_dispatch`.
 
 The following commands mirror the **effective shell commands** run in CI (paths
-and env are as in GitHub Actions). Fork pull requests **skip** job (3); see
-[`CONTRIBUTING.md`](contributing.md).
+and env are as in GitHub Actions). Fork pull requests **skip** job `dogfood-rgd-github`; see
+[`CONTRIBUTING.md`](../.github/CONTRIBUTING.md).
 
-### Job `go-ci` (all PRs and pushes)
+### Job `lint-go` (after `gate-policy`)
 
 ```bash
 go mod download
@@ -206,6 +244,12 @@ go mod verify
 go build ./...
 # golangci-lint via golangci/golangci-lint-action with: --timeout=5m ./...
 go vet ./...
+```
+
+### Job `test-go` (after `lint-go`)
+
+```bash
+go mod download
 go test ./... -race -coverpkg=./... -coverprofile=coverage.out -count=1
 bash tools/check-coverage-threshold.sh 80 coverage.out
 go build -o /tmp/rgd ./cmd/rgd
@@ -214,16 +258,16 @@ go build -o /tmp/rgd ./cmd/rgd
 /tmp/rgd schema export --dir /tmp/rgd-schema-smoke
 ```
 
-### Job `rgd-dogfood` (after `go-ci`)
+### Job `dogfood-rgd-cli` (after `test-go`)
 
 ```bash
 go build -o /tmp/rgd ./cmd/rgd
 /tmp/rgd --cwd "${GITHUB_WORKSPACE}" config validate
 /tmp/rgd --cwd "${GITHUB_WORKSPACE}" observe git > /tmp/observe-git.json
-grep -q '"schema_version"' /tmp/observe-git.json
+# CI asserts JSON shape with jq (branch, detached_head, working_tree_clean)
 ```
 
-### Job `rgd-github-dogfood` (non-fork PRs and pushes to `main`)
+### Job `dogfood-rgd-github` (non-fork PRs and pushes to `main`)
 
 Condition: `github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository`.
 
@@ -231,7 +275,7 @@ Condition: `github.event_name != 'pull_request' || github.event.pull_request.hea
 go build -o /tmp/rgd ./cmd/rgd
 gh --version
 /tmp/rgd --cwd "${GITHUB_WORKSPACE}" observe github > /tmp/observe-github.json
-grep -q '"schema_version"' /tmp/observe-github.json
+# CI asserts repository fields and absence of auth/diagnostic failures via jq
 ```
 
 (`GH_TOKEN` / `GITHUB_TOKEN` is set by Actions for `gh` and the GitHub provider.)
