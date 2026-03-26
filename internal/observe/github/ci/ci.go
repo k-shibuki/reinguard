@@ -1,3 +1,6 @@
+// Package ci implements the GitHub commit combined status facet used by the observe GitHub
+// provider (ADR-0006 REST observation, ADR-0009 provider composition). Collect returns a
+// ci subtree and optional warnings; errors from the API are returned as Go errors.
 package ci
 
 import (

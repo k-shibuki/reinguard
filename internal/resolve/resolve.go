@@ -1,4 +1,21 @@
-// Package resolve applies ADR-0004 priority selection and ADR-0007 outcomes.
+// Package resolve applies ADR-0004 priority selection and ADR-0007 outcomes to control rules.
+//
+// # Inputs and outputs
+//
+// Callers pass loaded config.Rule values filtered to type "state" or "route", a flattened
+// observation signal map (see package signals), and a set of degraded provider IDs for
+// depends_on suppression. Resolve and ResolveState/ResolveRoute return Result with Kind
+// resolved, ambiguous, or degraded; TargetID mirrors the winning state_id or route_id when
+// resolved. Route rules additionally populate RouteCandidates for ordered alternatives.
+//
+// # Error semantics
+//
+// Unsupported ruleType, match evaluation errors, or missing state_id/route_id on the
+// single winning rule return a non-nil error. No matching rules, all rules suppressed,
+// or duplicate best priority return a nil error with OutcomeDegraded or OutcomeAmbiguous
+// and a Reason string.
+//
+// ADR-0004 (priority and selection), ADR-0007 (outcomes and reporting).
 package resolve
 
 import (
@@ -93,7 +110,8 @@ func profileForRuleType(ruleType string) (resolveProfile, error) {
 	}
 }
 
-// Resolve applies ADR-0004 selection to rules of a single type ("state" or "route").
+// Resolve applies ADR-0004 selection to rules of a single type ("state" or "route"). On success
+// Kind is OutcomeResolved; otherwise Kind is OutcomeDegraded or OutcomeAmbiguous with Reason set.
 func Resolve(rules []config.Rule, signals map[string]any, degraded map[string]struct{}, ruleType string) (Result, error) {
 	p, err := profileForRuleType(ruleType)
 	if err != nil {
@@ -191,12 +209,12 @@ func minPriority(rules []config.Rule) float64 {
 	return best
 }
 
-// ResolveState evaluates state rules against signals and degraded sources.
+// ResolveState evaluates state rules against signals and degraded sources (convenience wrapper for Resolve(..., "state")).
 func ResolveState(rules []config.Rule, signals map[string]any, degraded map[string]struct{}) (Result, error) {
 	return Resolve(rules, signals, degraded, "state")
 }
 
-// ResolveRoute selects route rules (same priority semantics as state).
+// ResolveRoute selects route rules with the same priority and depends_on semantics as state rules.
 func ResolveRoute(rules []config.Rule, signals map[string]any, degraded map[string]struct{}) (Result, error) {
 	return Resolve(rules, signals, degraded, "route")
 }

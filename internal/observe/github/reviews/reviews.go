@@ -1,3 +1,5 @@
+// Package reviews implements minimal PR review-comment signals for the observe GitHub provider
+// (ADR-0006 Phase 1 subset). Collect returns a reviews subtree or an error when the API call fails.
 package reviews
 
 import (
