@@ -20,10 +20,8 @@ func TestRunContextBuild_gitOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(cfg, "reinguard.yaml"), []byte(testFixtureReinguardGitOnly))
-	if err := os.Mkdir(filepath.Join(cfg, "rules"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	writeFile(t, filepath.Join(cfg, "rules", "r.yaml"), []byte(testFixtureRulesContextBuild))
+	writeFile(t, filepath.Join(cfg, "control", "states", "r.yaml"), []byte(testFixtureRulesStateIdle))
+	writeFile(t, filepath.Join(cfg, "control", "routes", "r.yaml"), []byte(testFixtureControlRoutesNext))
 
 	var buf bytes.Buffer
 	app := NewApp("test")

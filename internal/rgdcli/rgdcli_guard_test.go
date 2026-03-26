@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -57,10 +56,7 @@ func TestRunGuardEval_relativeObservationFileWithCwd(t *testing.T) {
 	// Given: config dir and observation JSON in a separate data dir (relative filename)
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
-	if err := os.Mkdir(filepath.Join(cfgDir, "rules"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	writeFile(t, filepath.Join(cfgDir, "rules", "d.yaml"), []byte(testFixtureRulesEmpty))
+	writeFile(t, filepath.Join(cfgDir, "control", "guards", "d.yaml"), []byte(testFixtureRulesEmpty))
 
 	dataDir := t.TempDir()
 	writeFile(t, filepath.Join(dataDir, "o.json"), []byte(`{

@@ -2,8 +2,8 @@
   "schema_version": "0.3.0",
   "entries": [
     {
-      "id": "review-ci-permissions-gates",
-      "path": ".reinguard/knowledge/review--ci-permissions-and-gates.md",
+      "id": "ci-permissions-and-gates",
+      "path": ".reinguard/knowledge/ci--permissions-and-gates.md",
       "description": "GitHub Actions permissions, aggregate CI gates, and least privilege",
       "triggers": [
         "github actions permissions",
@@ -13,8 +13,8 @@
       ]
     },
     {
-      "id": "review-json-contracts",
-      "path": ".reinguard/knowledge/review--json-contracts.md",
+      "id": "cli-json-contracts",
+      "path": ".reinguard/knowledge/cli--json-contracts.md",
       "description": "Semantic JSON assertions and stable empty-list shape in tests and CLI output",
       "triggers": [
         "json contract",
@@ -24,8 +24,8 @@
       ]
     },
     {
-      "id": "review-ops",
-      "path": ".reinguard/knowledge/review--ops.md",
+      "id": "knowledge-ops",
+      "path": ".reinguard/knowledge/knowledge--ops.md",
       "description": "How rgd indexes knowledge, validates manifests, and how agents retrieve review docs",
       "triggers": [
         "knowledge operations",
@@ -36,8 +36,8 @@
       ]
     },
     {
-      "id": "review-signal-shape-flattening",
-      "path": ".reinguard/knowledge/review--signal-shape-and-flattening.md",
+      "id": "observation-signal-shape-and-flattening",
+      "path": ".reinguard/knowledge/observation--signal-shape-and-flattening.md",
       "description": "Observation signal shape, signals field validation, and dotted-path flattening",
       "triggers": [
         "signals field",
@@ -47,18 +47,37 @@
       ]
     },
     {
-      "id": "review-source-summary",
-      "path": ".reinguard/knowledge/review--source-summary.md",
-      "description": "Evidence snapshot of review corpus statistics across all PRs",
+      "id": "review-bot-operations",
+      "path": ".reinguard/knowledge/review--bot-operations.md",
+      "description": "Bot reviewer trigger, detection, timing, rate-limit recovery, and re-review procedures",
       "triggers": [
-        "review corpus",
-        "global findings",
-        "all PR comments"
+        "bot review trigger",
+        "bot review detection",
+        "CodeRabbit trigger",
+        "Codex trigger",
+        "coderabbit polling",
+        "re-review decision",
+        "@coderabbitai review",
+        "@codex review",
+        "rate limit recovery"
       ]
     },
     {
-      "id": "review-test-assertions",
-      "path": ".reinguard/knowledge/review--test-assertions.md",
+      "id": "review-github-thread-api",
+      "path": ".reinguard/knowledge/review--github-thread-api.md",
+      "description": "GitHub REST vs GraphQL for PR review thread resolution state (isResolved) and enumeration",
+      "triggers": [
+        "isResolved",
+        "unresolved thread count",
+        "review thread status",
+        "GraphQL reviewThreads",
+        "thread resolution API",
+        "gh api graphql"
+      ]
+    },
+    {
+      "id": "testing-assertions",
+      "path": ".reinguard/knowledge/testing--assertions.md",
       "description": "Test assertion quality, failure messages, and boundary coverage",
       "triggers": [
         "test quality",
@@ -68,14 +87,28 @@
       ]
     },
     {
-      "id": "gwt-test-comments",
-      "path": ".reinguard/knowledge/test--given-when-then.md",
+      "id": "testing-given-when-then",
+      "path": ".reinguard/knowledge/testing--given-when-then.md",
       "description": "Given / When / Then comment format for Go tests",
       "triggers": [
         "Given When Then",
         "test comment format",
         "GWT",
         "Go testing"
+      ]
+    },
+    {
+      "id": "testing-strategy",
+      "path": ".reinguard/knowledge/testing--strategy.md",
+      "description": "Go test strategy — coverage, perspectives, table-driven tests, CLI tests, mocks",
+      "triggers": [
+        "test strategy",
+        "coverage target",
+        "table-driven",
+        "CLI test",
+        "mock",
+        "httptest",
+        "urfave cli"
       ]
     }
   ]

@@ -1,5 +1,5 @@
 ---
-id: gwt-test-comments
+id: testing-given-when-then
 description: Given / When / Then comment format for Go tests
 triggers:
   - Given When Then
@@ -24,7 +24,7 @@ the test body or at the start of a subtest:
 ```go
 func TestLoadConfig_validFixture(t *testing.T) {
 	t.Helper()
-	// Given: A directory with valid reinguard.yaml and empty rules/
+	// Given: A directory with valid reinguard.yaml and no control/ rules
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "reinguard.yaml"), minimalValidYAML)
 

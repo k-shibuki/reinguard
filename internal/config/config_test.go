@@ -46,9 +46,6 @@ func TestLoad_knowledgeManifest_ok(t *testing.T) {
 default_branch: main
 providers: []
 `))
-	if err := os.Mkdir(filepath.Join(dir, "rules"), 0o755); err != nil {
-		t.Fatal(err)
-	}
 	if err := os.Mkdir(filepath.Join(dir, "knowledge"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -81,9 +78,6 @@ func TestLoad_knowledgeManifest_invalidJSON(t *testing.T) {
 default_branch: main
 providers: []
 `))
-	if err := os.Mkdir(filepath.Join(dir, "rules"), 0o755); err != nil {
-		t.Fatal(err)
-	}
 	if err := os.Mkdir(filepath.Join(dir, "knowledge"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -102,9 +96,6 @@ func TestLoad_knowledgeManifest_schemaInvalid(t *testing.T) {
 default_branch: main
 providers: []
 `))
-	if err := os.Mkdir(filepath.Join(dir, "rules"), 0o755); err != nil {
-		t.Fatal(err)
-	}
 	if err := os.Mkdir(filepath.Join(dir, "knowledge"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -117,17 +108,18 @@ providers: []
 	}
 }
 
-func TestLoad_rulesDotYmlAndStableOrder(t *testing.T) {
+func TestLoad_controlStatesDotYmlAndStableOrder(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
 default_branch: main
 providers: []
 `))
-	if err := os.Mkdir(filepath.Join(dir, "rules"), 0o755); err != nil {
+	statesDir := filepath.Join(dir, "control", "states")
+	if err := os.MkdirAll(statesDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(dir, "rules", "z.yml"), []byte(`rules:
+	writeFile(t, filepath.Join(statesDir, "z.yml"), []byte(`rules:
   - type: state
     id: z
     priority: 10
@@ -135,7 +127,7 @@ providers: []
       op: eq
     state_id: Z
 `))
-	writeFile(t, filepath.Join(dir, "rules", "a.yaml"), []byte(`rules:
+	writeFile(t, filepath.Join(statesDir, "a.yaml"), []byte(`rules:
   - type: state
     id: a
     priority: 10
@@ -143,7 +135,7 @@ providers: []
       op: eq
     state_id: A
 `))
-	if err := os.Mkdir(filepath.Join(dir, "rules", "skipdir"), 0o755); err != nil {
+	if err := os.Mkdir(filepath.Join(statesDir, "skipdir"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -164,9 +156,28 @@ providers: []
 	}
 }
 
+func TestLoad_legacyRulesYAML_rejected(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
+default_branch: main
+providers: []
+`))
+	legacyDir := filepath.Join(dir, "rules")
+	if err := os.MkdirAll(legacyDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(legacyDir, "old.yaml"), []byte("rules: []\n"))
+
+	_, err := Load(dir)
+	if err == nil || !strings.Contains(err.Error(), "legacy rules") {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestLoad_minimalValid(t *testing.T) {
 	t.Parallel()
-	// Given: valid reinguard.yaml and empty rules directory
+	// Given: valid reinguard.yaml and no control/ directory
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
 default_branch: main
@@ -174,9 +185,6 @@ providers:
   - id: git
     enabled: true
 `))
-	if err := os.Mkdir(filepath.Join(dir, "rules"), 0o755); err != nil {
-		t.Fatal(err)
-	}
 
 	// When: Load is called
 	res, err := Load(dir)
@@ -263,18 +271,19 @@ providers:
 	}
 }
 
-func TestLoad_rulesFile(t *testing.T) {
+func TestLoad_controlStatesFile(t *testing.T) {
 	t.Parallel()
-	// Given: valid root and one rules file
+	// Given: valid root and one state rules file
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
 default_branch: main
 providers: []
 `))
-	if err := os.Mkdir(filepath.Join(dir, "rules"), 0o755); err != nil {
+	statesDir := filepath.Join(dir, "control", "states")
+	if err := os.MkdirAll(statesDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	rulePath := filepath.Join(dir, "rules", "a.yaml")
+	rulePath := filepath.Join(statesDir, "a.yaml")
 	writeFile(t, rulePath, []byte(`rules:
   - type: state
     id: s1
@@ -297,7 +306,7 @@ providers: []
 	}
 }
 
-func TestLoad_rulesSchemaInvalid(t *testing.T) {
+func TestLoad_controlStatesSchemaInvalid(t *testing.T) {
 	t.Parallel()
 	// Given: rules file missing required when shape (empty when object may still parse — use missing rules key)
 	dir := t.TempDir()
@@ -305,10 +314,11 @@ func TestLoad_rulesSchemaInvalid(t *testing.T) {
 default_branch: main
 providers: []
 `))
-	if err := os.Mkdir(filepath.Join(dir, "rules"), 0o755); err != nil {
+	statesDir := filepath.Join(dir, "control", "states")
+	if err := os.MkdirAll(statesDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(dir, "rules", "bad.yaml"), []byte(`rules: not-an-array
+	writeFile(t, filepath.Join(statesDir, "bad.yaml"), []byte(`rules: not-an-array
 `))
 
 	// When: Load is called
@@ -317,6 +327,73 @@ providers: []
 	// Then: validation error names rules file
 	if err == nil || !strings.Contains(err.Error(), "bad.yaml") || !strings.Contains(err.Error(), "schema validation") {
 		t.Fatalf("%v", err)
+	}
+}
+
+func TestLoad_controlKindTypeMismatchRejected(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		kind     string
+		yamlBody string
+		wantSub  string
+	}{
+		{
+			name: "states_dir_has_route_type",
+			kind: "states",
+			yamlBody: `rules:
+  - type: route
+    id: r1
+    priority: 10
+    route_id: next
+    when: {op: eq, path: x, value: 1}
+`,
+			wantSub: `expected "state"`,
+		},
+		{
+			name: "routes_dir_has_state_type",
+			kind: "routes",
+			yamlBody: `rules:
+  - type: state
+    id: s1
+    priority: 10
+    state_id: idle
+    when: {op: eq, path: x, value: 1}
+`,
+			wantSub: `expected "route"`,
+		},
+		{
+			name: "guards_dir_has_state_type",
+			kind: "guards",
+			yamlBody: `rules:
+  - type: state
+    id: s1
+    priority: 10
+    state_id: idle
+    when: {op: eq, path: x, value: 1}
+`,
+			wantSub: `expected "guard"`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
+default_branch: main
+providers: []
+`))
+			kindDir := filepath.Join(dir, "control", tt.kind)
+			if err := os.MkdirAll(kindDir, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			writeFile(t, filepath.Join(kindDir, "bad.yaml"), []byte(tt.yamlBody))
+
+			_, err := Load(dir)
+			if err == nil || !strings.Contains(err.Error(), tt.wantSub) {
+				t.Fatalf("got err=%v, want substring %q", err, tt.wantSub)
+			}
+		})
 	}
 }
 

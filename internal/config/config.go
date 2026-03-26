@@ -32,7 +32,7 @@ type ProviderSpec struct {
 	Enabled bool           `yaml:"enabled" json:"enabled"`
 }
 
-// Rule is one rule from rules/*.yaml.
+// Rule is one rule from control/{states,routes,guards}/*.yaml (ADR-0011).
 type Rule struct {
 	When      any      `yaml:"when" json:"when"`
 	Type      string   `yaml:"type" json:"type"`
@@ -72,7 +72,7 @@ type LoadResult struct {
 	KnowledgePresent bool
 }
 
-// Load reads reinguard.yaml, all rules/*.yaml, and optional knowledge/manifest.json.
+// Load reads reinguard.yaml, all control/{states,routes,guards}/*.yaml, and optional knowledge/manifest.json.
 func Load(dir string) (*LoadResult, error) {
 	if dir == "" {
 		return nil, fmt.Errorf("config: empty directory")
@@ -114,28 +114,53 @@ func Load(dir string) (*LoadResult, error) {
 		return nil, err
 	}
 
-	ruleFiles := make(map[string]RulesDocument)
-	rulesDir := filepath.Join(dir, "rules")
-	entries, err := os.ReadDir(rulesDir)
-	if err != nil && !os.IsNotExist(err) {
-		return nil, fmt.Errorf("config: read rules dir: %w", err)
+	legacyRulesDir := filepath.Join(dir, "rules")
+	if entries, lerr := os.ReadDir(legacyRulesDir); lerr == nil {
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			lower := strings.ToLower(e.Name())
+			if strings.HasSuffix(lower, ".yaml") || strings.HasSuffix(lower, ".yml") {
+				return nil, fmt.Errorf(
+					"config: legacy rules/%s detected; migrate files to control/{states,routes,guards}/ with matching type",
+					e.Name(),
+				)
+			}
+		}
+	} else if !os.IsNotExist(lerr) {
+		return nil, fmt.Errorf("config: read rules dir: %w", lerr)
 	}
-	if err == nil {
+
+	ruleFiles := make(map[string]RulesDocument)
+	// Alphabetical kind order so RuleFiles keys sort as guards < routes < states (ADR-0011, ADR-0004).
+	controlKinds := []string{"guards", "routes", "states"}
+	for _, kind := range controlKinds {
+		kindDir := filepath.Join(dir, "control", kind)
+		entries, rerr := os.ReadDir(kindDir)
+		if rerr != nil && !os.IsNotExist(rerr) {
+			return nil, fmt.Errorf("config: read control/%s dir: %w", kind, rerr)
+		}
+		if rerr != nil {
+			continue
+		}
 		var yamlNames []string
 		for _, e := range entries {
 			if e.IsDir() {
 				continue
 			}
-			if strings.HasSuffix(strings.ToLower(e.Name()), ".yaml") || strings.HasSuffix(strings.ToLower(e.Name()), ".yml") {
+			lower := strings.ToLower(e.Name())
+			if strings.HasSuffix(lower, ".yaml") || strings.HasSuffix(lower, ".yml") {
 				yamlNames = append(yamlNames, e.Name())
 			}
 		}
 		sort.Strings(yamlNames)
 		for _, name := range yamlNames {
-			p := filepath.Join(rulesDir, name)
-			data, rerr := os.ReadFile(p)
-			if rerr != nil {
-				return nil, fmt.Errorf("config: read %s: %w", p, rerr)
+			p := filepath.Join(kindDir, name)
+			key := kind + "/" + name
+			data, readErr := os.ReadFile(p)
+			if readErr != nil {
+				return nil, fmt.Errorf("config: read %s: %w", p, readErr)
 			}
 			var docMap map[string]any
 			if uerr := yaml.Unmarshal(data, &docMap); uerr != nil {
@@ -148,7 +173,10 @@ func Load(dir string) (*LoadResult, error) {
 			if uerr := yaml.Unmarshal(data, &doc); uerr != nil {
 				return nil, fmt.Errorf("config: decode %s: %w", p, uerr)
 			}
-			ruleFiles[name] = doc
+			if err = validateRulesMatchControlKind(kind, doc.Rules, p); err != nil {
+				return nil, err
+			}
+			ruleFiles[key] = doc
 		}
 	}
 
@@ -182,7 +210,7 @@ func Load(dir string) (*LoadResult, error) {
 	return res, nil
 }
 
-// Rules returns all rules from all files in stable sort order by filename then index.
+// Rules returns all rules from all files in stable sort order by control path (kind/filename) then index.
 func (r *LoadResult) Rules() []Rule {
 	var names []string
 	for n := range r.RuleFiles {
@@ -194,6 +222,26 @@ func (r *LoadResult) Rules() []Rule {
 		out = append(out, r.RuleFiles[n].Rules...)
 	}
 	return out
+}
+
+func validateRulesMatchControlKind(kind string, rules []Rule, pathHint string) error {
+	want := ""
+	switch kind {
+	case "states":
+		want = "state"
+	case "routes":
+		want = "route"
+	case "guards":
+		want = "guard"
+	default:
+		return fmt.Errorf("config: unknown control kind %q", kind)
+	}
+	for i, ru := range rules {
+		if ru.Type != want {
+			return fmt.Errorf("config: rule[%d] in %s has type %q, expected %q for control/%s/", i, pathHint, ru.Type, want, kind)
+		}
+	}
+	return nil
 }
 
 func validateDoc(sch *jsonschema.Schema, doc any, pathHint string) error {

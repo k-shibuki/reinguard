@@ -1,5 +1,5 @@
 ---
-id: review-ops
+id: knowledge-ops
 description: How rgd indexes knowledge, validates manifests, and how agents retrieve review docs
 triggers:
   - knowledge operations
@@ -11,14 +11,18 @@ triggers:
 
 # Knowledge Operations for reinguard
 
-## Implemented behavior (ADR-0010)
+## Implemented behavior (ADR-0010, ADR-0011)
 
 - Each knowledge file is Markdown under `.reinguard/knowledge/` with YAML front matter
   (`id`, `description`, `triggers`).
-- **`rgd knowledge index`** scans `*.md`, reads front matter, and writes
+- **Policy** lives under `.reinguard/policy/` — not indexed here; use `.reinguard/policy/catalog.yaml` to list entries, then open Markdown by path.
+- **Control** match rules live under `.reinguard/control/{states,routes,guards}/`
+  (`*.yaml` loaded by `config.Load` / `rgd config validate`). `.reinguard/control/catalog.yaml`
+  is a human-maintained index only (not read by validate today). Not `knowledge pack`.
+- **`rgd knowledge index`** scans `knowledge/*.md`, reads front matter, and writes
   `.reinguard/knowledge/manifest.json` (committed; run after changing metadata).
 - **`rgd config validate`** checks the manifest schema, that paths exist, that the manifest
-  matches front matter (freshness), and emits optional size/trigger-count hints.
+  matches front matter (freshness), validates control YAML, and emits optional size/trigger-count hints.
 - **`rgd knowledge pack`** prints JSON `{ "entries": [...] }` with full metadata; optional
   **`--query`** filters by substring match on triggers.
 - **`rgd context build`** includes `knowledge.entries` in operational context JSON.
@@ -35,12 +39,11 @@ triggers:
 
 - Keep each file atomic (one concern per file).
 - Use required front matter: `id`, `description`, `triggers` (non-empty list).
-- Prefer stable guidance over PR-specific details.
-- Put evidence snapshots in `review--source-summary.md`, not in atomic rule docs.
+- Prefer stable guidance over PR-specific details or evidence-only snapshots.
 
 ## Review/update loop
 
-1. Periodically extract PR review comments and refresh patterns in `review--source-summary.md`.
+1. Periodically extract PR review comments and refresh recurring patterns into atomic knowledge files.
 2. Update atomic docs as needed.
 3. Run **`rgd knowledge index`** and commit `manifest.json`.
 4. Validate with **`rgd config validate`**.

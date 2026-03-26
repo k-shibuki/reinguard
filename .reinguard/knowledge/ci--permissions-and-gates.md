@@ -1,5 +1,5 @@
 ---
-id: review-ci-permissions-gates
+id: ci-permissions-and-gates
 description: GitHub Actions permissions, aggregate CI gates, and least privilege
 triggers:
   - github actions permissions
@@ -23,6 +23,7 @@ If branch protection relies on aggregate check `ci-pass`, ensure all
 must-pass jobs feed that aggregate outcome.
 
 Typical pitfall:
+
 - adding new validation jobs without adding them to aggregate `needs`
 
 ## Rule 3: Preserve explicit skip semantics
