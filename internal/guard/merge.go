@@ -19,6 +19,8 @@ package guard
 import (
 	"fmt"
 	"strings"
+
+	"github.com/k-shibuki/reinguard/internal/signals"
 )
 
 // MergeReadinessResult is JSON output for merge-readiness guard.
@@ -33,44 +35,23 @@ type MergeReadinessResult struct {
 // github.reviews.review_threads_unresolved must be zero (int or float64 JSON numbers; absent
 // or other types are treated as zero). Missing top-level keys yield empty nested maps, so
 // absent git.github fields fail the clean/CI checks as expected.
-func EvalMergeReadiness(signals map[string]any) MergeReadinessResult {
+func EvalMergeReadiness(sigs map[string]any) MergeReadinessResult {
 	const id = "merge-readiness"
-	git := mapString(signals, "git")
-	gh := mapString(signals, "github")
-	ci := mapString(gh, "ci")
-	reviews := mapString(gh, "reviews")
 
-	clean, _ := git["working_tree_clean"].(bool)
+	clean, _ := signals.GetBool(sigs, "git.working_tree_clean")
 	if !clean {
 		return MergeReadinessResult{GuardID: id, OK: false, Reason: "git working tree not clean"}
 	}
-	status, _ := ci["ci_status"].(string)
-	status = strings.ToLower(status)
-	if status != "success" {
+
+	status, _ := signals.GetString(sigs, "github.ci.ci_status")
+	if strings.ToLower(status) != "success" {
 		return MergeReadinessResult{GuardID: id, OK: false, Reason: fmt.Sprintf("ci status is %q, want success", status)}
 	}
-	unres := 0
-	if v, ok := reviews["review_threads_unresolved"]; ok {
-		switch x := v.(type) {
-		case int:
-			unres = x
-		case float64:
-			unres = int(x)
-		}
-	}
+
+	unres, _ := signals.GetInt(sigs, "github.reviews.review_threads_unresolved")
 	if unres != 0 {
 		return MergeReadinessResult{GuardID: id, OK: false, Reason: fmt.Sprintf("unresolved review threads: %d", unres)}
 	}
-	return MergeReadinessResult{GuardID: id, OK: true}
-}
 
-func mapString(m map[string]any, k string) map[string]any {
-	if m == nil {
-		return map[string]any{}
-	}
-	v, ok := m[k].(map[string]any)
-	if !ok {
-		return map[string]any{}
-	}
-	return v
+	return MergeReadinessResult{GuardID: id, OK: true}
 }
