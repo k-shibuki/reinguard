@@ -29,6 +29,7 @@ func TestDocument_andDegradedSet(t *testing.T) {
 func TestDocument_noDiagnosticsNoMeta(t *testing.T) {
 	t.Parallel()
 	// Given: no diagnostics
+	// When: Document is built
 	doc := Document(map[string]any{"k": 2}, nil, false)
 	// Then: no diagnostics key required in map — implementation omits empty diagnostics
 	if _, ok := doc["diagnostics"]; ok {
@@ -55,7 +56,9 @@ func TestDegradedSet_fallbackErrorSeverity(t *testing.T) {
 	t.Parallel()
 	// Given: degraded true but no provider_failed code — fallback uses error severity
 	diags := []observe.Diagnostic{{Provider: "x", Code: "other", Severity: "error", Message: "m"}}
+	// When: DegradedSet runs
 	ds := DegradedSet(diags, true)
+	// Then: provider included via error-severity fallback
 	if _, ok := ds["x"]; !ok {
 		t.Fatal()
 	}
