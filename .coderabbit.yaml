@@ -1,7 +1,14 @@
 # yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
 #
-# CodeRabbit — primary bot reviewer. Auto-review OFF: agents trigger with
-# @coderabbitai review per .cursor/commands/pr-create.md and review-fix.md.
+# CodeRabbit — primary bot reviewer.
+#
+# Auto-review: CodeRabbit offers free reviews for public OSS repos (see
+# https://www.coderabbit.ai/oss ). Automatic PR review is a normal product
+# feature; docs default is auto_review.enabled: true. This repo enables it
+# so every PR to the default branch is reviewed without relying only on
+# @coderabbitai review. Agents may still comment @coderabbitai review for
+# an extra pass after pushes. Override or pause anytime in the CodeRabbit UI
+# if org policy differs.
 
 language: "en-US"
 early_access: false
@@ -28,11 +35,16 @@ reviews:
   suggested_reviewers: false
   auto_assign_reviewers: false
   auto_review:
-    enabled: false
+    enabled: true
     drafts: false
     ignore_title_keywords:
       - "WIP"
       - "DO NOT MERGE"
+    # Skip dependency and CI bots (exact GitHub usernames; see CodeRabbit docs).
+    ignore_usernames:
+      - "dependabot[bot]"
+      - "renovate[bot]"
+      - "github-actions[bot]"
   finishing_touches:
     docstrings:
       enabled: false

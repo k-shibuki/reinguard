@@ -28,7 +28,7 @@
 4. Create PR targeting **main** only:
    `gh pr create --title "<type>(<scope>): <desc>" --base main --label "<type>" --body-file <filled-from-template>`.
    Exception PRs: add `--label no-issue` or `--label hotfix` and complete `## Exception`.
-5. Trigger CodeRabbit: `gh pr comment <N> --body "@coderabbitai review"`.
+5. **CodeRabbit**: With `.coderabbit.yaml` auto-review enabled, a first review usually starts without action. If none appears (UI/org override, rate limit), or to force an immediate pass: `gh pr comment <N> --body "@coderabbitai review"`.
 6. Wait for CI: `gh pr checks <N>` until **`ci-pass`** is success (do not merge on red).
 7. On `gate-policy` failure: re-run `tools/check-pr-policy.sh` locally, then `gh pr edit <N> --body-file ...` or `--body` with corrected sections; add missing **type** label if needed.
 
