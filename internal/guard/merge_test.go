@@ -119,3 +119,39 @@ func TestEvalMergeReadiness_unresolvedFloat64(t *testing.T) {
 		t.Fatalf("%+v", r)
 	}
 }
+
+func TestEvalMergeReadiness_missingReviewThreadsUnresolved(t *testing.T) {
+	t.Parallel()
+	// Given: clean tree, CI success, but reviews subtree omits review_threads_unresolved
+	s := map[string]any{
+		"git": map[string]any{"working_tree_clean": true},
+		"github": map[string]any{
+			"ci":      map[string]any{"ci_status": "success"},
+			"reviews": map[string]any{},
+		},
+	}
+	// When: EvalMergeReadiness runs
+	r := EvalMergeReadiness(s)
+	// Then: not OK; missing signal is fail-closed
+	if r.OK || !strings.Contains(r.Reason, "missing or invalid github.reviews.review_threads_unresolved") {
+		t.Fatalf("%+v", r)
+	}
+}
+
+func TestEvalMergeReadiness_invalidReviewThreadsUnresolved(t *testing.T) {
+	t.Parallel()
+	// Given: review_threads_unresolved present but not numeric
+	s := map[string]any{
+		"git": map[string]any{"working_tree_clean": true},
+		"github": map[string]any{
+			"ci":      map[string]any{"ci_status": "success"},
+			"reviews": map[string]any{"review_threads_unresolved": "two"},
+		},
+	}
+	// When: EvalMergeReadiness runs
+	r := EvalMergeReadiness(s)
+	// Then: not OK; invalid type is fail-closed
+	if r.OK || !strings.Contains(r.Reason, "missing or invalid github.reviews.review_threads_unresolved") {
+		t.Fatalf("%+v", r)
+	}
+}

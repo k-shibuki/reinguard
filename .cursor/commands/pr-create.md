@@ -14,7 +14,7 @@
 
 ## Act
 
-1. Confirm `change-inspect` output: no Blocking findings, commit structure clean (or restructured per `implement` step 7).
+1. Confirm `change-inspect` output: no Blocking findings, commit structure clean (or restructured per **Commit organization** in `.cursor/commands/implement.md`).
 2. Push: `git push -u origin HEAD` (after **HS-LOCAL-VERIFY**).
 3. **Pre-flight PR policy** (before `gh pr create`): fill the template into a file, then run from repo root:
 

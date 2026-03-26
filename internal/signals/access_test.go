@@ -1,9 +1,15 @@
 package signals
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
 func TestGetPath(t *testing.T) {
 	t.Parallel()
+	// Given: table cases covering path traversal, missing keys, and malformed structure
+	// When: each case calls GetPath
+	// Then: ok and value match expectations
 	tests := []struct {
 		wantVal any
 		root    map[string]any
@@ -73,6 +79,9 @@ func TestGetPath(t *testing.T) {
 
 func TestGetString(t *testing.T) {
 	t.Parallel()
+	// Given: table cases for string extraction and type errors
+	// When: each case calls GetString
+	// Then: ok and string match expectations
 	tests := []struct {
 		name   string
 		root   map[string]any
@@ -116,6 +125,9 @@ func TestGetString(t *testing.T) {
 
 func TestGetBool(t *testing.T) {
 	t.Parallel()
+	// Given: table cases for bool extraction and type errors
+	// When: each case calls GetBool
+	// Then: ok and bool match expectations
 	tests := []struct {
 		name   string
 		root   map[string]any
@@ -166,6 +178,14 @@ func TestGetBool(t *testing.T) {
 
 func TestGetInt(t *testing.T) {
 	t.Parallel()
+	nan := math.NaN()
+	pinf := math.Inf(1)
+	ninf := math.Inf(-1)
+	hugeF := 1e100
+	maxIntF := float64(math.MaxInt64)
+	// Given: table cases for integer extraction, JSON numeric shapes, and float edge cases
+	// When: each case calls GetInt
+	// Then: ok and int match expectations (float64 uses Go's int(x) conversion rules)
 	tests := []struct {
 		name   string
 		root   map[string]any
@@ -188,6 +208,13 @@ func TestGetInt(t *testing.T) {
 			wantOK: true,
 		},
 		{
+			name:   "fractional float64 truncated toward zero",
+			root:   map[string]any{"count": 3.7},
+			path:   "count",
+			want:   3,
+			wantOK: true,
+		},
+		{
 			name:   "int64 value",
 			root:   map[string]any{"count": int64(7)},
 			path:   "count",
@@ -205,6 +232,41 @@ func TestGetInt(t *testing.T) {
 			root:   map[string]any{},
 			path:   "count",
 			wantOK: false,
+		},
+		{
+			name:   "NaN float64 coerced via int()",
+			root:   map[string]any{"count": nan},
+			path:   "count",
+			want:   int(nan),
+			wantOK: true,
+		},
+		{
+			name:   "positive Inf float64 coerced via int()",
+			root:   map[string]any{"count": pinf},
+			path:   "count",
+			want:   int(pinf),
+			wantOK: true,
+		},
+		{
+			name:   "negative Inf float64 coerced via int()",
+			root:   map[string]any{"count": ninf},
+			path:   "count",
+			want:   int(ninf),
+			wantOK: true,
+		},
+		{
+			name:   "float64 magnitude beyond int range",
+			root:   map[string]any{"count": hugeF},
+			path:   "count",
+			want:   int(hugeF),
+			wantOK: true,
+		},
+		{
+			name:   "float64 max int64 bit pattern",
+			root:   map[string]any{"count": maxIntF},
+			path:   "count",
+			want:   int(maxIntF),
+			wantOK: true,
 		},
 	}
 	for _, tc := range tests {

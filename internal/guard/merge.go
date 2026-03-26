@@ -32,9 +32,10 @@ type MergeReadinessResult struct {
 
 // EvalMergeReadiness checks Phase 1 merge signals: git working_tree_clean must be true,
 // github.ci.ci_status must be "success" (case-insensitive), and
-// github.reviews.review_threads_unresolved must be zero (int or float64 JSON numbers; absent
-// or other types are treated as zero). Missing top-level keys yield empty nested maps, so
-// absent git.github fields fail the clean/CI checks as expected.
+// github.reviews.review_threads_unresolved must be present, parseable as an integer
+// (int, int64, or JSON float64 per signals.GetInt), and zero. Missing or invalid values
+// for that path fail closed. Missing top-level keys still yield empty nested maps for other
+// paths, so absent git / CI fields fail the clean/CI checks as before.
 func EvalMergeReadiness(sigs map[string]any) MergeReadinessResult {
 	const id = "merge-readiness"
 
@@ -48,7 +49,14 @@ func EvalMergeReadiness(sigs map[string]any) MergeReadinessResult {
 		return MergeReadinessResult{GuardID: id, OK: false, Reason: fmt.Sprintf("ci status is %q, want success", status)}
 	}
 
-	unres, _ := signals.GetInt(sigs, "github.reviews.review_threads_unresolved")
+	unres, ok := signals.GetInt(sigs, "github.reviews.review_threads_unresolved")
+	if !ok {
+		return MergeReadinessResult{
+			GuardID: id,
+			OK:      false,
+			Reason:  "missing or invalid github.reviews.review_threads_unresolved",
+		}
+	}
 	if unres != 0 {
 		return MergeReadinessResult{GuardID: id, OK: false, Reason: fmt.Sprintf("unresolved review threads: %d", unres)}
 	}
