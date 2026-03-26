@@ -4,7 +4,7 @@
 //
 // # ADR traceability
 //
-// ADR-0001 (adapter vs substrate boundaries), ADR-0003 (observe and pull-based flow),
+// ADR-0001 (Adapter / Semantics / Substrate; system vs runtime), ADR-0003 (observe and pull-based flow),
 // ADR-0010 (knowledge pack and manifest), ADR-0011 (control plane and guards). Subcommands
 // that touch observation and GitHub align with ADR-0005 and ADR-0006.
 //

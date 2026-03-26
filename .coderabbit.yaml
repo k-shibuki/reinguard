@@ -72,7 +72,7 @@ reviews:
     - path: "cmd/**"
       instructions: |
         `rgd` CLI surface and flags. P0: broken commands or unsafe defaults; missing tests for new behavior.
-        Align with `docs/cli.md` and ADRs; substrate must not embed workflow-brain semantics (ADR-0001).
+        Align with `docs/cli.md` and ADRs; `rgd` must not embed workflow-brain semantics (ADR-0001).
     - path: "internal/**"
       instructions: |
         Non-public implementation for `rgd`. P0: logic bugs, silent failures, resource leaks. Observation
