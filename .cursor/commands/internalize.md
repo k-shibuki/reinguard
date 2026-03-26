@@ -20,11 +20,11 @@ gh pr view <N> --json reviews,comments
 
 **Disposition history**: from `review-address` output or PR thread replies.
 
-**Self-inspection findings**: from `pr-inspect` output (dimension-level findings that were fixed before external review).
+**Self-inspection findings**: from `change-inspect` output (dimension-level findings that were fixed before PR creation).
 
 ## Act
 
-1. **Collect**: gather all review comments, disposition replies, and `pr-inspect` findings for the PR.
+1. **Collect**: gather all review comments, disposition replies, and `change-inspect` findings for the PR.
 2. **Classify root causes** into categories:
    - Defensive implementation gap (nil, silent ignore, blank/duplicate id)
    - Test design gap (missing perspective, wrong format, setup error ignored)
@@ -48,5 +48,5 @@ gh pr view <N> --json reviews,comments
 ## Guard
 
 - Do not duplicate Semantics content in Adapter (ADR-0001 § Adapter principle)
-- Do not automate judgment — the substrate computes, agents reason (ADR-0001 § Decision)
+- Do not automate judgment — `rgd` computes, agents reason (ADR-0001 § Decision)
 - **HS-LOCAL-VERIFY**, **HS-NO-SKIP** — enforced via `coding--preflight.md` (Act step 6)

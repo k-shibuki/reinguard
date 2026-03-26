@@ -2,26 +2,41 @@
 
 [![CI](https://github.com/k-shibuki/reinguard/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/k-shibuki/reinguard/actions/workflows/ci.yaml?query=branch%3Amain)
 
-**reinguard** is a spec-driven control-plane substrate that reads
-repository-declared control specifications, builds operational context
-through observation and evaluation, and returns route candidates, guard
-results, and knowledge-pack references for an AI agent—without taking
-over semantic judgment.
+**reinguard** is a three-layer control system (Adapter / Semantics /
+Substrate) that stabilizes the information space in which AI agents
+reason—without taking over semantic judgment. Its runtime, `rgd`, is a
+stateless CLI that computes operational context from repository-declared
+specifications and platform observation.
 
 ## What reinguard is
 
-- A **substrate**: it stabilizes the **information surface** (structured
-  observation, declarative rules, deterministic guards) that agents use
-  to decide what to do next.
-- **Spec-driven**: workflow position, guards, and routes are expressed
-  primarily in version-controlled configuration, not hard-coded in the
-  binary.
-- **Pull-based and stateless**: agents invoke the CLI when they need
-  fresh context; the tool does not replace long-running orchestration.
+reinguard is the **complete control system** spanning three layers
+(see [ADR-0001](docs/adr/0001-system-positioning.md)):
+
+- **Spec-driven**: workflow position, guards, routes, knowledge, and
+  policy are expressed in version-controlled configuration under
+  `.reinguard/`, not hard-coded in the binary.
+- **Feedback-aware**: review findings flow back into the Semantics layer
+  through `internalize`, improving future operational context without
+  making the runtime stateful (design-time correction, not online
+  adaptation).
+- **Layered**: Adapter (`.cursor/`, `AGENTS.md`) adapts for specific
+  clients; Semantics (`.reinguard/`) declares repository meaning;
+  Substrate (`rgd`) computes.
+
+## What `rgd` does
+
+`rgd` is the **Substrate layer**—a single Go binary that agents invoke
+on demand:
+
+- **Pull-based and stateless**: each invocation observes current
+  repository and platform state, evaluates it, and exits. No durable
+  state is carried between runs.
+- Stabilizes the **information surface** (structured observation,
+  declarative rules, deterministic guards) that agents use to decide
+  what to do next.
 - **Auditable**: outputs are typed, versioned, and intended to support
   golden testing and CI validation.
-- Delivered as a **single Go binary** (`rgd`) plus published schemas for
-  input configuration and operational context.
 
 ## What reinguard is not
 
@@ -58,7 +73,7 @@ Authoritative decisions are recorded as ADRs under [docs/adr/](docs/adr/):
 
 | ADR | Title |
 |-----|--------|
-| [ADR-0001](docs/adr/0001-substrate-positioning.md) | Substrate positioning: not a workflow brain |
+| [ADR-0001](docs/adr/0001-system-positioning.md) | System positioning: not a workflow brain |
 | [ADR-0002](docs/adr/0002-spec-driven-evaluation.md) | Spec-driven evaluation: match rules and named evaluators |
 | [ADR-0003](docs/adr/0003-pull-based-stateless-invocation.md) | Pull-based stateless invocation |
 | [ADR-0004](docs/adr/0004-unified-priority-based-state-resolution.md) | Unified priority-based state resolution |

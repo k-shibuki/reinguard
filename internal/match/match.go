@@ -22,6 +22,8 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/k-shibuki/reinguard/internal/signals"
 )
 
 // Eval evaluates a when-clause (YAML/JSON decoded as map, slice, or scalar per ADR-0002)
@@ -366,25 +368,7 @@ func asSignalSlice(v any) ([]any, bool) {
 }
 
 func getPath(root map[string]any, path string) (any, bool) {
-	parts := strings.Split(path, ".")
-	var cur any = root
-	for _, p := range parts {
-		// Ignore empty segments so "a..b" addresses the same path as "a.b"
-		// (resilient to accidental double dots in config).
-		if p == "" {
-			continue
-		}
-		mm, ok := cur.(map[string]any)
-		if !ok {
-			return nil, false
-		}
-		v, ok := mm[p]
-		if !ok {
-			return nil, false
-		}
-		cur = v
-	}
-	return cur, true
+	return signals.GetPath(root, path)
 }
 
 func compareValues(a, b any) int {

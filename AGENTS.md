@@ -3,12 +3,13 @@
 Configuration for AI reviewers (e.g. CodeRabbit) and agents using this repository.
 
 - **Semantics (SSOT)**: `.reinguard/` — policy index: [`.reinguard/policy/catalog.yaml`](.reinguard/policy/catalog.yaml); knowledge index: [`.reinguard/knowledge/manifest.json`](.reinguard/knowledge/manifest.json).
-- **Adapter (Cursor)**: `.cursor/rules/` and `.cursor/commands/` point at Semantics; see [ADR-0001](docs/adr/0001-substrate-positioning.md).
+- **Adapter (Cursor)**: `.cursor/rules/` and `.cursor/commands/` point at Semantics; see [ADR-0001](docs/adr/0001-system-positioning.md).
 
 ## Project context
 
-**reinguard** is a **Go** project: spec-driven control-plane **substrate** (`rgd` CLI) that builds
-operational context via observation and declarative rules — not a workflow brain (see ADR-0001).
+**reinguard** is a three-layer control system (Adapter / Semantics / Substrate) that stabilizes the
+information space for AI agents — not a workflow brain. `rgd` is its Substrate layer: a stateless Go
+CLI runtime that computes operational context via observation and declarative rules (see ADR-0001).
 
 Authoritative architecture: [docs/adr/](docs/adr/). Especially relevant for review:
 

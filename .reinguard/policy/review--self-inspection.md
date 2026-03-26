@@ -3,18 +3,18 @@ id: review-self-inspection
 description: Whole-change self-inspection dimensions for PR readiness — complements line-level preflight
 triggers:
   - self-inspection
-  - pr-inspect
+  - change-inspect
   - self-review
   - inspection dimensions
   - whole-change review
-  - PR readiness
+  - pre-PR inspection
 ---
 
 # Self-inspection dimensions
 
-Whole-PR inspection criteria applied **after** `coding--preflight.md`
-(line/file-level) and **before** external review. The Adapter command
-`pr-inspect` references this document as SSOT for what to check.
+Whole-change inspection criteria applied **after** `coding--preflight.md`
+(line/file-level) and **before** PR creation. The Adapter command
+`change-inspect` references this document as SSOT for what to check.
 
 ## Relationship to preflight
 
@@ -122,5 +122,5 @@ When reporting findings, use:
 - `.reinguard/knowledge/testing--strategy.md` — test perspectives,
   table-driven
 - `.reinguard/knowledge/testing--given-when-then.md` — GWT format
-- `.cursor/commands/pr-inspect.md` — Adapter command that executes
-  this inspection
+- `.cursor/commands/change-inspect.md` — Adapter command that executes
+  this inspection (pre-PR; dimension 6 is deferred to `pr-create`)

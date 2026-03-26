@@ -24,10 +24,10 @@ mental model of agent-driven development.
 Use **pull-based, stateless** invocation.
 
 - The agent invokes the `rgd` CLI when it needs operational context.
-- reinguard does **not** run as a daemon, does **not** subscribe to
+- `rgd` does **not** run as a daemon, does **not** subscribe to
   webhooks, and does **not** push events.
 - Each invocation is **stateless**: no durable state is carried between
-  invocations inside reinguard.
+  invocations inside `rgd`.
 - **Phase 1** explicitly excludes: a caching layer inside the substrate,
   event subscription, and background process management owned by
   reinguard.

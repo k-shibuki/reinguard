@@ -2,7 +2,7 @@
 
 ## Context
 
-reinguard is a **substrate** that stabilizes the information surface for agents (ADR-0001). Repositories declare **knowledge** under `.reinguard/knowledge/`—project-coupled guidance that agents should read when acting in that repo.
+reinguard is a three-layer control system whose Substrate runtime (`rgd`) stabilizes the information surface for agents (ADR-0001). Repositories declare **knowledge** under `.reinguard/knowledge/`—project-coupled guidance that agents should read when acting in that repo.
 
 Without normative rules:
 
@@ -46,6 +46,6 @@ Alternatives considered:
 
 ## Refs
 
-- ADR-0001 (substrate positioning; knowledge packing)
+- ADR-0001 (system positioning; knowledge packing)
 - ADR-0002 (spec-driven evaluation; future `when:` on knowledge)
 - ADR-0008 (schema versioning; CLI SSOT in `docs/cli.md`)
