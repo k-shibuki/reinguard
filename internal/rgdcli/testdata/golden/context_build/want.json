@@ -55,6 +55,7 @@
       "route_id": "next",
       "rule_id": "r1",
       "priority": 10,
+      "target_id": "next",
       "route_candidates": [
         {
           "rule_id": "r1",
@@ -69,6 +70,7 @@
     "kind": "resolved",
     "state_id": "Idle",
     "rule_id": "idle",
-    "priority": 10
+    "priority": 10,
+    "target_id": "Idle"
   }
 }

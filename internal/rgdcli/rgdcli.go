@@ -77,12 +77,13 @@ func RunStateEval(c *cli.Context) error {
 		return err
 	}
 	out := map[string]any{
-		"kind":     string(res.Kind),
-		"state_id": res.StateID,
-		"route_id": res.RouteID,
-		"rule_id":  res.RuleID,
-		"priority": res.Priority,
-		"reason":   res.Reason,
+		"kind":      string(res.Kind),
+		"state_id":  res.StateID,
+		"route_id":  res.RouteID,
+		"target_id": res.TargetID,
+		"rule_id":   res.RuleID,
+		"priority":  res.Priority,
+		"reason":    res.Reason,
 	}
 	if len(res.Candidates) > 0 {
 		out["candidates"] = res.Candidates
@@ -127,12 +128,13 @@ func RunRouteSelect(c *cli.Context) error {
 		return err
 	}
 	out := map[string]any{
-		"kind":     string(res.Kind),
-		"state_id": res.StateID,
-		"route_id": res.RouteID,
-		"rule_id":  res.RuleID,
-		"priority": res.Priority,
-		"reason":   res.Reason,
+		"kind":      string(res.Kind),
+		"state_id":  res.StateID,
+		"route_id":  res.RouteID,
+		"target_id": res.TargetID,
+		"rule_id":   res.RuleID,
+		"priority":  res.Priority,
+		"reason":    res.Reason,
 	}
 	if len(res.Candidates) > 0 {
 		out["candidates"] = res.Candidates

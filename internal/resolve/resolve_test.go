@@ -1,11 +1,69 @@
 package resolve
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/k-shibuki/reinguard/internal/config"
 )
+
+func TestResolve_unsupportedRuleType(t *testing.T) {
+	t.Parallel()
+	// Given: an unsupported rule type "guard"
+	// When: Resolve is called
+	// Then: error mentions unsupported rule type
+	_, err := Resolve(nil, nil, nil, "guard")
+	if err == nil || !strings.Contains(err.Error(), `unsupported rule type "guard"`) {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestResolve_stateMatchesResolveState(t *testing.T) {
+	t.Parallel()
+	// Given: two matching state rules with different priorities
+	// When: ResolveState and Resolve(..., "state") run
+	// Then: both return the same Result
+	rules := []config.Rule{
+		{Type: "state", ID: "a", Priority: 20, StateID: "A", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+		{Type: "state", ID: "b", Priority: 10, StateID: "B", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+	}
+	signals := map[string]any{"x": 1}
+	a, err := ResolveState(rules, signals, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := Resolve(rules, signals, nil, "state")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(a, b) {
+		t.Fatalf("Resolve vs ResolveState: %+v vs %+v", a, b)
+	}
+}
+
+func TestResolve_routeMatchesResolveRoute(t *testing.T) {
+	t.Parallel()
+	// Given: two matching route rules with different priorities
+	// When: ResolveRoute and Resolve(..., "route") run
+	// Then: both return the same Result
+	rules := []config.Rule{
+		{Type: "route", ID: "low", Priority: 5, RouteID: "R5", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+		{Type: "route", ID: "high", Priority: 20, RouteID: "R20", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+	}
+	signals := map[string]any{"x": 1}
+	a, err := ResolveRoute(rules, signals, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := Resolve(rules, signals, nil, "route")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(a, b) {
+		t.Fatalf("Resolve vs ResolveRoute: %+v vs %+v", a, b)
+	}
+}
 
 func TestResolveState_priorityWins(t *testing.T) {
 	t.Parallel()
