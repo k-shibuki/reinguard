@@ -3,6 +3,7 @@ package observe
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/k-shibuki/reinguard/internal/githubapi"
@@ -22,6 +23,21 @@ type GitHubProvider struct {
 // NewGitHubProvider returns a GitHub aggregate provider.
 func NewGitHubProvider() *GitHubProvider {
 	return &GitHubProvider{HTTPClient: &http.Client{Timeout: 30 * time.Second}}
+}
+
+// GitHubProviderFactory builds a GitHub provider from config options (ADR-0009).
+// Supported keys: api_base (string) — REST API root override for tests or enterprise endpoints.
+func GitHubProviderFactory(opts map[string]any) (Provider, error) {
+	p := NewGitHubProvider()
+	if len(opts) == 0 {
+		return p, nil
+	}
+	if v, ok := opts["api_base"].(string); ok {
+		if s := strings.TrimSpace(v); s != "" {
+			p.APIBase = s
+		}
+	}
+	return p, nil
 }
 
 // ID implements Provider.

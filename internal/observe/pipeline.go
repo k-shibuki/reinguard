@@ -28,7 +28,10 @@ func LoadSignalsFileOrCollect(ctx context.Context, root *config.Root, opts LoadS
 		}
 		return ParseObservationJSON(data)
 	}
-	engine := NewEngine()
+	engine, err := NewEngineFromConfig(root.Providers)
+	if err != nil {
+		return nil, nil, false, err
+	}
 	return engine.Collect(ctx, root, Options{WorkDir: opts.WorkDir, Serial: opts.Serial})
 }
 

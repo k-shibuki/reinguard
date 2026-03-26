@@ -13,9 +13,26 @@ type Engine struct {
 	Providers map[string]Provider
 }
 
-// NewEngine builds an engine from the default registry.
+// NewEngine builds an engine with default built-in providers (git + github), no per-config options.
 func NewEngine() *Engine {
-	return &Engine{Providers: defaultRegistry()}
+	e, err := NewEngineFromConfig([]config.ProviderSpec{
+		{ID: "git", Enabled: true},
+		{ID: "github", Enabled: true},
+	})
+	if err != nil {
+		panic("observe: NewEngine: " + err.Error())
+	}
+	return e
+}
+
+// NewEngineFromConfig builds an engine from provider specs using the default registry (ADR-0009).
+func NewEngineFromConfig(specs []config.ProviderSpec) (*Engine, error) {
+	reg := DefaultRegistry()
+	providers, err := reg.Build(specs)
+	if err != nil {
+		return nil, err
+	}
+	return &Engine{Providers: providers}, nil
 }
 
 // Collect runs enabled providers from root config and returns merged signals + diagnostics.

@@ -85,6 +85,35 @@ func TestEngine_Collect_nilRoot(t *testing.T) {
 	}
 }
 
+func TestNewEngineFromConfig_success(t *testing.T) {
+	t.Parallel()
+	e, err := NewEngineFromConfig([]config.ProviderSpec{
+		{ID: "git", Enabled: true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if e == nil || e.Providers == nil {
+		t.Fatal("nil engine")
+	}
+	if _, ok := e.Providers["git"]; !ok {
+		t.Fatal("missing git provider")
+	}
+	if _, ok := e.Providers["github"]; ok {
+		t.Fatal("unexpected github provider")
+	}
+}
+
+func TestNewEngineFromConfig_unknownProvider(t *testing.T) {
+	t.Parallel()
+	_, err := NewEngineFromConfig([]config.ProviderSpec{
+		{ID: "unknown", Enabled: true},
+	})
+	if err == nil || !strings.Contains(err.Error(), "unknown provider") {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestEngine_unknownProvider(t *testing.T) {
 	t.Parallel()
 	// Given: config references missing provider

@@ -19,6 +19,13 @@ func NewGitProvider() *GitProvider {
 	return &GitProvider{}
 }
 
+// GitProviderFactory builds a git provider from config options (ADR-0009).
+// Options are reserved for future tuning; currently ignored.
+func GitProviderFactory(opts map[string]any) (Provider, error) {
+	_ = opts
+	return NewGitProvider(), nil
+}
+
 // ID implements Provider.
 func (*GitProvider) ID() string { return "git" }
 

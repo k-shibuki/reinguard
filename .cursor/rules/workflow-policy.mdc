@@ -20,7 +20,7 @@ Treat **review**, **fix**, and **merge** as distinct steps (supports future `rgd
 ## Agent procedure reference
 
 Commit, PR, and review procedures are defined in `.cursor/commands/`
-(`pr-create.md`, `pr-review.md`, `review-fix.md`, `pr-merge.md`). Use `gh` CLI for
+(`implement.md`, `pr-create.md`, `pr-review.md`, `review-fix.md`, `pr-merge.md`). Use `gh` CLI for
 observation (`gh issue view`, `gh pr view`, `gh pr checks`, etc.).
 
 ## Maintainer reference
