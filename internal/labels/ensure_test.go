@@ -14,12 +14,12 @@ func TestTypeLabelsMatchPRPolicyWorkflow(t *testing.T) {
 		t.Fatal("runtime.Caller failed")
 	}
 	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
-	policyPath := filepath.Join(root, ".github", "workflows", "pr-policy.yaml")
+	policyPath := filepath.Join(root, ".github", "scripts", "pr-policy-check.js")
 	data, err := os.ReadFile(policyPath)
 	if err != nil {
 		t.Fatalf("read %s: %v", policyPath, err)
 	}
-	fromYAML, err := ParseTypeLabelsFromPRPolicy(data)
+	fromScript, err := ParseTypeLabelsFromPRPolicy(data)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,8 +28,8 @@ func TestTypeLabelsMatchPRPolicyWorkflow(t *testing.T) {
 		fromGo = append(fromGo, name)
 	}
 	slices.Sort(fromGo)
-	if !slices.Equal(fromYAML, fromGo) {
-		t.Fatalf("TYPE_LABELS in pr-policy.yaml %v != labels.TypeLabels keys %v", fromYAML, fromGo)
+	if !slices.Equal(fromScript, fromGo) {
+		t.Fatalf("TYPE_LABELS in pr-policy-check.js %v != labels.TypeLabels keys %v", fromScript, fromGo)
 	}
 }
 
