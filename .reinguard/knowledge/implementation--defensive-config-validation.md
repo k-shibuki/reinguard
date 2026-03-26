@@ -23,15 +23,18 @@ Every exported function that accepts a pointer or interface parameter
 should check for `nil` before dereferencing:
 
 ```go
-func NewEngineFromConfig(root *config.Root) (*Engine, error) {
+func engineFromRoot(root *config.Root) (*Engine, error) {
     if root == nil {
         return nil, fmt.Errorf("observe: nil config root")
     }
-    // ...
+    return NewEngineFromConfig(root.Providers)
 }
 ```
 
-Place the guard at the function entry — before any field access.
+`NewEngineFromConfig` in this codebase takes `[]config.ProviderSpec`, not
+`Root`; callers that hold a `*config.Root` must guard `root` before reading
+`root.Providers`. Place the guard at the function entry — before any field
+access.
 
 ## No silent ignore on typed options
 
