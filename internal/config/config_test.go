@@ -1,10 +1,13 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/k-shibuki/reinguard/pkg/schema"
 )
 
 func TestLoad_emptyConfigDir(t *testing.T) {
@@ -30,9 +33,10 @@ func TestDeprecatedWarnings_nilRoot(t *testing.T) {
 
 func TestDeprecatedWarnings_noLegacyHints(t *testing.T) {
 	t.Parallel()
-	// Given: root without legacy_tool_hints
-	r := &Root{SchemaVersion: "0.3.0", DefaultBranch: "main"}
-	// When/Then: DeprecatedWarnings is empty
+	// Given: root without legacy_tool_hints and schema_version matches rgd contract
+	r := &Root{SchemaVersion: schema.CurrentSchemaVersion, DefaultBranch: "main"}
+	// When: DeprecatedWarnings is called
+	// Then: no warnings
 	if w := DeprecatedWarnings(r); len(w) != 0 {
 		t.Fatalf("got %v", w)
 	}
@@ -40,36 +44,200 @@ func TestDeprecatedWarnings_noLegacyHints(t *testing.T) {
 
 func TestDeprecatedWarnings_legacyHints(t *testing.T) {
 	t.Parallel()
-	// Given: root with legacy_tool_hints set
-	r := &Root{LegacyToolHints: map[string]any{"x": 1}}
+	// Given: root with legacy_tool_hints and schema_version matches contract (no skew)
+	r := &Root{
+		SchemaVersion:   schema.CurrentSchemaVersion,
+		LegacyToolHints: map[string]any{"x": 1},
+		DefaultBranch:   "main",
+	}
 	// When: DeprecatedWarnings runs
 	w := DeprecatedWarnings(r)
-	// Then: one warning references legacy_tool_hints
+	// Then: exactly one warning references legacy_tool_hints
 	if len(w) != 1 || !strings.Contains(w[0], "legacy_tool_hints") {
 		t.Fatalf("got %v", w)
 	}
+}
+
+func TestDeprecatedWarnings_schemaSkewAndLegacy(t *testing.T) {
+	t.Parallel()
+	cm, ci, cp, err := parseSemverCore(schema.CurrentSchemaVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cp == 0 && ci == 0 {
+		t.Skip("need non-zero minor or patch on contract to build older skew")
+	}
+	// Given: older same-major schema_version and legacy_tool_hints
+	older := fmt.Sprintf("%d.%d.%d", cm, ci, cp-1)
+	if cp == 0 {
+		older = fmt.Sprintf("%d.%d.%d", cm, ci-1, 0)
+	}
+	r := &Root{
+		SchemaVersion:   older,
+		DefaultBranch:   "main",
+		LegacyToolHints: map[string]any{"x": 1},
+	}
+	// When: DeprecatedWarnings runs
+	w := DeprecatedWarnings(r)
+	// Then: skew warning first, legacy second
+	if len(w) != 2 {
+		t.Fatalf("want 2 warnings, got %v", w)
+	}
+	if !strings.Contains(w[0], "schema_version") {
+		t.Fatalf("first line should be schema skew: %q", w[0])
+	}
+	if !strings.Contains(w[1], "legacy_tool_hints") {
+		t.Fatalf("second line should be legacy: %q", w[1])
+	}
+}
+
+func TestLoad_schemaVersion_policy(t *testing.T) {
+	t.Parallel()
+	cur := schema.CurrentSchemaVersion
+	cm, ci, cp, err := parseSemverCore(cur)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var olderSameMajor string
+	switch {
+	case cp > 0:
+		olderSameMajor = fmt.Sprintf("%d.%d.%d", cm, ci, cp-1)
+	case ci > 0:
+		olderSameMajor = fmt.Sprintf("%d.%d.%d", cm, ci-1, 0)
+	}
+	newerPatch := fmt.Sprintf("%d.%d.%d", cm, ci, cp+1)
+	newerMinor := fmt.Sprintf("%d.%d.%d", cm, ci+1, 0)
+	majorMismatch := fmt.Sprintf("%d.%d.%d", cm+1, ci, cp)
+
+	tests := []struct {
+		name           string
+		declared       string
+		wantErrSubstr  string
+		wantSkewSubstr string
+		wantLoadErr    bool
+		skipWhen       bool
+	}{
+		{
+			name:     "same_as_contract",
+			declared: cur,
+			// Given: schema_version equals rgd contract
+			// When: Load runs
+			// Then: success and no skew warning from DeprecatedWarnings
+		},
+		{
+			name:           "older_same_major",
+			declared:       olderSameMajor,
+			skipWhen:       olderSameMajor == "",
+			wantSkewSubstr: "schema_version",
+			// Given: same major, older minor or patch than contract
+			// When: Load runs
+			// Then: success; DeprecatedWarnings mentions schema_version skew
+			// (skipped when contract is x.0.0 — no older same-major exists)
+		},
+		{
+			name:           "newer_patch_same_major",
+			declared:       newerPatch,
+			wantSkewSubstr: "schema_version",
+			// Given: same major, newer patch than contract
+			// When: Load runs
+			// Then: success with skew warning
+		},
+		{
+			name:           "newer_minor_same_major",
+			declared:       newerMinor,
+			wantSkewSubstr: "schema_version",
+			// Given: same major, newer minor than contract
+			// When: Load runs
+			// Then: success with skew warning
+		},
+		{
+			name:          "major_mismatch",
+			declared:      majorMismatch,
+			wantLoadErr:   true,
+			wantErrSubstr: "incompatible",
+			// Given: declared major differs from rgd contract
+			// When: Load runs
+			// Then: error (no silent load)
+		},
+		{
+			name:     "prerelease_same_core_as_contract",
+			declared: cur + "-rc.1",
+			// Given: prerelease tag on same MAJOR.MINOR.PATCH as contract
+			// When: Load runs
+			// Then: success; core matches so no skew warning
+		},
+		{
+			name:     "build_metadata_same_core_as_contract",
+			declared: cur + "+build.1",
+			// Given: build metadata on same MAJOR.MINOR.PATCH as contract
+			// When: Load runs
+			// Then: success; core matches so no skew warning
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if tt.skipWhen {
+				t.Skip("precondition unmet for this contract version")
+			}
+			dir := t.TempDir()
+			writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(fmt.Sprintf(`schema_version: %q
+default_branch: main
+providers: []
+`, tt.declared)))
+
+			res, lerr := Load(dir)
+			if tt.wantLoadErr {
+				// Then: Load returns an error
+				if lerr == nil || !strings.Contains(lerr.Error(), tt.wantErrSubstr) {
+					t.Fatalf("Load: got %v, want err containing %q", lerr, tt.wantErrSubstr)
+				}
+				return
+			}
+			// Then: Load succeeds
+			if lerr != nil {
+				t.Fatal(lerr)
+			}
+			w := DeprecatedWarnings(&res.Root)
+			if tt.wantSkewSubstr != "" {
+				if len(w) != 1 || !strings.Contains(w[0], tt.wantSkewSubstr) {
+					t.Fatalf("want one skew warning containing %q, got %v", tt.wantSkewSubstr, w)
+				}
+				return
+			}
+			if len(w) != 0 {
+				t.Fatalf("want no warnings, got %v", w)
+			}
+		})
+	}
+}
+
+// reinguardYAMLMinimal returns reinguard.yaml body with schema_version aligned to the binary contract.
+func reinguardYAMLMinimal() []byte {
+	return []byte(fmt.Sprintf(`schema_version: %q
+default_branch: main
+providers: []
+`, schema.CurrentSchemaVersion))
 }
 
 func TestLoad_knowledgeManifest_ok(t *testing.T) {
 	t.Parallel()
 	// Given: valid root YAML and valid knowledge manifest.json
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
-default_branch: main
-providers: []
-`))
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
 	if err := os.Mkdir(filepath.Join(dir, "knowledge"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(dir, "knowledge", "manifest.json"), []byte(`{
-  "schema_version": "0.3.0",
+	writeFile(t, filepath.Join(dir, "knowledge", "manifest.json"), []byte(fmt.Sprintf(`{
+  "schema_version": %q,
   "entries": [{
     "id": "doc1",
     "path": "docs/a.md",
     "description": "test doc",
     "triggers": ["test"]
   }]
-}`))
+}`, schema.CurrentSchemaVersion)))
 
 	// When: Load runs
 	res, err := Load(dir)
@@ -89,10 +257,7 @@ func TestLoad_knowledgeManifest_invalidJSON(t *testing.T) {
 	t.Parallel()
 	// Given: root OK but manifest.json is invalid JSON
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
-default_branch: main
-providers: []
-`))
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
 	if err := os.Mkdir(filepath.Join(dir, "knowledge"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -110,10 +275,7 @@ func TestLoad_knowledgeManifest_schemaInvalid(t *testing.T) {
 	t.Parallel()
 	// Given: manifest missing required fields
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
-default_branch: main
-providers: []
-`))
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
 	if err := os.Mkdir(filepath.Join(dir, "knowledge"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -132,10 +294,7 @@ func TestLoad_controlStatesDotYmlAndStableOrder(t *testing.T) {
 	t.Parallel()
 	// Given: two state rule files (.yml and .yaml) under control/states
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
-default_branch: main
-providers: []
-`))
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
 	statesDir := filepath.Join(dir, "control", "states")
 	if err := os.MkdirAll(statesDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -183,10 +342,7 @@ func TestLoad_legacyRulesYAML_rejected(t *testing.T) {
 	t.Parallel()
 	// Given: legacy top-level rules/ directory exists
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
-default_branch: main
-providers: []
-`))
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
 	legacyDir := filepath.Join(dir, "rules")
 	if err := os.MkdirAll(legacyDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -205,12 +361,12 @@ func TestLoad_minimalValid(t *testing.T) {
 	t.Parallel()
 	// Given: valid reinguard.yaml and no control/ directory
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(fmt.Sprintf(`schema_version: %q
 default_branch: main
 providers:
   - id: git
     enabled: true
-`))
+`, schema.CurrentSchemaVersion)))
 
 	// When: Load is called
 	res, err := Load(dir)
@@ -219,7 +375,7 @@ providers:
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if res.Root.SchemaVersion != "0.3.0" {
+	if res.Root.SchemaVersion != schema.CurrentSchemaVersion {
 		t.Fatalf("schema_version: got %q", res.Root.SchemaVersion)
 	}
 	if res.Root.DefaultBranch != "main" {
@@ -231,9 +387,9 @@ func TestLoad_missingDefaultBranch(t *testing.T) {
 	t.Parallel()
 	// Given: root config missing required default_branch
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(fmt.Sprintf(`schema_version: %q
 providers: []
-`))
+`, schema.CurrentSchemaVersion)))
 
 	// When: Load is called
 	_, err := Load(dir)
@@ -283,14 +439,14 @@ func TestLoad_duplicateProviderID(t *testing.T) {
 	t.Parallel()
 	// Given: two providers with the same id
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(fmt.Sprintf(`schema_version: %q
 default_branch: main
 providers:
   - id: git
     enabled: true
   - id: git
     enabled: false
-`))
+`, schema.CurrentSchemaVersion)))
 
 	// When: Load runs
 	_, err := Load(dir)
@@ -304,10 +460,7 @@ func TestLoad_controlStatesFile(t *testing.T) {
 	t.Parallel()
 	// Given: valid root and one state rules file
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
-default_branch: main
-providers: []
-`))
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
 	statesDir := filepath.Join(dir, "control", "states")
 	if err := os.MkdirAll(statesDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -339,10 +492,7 @@ func TestLoad_controlStatesSchemaInvalid(t *testing.T) {
 	t.Parallel()
 	// Given: rules file missing required when shape (empty when object may still parse — use missing rules key)
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
-default_branch: main
-providers: []
-`))
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
 	statesDir := filepath.Join(dir, "control", "states")
 	if err := os.MkdirAll(statesDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -410,10 +560,7 @@ func TestLoad_controlKindTypeMismatchRejected(t *testing.T) {
 			t.Parallel()
 			// Given: rule type in wrong control/ subdirectory (see tt)
 			dir := t.TempDir()
-			writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.3.0"
-default_branch: main
-providers: []
-`))
+			writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
 			kindDir := filepath.Join(dir, "control", tt.kind)
 			if err := os.MkdirAll(kindDir, 0o755); err != nil {
 				t.Fatal(err)

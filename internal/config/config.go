@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	jsonschema "github.com/santhosh-tekuri/jsonschema/v6"
@@ -111,6 +112,9 @@ func Load(dir string) (*LoadResult, error) {
 		return nil, fmt.Errorf("config: decode root: %w", err)
 	}
 	if err = validateUniqueProviderIDs(&root, rootPath); err != nil {
+		return nil, err
+	}
+	if err = validateDeclaredSchemaVersion(root.SchemaVersion, rootPath); err != nil {
 		return nil, err
 	}
 
@@ -266,14 +270,93 @@ func validateUniqueProviderIDs(root *Root, pathHint string) error {
 	return nil
 }
 
-// DeprecatedWarnings returns human-readable stderr lines for deprecated fields (ADR-0008).
+// parseSemverCore extracts MAJOR.MINOR.PATCH integers from a semver string (optional leading "v";
+// prerelease / build metadata after the first '-' or '+' is ignored for comparison).
+func parseSemverCore(s string) (major, minor, patch int, err error) {
+	s = strings.TrimSpace(s)
+	if len(s) > 0 && (s[0] == 'v' || s[0] == 'V') {
+		s = s[1:]
+	}
+	if i := strings.IndexByte(s, '+'); i >= 0 {
+		s = s[:i]
+	}
+	if i := strings.IndexByte(s, '-'); i >= 0 {
+		s = s[:i]
+	}
+	parts := strings.Split(s, ".")
+	if len(parts) != 3 {
+		return 0, 0, 0, fmt.Errorf("expected major.minor.patch, got %q", s)
+	}
+	major, err = strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("major: %w", err)
+	}
+	minor, err = strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("minor: %w", err)
+	}
+	patch, err = strconv.Atoi(parts[2])
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("patch: %w", err)
+	}
+	return major, minor, patch, nil
+}
+
+func validateDeclaredSchemaVersion(declared, pathHint string) error {
+	dm, _, _, derr := parseSemverCore(declared)
+	if derr != nil {
+		return fmt.Errorf("config: schema_version in %s: %w", pathHint, derr)
+	}
+	cm, _, _, cerr := parseSemverCore(schema.CurrentSchemaVersion)
+	if cerr != nil {
+		return fmt.Errorf("config: internal schema contract version: %w", cerr)
+	}
+	if dm != cm {
+		return fmt.Errorf(
+			"config: schema_version %q in %s is incompatible with this rgd (major %d vs %d); bump repo or upgrade rgd (ADR-0008, docs/cli.md)",
+			declared, pathHint, dm, cm,
+		)
+	}
+	return nil
+}
+
+func schemaVersionSkewWarning(declared string) string {
+	dm, di, dp, derr := parseSemverCore(declared)
+	if derr != nil {
+		return ""
+	}
+	cm, ci, cp, cerr := parseSemverCore(schema.CurrentSchemaVersion)
+	if cerr != nil {
+		return ""
+	}
+	if dm != cm {
+		return ""
+	}
+	if di == ci && dp == cp {
+		return ""
+	}
+	return fmt.Sprintf(
+		`config warning: schema_version %q differs from this rgd contract %q (same major %d); validation continues — align versions when convenient (see docs/cli.md)`,
+		declared, schema.CurrentSchemaVersion, dm,
+	)
+}
+
+// DeprecatedWarnings returns human-readable stderr lines for deprecated fields and schema skew (ADR-0008).
 func DeprecatedWarnings(root *Root) []string {
-	if root == nil || len(root.LegacyToolHints) == 0 {
+	if root == nil {
 		return nil
 	}
-	return []string{
-		`config warning: "legacy_tool_hints" is deprecated; remove it from reinguard.yaml (see JSON Schema / docs/cli.md)`,
+	var out []string
+	if w := schemaVersionSkewWarning(root.SchemaVersion); w != "" {
+		out = append(out, w)
 	}
+	if len(root.LegacyToolHints) > 0 {
+		out = append(out, `config warning: "legacy_tool_hints" is deprecated; remove it from reinguard.yaml (see JSON Schema / docs/cli.md)`)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // EnabledProviderIDs returns provider ids where enabled is true.
