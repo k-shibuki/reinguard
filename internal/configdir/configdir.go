@@ -41,3 +41,14 @@ func Resolve(cwd, explicit string) (string, error) {
 func WorkingDir() (string, error) {
 	return os.Getwd()
 }
+
+// RepoRoot resolves the repository root for repo-relative manifest paths (ADR-0010).
+// When the config directory basename is ".reinguard", its parent is the repo root.
+// Otherwise the config directory is treated as the repo root (flat test layouts).
+func RepoRoot(cfgDir string) string {
+	cfgDir = filepath.Clean(cfgDir)
+	if filepath.Base(cfgDir) == ".reinguard" {
+		return filepath.Clean(filepath.Join(cfgDir, ".."))
+	}
+	return cfgDir
+}

@@ -1,7 +1,9 @@
 # AGENTS.md
 
-Configuration for AI reviewers (e.g. CodeRabbit) and agents using this repository. Cursor
-policies live in `.cursor/rules/` and `.cursor/commands/`.
+Configuration for AI reviewers (e.g. CodeRabbit) and agents using this repository.
+
+- **Semantics (SSOT)**: `.reinguard/` — policy index: [`.reinguard/policy/catalog.yaml`](.reinguard/policy/catalog.yaml); knowledge index: [`.reinguard/knowledge/manifest.json`](.reinguard/knowledge/manifest.json).
+- **Adapter (Cursor)**: `.cursor/rules/` and `.cursor/commands/` point at Semantics; see [ADR-0001](docs/adr/0001-substrate-positioning.md).
 
 ## Project context
 
@@ -15,8 +17,10 @@ Authoritative architecture: [docs/adr/](docs/adr/). Especially relevant for revi
 - ADR-0006: GitHub auth via `gh` only (Phase 1)
 - ADR-0008: schema versioning and embedded JSON Schema
 - ADR-0009: observation engine abstraction
+- ADR-0010: repository knowledge format, manifest generation, and agent-facing delivery
+- ADR-0011: semantic control plane directory structure (`.reinguard/` layout)
 
-CI: `golangci-lint`, `go vet`, `go test -race`; PRs must pass job **`ci-pass`** (aggregates `go-ci` and `check-policy`). Branch protection should require **`ci-pass`** and **conversation resolution before merge** — see [docs/contributing.md](docs/contributing.md).
+CI: `golangci-lint`, `go vet`, `go test -race`; PRs must pass job **`ci-pass`** (aggregates `gate-policy`, `lint-markdown`, `lint-go`, `test-go`, and dogfood jobs). Branch protection should require **`ci-pass`** and **conversation resolution before merge** — see [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md).
 
 ## Review guidelines
 
@@ -40,16 +44,11 @@ CI: `golangci-lint`, `go vet`, `go test -race`; PRs must pass job **`ci-pass`** 
 - PR body: `Closes #<issue>` (or exception label + `## Exception` per template).
 - PR title: Conventional Commits (`<type>(<scope>): …`; types exclude `hotfix` in titles — see `tools/commit-types.txt`).
 
-### Review threads and merge (aligns with bridle-class repos)
+### Review threads and merge
 
 Before resolving a review thread (required when **Require conversation resolution** is on), leave a
-short **disposition**: **Fixed** / **By design** / **False positive** / **Acknowledged** — see the
-[bridle consensus protocol](https://github.com/bridle-org/bridle/blob/main/.cursor/knowledge/review--consensus-protocol.md)
-for the model reinguard aims to stay compatible with for future `rgd` merge-readiness semantics.
+short **disposition**: **Fixed** / **By design** / **False positive** / **Acknowledged** — see
+[`.reinguard/policy/review--consensus-protocol.md`](.reinguard/policy/review--consensus-protocol.md)
+for the full consensus model and resolution rules.
 
-Do **not** enable **auto-merge** while bot review is still pending or threads are unresolved.
-
-## Long-term alignment
-
-reinguard intends to **observe and evaluate** bridle-class workflows via `rgd`; keeping the same
-merge and review **invariants** here validates the substrate against real guard semantics.
+Do **not** enable **auto-merge** while bot review is still pending or threads are unresolved ([**HS-MERGE-CONSENSUS**](.reinguard/policy/safety--agent-invariants.md)).

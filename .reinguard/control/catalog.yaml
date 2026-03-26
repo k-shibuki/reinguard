@@ -1,0 +1,14 @@
+# Control catalog — human-maintained index of files under control/.
+# Not read by config.Load or `rgd config validate` today (those load
+# reinguard.yaml and control/{states,routes,guards}/*.yaml only).
+# Maintained manually; future `rgd` may auto-generate or validate this catalog.
+schema_version: "0.3.0"
+entries:
+  - id: default-states
+    path: states/default.yaml
+    type: state
+    description: "Dogfood: normal clone detection (branch present)"
+  - id: default-routes
+    path: routes/default.yaml
+    type: route
+    description: "Dogfood: resolve route when state is resolved"

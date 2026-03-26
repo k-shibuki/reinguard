@@ -1,6 +1,6 @@
 # Commit type prefixes (SSOT for commit message validation)
-# Referenced by: check-commit-msg.sh, commit-format.mdc § Prefix
-# PR title types intentionally exclude 'hotfix' — see commit-format.mdc § PR title handling
+# Referenced by: check-commit-msg.sh, .reinguard/policy/commit--format.md § Prefix
+# PR title types intentionally exclude 'hotfix' — see commit--format.md § fix vs hotfix
 feat
 fix
 hotfix
