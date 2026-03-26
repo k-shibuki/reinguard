@@ -7,20 +7,6 @@ import (
 	"testing"
 )
 
-func TestStringField(t *testing.T) {
-	t.Parallel()
-	m := map[string]any{"name": "alice", "count": 42}
-	if got := stringField(m, "name"); got != "alice" {
-		t.Fatalf("got %q", got)
-	}
-	if got := stringField(m, "count"); got != "" {
-		t.Fatalf("expected empty for non-string, got %q", got)
-	}
-	if got := stringField(m, "missing"); got != "" {
-		t.Fatalf("expected empty for missing key, got %q", got)
-	}
-}
-
 func TestRunSchemaExport_writesFiles(t *testing.T) {
 	t.Parallel()
 	dir := filepath.Join(t.TempDir(), "schemas")

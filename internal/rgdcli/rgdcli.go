@@ -16,6 +16,7 @@ import (
 	"github.com/k-shibuki/reinguard/internal/observe"
 	"github.com/k-shibuki/reinguard/internal/resolve"
 	"github.com/k-shibuki/reinguard/internal/schemaexport"
+	"github.com/k-shibuki/reinguard/internal/signals"
 	"github.com/k-shibuki/reinguard/pkg/schema"
 	"github.com/urfave/cli/v2"
 )
@@ -63,12 +64,12 @@ func RunStateEval(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	signals, diags, deg, err := loadOrObserve(c, wd, cfgDir, loaded)
+	sig, diags, deg, err := observe.LoadSignalsFileOrCollect(context.Background(), &loaded.Root, loadSignalsOpts(c, wd))
 	if err != nil {
 		return err
 	}
 	degSet := observation.DegradedSet(diags, deg)
-	res, err := resolve.ResolveState(loaded.Rules(), flattenSignals(signals), degSet)
+	res, err := resolve.ResolveState(loaded.Rules(), signals.Flatten(sig), degSet)
 	if err != nil {
 		return err
 	}
@@ -99,11 +100,11 @@ func RunRouteSelect(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	signals, diags, deg, err := loadOrObserve(c, wd, cfgDir, loaded)
+	sig, diags, deg, err := observe.LoadSignalsFileOrCollect(context.Background(), &loaded.Root, loadSignalsOpts(c, wd))
 	if err != nil {
 		return err
 	}
-	flat := flattenSignals(signals)
+	flat := signals.Flatten(sig)
 	if p := c.String("state-file"); p != "" {
 		sf, rerr := os.ReadFile(resolveInputPath(wd, p))
 		if rerr != nil {
@@ -113,7 +114,7 @@ func RunRouteSelect(c *cli.Context) error {
 		if jerr := json.Unmarshal(sf, &st); jerr != nil {
 			return jerr
 		}
-		for k, v := range flattenSignals(map[string]any{"state": st}) {
+		for k, v := range signals.Flatten(map[string]any{"state": st}) {
 			flat[k] = v
 		}
 	}
@@ -173,33 +174,18 @@ func RunContextBuild(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	var signals map[string]any
-	var diags []observe.Diagnostic
-	var deg bool
-	if p := c.String("observation-file"); p != "" {
-		data, rerr := os.ReadFile(resolveInputPath(wd, p))
-		if rerr != nil {
-			return rerr
-		}
-		signals, diags, deg, err = parseObservationJSON(data)
-		if err != nil {
-			return err
-		}
-	} else {
-		engine := observe.NewEngine()
-		signals, diags, deg, err = engine.Collect(context.Background(), &loaded.Root, observe.Options{WorkDir: wd, Serial: c.Bool("serial")})
-		if err != nil {
-			return err
-		}
+	sig, diags, deg, err := observe.LoadSignalsFileOrCollect(context.Background(), &loaded.Root, loadSignalsOpts(c, wd))
+	if err != nil {
+		return err
 	}
-	obsDoc := observation.Document(signals, diags, deg)
-	flat := flattenSignals(signals)
+	obsDoc := observation.Document(sig, diags, deg)
+	flat := signals.Flatten(sig)
 	degSet := observation.DegradedSet(diags, deg)
 	stateRes, err := resolve.ResolveState(loaded.Rules(), flat, degSet)
 	if err != nil {
 		return err
 	}
-	for k, v := range flattenSignals(map[string]any{
+	for k, v := range signals.Flatten(map[string]any{
 		"state": map[string]any{
 			"kind":     string(stateRes.Kind),
 			"state_id": stateRes.StateID,
@@ -252,11 +238,11 @@ func RunGuardEval(c *cli.Context, guardID string) error {
 	if err != nil {
 		return err
 	}
-	signals, _, _, err := parseObservationJSON(data)
+	sig, _, _, err := observe.ParseObservationJSON(data)
 	if err != nil {
 		return err
 	}
-	res := guard.EvalMergeReadiness(signals)
+	res := guard.EvalMergeReadiness(sig)
 	return writeJSON(c.App.Writer, res)
 }
 
@@ -294,88 +280,18 @@ func resolveInputPath(baseDir, p string) string {
 	return filepath.Join(baseDir, p)
 }
 
+func loadSignalsOpts(c *cli.Context, wd string) observe.LoadSignalsOptions {
+	opts := observe.LoadSignalsOptions{WorkDir: wd, Serial: c.Bool("serial")}
+	if p := c.String("observation-file"); p != "" {
+		opts.ObservationPath = resolveInputPath(wd, p)
+	}
+	return opts
+}
+
 func writeJSON(w io.Writer, v any) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	return enc.Encode(v)
-}
-
-func parseObservationJSON(data []byte) (signals map[string]any, diags []observe.Diagnostic, degraded bool, err error) {
-	var doc map[string]any
-	if err := json.Unmarshal(data, &doc); err != nil {
-		return nil, nil, false, err
-	}
-	rawSignals, ok := doc["signals"]
-	if !ok {
-		return nil, nil, false, fmt.Errorf("observation JSON must include object field %q", "signals")
-	}
-	signals, ok = rawSignals.(map[string]any)
-	if !ok {
-		return nil, nil, false, fmt.Errorf("observation JSON field %q must be an object", "signals")
-	}
-	degraded, _ = doc["degraded"].(bool)
-	if raw, ok := doc["diagnostics"].([]any); ok {
-		for _, r := range raw {
-			if m, ok := r.(map[string]any); ok {
-				diags = append(diags, observe.Diagnostic{
-					Severity: stringField(m, "severity"),
-					Message:  stringField(m, "message"),
-					Provider: stringField(m, "provider"),
-					Code:     stringField(m, "code"),
-				})
-			}
-		}
-	}
-	return signals, diags, degraded, nil
-}
-
-func loadOrObserve(c *cli.Context, wd, cfgDir string, loaded *config.LoadResult) (map[string]any, []observe.Diagnostic, bool, error) {
-	if p := c.String("observation-file"); p != "" {
-		data, err := os.ReadFile(resolveInputPath(wd, p))
-		if err != nil {
-			return nil, nil, false, err
-		}
-		return parseObservationJSON(data)
-	}
-	engine := observe.NewEngine()
-	signals, diags, deg, err := engine.Collect(context.Background(), &loaded.Root, observe.Options{WorkDir: wd, Serial: c.Bool("serial")})
-	return signals, diags, deg, err
-}
-
-func flattenSignals(signals map[string]any) map[string]any {
-	out := map[string]any{}
-	var walk func(prefix string, v any)
-	walk = func(prefix string, v any) {
-		if m, ok := v.(map[string]any); ok {
-			if prefix != "" {
-				out[prefix] = v
-			}
-			for k, vv := range m {
-				p := k
-				if prefix != "" {
-					p = prefix + "." + k
-				}
-				out[p] = vv
-				walk(p, vv)
-			}
-			return
-		}
-		if prefix != "" {
-			out[prefix] = v
-		}
-	}
-	for ns, v := range signals {
-		out[ns] = v
-		walk(ns, v)
-	}
-	return out
-}
-
-func stringField(m map[string]any, k string) string {
-	if v, ok := m[k].(string); ok {
-		return v
-	}
-	return ""
 }
 
 func diagsToMaps(diags []observe.Diagnostic) []any {
