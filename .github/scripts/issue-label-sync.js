@@ -51,6 +51,34 @@ const run = async () => {
 
   const messages = [];
 
+  /** Post informational comment once per identical body (avoids spam on repeated issues events). */
+  const postInformationalComment = async (msgs) => {
+    const commentBody =
+      "## Issue label check (informational)\n\n" +
+      msgs.map((m) => `- ${m}`).join("\n");
+
+    const { data: comments } = await github.rest.issues.listComments({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      issue_number: issue.number,
+      per_page: 100,
+    });
+
+    const alreadyPosted = comments.some(
+      (c) => c.user?.type === "Bot" && c.body === commentBody,
+    );
+    if (alreadyPosted) {
+      return;
+    }
+
+    await github.rest.issues.createComment({
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      issue_number: issue.number,
+      body: commentBody,
+    });
+  };
+
   const isEpicIssue = SCOPE_LABEL_NAMES.some((n) => labels.includes(n));
 
   // --- Epic (scope labels from SSOT): type labels should not be combined ---
@@ -62,14 +90,7 @@ const run = async () => {
       );
     }
     if (messages.length > 0) {
-      await github.rest.issues.createComment({
-        owner: context.repo.owner,
-        repo: context.repo.repo,
-        issue_number: issue.number,
-        body:
-          "## Issue label check (informational)\n\n" +
-          messages.map((m) => `- ${m}`).join("\n"),
-      });
+      await postInformationalComment(messages);
     }
     return;
   }
@@ -130,14 +151,7 @@ const run = async () => {
   }
 
   if (messages.length > 0) {
-    await github.rest.issues.createComment({
-      owner: context.repo.owner,
-      repo: context.repo.repo,
-      issue_number: issue.number,
-      body:
-        "## Issue label check (informational)\n\n" +
-        messages.map((m) => `- ${m}`).join("\n"),
-    });
+    await postInformationalComment(messages);
   }
 };
 
