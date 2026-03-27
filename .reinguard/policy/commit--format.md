@@ -15,11 +15,11 @@ Mandatory requirements for commit messages. The Cursor Adapter rule `commit-form
 ## Positioning
 
 - Format template: `.github/gitmessage` (install via `git config commit.template .github/gitmessage`).
-- Machine validation: `commit-msg` stage in `.pre-commit-config.yaml` (runs `tools/check-commit-msg.sh`).
+- Machine validation: `commit-msg` stage in `.pre-commit-config.yaml` (runs `.reinguard/scripts/check-commit-msg.sh`).
 
 ## Prefix (Type)
 
-Canonical type list: `tools/commit-types.txt` (shared with `check-commit-msg.sh`).
+Canonical type list: `.reinguard/labels.yaml` — labels under `categories.type` with `commit_prefix: true` (shared with `.reinguard/scripts/check-commit-msg.sh`).
 
 Scope is optional: `<type>(<scope>): <summary>`. See [Conventional Commits](https://www.conventionalcommits.org/).
 
@@ -40,7 +40,7 @@ They differ in **urgency**, not kind — both go through PR.
 - English, imperative mood, no trailing period (not enforced by the hook;
   remains a code-review expectation).
 - Length: aim ~50 characters for readability. The `commit-msg` hook warns
-  above 72 characters and errors above 120 (`tools/check-commit-msg.sh`).
+  above 72 characters and errors above 120 (`.reinguard/scripts/check-commit-msg.sh`).
 
 ## Body (bullet points)
 

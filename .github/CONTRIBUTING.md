@@ -10,6 +10,7 @@ Review routing for touched areas is defined in **[`CODEOWNERS`](CODEOWNERS)**.
 
 - **Go**: match `go.mod` / CI (toolchain **1.26.1** as of this writing).
 - **golangci-lint**: optional locally; CI runs it on every PR.
+- **`yq`**: **[mikefarah/yq](https://github.com/mikefarah/yq) v4** — required for local runs of `.reinguard/scripts/check-commit-msg.sh`, `check-pr-policy.sh`, `check-issue-policy.sh`, and for `.reinguard/scripts/sync-issue-templates.sh` (CI installs a pinned binary in workflows).
 - **`gh`**: required only when using commands that call the GitHub API (e.g.
   `rgd observe github`, or live observation in `rgd state eval` / `rgd context build`
   without `--observation-file`). See ADR-0006.
@@ -48,7 +49,7 @@ markdownlint-cli2 '**/*.md'
 
 ```bash
 go test ./... -race -coverpkg=./... -coverprofile=coverage.out -count=1
-bash tools/check-coverage-threshold.sh 80 coverage.out
+bash .reinguard/scripts/check-coverage-threshold.sh 80 coverage.out
 ```
 
 Optional: `pre-commit install --hook-type commit-msg` and `pre-commit install` (see [`.pre-commit-config.yaml`](../.pre-commit-config.yaml)).
@@ -70,7 +71,7 @@ Optional: `pre-commit install --hook-type commit-msg` and `pre-commit install` (
 
 - **Issue-driven**: Prefer one GitHub Issue per implementation PR; the PR body must include `Closes #N` (or `Fixes` / `Resolves`), unless you use an exception label and fill `## Exception` per [`.github/PULL_REQUEST_TEMPLATE.md`](PULL_REQUEST_TEMPLATE.md).
 - **Commits**: Conventional Commits and `Refs: #N` in the message body — see [`.reinguard/policy/commit--format.md`](../.reinguard/policy/commit--format.md).
-- **Commands**: Thin procedures live under [`.cursor/commands/`](../.cursor/commands/) (`implement`, `change-inspect`, `pr-create`, `review-address`, `pr-merge`).
+- **Commands**: Thin procedures live under [`.cursor/commands/`](../.cursor/commands/) (`implement`, `change-inspect`, `issue-create`, `pr-create`, `review-address`, `pr-merge`).
 
 ## CI and PR policy
 
@@ -82,14 +83,14 @@ Optional: `pre-commit install --hook-type commit-msg` and `pre-commit install` (
 Before `gh pr create`, you can run the same checks locally (title, body sections, type label, base branch):
 
 ```bash
-bash tools/check-pr-policy.sh \
+bash .reinguard/scripts/check-pr-policy.sh \
   --title "<type>(<scope>): <summary>" \
   --body-file /path/to/pr-body.md \
   --label <type> \
   --base main
 ```
 
-**Scope:** [`tools/check-pr-policy.sh`](../tools/check-pr-policy.sh) is **repository tooling for developing reinguard** (this GitHub repo’s PR template and labels). It is **not** part of the shipped **`rgd` CLI** and is not a general product feature. That boundary matches **[ADR-0001](../docs/adr/0001-system-positioning.md)**: reinguard does not become the semantic authority for repository policy; this repo keeps PR discipline in CI plus optional local helpers like this script.
+**Scope:** [`.reinguard/scripts/check-pr-policy.sh`](../.reinguard/scripts/check-pr-policy.sh) is **repository tooling for developing reinguard** (this GitHub repo’s PR template and labels). It is **not** part of the shipped **`rgd` CLI** and is not a general product feature. That boundary matches **[ADR-0001](../docs/adr/0001-system-positioning.md)**: reinguard does not become the semantic authority for repository policy; this repo keeps PR discipline in CI plus optional local helpers like this script.
 
 Agents: see also [`.cursor/commands/pr-create.md`](../.cursor/commands/pr-create.md).
 
@@ -110,15 +111,34 @@ Observation until `rgd observe` exists: use `gh` / `git` for read-only inspectio
 
 ## Labels
 
+**SSOT:** [`.reinguard/labels.yaml`](../.reinguard/labels.yaml) — type / exception / scope labels, colors, and `commit_prefix` (commit types for hooks).
+
 PRs must have exactly one **type** label (`feat`, `fix`, `docs`, …). Exception PRs also need `hotfix` or `no-issue`.
 
 From the repository root (once per org/repo):
 
 ```bash
 go run ./cmd/rgd ensure-labels
+go run ./cmd/rgd labels sync
 ```
 
-With `rgd` on your `PATH` (for example `go install ./cmd/rgd`), run `rgd ensure-labels` instead.
+With `rgd` on your `PATH` (for example `go install ./cmd/rgd`), run `rgd ensure-labels` / `rgd labels sync` instead.
+
+**Issue bodies** (agents): validate before `gh issue create` with:
+
+```bash
+bash .reinguard/scripts/check-issue-policy.sh \
+  --title "feat(scope): summary" \
+  --body-file /path/to/issue-body.md \
+  --label feat \
+  --template task
+```
+
+Regenerate the Task Issue Form **Type** dropdown after editing `labels.yaml`:
+
+```bash
+bash .reinguard/scripts/sync-issue-templates.sh
+```
 
 ### Open PRs after policy changes
 

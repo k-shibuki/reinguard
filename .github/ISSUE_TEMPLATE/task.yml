@@ -1,0 +1,73 @@
+name: Task
+description: Implementation or chore with Definition of Done and test plan
+title: 'type(scope): short imperative summary (Conventional Commits)'
+labels: []
+body:
+  - type: dropdown
+    id: issue_type
+    attributes:
+      label: Type
+      description: Conventional Commits type (must match a type label on the Issue)
+      options: ["build", "chore", "ci", "docs", "feat", "fix", "perf", "refactor", "revert", "style", "test"]
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Why is this needed?
+    validations:
+      required: true
+  - type: textarea
+    id: refs_adr
+    attributes:
+      label: 'Refs: ADR'
+      description: e.g. ADR-0002, ADR-0008, or none for pure process
+    validations:
+      required: true
+  - type: textarea
+    id: adr_impact
+    attributes:
+      label: ADR Impact
+      description: 'One of: none | new | amend (file name) — brief note'
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance_adr
+    attributes:
+      label: Acceptance ↔ ADR
+      description: How you will know the change matches the ADRs cited above
+    validations:
+      required: true
+  - type: textarea
+    id: definition_of_done
+    attributes:
+      label: Definition of Done
+      description: Bullet list of completion criteria (use leading `-` for bullets, not checkboxes)
+    validations:
+      required: true
+  - type: textarea
+    id: test_plan
+    attributes:
+      label: Test plan
+      description: 'Use a test perspectives table when helpful (Normal / Abnormal / Boundary).
+
+        Go checks (always): go test ./..., go vet ./..., golangci-lint run (or CI)
+
+'
+    validations:
+      required: true
+  - type: textarea
+    id: linked_issues
+    attributes:
+      label: Linked issues
+      description: For PR — Closes
+    validations:
+      required: false
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Optional — risks, follow-ups
+    validations:
+      required: false

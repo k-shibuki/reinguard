@@ -46,7 +46,7 @@ rgd observe
 
 ## Act
 
-1. Create feature branch per `.reinguard/policy/commit--format.md` § Branch naming: `<prefix>/<issue-number>-<short-description>` (types: `tools/commit-types.txt`).
+1. Create feature branch per `.reinguard/policy/commit--format.md` § Branch naming: `<prefix>/<issue-number>-<short-description>` (type prefixes: `.reinguard/labels.yaml` `categories.type` with `commit_prefix: true`).
 2. Search the codebase for existing paths, patterns, and dependencies; prioritize Issue **Touches** / **Go checks** sections.
 3. **Doc impact**: list candidate updates (`docs/adr/`, `docs/cli.md`, `.reinguard/`). Carry this list forward to commit/PR; align finalized diffs before merge.
 4. Implement per Issue **Definition of Done** and **Test plan**; include tests in the same deliverable unless the Issue explicitly defers them.

@@ -383,6 +383,119 @@ providers:
 	}
 }
 
+func TestLoad_withLabelsYaml_ok(t *testing.T) {
+	t.Parallel()
+	// Given: valid reinguard.yaml and minimal labels.yaml next to it
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(fmt.Sprintf(`schema_version: %q
+default_branch: main
+providers:
+  - id: git
+    enabled: true
+`, schema.CurrentSchemaVersion)))
+	writeFile(t, filepath.Join(dir, "labels.yaml"), []byte(fmt.Sprintf(`schema_version: %q
+categories:
+  type:
+    description: "Conventional Commits type labels"
+    scope: shared
+    labels:
+      - name: feat
+        color: "A2EEEF"
+        description: "Type: new feature"
+`, schema.CurrentSchemaVersion)))
+
+	// When: Load is called
+	res, err := Load(dir)
+
+	// Then: labels are parsed and validated
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !res.LabelsPresent || res.Labels == nil {
+		t.Fatal("expected LabelsPresent and non-nil Labels")
+	}
+	if res.Labels.SchemaVersion != schema.CurrentSchemaVersion {
+		t.Fatalf("labels schema_version: got %q", res.Labels.SchemaVersion)
+	}
+	if got := res.Labels.TypeLabelNames(); len(got) != 1 || got[0] != "feat" {
+		t.Fatalf("TypeLabelNames: %v", got)
+	}
+}
+
+func TestLoad_labelsYaml_schemaInvalid(t *testing.T) {
+	t.Parallel()
+	// Given: valid reinguard.yaml and labels.yaml that fails JSON Schema (empty categories)
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(fmt.Sprintf(`schema_version: %q
+default_branch: main
+providers:
+  - id: git
+    enabled: true
+`, schema.CurrentSchemaVersion)))
+	writeFile(t, filepath.Join(dir, "labels.yaml"), []byte(fmt.Sprintf(`schema_version: %q
+categories: {}
+`, schema.CurrentSchemaVersion)))
+
+	// When: Load is called
+	_, err := Load(dir)
+
+	// Then: schema validation error for labels.yaml
+	if err == nil || !strings.Contains(err.Error(), "labels.yaml") || !strings.Contains(err.Error(), "schema validation") {
+		t.Fatalf("expected schema validation error for labels.yaml, got %v", err)
+	}
+}
+
+func TestLoad_labelsYaml_parseError(t *testing.T) {
+	t.Parallel()
+	// Given: labels.yaml that is not valid YAML
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(fmt.Sprintf(`schema_version: %q
+default_branch: main
+providers:
+  - id: git
+    enabled: true
+`, schema.CurrentSchemaVersion)))
+	writeFile(t, filepath.Join(dir, "labels.yaml"), []byte("categories: [\n"))
+
+	// When: Load is called
+	_, err := Load(dir)
+
+	// Then: parse error references labels.yaml
+	if err == nil || !strings.Contains(err.Error(), "labels.yaml") || !strings.Contains(err.Error(), "parse") {
+		t.Fatalf("expected parse error for labels.yaml, got %v", err)
+	}
+}
+
+func TestLoad_labelsYaml_incompatibleMajor(t *testing.T) {
+	t.Parallel()
+	// Given: labels.yaml with schema_version major incompatible with rgd
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(fmt.Sprintf(`schema_version: %q
+default_branch: main
+providers:
+  - id: git
+    enabled: true
+`, schema.CurrentSchemaVersion)))
+	writeFile(t, filepath.Join(dir, "labels.yaml"), []byte(`schema_version: "99.0.0"
+categories:
+  type:
+    description: "t"
+    scope: shared
+    labels:
+      - name: feat
+        color: "A2EEEF"
+        description: "x"
+`))
+
+	// When: Load is called
+	_, err := Load(dir)
+
+	// Then: error from declared schema version check
+	if err == nil || !strings.Contains(err.Error(), "incompatible") {
+		t.Fatalf("expected incompatible schema_version error, got %v", err)
+	}
+}
+
 func TestLoad_missingDefaultBranch(t *testing.T) {
 	t.Parallel()
 	// Given: root config missing required default_branch
