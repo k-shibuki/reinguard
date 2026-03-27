@@ -31,7 +31,7 @@ repos:
         pass_filenames: false
       - id: check-commit-msg
         name: Validate commit message format
-        entry: bash tools/check-commit-msg.sh
+        entry: bash .reinguard/scripts/check-commit-msg.sh
         language: system
         stages: [commit-msg]
         always_run: true

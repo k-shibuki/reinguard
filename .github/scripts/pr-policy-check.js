@@ -1,6 +1,9 @@
 // PR policy gate: Issue linkage, required sections, labels, base branch.
 // Used by gate-policy in ci.yaml and by reusable pr-policy.yaml (workflow_call).
+// Label lists are read from /tmp/labels.json (yq output of .reinguard/labels.yaml in CI).
 // Exception contract: workflow-policy.mdc.
+
+const fs = require("fs");
 
 const run = async () => {
   const pr = context.payload.pull_request;
@@ -10,6 +13,23 @@ const run = async () => {
     );
     return;
   }
+
+  const labelsPath = process.env.LABELS_POLICY_JSON || "/tmp/labels.json";
+  let labelsDoc;
+  try {
+    labelsDoc = JSON.parse(fs.readFileSync(labelsPath, "utf8"));
+  } catch (e) {
+    core.setFailed(
+      `PR policy: cannot read label config at ${labelsPath} (run yq -o json .reinguard/labels.yaml > ${labelsPath}): ${e.message}`,
+    );
+    return;
+  }
+
+  const TYPE_LABELS = labelsDoc.categories.type.labels.map((x) => x.name);
+  const EXCEPTION_LABELS = labelsDoc.categories.exception.labels.map(
+    (x) => x.name,
+  );
+
   // Always load body and labels via REST. Webhook / reusable-workflow payloads can
   // omit labels or serve a stale or truncated body compared to the live PR.
   const { data: full } = await github.rest.pulls.get({
@@ -22,7 +42,6 @@ const run = async () => {
   const errors = [];
   const warnings = [];
 
-  const EXCEPTION_LABELS = ["no-issue", "hotfix"];
   const isException = EXCEPTION_LABELS.some((l) => labels.includes(l));
 
   // --- 1. Issue linkage ---
@@ -100,13 +119,16 @@ const run = async () => {
   }
 
   // --- 5. PR title format (Conventional Commits) ---
-  const titleRegex =
-    /^(feat|fix|refactor|perf|test|docs|build|ci|chore|style|revert)(\(.+\))?!?:\s.+$/;
+  const titleRegex = new RegExp(
+    `^(${TYPE_LABELS.join("|")})(\\(.+\\))?!?:\\s.+$`,
+  );
   if (!titleRegex.test(full.title)) {
     errors.push(
       "**PR title**: Must follow Conventional Commits format: " +
         "`<type>(<scope>): <summary>`. " +
-        "Valid types: feat, fix, refactor, perf, test, docs, build, ci, chore, style, revert. " +
+        "Valid types: " +
+        TYPE_LABELS.join(", ") +
+        ". " +
         "(`hotfix` is an exception label only, not a PR title type.)",
     );
   }
@@ -121,24 +143,13 @@ const run = async () => {
   }
 
   // --- 7. Type label (exactly one) ---
-  const TYPE_LABELS = [
-    "feat",
-    "fix",
-    "refactor",
-    "perf",
-    "docs",
-    "test",
-    "ci",
-    "build",
-    "chore",
-    "style",
-    "revert",
-  ];
   const typeHits = TYPE_LABELS.filter((t) => labels.includes(t));
   if (typeHits.length === 0) {
     errors.push(
       "**Type label**: PR must have exactly one type label " +
-        "(`feat`, `fix`, `refactor`, `perf`, `docs`, `test`, `ci`, `build`, `chore`, `style`, `revert`). " +
+        "(" +
+        TYPE_LABELS.map((t) => "`" + t + "`").join(", ") +
+        "). " +
         'Add a label via `--label "<type>"` in `gh pr create`.',
     );
   } else if (typeHits.length > 1) {

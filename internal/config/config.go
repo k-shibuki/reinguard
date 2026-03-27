@@ -13,6 +13,7 @@ import (
 	jsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 	"gopkg.in/yaml.v3"
 
+	"github.com/k-shibuki/reinguard/internal/labels"
 	"github.com/k-shibuki/reinguard/pkg/schema"
 )
 
@@ -68,9 +69,11 @@ type KnowledgeManifest struct {
 type LoadResult struct {
 	RuleFiles        map[string]RulesDocument
 	Knowledge        *KnowledgeManifest
+	Labels           *labels.Config
 	Dir              string
 	Root             Root
 	KnowledgePresent bool
+	LabelsPresent    bool
 }
 
 // Load reads reinguard.yaml, all control/{states,routes,guards}/*.yaml, and optional knowledge/manifest.json.
@@ -93,6 +96,10 @@ func Load(dir string) (*LoadResult, error) {
 	kmSch, err := comp.Compile(schema.URIKnowledgeManifest)
 	if err != nil {
 		return nil, fmt.Errorf("config: compile knowledge manifest schema: %w", err)
+	}
+	labelsSch, err := comp.Compile(schema.URILabelsConfig)
+	if err != nil {
+		return nil, fmt.Errorf("config: compile labels schema: %w", err)
 	}
 
 	rootPath := filepath.Join(dir, "reinguard.yaml")
@@ -188,6 +195,30 @@ func Load(dir string) (*LoadResult, error) {
 		Dir:       dir,
 		Root:      root,
 		RuleFiles: ruleFiles,
+	}
+
+	labelsPath := filepath.Join(dir, "labels.yaml")
+	labelsData, lerr := os.ReadFile(labelsPath)
+	if lerr != nil && !os.IsNotExist(lerr) {
+		return nil, fmt.Errorf("config: read %s: %w", labelsPath, lerr)
+	}
+	if lerr == nil {
+		var labelsMap map[string]any
+		if err = yaml.Unmarshal(labelsData, &labelsMap); err != nil {
+			return nil, fmt.Errorf("config: parse %s: %w", labelsPath, err)
+		}
+		if err = validateDoc(labelsSch, labelsMap, labelsPath); err != nil {
+			return nil, err
+		}
+		var lf labels.Config
+		if err = yaml.Unmarshal(labelsData, &lf); err != nil {
+			return nil, fmt.Errorf("config: decode %s: %w", labelsPath, err)
+		}
+		if err = validateDeclaredSchemaVersion(lf.SchemaVersion, labelsPath); err != nil {
+			return nil, err
+		}
+		res.LabelsPresent = true
+		res.Labels = &lf
 	}
 
 	kmPath := filepath.Join(dir, "knowledge", "manifest.json")

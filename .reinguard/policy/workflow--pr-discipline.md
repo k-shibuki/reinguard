@@ -35,7 +35,7 @@ New implementation Issues SHOULD include:
 5. **Definition of Done** — checklist
 6. **Test plan** — concrete cases (table encouraged); not only "tests pass"
 
-Use `.github/ISSUE_TEMPLATE/task.md` as the starting point.
+Use `.github/ISSUE_TEMPLATE/task.yml` (Issue Form) as the starting point.
 
 ## Branch naming
 
@@ -54,7 +54,7 @@ Use `.github/ISSUE_TEMPLATE/task.md` as the starting point.
 
 Programmatic create/edit must preserve **real newlines** in the PR body. If GitHub stores the body as one physical line containing the two-character sequence `\` + `n` instead of line breaks, **Gate — PR policy** fails (required sections such as `Summary` are not detected).
 
-- **Preferred**: `gh pr create --body-file …` / `gh pr edit <N> --body-file …`, after `tools/check-pr-policy.sh` passes for create.
+- **Preferred**: `gh pr create --body-file …` / `gh pr edit <N> --body-file …`, after `.reinguard/scripts/check-pr-policy.sh` passes for create.
 - **If using `gh api`**: send JSON with `--input` and a `body` value that is an actual multiline string — for example `jq -n --rawfile b path/to/body.md '{body: $b}' > patch.json` then `gh api repos/<owner>/<repo>/pulls/<N> -X PATCH --input patch.json`. Do **not** rely on `-f body=…` with multiline shell values or on piping `jq -Rs` into form-style fields; form encoding can turn newlines into literal `\n` and break section checks.
 
 ## Exceptions

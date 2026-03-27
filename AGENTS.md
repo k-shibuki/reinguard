@@ -43,7 +43,7 @@ CI: `golangci-lint`, `go vet`, `go test -race`; PRs must pass job **`ci-pass`** 
 ### Traceability (P1)
 
 - PR body: `Closes #<issue>` (or exception label + `## Exception` per template).
-- PR title: Conventional Commits (`<type>(<scope>): …`; types exclude `hotfix` in titles — see `tools/commit-types.txt`).
+- PR title: Conventional Commits (`<type>(<scope>): …`; types exclude `hotfix` in titles — see `.reinguard/labels.yaml` (`categories.type`, `commit_prefix`).
 
 ### Review threads and merge
 

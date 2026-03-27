@@ -1,16 +1,18 @@
-# Reusable PR policy gate: Issue linkage, required sections, labels, base branch.
-# Logic lives in `.github/scripts/pr-policy-check.js` (also run from `gate-policy` in ci.yaml).
-# Exception contract: workflow-policy.mdc.
+# Safety net: optional auto-label from Task Issue Form "### Type" + informational comments.
+# Does not close Issues. See `.reinguard/scripts/check-issue-policy.sh` for local pre-flight.
+name: Issue — label sync
+
 on:
-  workflow_call:
+  issues:
+    types: [opened, edited, labeled, unlabeled]
 
 permissions:
+  issues: write
   contents: read
-  pull-requests: read
 
 jobs:
-  check-policy:
-    name: Gate — PR policy (reusable)
+  issue-label-sync:
+    name: Issue label sync (comment-only)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -24,16 +26,18 @@ jobs:
           sudo install -m 0755 /tmp/yq /usr/local/bin/yq
           yq --version
 
-      - name: Extract label config for PR policy
+      - name: Extract label config
         run: yq -o json .reinguard/labels.yaml > /tmp/labels.json
 
-      - name: Check PR policy compliance
+      - name: Run issue-label-sync.js
         uses: actions/github-script@v8
+        env:
+          LABELS_POLICY_JSON: /tmp/labels.json
         with:
           script: |
             const fs = require('fs');
             const path = require('path');
-            const p = path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/pr-policy-check.js');
+            const p = path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/issue-label-sync.js');
             const code = fs.readFileSync(p, 'utf8');
             const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
             const fn = new AsyncFunction('github', 'context', 'core', code);

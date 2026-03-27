@@ -38,5 +38,8 @@ vendor/
 # Schema export default output (local runs)
 /schema-export/
 
-# Python (if any maintainer scripts are run from tools/)
-tools/__pycache__/
+# Python (optional local helpers under .reinguard/scripts/)
+.reinguard/scripts/__pycache__/
+
+# Cached mikefarah yq (sync-issue-templates.sh)
+.reinguard/scripts/.bin/

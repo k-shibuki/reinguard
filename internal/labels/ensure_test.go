@@ -1,45 +1,60 @@
 package labels
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"runtime"
 	"slices"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
-func TestTypeLabelsMatchPRPolicyWorkflow(t *testing.T) {
-	// Given: pr-policy-check.js TYPE_LABELS and labels.TypeLabels in Go
+func TestEmbeddedDataMatchesReinguardYAML(t *testing.T) {
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("runtime.Caller failed")
 	}
 	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
-	policyPath := filepath.Join(root, ".github", "scripts", "pr-policy-check.js")
-	data, err := os.ReadFile(policyPath)
+	ssot := filepath.Join(root, ".reinguard", "labels.yaml")
+	want, err := os.ReadFile(ssot)
 	if err != nil {
-		t.Fatalf("read %s: %v", policyPath, err)
+		t.Fatalf("read %s: %v", ssot, err)
 	}
-	// When: script labels are parsed and compared to map keys
-	fromScript, err := ParseTypeLabelsFromPRPolicy(data)
+	if !bytes.Equal(embeddedLabelsYAML, want) {
+		t.Fatalf("internal/labels/data/labels.yaml must match .reinguard/labels.yaml byte-for-byte (copy SSOT into data/ for go:embed)")
+	}
+}
+
+func TestTypeLabelsMatchEmbeddedYAML(t *testing.T) {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
+	yamlPath := filepath.Join(root, ".reinguard", "labels.yaml")
+	data, err := os.ReadFile(yamlPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", yamlPath, err)
+	}
+	fromFile, err := LoadFromBytes(data)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var fromGo []string
+	fromFileNames := fromFile.TypeLabelNames()
+	var fromMap []string
 	for name := range TypeLabels {
-		fromGo = append(fromGo, name)
+		fromMap = append(fromMap, name)
 	}
-	slices.Sort(fromGo)
-	// Then: sorted lists match exactly
-	if !slices.Equal(fromScript, fromGo) {
-		t.Fatalf("TYPE_LABELS in pr-policy-check.js %v != labels.TypeLabels keys %v", fromScript, fromGo)
+	slices.Sort(fromMap)
+	if !slices.Equal(fromFileNames, fromMap) {
+		t.Fatalf("labels.yaml type names %v != TypeLabels keys %v", fromFileNames, fromMap)
 	}
 }
 
 func TestTypeLabelNamesMatchesTypeLabelsSet(t *testing.T) {
-	// Given: TypeLabelNames slice and TypeLabels map
 	names := TypeLabelNames()
-	// When/Then: every name exists in the map and counts match
 	if len(names) != len(TypeLabels) {
 		t.Fatalf("len(TypeLabelNames)=%d len(TypeLabels)=%d", len(names), len(TypeLabels))
 	}
@@ -50,34 +65,65 @@ func TestTypeLabelNamesMatchesTypeLabelsSet(t *testing.T) {
 	}
 }
 
-func TestPolicyRepoLabelsTypeNamesMatchTypeLabels(t *testing.T) {
-	// Given: policyRepoLabels catalog and TypeLabels set
-	// When/Then: each policy type label (except exceptions) is in TypeLabels
-	for _, spec := range policyRepoLabels() {
+func TestAllRepoLabelsTypeNamesMatchTypeLabels(t *testing.T) {
+	c, err := LoadFromBytes(embeddedLabelsYAML)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, spec := range c.AllRepoLabels() {
 		switch spec.Name {
-		case "hotfix", "no-issue":
+		case "hotfix", "no-issue", "epic":
 			if _, ok := TypeLabels[spec.Name]; ok {
-				t.Fatalf("exception label %q must not be in TypeLabels", spec.Name)
+				t.Fatalf("non-type label %q must not be in TypeLabels", spec.Name)
 			}
 		default:
 			if _, ok := TypeLabels[spec.Name]; !ok {
-				t.Fatalf("policyRepoLabels has %q missing from TypeLabels", spec.Name)
+				t.Fatalf("AllRepoLabels has %q missing from TypeLabels (expected type)", spec.Name)
 			}
 		}
 	}
 }
 
+func TestIssueTemplateTaskDropdownMatchesTypeLabels(t *testing.T) {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller failed")
+	}
+	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
+	taskPath := filepath.Join(root, ".github", "ISSUE_TEMPLATE", "task.yml")
+	data, err := os.ReadFile(taskPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", taskPath, err)
+	}
+	var doc struct {
+		Body []struct {
+			Type       string `yaml:"type"`
+			Attributes struct {
+				Options []string `yaml:"options"`
+			} `yaml:"attributes"`
+		} `yaml:"body"`
+	}
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		t.Fatal(err)
+	}
+	if len(doc.Body) < 1 || doc.Body[0].Type != "dropdown" {
+		t.Fatalf("task.yml: expected first body block to be type dropdown, got %#v", doc.Body)
+	}
+	got := doc.Body[0].Attributes.Options
+	want := TypeLabelNames()
+	if !slices.Equal(got, want) {
+		t.Fatalf("task.yml Type options %v != labels TypeLabelNames %v (run .reinguard/scripts/sync-issue-templates.sh)", got, want)
+	}
+}
+
 func TestParseTypeLabelsFromPRPolicy(t *testing.T) {
-	// Given: JS source containing TYPE_LABELS array
 	sample := []byte(`foo
             const TYPE_LABELS = ['feat', 'fix', 'docs'];
             bar`)
-	// When: ParseTypeLabelsFromPRPolicy runs
 	got, err := ParseTypeLabelsFromPRPolicy(sample)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Then: labels are returned sorted
 	want := []string{"docs", "feat", "fix"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("got %v want %v", got, want)

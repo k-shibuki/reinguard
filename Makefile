@@ -26,7 +26,7 @@ lint: ## golangci-lint (required for check; must be on PATH)
 
 coverage: ## Race tests + module coverage profile + 80% gate
 	go test ./... -race -count=1 -coverpkg=./... -coverprofile=coverage.out
-	bash tools/check-coverage-threshold.sh 80 coverage.out
+	bash .reinguard/scripts/check-coverage-threshold.sh 80 coverage.out
 
 build: ## Build rgd binary to ./rgd
 	go build -o rgd ./cmd/rgd
