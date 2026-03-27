@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/k-shibuki/reinguard/internal/githubapi"
@@ -88,13 +89,13 @@ func TestCollect_graphqlOnePage(t *testing.T) {
 func TestCollect_graphqlPaginationIncomplete(t *testing.T) {
 	t.Parallel()
 	// Given: every page reports hasNextPage true (simulated infinite pages → cap)
-	var calls int
+	var calls atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.URL.Path != "/graphql" {
 			http.NotFound(w, r)
 			return
 		}
-		calls++
+		calls.Add(1)
 		resp := map[string]any{
 			"data": map[string]any{
 				"repository": map[string]any{
@@ -126,10 +127,10 @@ func TestCollect_graphqlPaginationIncomplete(t *testing.T) {
 	// Then: incomplete true; fetched max pages worth of nodes
 	rev := m["reviews"].(map[string]any)
 	if !rev["pagination_incomplete"].(bool) {
-		t.Fatalf("expected incomplete: %+v calls=%d", rev, calls)
+		t.Fatalf("expected incomplete: %+v calls=%d", rev, calls.Load())
 	}
-	if calls != maxReviewThreadPages {
-		t.Fatalf("expected %d graphql calls, got %d", maxReviewThreadPages, calls)
+	if got := int(calls.Load()); got != maxReviewThreadPages {
+		t.Fatalf("expected %d graphql calls, got %d", maxReviewThreadPages, got)
 	}
 	if rev["review_threads_total"].(int) != maxReviewThreadPages {
 		t.Fatalf("total: %+v", rev)

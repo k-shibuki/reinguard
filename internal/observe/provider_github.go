@@ -111,10 +111,11 @@ func (p *GitHubProvider) Collect(ctx context.Context, opts Options) (Fragment, e
 	}
 
 	var prNum int
+	prLookupOK := true
 	p.githubCollectIssues(ctx, client, owner, repo, wantFacet("issues"), signals, &diags, &degraded)
-	p.githubCollectPullRequestsAndPRNum(ctx, client, owner, repo, opts.WorkDir, wantFacet, signals, appendWarnings, &diags, &degraded, &prNum)
+	p.githubCollectPullRequestsAndPRNum(ctx, client, owner, repo, opts.WorkDir, wantFacet, signals, appendWarnings, &diags, &degraded, &prNum, &prLookupOK)
 	p.githubCollectCI(ctx, client, owner, repo, opts.WorkDir, wantFacet("ci"), signals, appendWarnings, &diags, &degraded)
-	p.githubCollectReviews(ctx, client, owner, repo, prNum, wantFacet("reviews"), signals, &diags, &degraded)
+	p.githubCollectReviews(ctx, client, owner, repo, prNum, wantFacet("reviews"), prLookupOK, signals, &diags, &degraded)
 
 	return Fragment{Signals: signals, Diagnostics: diags, Degraded: degraded}, nil
 }
@@ -132,16 +133,18 @@ func (*GitHubProvider) githubCollectIssues(ctx context.Context, client *githubap
 	mergeSignals(signals, m)
 }
 
-func (*GitHubProvider) githubCollectPullRequestsAndPRNum(ctx context.Context, client *githubapi.Client, owner, repo, workDir string, wantFacet func(string) bool, signals map[string]any, appendWarnings func(string, []string), diags *[]Diagnostic, degraded *bool, prNum *int) {
+func (*GitHubProvider) githubCollectPullRequestsAndPRNum(ctx context.Context, client *githubapi.Client, owner, repo, workDir string, wantFacet func(string) bool, signals map[string]any, appendWarnings func(string, []string), diags *[]Diagnostic, degraded *bool, prNum *int, prLookupOK *bool) {
 	if !wantFacet("pull-requests") && !wantFacet("reviews") {
 		return
 	}
 	m, warns, err := pullrequests.Collect(ctx, client, owner, repo, workDir)
 	if err != nil {
+		*prLookupOK = false
 		*degraded = true
 		*diags = append(*diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github.pull-requests"})
 		return
 	}
+	*prLookupOK = true
 	appendWarnings("github.pull-requests", warns)
 	if wantFacet("pull-requests") {
 		mergeSignals(signals, m)
@@ -165,8 +168,11 @@ func (*GitHubProvider) githubCollectCI(ctx context.Context, client *githubapi.Cl
 	mergeSignals(signals, m)
 }
 
-func (*GitHubProvider) githubCollectReviews(ctx context.Context, client *githubapi.Client, owner, repo string, prNum int, want bool, signals map[string]any, diags *[]Diagnostic, degraded *bool) {
+func (*GitHubProvider) githubCollectReviews(ctx context.Context, client *githubapi.Client, owner, repo string, prNum int, want bool, prLookupOK bool, signals map[string]any, diags *[]Diagnostic, degraded *bool) {
 	if !want {
+		return
+	}
+	if !prLookupOK {
 		return
 	}
 	m, err := reviews.Collect(ctx, client, owner, repo, prNum)

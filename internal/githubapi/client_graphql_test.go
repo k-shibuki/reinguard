@@ -24,6 +24,11 @@ func TestPostGraphQL_success(t *testing.T) {
 			handlerErr = err
 		}
 	}
+	getHandlerErr := func() error {
+		mu.Lock()
+		defer mu.Unlock()
+		return handlerErr
+	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.URL.Path != "/graphql" {
 			http.NotFound(w, r)
@@ -51,8 +56,8 @@ func TestPostGraphQL_success(t *testing.T) {
 	}
 	// When: PostGraphQL runs with a simple query
 	err := c.PostGraphQL(context.Background(), `query { viewer { login } }`, nil, &out)
-	if handlerErr != nil {
-		t.Fatal(handlerErr)
+	if herr := getHandlerErr(); herr != nil {
+		t.Fatal(herr)
 	}
 	if err != nil {
 		t.Fatal(err)

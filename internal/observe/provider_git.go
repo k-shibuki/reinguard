@@ -51,6 +51,7 @@ func (*GitProvider) Collect(ctx context.Context, opts Options) (Fragment, error)
 
 // gitCollectFragment gathers git signals and diagnostics for wd (git must be on PATH).
 func gitCollectFragment(ctx context.Context, wd, defaultBranch string) Fragment {
+	defaultBranch = strings.TrimSpace(defaultBranch)
 	branch, detached, berr := gitroot.CurrentBranch(ctx, wd)
 	porcelain, serr := gitRunOut(ctx, wd, "git", "status", "--porcelain")
 	uncommitted := 0

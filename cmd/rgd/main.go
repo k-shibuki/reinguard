@@ -1,4 +1,4 @@
-// Command rgd is the reinguard CLI entrypoint (Substrate: docs/cli.md, ADR-0001).
+// Package main provides the rgd CLI entrypoint (Substrate: docs/cli.md, ADR-0001).
 package main
 
 import (

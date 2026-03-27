@@ -198,6 +198,9 @@ func applyOptionalKnowledge(res *LoadResult, dir string, kmSch *jsonschema.Schem
 	if jerr := json.Unmarshal(kmData, &km); jerr != nil {
 		return fmt.Errorf("config: decode knowledge manifest: %w", jerr)
 	}
+	if err := validateDeclaredSchemaVersion(km.SchemaVersion, kmPath); err != nil {
+		return err
+	}
 	res.KnowledgePresent = true
 	res.Knowledge = &km
 	return nil

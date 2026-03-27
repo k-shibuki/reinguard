@@ -208,7 +208,7 @@ func Resolve(rules []config.Rule, signals map[string]any, degraded map[string]st
 	if len(atBest) > 1 {
 		return ambiguousResolveResult(best, atBest, p, routeCandidates), nil
 	}
-	return singleRuleResolveResult(atBest[0], p, routeCandidates)
+	return singleRuleResolveResult(atBest[0], p, routeCandidates), nil
 }
 
 // orderRulesForResolve returns rules in evaluation order; for routes, copies, sorts, and builds routeCandidates.
@@ -251,12 +251,12 @@ func ambiguousResolveResult(best float64, atBest []config.Rule, p resolveProfile
 	}
 }
 
-func singleRuleResolveResult(r config.Rule, p resolveProfile, routeCandidates []RouteCandidate) (Result, error) {
+func singleRuleResolveResult(r config.Rule, p resolveProfile, routeCandidates []RouteCandidate) Result {
 	if p.routeStyle {
 		if r.RouteID == "" {
 			res := unsupportedMissingRouteID(r.ID)
 			res.RouteCandidates = routeCandidates
-			return res, nil
+			return res
 		}
 		return Result{
 			Kind:            OutcomeResolved,
@@ -265,11 +265,11 @@ func singleRuleResolveResult(r config.Rule, p resolveProfile, routeCandidates []
 			RuleID:          r.ID,
 			Priority:        r.Priority,
 			RouteCandidates: routeCandidates,
-		}, nil
+		}
 	}
 	if p.ruleType == "guard" {
 		if r.GuardID == "" {
-			return unsupportedMissingGuardID(r.ID), nil
+			return unsupportedMissingGuardID(r.ID)
 		}
 		return Result{
 			Kind:     OutcomeResolved,
@@ -277,10 +277,10 @@ func singleRuleResolveResult(r config.Rule, p resolveProfile, routeCandidates []
 			TargetID: r.GuardID,
 			RuleID:   r.ID,
 			Priority: r.Priority,
-		}, nil
+		}
 	}
 	if r.StateID == "" {
-		return unsupportedMissingStateID(r.ID), nil
+		return unsupportedMissingStateID(r.ID)
 	}
 	return Result{
 		Kind:     OutcomeResolved,
@@ -288,7 +288,7 @@ func singleRuleResolveResult(r config.Rule, p resolveProfile, routeCandidates []
 		TargetID: r.StateID,
 		RuleID:   r.ID,
 		Priority: r.Priority,
-	}, nil
+	}
 }
 
 // minPriority returns the minimum priority in rules. rules must be non-empty;
