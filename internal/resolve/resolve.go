@@ -197,28 +197,7 @@ func Resolve(rules []config.Rule, signals map[string]any, degraded map[string]st
 		return Result{Kind: OutcomeDegraded, Reason: p.allSuppressedReason}, nil
 	}
 
-	ordered := active
-	var routeCandidates []RouteCandidate
-	if p.routeStyle {
-		ordered = append([]config.Rule(nil), active...)
-		sort.Slice(ordered, func(i, j int) bool {
-			if ordered[i].Priority != ordered[j].Priority {
-				return ordered[i].Priority < ordered[j].Priority
-			}
-			return ordered[i].ID < ordered[j].ID
-		})
-		for _, c := range ordered {
-			if c.RouteID == "" {
-				continue
-			}
-			routeCandidates = append(routeCandidates, RouteCandidate{
-				RuleID:   c.ID,
-				RouteID:  c.RouteID,
-				Priority: c.Priority,
-			})
-		}
-	}
-
+	ordered, routeCandidates := orderRulesForResolve(active, p.routeStyle)
 	best := minPriority(ordered)
 	var atBest []config.Rule
 	for _, c := range ordered {
@@ -227,19 +206,52 @@ func Resolve(rules []config.Rule, signals map[string]any, degraded map[string]st
 		}
 	}
 	if len(atBest) > 1 {
-		ids := make([]string, len(atBest))
-		for i := range atBest {
-			ids[i] = atBest[i].ID
-		}
-		return Result{
-			Kind:            OutcomeAmbiguous,
-			Priority:        best,
-			Candidates:      ids,
-			RouteCandidates: routeCandidates,
-			Reason:          p.ambiguousReason,
-		}, nil
+		return ambiguousResolveResult(best, atBest, p, routeCandidates), nil
 	}
-	r := atBest[0]
+	return singleRuleResolveResult(atBest[0], p, routeCandidates)
+}
+
+// orderRulesForResolve returns rules in evaluation order; for routes, copies, sorts, and builds routeCandidates.
+func orderRulesForResolve(active []config.Rule, routeStyle bool) (ordered []config.Rule, routeCandidates []RouteCandidate) {
+	ordered = active
+	if !routeStyle {
+		return ordered, nil
+	}
+	ordered = append([]config.Rule(nil), active...)
+	sort.Slice(ordered, func(i, j int) bool {
+		if ordered[i].Priority != ordered[j].Priority {
+			return ordered[i].Priority < ordered[j].Priority
+		}
+		return ordered[i].ID < ordered[j].ID
+	})
+	for _, c := range ordered {
+		if c.RouteID == "" {
+			continue
+		}
+		routeCandidates = append(routeCandidates, RouteCandidate{
+			RuleID:   c.ID,
+			RouteID:  c.RouteID,
+			Priority: c.Priority,
+		})
+	}
+	return ordered, routeCandidates
+}
+
+func ambiguousResolveResult(best float64, atBest []config.Rule, p resolveProfile, routeCandidates []RouteCandidate) Result {
+	ids := make([]string, len(atBest))
+	for i := range atBest {
+		ids[i] = atBest[i].ID
+	}
+	return Result{
+		Kind:            OutcomeAmbiguous,
+		Priority:        best,
+		Candidates:      ids,
+		RouteCandidates: routeCandidates,
+		Reason:          p.ambiguousReason,
+	}
+}
+
+func singleRuleResolveResult(r config.Rule, p resolveProfile, routeCandidates []RouteCandidate) (Result, error) {
 	if p.routeStyle {
 		if r.RouteID == "" {
 			res := unsupportedMissingRouteID(r.ID)

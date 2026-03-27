@@ -84,36 +84,78 @@ func (c *Client) GetJSON(ctx context.Context, u string, out any) error {
 			}
 			continue
 		}
-		if resp.StatusCode == http.StatusTooManyRequests && attempt < maxAttempts-1 {
-			lastErr = fmt.Errorf("429 from GitHub")
-			if err := sleepCtx(ctx, retryAfterDelay(resp, backoff)); err != nil {
-				return err
-			}
-			backoff *= 2
-			continue
+		stop, hErr := c.handleGetJSONResponse(ctx, resp, body, req, out, attempt, maxAttempts, &backoff)
+		if stop {
+			return hErr
 		}
-		if isGitHubRateLimit403(resp, body) && attempt < maxAttempts-1 {
-			lastErr = fmt.Errorf("403 rate limited from GitHub")
-			if err := sleepCtx(ctx, retryAfterDelay(resp, backoff)); err != nil {
-				return err
-			}
-			backoff *= 2
-			continue
-		}
-		if resp.StatusCode >= 400 {
-			return fmt.Errorf("github %s: %s: %s", req.URL.String(), resp.Status, strings.TrimSpace(string(body)))
-		}
-		if out != nil {
-			if err := json.Unmarshal(body, out); err != nil {
-				return fmt.Errorf("decode json: %w", err)
-			}
-		}
-		return nil
+		lastErr = hErr
 	}
 	if lastErr == nil {
 		lastErr = fmt.Errorf("github request failed")
 	}
 	return lastErr
+}
+
+// handleGetJSONResponse interprets one HTTP response for GetJSON. If the first return is true, the caller
+// must return hErr immediately. If false, the caller should retry after updating backoff; hErr is the reason.
+func (c *Client) handleGetJSONResponse(ctx context.Context, resp *http.Response, body []byte, req *http.Request, out any, attempt, maxAttempts int, backoff *time.Duration) (stop bool, hErr error) {
+	if resp.StatusCode == http.StatusTooManyRequests && attempt < maxAttempts-1 {
+		if err := sleepCtx(ctx, retryAfterDelay(resp, *backoff)); err != nil {
+			return true, err
+		}
+		*backoff *= 2
+		return false, fmt.Errorf("429 from GitHub")
+	}
+	if isGitHubRateLimit403(resp, body) && attempt < maxAttempts-1 {
+		if err := sleepCtx(ctx, retryAfterDelay(resp, *backoff)); err != nil {
+			return true, err
+		}
+		*backoff *= 2
+		return false, fmt.Errorf("403 rate limited from GitHub")
+	}
+	if resp.StatusCode >= 400 {
+		return true, fmt.Errorf("github %s: %s: %s", req.URL.String(), resp.Status, strings.TrimSpace(string(body)))
+	}
+	if out != nil {
+		if err := json.Unmarshal(body, out); err != nil {
+			return true, fmt.Errorf("decode json: %w", err)
+		}
+	}
+	return true, nil
+}
+
+// handlePostGraphQLResponse handles one GraphQL HTTP response: rate-limit retries, HTTP errors, and JSON envelope.
+func (c *Client) handlePostGraphQLResponse(ctx context.Context, resp *http.Response, body []byte, req *http.Request, out any, attempt, maxAttempts int, backoff *time.Duration) (stop bool, hErr error) {
+	if resp.StatusCode == http.StatusTooManyRequests && attempt < maxAttempts-1 {
+		if err := sleepCtx(ctx, retryAfterDelay(resp, *backoff)); err != nil {
+			return true, err
+		}
+		*backoff *= 2
+		return false, fmt.Errorf("429 from GitHub")
+	}
+	if isGitHubRateLimit403(resp, body) && attempt < maxAttempts-1 {
+		if err := sleepCtx(ctx, retryAfterDelay(resp, *backoff)); err != nil {
+			return true, err
+		}
+		*backoff *= 2
+		return false, fmt.Errorf("403 rate limited from GitHub")
+	}
+	if resp.StatusCode >= 400 {
+		return true, fmt.Errorf("github graphql %s: %s: %s", req.URL.String(), resp.Status, strings.TrimSpace(string(body)))
+	}
+	var env graphqlEnvelope
+	if err := json.Unmarshal(body, &env); err != nil {
+		return true, fmt.Errorf("decode graphql json: %w", err)
+	}
+	if len(env.Errors) > 0 {
+		return true, fmt.Errorf("graphql error: %s", env.Errors[0].Message)
+	}
+	if out != nil && len(env.Data) > 0 && string(env.Data) != "null" {
+		if err := json.Unmarshal(env.Data, out); err != nil {
+			return true, fmt.Errorf("decode graphql data: %w", err)
+		}
+	}
+	return true, nil
 }
 
 // graphqlEnvelope is the GitHub GraphQL HTTP JSON body (data + optional errors).
@@ -185,38 +227,11 @@ func (c *Client) PostGraphQL(ctx context.Context, query string, variables map[st
 			}
 			continue
 		}
-		if resp.StatusCode == http.StatusTooManyRequests && attempt < maxAttempts-1 {
-			lastErr = fmt.Errorf("429 from GitHub")
-			if err := sleepCtx(ctx, retryAfterDelay(resp, backoff)); err != nil {
-				return err
-			}
-			backoff *= 2
-			continue
+		stop, hErr := c.handlePostGraphQLResponse(ctx, resp, body, req, out, attempt, maxAttempts, &backoff)
+		if stop {
+			return hErr
 		}
-		if isGitHubRateLimit403(resp, body) && attempt < maxAttempts-1 {
-			lastErr = fmt.Errorf("403 rate limited from GitHub")
-			if err := sleepCtx(ctx, retryAfterDelay(resp, backoff)); err != nil {
-				return err
-			}
-			backoff *= 2
-			continue
-		}
-		if resp.StatusCode >= 400 {
-			return fmt.Errorf("github graphql %s: %s: %s", req.URL.String(), resp.Status, strings.TrimSpace(string(body)))
-		}
-		var env graphqlEnvelope
-		if err := json.Unmarshal(body, &env); err != nil {
-			return fmt.Errorf("decode graphql json: %w", err)
-		}
-		if len(env.Errors) > 0 {
-			return fmt.Errorf("graphql error: %s", env.Errors[0].Message)
-		}
-		if out != nil && len(env.Data) > 0 && string(env.Data) != "null" {
-			if err := json.Unmarshal(env.Data, out); err != nil {
-				return fmt.Errorf("decode graphql data: %w", err)
-			}
-		}
-		return nil
+		lastErr = hErr
 	}
 	if lastErr == nil {
 		lastErr = fmt.Errorf("github graphql request failed")

@@ -7,12 +7,15 @@ linters:
   default: none
   enable:
     - errcheck
+    - gocyclo
     - govet
     - ineffassign
     - revive
     - staticcheck
     - unused
   settings:
+    gocyclo:
+      min-complexity: 15
     govet:
       enable-all: true
     # Narrow revive: godoc presence only (semantic expectations: .reinguard/policy/coding--godoc.md).

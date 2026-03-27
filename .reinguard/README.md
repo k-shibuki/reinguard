@@ -23,8 +23,6 @@ Normative architecture lives in `docs/adr/`. This directory describes how
 | `labels.yaml` | GitHub label categories + `commit_prefix` flags (ADR-0008); SSOT for type/exception/scope labels |
 | `scripts/` | Repo-specific policy scripts (commit/PR/Issue validation; Issue template sync) |
 
-**Go godoc (minimum bar):** Substrate enforces non-empty package and exported-symbol comments via `golangci-lint` / `revive` (pre-commit and CI `lint-go`). **What** those comments must convey (meaningful English, no filler) is normative in **`policy/coding--godoc.md`** — not duplicated here.
-
 Unified **priority** across all control YAML files: ADR-0004.
 
 ## Where to put new content

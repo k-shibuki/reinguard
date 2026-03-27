@@ -2,16 +2,12 @@
 package config
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 
 	jsonschema "github.com/santhosh-tekuri/jsonschema/v6"
-	"gopkg.in/yaml.v3"
 
 	"github.com/k-shibuki/reinguard/internal/labels"
 	"github.com/k-shibuki/reinguard/pkg/schema"
@@ -81,167 +77,25 @@ func Load(dir string) (*LoadResult, error) {
 	if dir == "" {
 		return nil, fmt.Errorf("config: empty directory")
 	}
-	comp, err := schema.NewCompiler()
+	ss, err := compileLoadSchemas()
 	if err != nil {
 		return nil, err
 	}
-	rootSch, err := comp.Compile(schema.URIReinguardConfig)
+	root, err := readAndValidateRoot(dir, ss.root)
 	if err != nil {
-		return nil, fmt.Errorf("config: compile root schema: %w", err)
-	}
-	rulesSch, err := comp.Compile(schema.URIRulesDocument)
-	if err != nil {
-		return nil, fmt.Errorf("config: compile rules schema: %w", err)
-	}
-	kmSch, err := comp.Compile(schema.URIKnowledgeManifest)
-	if err != nil {
-		return nil, fmt.Errorf("config: compile knowledge manifest schema: %w", err)
-	}
-	labelsSch, err := comp.Compile(schema.URILabelsConfig)
-	if err != nil {
-		return nil, fmt.Errorf("config: compile labels schema: %w", err)
-	}
-
-	rootPath := filepath.Join(dir, "reinguard.yaml")
-	rootData, err := os.ReadFile(rootPath)
-	if err != nil {
-		return nil, fmt.Errorf("config: read %s: %w", rootPath, err)
-	}
-	var rootMap map[string]any
-	if err = yaml.Unmarshal(rootData, &rootMap); err != nil {
-		return nil, fmt.Errorf("config: parse %s: %w", rootPath, err)
-	}
-	if err = validateDoc(rootSch, rootMap, rootPath); err != nil {
 		return nil, err
 	}
-	var root Root
-	if err = yaml.Unmarshal(rootData, &root); err != nil {
-		return nil, fmt.Errorf("config: decode root: %w", err)
-	}
-	if err = validateUniqueProviderIDs(&root, rootPath); err != nil {
-		return nil, err
-	}
-	if err = validateDeclaredSchemaVersion(root.SchemaVersion, rootPath); err != nil {
-		return nil, err
-	}
-
-	legacyRulesDir := filepath.Join(dir, "rules")
-	if entries, lerr := os.ReadDir(legacyRulesDir); lerr == nil {
-		for _, e := range entries {
-			if e.IsDir() {
-				continue
-			}
-			lower := strings.ToLower(e.Name())
-			if strings.HasSuffix(lower, ".yaml") || strings.HasSuffix(lower, ".yml") {
-				return nil, fmt.Errorf(
-					"config: legacy rules/%s detected; migrate files to control/{states,routes,guards}/ with matching type",
-					e.Name(),
-				)
-			}
-		}
-	} else if !os.IsNotExist(lerr) {
-		return nil, fmt.Errorf("config: read rules dir: %w", lerr)
-	}
-
-	ruleFiles := make(map[string]RulesDocument)
-	// Alphabetical kind order so RuleFiles keys sort as guards < routes < states (ADR-0011, ADR-0004).
-	controlKinds := []string{"guards", "routes", "states"}
-	for _, kind := range controlKinds {
-		kindDir := filepath.Join(dir, "control", kind)
-		entries, rerr := os.ReadDir(kindDir)
-		if rerr != nil && !os.IsNotExist(rerr) {
-			return nil, fmt.Errorf("config: read control/%s dir: %w", kind, rerr)
-		}
-		if rerr != nil {
-			continue
-		}
-		var yamlNames []string
-		for _, e := range entries {
-			if e.IsDir() {
-				continue
-			}
-			lower := strings.ToLower(e.Name())
-			if strings.HasSuffix(lower, ".yaml") || strings.HasSuffix(lower, ".yml") {
-				yamlNames = append(yamlNames, e.Name())
-			}
-		}
-		sort.Strings(yamlNames)
-		for _, name := range yamlNames {
-			p := filepath.Join(kindDir, name)
-			key := kind + "/" + name
-			data, readErr := os.ReadFile(p)
-			if readErr != nil {
-				return nil, fmt.Errorf("config: read %s: %w", p, readErr)
-			}
-			var docMap map[string]any
-			if uerr := yaml.Unmarshal(data, &docMap); uerr != nil {
-				return nil, fmt.Errorf("config: parse %s: %w", p, uerr)
-			}
-			if err = validateDoc(rulesSch, docMap, p); err != nil {
-				return nil, err
-			}
-			var doc RulesDocument
-			if uerr := yaml.Unmarshal(data, &doc); uerr != nil {
-				return nil, fmt.Errorf("config: decode %s: %w", p, uerr)
-			}
-			if err = validateRulesMatchControlKind(kind, doc.Rules, p); err != nil {
-				return nil, err
-			}
-			ruleFiles[key] = doc
-		}
-	}
-
-	res := &LoadResult{
-		Dir:       dir,
-		Root:      root,
-		RuleFiles: ruleFiles,
-	}
-
-	labelsPath := filepath.Join(dir, "labels.yaml")
-	labelsData, lerr := os.ReadFile(labelsPath)
-	if lerr != nil && !os.IsNotExist(lerr) {
-		return nil, fmt.Errorf("config: read %s: %w", labelsPath, lerr)
-	}
-	if lerr == nil {
-		var labelsMap map[string]any
-		if err = yaml.Unmarshal(labelsData, &labelsMap); err != nil {
-			return nil, fmt.Errorf("config: parse %s: %w", labelsPath, err)
-		}
-		if err = validateDoc(labelsSch, labelsMap, labelsPath); err != nil {
-			return nil, err
-		}
-		var lf labels.Config
-		if err = yaml.Unmarshal(labelsData, &lf); err != nil {
-			return nil, fmt.Errorf("config: decode %s: %w", labelsPath, err)
-		}
-		if err = validateDeclaredSchemaVersion(lf.SchemaVersion, labelsPath); err != nil {
-			return nil, err
-		}
-		res.LabelsPresent = true
-		res.Labels = &lf
-	}
-
-	kmPath := filepath.Join(dir, "knowledge", "manifest.json")
-	kmData, err := os.ReadFile(kmPath)
+	ruleFiles, err := readControlRuleFiles(dir, ss.rules)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return res, nil
-		}
-		return nil, fmt.Errorf("config: read knowledge manifest: %w", err)
-	}
-	var kmMap map[string]any
-	if jerr := json.Unmarshal(kmData, &kmMap); jerr != nil {
-		return nil, fmt.Errorf("config: parse knowledge manifest: %w", jerr)
-	}
-	if err = validateDoc(kmSch, kmMap, kmPath); err != nil {
 		return nil, err
 	}
-	var km KnowledgeManifest
-	if jerr := json.Unmarshal(kmData, &km); jerr != nil {
-		return nil, fmt.Errorf("config: decode knowledge manifest: %w", jerr)
+	res := &LoadResult{Dir: dir, Root: root, RuleFiles: ruleFiles}
+	if err := applyOptionalLabels(res, dir, ss.labels); err != nil {
+		return nil, err
 	}
-	res.KnowledgePresent = true
-	res.Knowledge = &km
+	if err := applyOptionalKnowledge(res, dir, ss.km); err != nil {
+		return nil, err
+	}
 	return res, nil
 }
 
