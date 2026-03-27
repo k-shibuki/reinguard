@@ -22,8 +22,10 @@ For assertion style and GWT comments, see [`testing--assertions.md`](testing--as
 - Keep tests **fast and deterministic**: default `go test ./...` must not
   require network access or live GitHub API (use `httptest`, fixtures,
   hermetic git repos, or build tags for integration tests).
-- Align tests with **Issues**: each PR should reference an Issue; test cases
-  should map to the Issue **Test plan** where applicable.
+- Align tests with **Issues**: each PR should reference an Issue. The Issue
+  **Test plan** records **intent** (what to prove, boundaries to watch), not an
+  exhaustive case list. Design concrete Normal / Abnormal / Boundary cases from
+  the diff during implementation; verify coverage in change-inspect (dimension 4).
 
 ## Coverage
 
@@ -45,12 +47,22 @@ for non-trivial logic (match engine, resolution, schema validation).
 
 ## Table-driven tests
 
-Prefer table-driven tests when the **same function has two or more test
-scenarios** (operator matrices, resolution ties, config variants). Use
-`t.Run(name, ...)` for clear failure attribution.
+Prefer table-driven tests when the **same function or entry point has two or
+more scenarios** (operator matrices, resolution ties, config variants). That
+includes pairing one success case with one failure case for the same helper —
+use a single table with a `wantErr string` field (empty string means success;
+non-empty means `strings.Contains` on the error). Use `t.Run(name, ...)` for
+clear failure attribution.
 
 A function with only **one scenario** may use a standalone test — do not
 force table-driven structure on single-case tests.
+
+For **GWT comments** with table-driven tests, see
+[`testing--given-when-then.md`](testing--given-when-then.md) § Table-driven tests.
+
+When `govet` `fieldalignment` nags on large case structs, you may use
+`//nolint:govet` on the table struct with a short rationale (same pattern as
+`internal/observe/engine_test.go`).
 
 ## Test setup error handling
 

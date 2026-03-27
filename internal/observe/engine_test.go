@@ -87,6 +87,9 @@ func TestEngine_Collect_nilRoot(t *testing.T) {
 
 func TestNewEngineFromConfig(t *testing.T) {
 	t.Parallel()
+	// Given: provider spec slices
+	// When: NewEngineFromConfig builds an engine
+	// Then: compile error or enabled provider set matches row
 	//nolint:govet // table-driven case struct; fieldalignment is not worth obfuscating field order
 	tests := []struct {
 		name         string
@@ -115,10 +118,7 @@ func TestNewEngineFromConfig(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			// Given: provider specs (see subtest name)
-			// When: NewEngineFromConfig builds the engine
 			e, err := NewEngineFromConfig(tt.specs)
-			// Then: error or providers match expectations
 			if tt.wantErr != "" {
 				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 					t.Fatalf("got %v", err)

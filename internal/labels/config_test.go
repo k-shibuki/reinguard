@@ -185,6 +185,10 @@ func TestConfig_nilCategories(t *testing.T) {
 }
 
 func TestNormalizeGHColor(t *testing.T) {
+	t.Parallel()
+	// Given: GitHub color strings with varied spacing and # prefix
+	// When: normalizeGHColor runs per row
+	// Then: uppercase hex without # matches want
 	tests := []struct {
 		name string
 		in   string
@@ -196,6 +200,7 @@ func TestNormalizeGHColor(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			if got := normalizeGHColor(tc.in); got != tc.want {
 				t.Fatalf("normalizeGHColor(%q)=%q want %q", tc.in, got, tc.want)
 			}

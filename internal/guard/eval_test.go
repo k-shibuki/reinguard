@@ -39,6 +39,9 @@ func TestEvalWithRules(t *testing.T) {
 			"reviews": map[string]any{"review_threads_unresolved": 0},
 		},
 	}
+	// Given: merge-readiness guard, optional declarative rules, signal variants
+	// When: EvalWithRules runs per row
+	// Then: OK and Reason match expectations
 	tests := []struct {
 		signals          map[string]any
 		name             string
@@ -70,14 +73,11 @@ func TestEvalWithRules(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			// Given: a registry with merge-readiness and optional declarative rules
 			reg := NewRegistry()
 			if err := reg.Register(mergeReadinessGuard{}); err != nil {
 				t.Fatal(err)
 			}
-			// When: EvalWithRules runs
 			got := EvalWithRules(tt.rules, reg, "merge-readiness", tt.signals, nil)
-			// Then: outcome matches expectations
 			if tt.wantOK {
 				if !got.OK {
 					t.Fatalf("want ok, got %+v", got)

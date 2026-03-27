@@ -93,10 +93,7 @@ func TestCollect_validationBoundaries(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			// Given: tc fields
-			// When: Collect runs
 			_, err := Collect(context.Background(), tc.cli, tc.owner, tc.repo)
-			// Then: error contains tc.want
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("got %v, want substring %q", err, tc.want)
 			}

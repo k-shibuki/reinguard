@@ -74,6 +74,9 @@ func TestResolve_emptyCwd(t *testing.T) {
 
 func TestRepoRoot(t *testing.T) {
 	t.Parallel()
+	// Given: config directory paths (dot-reinguard vs flat layout)
+	// When: RepoRoot runs
+	// Then: inferred repository root matches want
 	tests := []struct {
 		name   string
 		cfgDir string
@@ -94,10 +97,7 @@ func TestRepoRoot(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			// Given: a config directory layout
-			// When: RepoRoot is called
 			got := RepoRoot(tt.cfgDir)
-			// Then: expected repository root is returned
 			if got != tt.want {
 				t.Fatalf("got %q want %q", got, tt.want)
 			}

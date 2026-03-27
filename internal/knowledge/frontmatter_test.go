@@ -31,6 +31,9 @@ triggers:
 
 func TestParseFrontMatter_errors(t *testing.T) {
 	t.Parallel()
+	// Given: invalid or incomplete YAML front matter fragments
+	// When: ParseFrontMatter runs
+	// Then: error mentions expected validation aspect (contain)
 	tests := []struct {
 		name    string
 		input   string
@@ -71,10 +74,7 @@ triggers: []
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			// Given: invalid or incomplete front matter
-			// When: ParseFrontMatter is called
 			_, err := ParseFrontMatter([]byte(tt.input))
-			// Then: error mentions the expected validation aspect
 			if err == nil || !strings.Contains(err.Error(), tt.contain) {
 				t.Fatalf("got %v", err)
 			}

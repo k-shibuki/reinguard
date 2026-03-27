@@ -33,7 +33,7 @@ New implementation Issues SHOULD include:
 3. **ADR Impact** — `none`, `new`, or `amend` with target file
 4. **Acceptance ↔ ADR** — how completion is verified against ADRs
 5. **Definition of Done** — checklist
-6. **Test plan** — concrete cases (table encouraged); not only "tests pass"
+6. **Test plan** — intent and risks (what to prove, not a case-ID table); not only "tests pass" (see `task.yml` description)
 
 Use `.github/ISSUE_TEMPLATE/task.yml` (Issue Form) as the starting point.
 

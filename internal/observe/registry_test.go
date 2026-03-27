@@ -10,6 +10,7 @@ import (
 
 func TestProviderRegistry_Register_duplicate(t *testing.T) {
 	t.Parallel()
+	// Given/When/Then: second Register with same id returns duplicate error
 	r := NewRegistry()
 	if err := r.Register("a", func(map[string]any) (Provider, error) {
 		return &stubProv{id: "a"}, nil
@@ -26,6 +27,7 @@ func TestProviderRegistry_Register_duplicate(t *testing.T) {
 
 func TestProviderRegistry_Register_nilFactory(t *testing.T) {
 	t.Parallel()
+	// Given/When/Then: nil factory rejected at Register
 	r := NewRegistry()
 	err := r.Register("x", nil)
 	if err == nil || !strings.Contains(err.Error(), "nil factory") {
@@ -35,6 +37,7 @@ func TestProviderRegistry_Register_nilFactory(t *testing.T) {
 
 func TestProviderRegistry_Register_zeroValue(t *testing.T) {
 	t.Parallel()
+	// Given/When/Then: zero-value registry accepts Register and Build
 	var r ProviderRegistry
 	if err := r.Register("a", func(map[string]any) (Provider, error) {
 		return &stubProv{id: "a"}, nil
@@ -52,6 +55,7 @@ func TestProviderRegistry_Register_zeroValue(t *testing.T) {
 
 func TestProviderRegistry_Build_unknownProvider(t *testing.T) {
 	t.Parallel()
+	// Given/When/Then: enabled spec id not registered yields unknown provider error
 	r := NewRegistry()
 	_, err := r.Build([]config.ProviderSpec{{ID: "nope", Enabled: true}})
 	if err == nil || !strings.Contains(err.Error(), "unknown provider") {
@@ -61,6 +65,7 @@ func TestProviderRegistry_Build_unknownProvider(t *testing.T) {
 
 func TestProviderRegistry_Build_emptyEnabledID(t *testing.T) {
 	t.Parallel()
+	// Given/When/Then: whitespace-only enabled id rejected
 	r := NewRegistry()
 	_, err := r.Build([]config.ProviderSpec{{ID: "   ", Enabled: true}})
 	if err == nil || !strings.Contains(err.Error(), "empty id") {
@@ -70,6 +75,7 @@ func TestProviderRegistry_Build_emptyEnabledID(t *testing.T) {
 
 func TestProviderRegistry_Build_duplicateEnabledID(t *testing.T) {
 	t.Parallel()
+	// Given/When/Then: duplicate enabled ids in one Build call error
 	reg := DefaultRegistry()
 	_, err := reg.Build([]config.ProviderSpec{
 		{ID: "git", Enabled: true},
@@ -82,6 +88,7 @@ func TestProviderRegistry_Build_duplicateEnabledID(t *testing.T) {
 
 func TestProviderRegistry_Build_skipsDisabled(t *testing.T) {
 	t.Parallel()
+	// Given/When/Then: disabled provider spec omitted from built map
 	r := NewRegistry()
 	if err := r.Register("a", func(map[string]any) (Provider, error) {
 		return &stubProv{id: "a", frag: Fragment{Signals: map[string]any{"k": 1}}}, nil
@@ -101,6 +108,7 @@ func TestProviderRegistry_Build_skipsDisabled(t *testing.T) {
 
 func TestProviderRegistry_Build_factoryError(t *testing.T) {
 	t.Parallel()
+	// Given/When/Then: factory error surfaces from Build
 	r := NewRegistry()
 	if err := r.Register("bad", func(map[string]any) (Provider, error) {
 		return nil, errors.New("boom")
@@ -115,6 +123,7 @@ func TestProviderRegistry_Build_factoryError(t *testing.T) {
 
 func TestProviderRegistry_Build_nilProvider(t *testing.T) {
 	t.Parallel()
+	// Given/When/Then: factory returning nil without error is rejected
 	r := NewRegistry()
 	if err := r.Register("nilp", func(map[string]any) (Provider, error) {
 		return nil, nil
@@ -129,6 +138,7 @@ func TestProviderRegistry_Build_nilProvider(t *testing.T) {
 
 func TestProviderRegistry_Build_idMismatch(t *testing.T) {
 	t.Parallel()
+	// Given/When/Then: provider ID must match registered key
 	r := NewRegistry()
 	if err := r.Register("x", func(map[string]any) (Provider, error) {
 		return &stubProv{id: "wrong"}, nil
@@ -143,6 +153,7 @@ func TestProviderRegistry_Build_idMismatch(t *testing.T) {
 
 func TestDefaultRegistry_Build_githubOptionsRoundTrip(t *testing.T) {
 	t.Parallel()
+	// Given/When/Then: api_base option reaches GitHubProvider
 	wantBase := "https://api.example.com/"
 	reg := DefaultRegistry()
 	m, err := reg.Build([]config.ProviderSpec{
@@ -162,6 +173,7 @@ func TestDefaultRegistry_Build_githubOptionsRoundTrip(t *testing.T) {
 
 func TestDefaultRegistry_shallowCopyOptions(t *testing.T) {
 	t.Parallel()
+	// Given/When/Then: factory receives copied options map; caller map unchanged
 	reg := NewRegistry()
 	var captured map[string]any
 	if err := reg.Register("mut", func(opts map[string]any) (Provider, error) {

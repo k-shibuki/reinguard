@@ -336,9 +336,6 @@ func TestEvalOperatorMatrix(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			// Given: tc.sig and tc.when (see name)
-			// When: Eval runs
-			// Then: want / wantErr
 			ok, err := Eval(tc.when, tc.sig)
 			if err != nil {
 				t.Fatal(err)
@@ -367,6 +364,9 @@ func registryWithIntReturn() *evaluator.Registry {
 
 func TestEval_namedEvaluator_table(t *testing.T) {
 	t.Parallel()
+	// Given: when clauses with optional custom registry per row
+	// When: Eval or EvalWithRegistry runs
+	// Then: boolean result or error substring matches expectations
 	emptyReg := evaluator.NewRegistry()
 	//nolint:govet // table-driven case struct; fieldalignment is not worth obfuscating field order
 	tests := []struct {
@@ -493,7 +493,9 @@ func TestEval_namedEvaluator_table(t *testing.T) {
 
 func TestEvalLteGteTable(t *testing.T) {
 	t.Parallel()
-	// Given: fixed signal n=5
+	// Given: fixed signal n=5 and lte/gte comparison rows
+	// When: Eval runs per op and threshold
+	// Then: truth matches want
 	s := map[string]any{"n": 5.0}
 	for _, tc := range []struct {
 		op   string
@@ -507,9 +509,6 @@ func TestEvalLteGteTable(t *testing.T) {
 	} {
 		t.Run(fmt.Sprintf("%s_%g", tc.op, tc.v), func(t *testing.T) {
 			t.Parallel()
-			// Given: signal n=5 and comparison op
-			// When: Eval lte/gte
-			// Then: want truth value
 			when := map[string]any{"op": tc.op, "path": "n", "value": tc.v}
 			ok, err := Eval(when, s)
 			if err != nil {

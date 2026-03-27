@@ -50,9 +50,9 @@ body:
     id: test_plan
     attributes:
       label: Test plan
-      description: 'Use a test perspectives table when helpful (Normal / Abnormal / Boundary).
+      description: 'Describe **testing intent** in prose or bullets — what must succeed, what must fail, and notable boundary risks. Do **not** use Case-ID tables (TC-N-01); concrete cases are designed at implementation time and verified in change-inspect (dimension 4).
 
-        Go checks (always): go test ./..., go vet ./..., golangci-lint run (or CI)
+        Always list Go checks: go test ./... -race, go vet ./..., golangci-lint run (or rely on CI).
 
 '
     validations:

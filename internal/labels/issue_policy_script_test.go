@@ -77,6 +77,9 @@ func TestCheckIssuePolicyScript(t *testing.T) {
 	root := repoRoot(t)
 	mustMikefarahYq(t, root)
 	script := filepath.Join(root, ".reinguard", "scripts", "check-issue-policy.sh")
+	// Given: synthetic Issue body files and CLI args per row
+	// When: check-issue-policy.sh runs
+	// Then: exit status and output match wantErr / wantSubstr
 
 	tests := []struct {
 		name       string
@@ -118,7 +121,6 @@ func TestCheckIssuePolicyScript(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Given: Issue body file and CLI args for check-issue-policy.sh
 			f, err := os.CreateTemp(t.TempDir(), "issue-body-*.md")
 			if err != nil {
 				t.Fatal(err)
@@ -131,13 +133,11 @@ func TestCheckIssuePolicyScript(t *testing.T) {
 				t.Fatal(cerr)
 			}
 
-			// When: running the script
 			cmd := exec.Command("bash", script, "--title", tt.title, "--body-file", path, "--label", tt.label, "--template", tt.template)
 			cmd.Dir = root
 			out, err := cmd.CombinedOutput()
 			s := string(out)
 
-			// Then: exit code and output match expectations
 			if tt.wantErr {
 				if err == nil {
 					t.Fatalf("expected non-zero exit, got success: %s", s)

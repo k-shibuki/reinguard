@@ -7,6 +7,9 @@ import (
 
 func TestValidateWhen_table(t *testing.T) {
 	t.Parallel()
+	// Given: when-clause trees and default registry
+	// When: ValidateWhen runs per row
+	// Then: nil or error substring per row
 	reg := DefaultRegistry()
 	tests := []struct {
 		name    string

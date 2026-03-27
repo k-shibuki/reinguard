@@ -8,6 +8,9 @@ import (
 
 func TestRegistry_Register_table(t *testing.T) {
 	t.Parallel()
+	// Given: registry scenarios (nil receiver, duplicate, empty name)
+	// When: Register is called
+	// Then: error substring or success per row
 	//nolint:govet // table-driven case struct; fieldalignment is not worth obfuscating field order
 	tests := []struct {
 		name    string
@@ -73,6 +76,9 @@ func (emptyNameEval) Eval(map[string]any, map[string]any) (any, error) { return 
 
 func TestDefaultRegistry_ListRegistered_sortedIncludesConstant(t *testing.T) {
 	t.Parallel()
+	// Given: default built-in registry
+	// When: ListRegistered runs
+	// Then: names are sorted and include constant
 	names := DefaultRegistry().ListRegistered()
 	if !slices.Contains(names, "constant") {
 		t.Fatalf("expected constant in %v", names)
@@ -86,6 +92,9 @@ func TestDefaultRegistry_ListRegistered_sortedIncludesConstant(t *testing.T) {
 
 func TestRegistry_Get_nilReceiver(t *testing.T) {
 	t.Parallel()
+	// Given: nil *Registry
+	// When: Get is called
+	// Then: false and nil evaluator
 	e, ok := (*Registry)(nil).Get("x")
 	if ok || e != nil {
 		t.Fatalf("got %v %v", e, ok)

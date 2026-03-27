@@ -125,11 +125,8 @@ func TestHintWarnings(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			// Given: repository root and manifest from setup
 			root, m := tt.setup(t)
-			// When: HintWarnings evaluates the manifest
 			w := HintWarnings(root, m)
-			// Then: warning count matches; if any, first line contains expected substring
 			if len(w) != tt.wantLen {
 				t.Fatalf("got %d warnings %v", len(w), w)
 			}

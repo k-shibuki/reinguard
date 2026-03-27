@@ -71,6 +71,9 @@ func TestPostGraphQL_success(t *testing.T) {
 // TestClient_graphQLEndpoint verifies default GitHub.com and /api/v3→/api/graphql mapping for api_base.
 func TestClient_graphQLEndpoint(t *testing.T) {
 	t.Parallel()
+	// Given: Client BaseURL variants (empty, GitHub.com, Enterprise /api/v3)
+	// When: graphQLEndpoint resolves the GraphQL URL
+	// Then: result matches want
 	tests := []struct {
 		base string
 		want string
