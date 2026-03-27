@@ -135,6 +135,7 @@ func TestCollect_graphqlPaginationIncomplete(t *testing.T) {
 
 func TestCollect_nullPullRequest(t *testing.T) {
 	t.Parallel()
+	// Given: GraphQL returns pullRequest: null (e.g. wrong PR number)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := map[string]any{
 			"data": map[string]any{
@@ -148,12 +149,14 @@ func TestCollect_nullPullRequest(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	// When: Collect runs
 	m, err := Collect(context.Background(), c, "o", "r", 99)
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: no threads, pagination complete
 	rev := m["reviews"].(map[string]any)
-	if rev["review_threads_total"].(int) != 0 || rev["review_threads_unresolved"].(int) != 0 {
+	if rev["review_threads_total"].(int) != 0 || rev["review_threads_unresolved"].(int) != 0 || rev["pagination_incomplete"].(bool) {
 		t.Fatalf("%+v", rev)
 	}
 }

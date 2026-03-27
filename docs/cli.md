@@ -83,7 +83,7 @@ Each `providers[]` entry may include `options` (object). Built-in factories cons
 
 | Provider `id` | Key        | Type   | Description |
 |-----------------|------------|--------|-------------|
-| `github`        | `api_base` | string | Optional GitHub REST API root override (e.g. tests or GitHub Enterprise); leading/trailing space trimmed |
+| `github`        | `api_base` | string | Optional GitHub REST API root override (e.g. `httptest` or a host whose REST root is `https://HOST/api/v3`); GraphQL uses `https://api.github.com/graphql` by default and maps `.../api/v3` → `.../api/graphql` for that Enterprise Server shape; leading/trailing space trimmed |
 
 The `git` provider accepts `options` for forward compatibility; keys are currently unused.
 

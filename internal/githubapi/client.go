@@ -28,6 +28,19 @@ func (c *Client) APIBase() string {
 	return "https://api.github.com"
 }
 
+// graphQLEndpoint returns the GraphQL HTTP URL for this client.
+// For GitHub.com the REST root is https://api.github.com and GraphQL is /graphql on the same host.
+// GitHub Enterprise Server often configures REST as https://HOST/api/v3; its GraphQL endpoint is
+// https://HOST/api/graphql (not .../api/v3/graphql). Unsupported or custom layouts may need a
+// different api_base; the primary supported target remains github.com (ADR-0006).
+func (c *Client) graphQLEndpoint() string {
+	base := c.APIBase()
+	if strings.HasSuffix(base, "/api/v3") {
+		return strings.TrimSuffix(base, "/api/v3") + "/api/graphql"
+	}
+	return base + "/graphql"
+}
+
 // GetJSON performs GET u with GitHub REST headers.
 func (c *Client) GetJSON(ctx context.Context, u string, out any) error {
 	httpClient := c.HTTP
@@ -111,8 +124,8 @@ type graphqlErrorFragment struct {
 	Message string `json:"message"`
 }
 
-// PostGraphQL posts a GraphQL request to {APIBase}/graphql with the same auth and
-// 429 retry behavior as GetJSON (ADR-0006). If the response includes GraphQL-level
+// PostGraphQL posts a GraphQL request to the host's GraphQL URL (see graphQLEndpoint) with the
+// same auth and 429 retry behavior as GetJSON (ADR-0006). If the response includes GraphQL-level
 // errors, PostGraphQL returns a non-nil error after a successful HTTP status.
 // The `data` field is unmarshaled into `out` when `out` is non-nil.
 func (c *Client) PostGraphQL(ctx context.Context, query string, variables map[string]any, out any) error {
@@ -127,7 +140,7 @@ func (c *Client) PostGraphQL(ctx context.Context, query string, variables map[st
 	if err != nil {
 		return fmt.Errorf("graphql encode body: %w", err)
 	}
-	u := c.APIBase() + "/graphql"
+	u := c.graphQLEndpoint()
 
 	httpClient := c.HTTP
 	if httpClient == nil {
