@@ -378,6 +378,28 @@ func TestEval_namedEvaluator_table(t *testing.T) {
 		wantErr string
 	}{
 		{
+			name: "any_nested_custom_registry",
+			when: map[string]any{
+				"op":   "any",
+				"path": "items",
+				"when": map[string]any{"eval": "returns-int", "params": map[string]any{}},
+			},
+			sig:     map[string]any{"items": []any{1}},
+			reg:     registryWithIntReturn(),
+			wantErr: "want bool",
+		},
+		{
+			name: "count_nested_builtin_evaluator",
+			when: map[string]any{
+				"op":   "count",
+				"path": "items",
+				"eq":   2,
+				"when": map[string]any{"eval": "constant", "params": map[string]any{"value": true}},
+			},
+			sig:    map[string]any{"items": []any{1, 2}},
+			wantOK: true,
+		},
+		{
 			name: "constant_true",
 			when: map[string]any{"eval": "constant", "params": map[string]any{"value": true}},
 			sig:  map[string]any{},
@@ -429,6 +451,26 @@ func TestEval_namedEvaluator_table(t *testing.T) {
 			},
 			sig:     map[string]any{},
 			wantErr: "combine eval with op",
+		},
+		{
+			name: "eval_with_non_string_op_value",
+			when: map[string]any{
+				"eval": "constant", "params": map[string]any{"value": true}, "op": 1,
+			},
+			sig:     map[string]any{},
+			wantErr: "combine eval with op",
+		},
+		{
+			name:    "eval_wrong_type",
+			when:    map[string]any{"eval": 1, "op": "eq"},
+			sig:     map[string]any{},
+			wantErr: "eval must be non-empty string",
+		},
+		{
+			name:    "eval_empty_string",
+			when:    map[string]any{"eval": ""},
+			sig:     map[string]any{},
+			wantErr: "eval must be non-empty string",
 		},
 		{
 			name: "eval_combined_with_and",

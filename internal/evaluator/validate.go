@@ -37,8 +37,11 @@ func walkWhenEval(when any, visit func(name string) error) error {
 }
 
 func walkWhenMap(m map[string]any, visit func(name string) error) error {
-	name, ok := m["eval"].(string)
-	if ok && name != "" {
+	if raw, hasEval := m["eval"]; hasEval {
+		name, ok := raw.(string)
+		if !ok || name == "" {
+			return fmt.Errorf("when clause eval must be non-empty string")
+		}
 		return finishEvalClause(m, name, visit)
 	}
 	if err := walkLogicalChildren(m, visit); err != nil {
@@ -55,7 +58,7 @@ func finishEvalClause(m map[string]any, name string, visit func(name string) err
 }
 
 func rejectEvalCombiners(m map[string]any) error {
-	if _, has := m["op"].(string); has {
+	if _, has := m["op"]; has {
 		return fmt.Errorf("when clause cannot combine eval with op")
 	}
 	if _, has := m["and"]; has {

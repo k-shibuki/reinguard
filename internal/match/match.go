@@ -58,8 +58,12 @@ func evalValue(v any, signals map[string]any, reg *evaluator.Registry) (bool, er
 }
 
 func evalMap(m map[string]any, signals map[string]any, reg *evaluator.Registry) (bool, error) {
-	if name, ok := m["eval"].(string); ok && name != "" {
-		if _, opOK := m["op"].(string); opOK {
+	if raw, hasEval := m["eval"]; hasEval {
+		name, ok := raw.(string)
+		if !ok || name == "" {
+			return false, fmt.Errorf("match: eval must be non-empty string")
+		}
+		if _, has := m["op"]; has {
 			return false, fmt.Errorf("match: when clause cannot combine eval with op")
 		}
 		if _, ok := m["and"]; ok {

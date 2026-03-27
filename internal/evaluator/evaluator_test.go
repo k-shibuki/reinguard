@@ -15,6 +15,7 @@ func TestRegistry_Register_table(t *testing.T) {
 	tests := []struct {
 		name    string
 		nilRecv bool
+		zeroReg bool
 		prep    func(*Registry) error
 		second  Evaluator
 		wantErr string
@@ -24,6 +25,16 @@ func TestRegistry_Register_table(t *testing.T) {
 			nilRecv: true,
 			second:  constantEvaluator{},
 			wantErr: "nil registry",
+		},
+		{
+			name:    "nil_evaluator",
+			second:  nil,
+			wantErr: "nil evaluator",
+		},
+		{
+			name:    "zero_value_registry_lazy_init",
+			zeroReg: true,
+			second:  constantEvaluator{},
 		},
 		{
 			name:    "duplicate_name",
@@ -48,7 +59,12 @@ func TestRegistry_Register_table(t *testing.T) {
 				}
 				return
 			}
-			r := NewRegistry()
+			var r *Registry
+			if tc.zeroReg {
+				r = &Registry{}
+			} else {
+				r = NewRegistry()
+			}
 			if tc.prep != nil {
 				if err := tc.prep(r); err != nil {
 					t.Fatal(err)

@@ -44,6 +44,12 @@ func (r *Registry) Register(e Evaluator) error {
 	if r == nil {
 		return fmt.Errorf("evaluator: nil registry")
 	}
+	if e == nil {
+		return fmt.Errorf("evaluator: nil evaluator")
+	}
+	if r.byName == nil {
+		r.byName = make(map[string]Evaluator)
+	}
 	name := e.Name()
 	if name == "" {
 		return fmt.Errorf("evaluator: empty name")

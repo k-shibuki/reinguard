@@ -37,6 +37,29 @@ func TestValidateWhen_table(t *testing.T) {
 			wantErr: "combine eval with op",
 		},
 		{
+			name: "eval_combined_with_non_string_op",
+			when: map[string]any{
+				"eval": "constant",
+				"op":   1,
+			},
+			wantErr: "combine eval with op",
+		},
+		{
+			name: "eval_wrong_type",
+			when: map[string]any{
+				"eval": 1,
+				"op":   "eq",
+			},
+			wantErr: "eval must be non-empty string",
+		},
+		{
+			name: "eval_empty_string",
+			when: map[string]any{
+				"eval": "",
+			},
+			wantErr: "eval must be non-empty string",
+		},
+		{
 			name: "valid_constant_only",
 			when: map[string]any{
 				"eval":   "constant",
