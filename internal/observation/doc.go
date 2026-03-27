@@ -1,3 +1,5 @@
+// Package observation builds validated observation document payloads from provider signals
+// and diagnostics (schema_version, signals, degraded, optional meta).
 package observation
 
 import (

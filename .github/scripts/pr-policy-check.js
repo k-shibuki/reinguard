@@ -5,6 +5,10 @@
 
 const fs = require("fs");
 
+/**
+ * Loads labels.json, fetches the live PR via REST, and validates title, base, labels, and required body sections.
+ * Pushes errors to core.setFailed; warnings are non-fatal.
+ */
 const run = async () => {
   const pr = context.payload.pull_request;
   if (!pr || !pr.number) {

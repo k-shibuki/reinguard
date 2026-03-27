@@ -14,6 +14,7 @@ import (
 	"github.com/k-shibuki/reinguard/internal/githubapi"
 )
 
+// combinedStatus is the JSON shape of GET /repos/{owner}/{repo}/commits/{sha}/status.
 type combinedStatus struct {
 	State string `json:"state"`
 }
@@ -56,6 +57,7 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir stri
 	}, warnings, nil
 }
 
+// headSHA returns the current commit SHA from git rev-parse HEAD in wd.
 func headSHA(ctx context.Context, wd string) (string, error) {
 	var buf bytes.Buffer
 	cmd := exec.CommandContext(ctx, "git", "rev-parse", "HEAD")

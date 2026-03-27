@@ -11,6 +11,7 @@ import (
 	"testing"
 )
 
+// TestPostGraphQL_success checks JSON body shape, successful GraphQL data decode, and handler-side validation without racing testing.T.
 func TestPostGraphQL_success(t *testing.T) {
 	t.Parallel()
 	var mu sync.Mutex
@@ -59,6 +60,7 @@ func TestPostGraphQL_success(t *testing.T) {
 	}
 }
 
+// TestClient_graphQLEndpoint verifies default GitHub.com and /api/v3→/api/graphql mapping for api_base.
 func TestClient_graphQLEndpoint(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -78,6 +80,7 @@ func TestClient_graphQLEndpoint(t *testing.T) {
 	}
 }
 
+// TestPostGraphQL_restApiV3BaseHitsApiGraphqlPath ensures PostGraphQL posts to /api/graphql when REST base ends with /api/v3.
 func TestPostGraphQL_restApiV3BaseHitsApiGraphqlPath(t *testing.T) {
 	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -96,6 +99,7 @@ func TestPostGraphQL_restApiV3BaseHitsApiGraphqlPath(t *testing.T) {
 	}
 }
 
+// TestPostGraphQL_graphqlErrors asserts GraphQL-level errors become a non-nil Go error with the first message.
 func TestPostGraphQL_graphqlErrors(t *testing.T) {
 	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -109,6 +113,7 @@ func TestPostGraphQL_graphqlErrors(t *testing.T) {
 	}
 }
 
+// TestPostGraphQL_nilClient verifies PostGraphQL rejects a nil *Client.
 func TestPostGraphQL_nilClient(t *testing.T) {
 	t.Parallel()
 	var c *Client

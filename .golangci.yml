@@ -9,11 +9,19 @@ linters:
     - errcheck
     - govet
     - ineffassign
+    - revive
     - staticcheck
     - unused
   settings:
     govet:
       enable-all: true
+    # Narrow revive: godoc presence only (semantic expectations: .reinguard/policy/coding--godoc.md).
+    revive:
+      rules:
+        - name: exported
+          arguments:
+            - disableStutteringCheck
+        - name: package-comments
 
 formatters:
   enable:

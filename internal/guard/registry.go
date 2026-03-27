@@ -7,6 +7,7 @@ type Registry struct {
 	byID map[string]Guard
 }
 
+// defaultRegistry is the process-wide registry initialized with standard built-ins.
 var defaultRegistry = newBuiltinRegistry()
 
 func newBuiltinRegistry() *Registry {

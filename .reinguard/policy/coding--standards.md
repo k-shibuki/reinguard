@@ -23,6 +23,7 @@ Repository-wide coding and documentation rules. The Cursor Adapter rule `reingua
 - Format with `gofmt` / `goimports` before commit.
 - Run `go vet ./...` and `go test ./...` locally before push (see `.reinguard/policy/safety--agent-invariants.md` § **HS-LOCAL-VERIFY**).
 - Prefer small packages under `internal/` and `cmd/` per repository layout conventions.
+- **Documentation**: meaningful godoc for exported APIs and package comments; mechanical enforcement via `golangci-lint` / `revive` — see [coding--godoc.md](coding--godoc.md).
 
 ## Markdown
 
@@ -42,5 +43,6 @@ Repository-wide coding and documentation rules. The Cursor Adapter rule `reingua
 
 ## Related
 
+- `.reinguard/policy/coding--godoc.md` — godoc semantics and revive gate
 - `.reinguard/policy/safety--agent-invariants.md` — HS-LOCAL-VERIFY and other HS-* codes
 - `.reinguard/policy/catalog.yaml` — policy index

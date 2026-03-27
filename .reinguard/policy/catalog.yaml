@@ -18,6 +18,9 @@ entries:
   - id: coding-standards
     path: coding--standards.md
     description: "Language policy (English artifacts), Go formatting, same-kind change scope, ADR/CLI authority"
+  - id: coding-godoc
+    path: coding--godoc.md
+    description: "Godoc semantics and revive-based mechanical gate (exported + package-comments via golangci-lint)"
   - id: coding-preflight
     path: coding--preflight.md
     description: "Pre-commit verification obligations — HS-LOCAL-VERIFY expansion, defensive checks, test design, self-review"

@@ -1,3 +1,5 @@
+// Package githubapi is a small GitHub REST and GraphQL HTTP client with shared auth headers,
+// 429 handling, and optional api_base override (ADR-0006).
 package githubapi
 
 import (
@@ -120,6 +122,7 @@ type graphqlEnvelope struct {
 	Errors []graphqlErrorFragment `json:"errors"`
 }
 
+// graphqlErrorFragment is one element of the GraphQL errors array in a JSON response body.
 type graphqlErrorFragment struct {
 	Message string `json:"message"`
 }
@@ -221,6 +224,8 @@ func (c *Client) PostGraphQL(ctx context.Context, query string, variables map[st
 	return lastErr
 }
 
+// retryAfterDelay returns how long to wait before retrying after a rate-limit response,
+// preferring Retry-After, then X-RateLimit-Reset when Remaining is zero, else fallback.
 func retryAfterDelay(resp *http.Response, fallback time.Duration) time.Duration {
 	if resp == nil {
 		return fallback
@@ -244,6 +249,7 @@ func retryAfterDelay(resp *http.Response, fallback time.Duration) time.Duration 
 	return fallback
 }
 
+// sleepCtx waits for d or until ctx is canceled, whichever comes first.
 func sleepCtx(ctx context.Context, d time.Duration) error {
 	if d <= 0 {
 		return nil
@@ -258,6 +264,7 @@ func sleepCtx(ctx context.Context, d time.Duration) error {
 	}
 }
 
+// isGitHubRateLimit403 reports whether resp is a secondary rate-limit 403 (Retry-After or body text).
 func isGitHubRateLimit403(resp *http.Response, body []byte) bool {
 	if resp == nil || resp.StatusCode != 403 {
 		return false

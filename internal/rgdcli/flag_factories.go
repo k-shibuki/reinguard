@@ -8,6 +8,7 @@ import "github.com/urfave/cli/v2"
 // causes data races when multiple App.Run calls run concurrently under -race.
 // Always allocate a fresh instance per Flags slice via these factories.
 
+// newConfigDirFlag returns a fresh --config-dir flag bound to REINGUARD_CONFIG_DIR.
 func newConfigDirFlag() *cli.StringFlag {
 	return &cli.StringFlag{Name: "config-dir", EnvVars: []string{"REINGUARD_CONFIG_DIR"}}
 }

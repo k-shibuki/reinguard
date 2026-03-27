@@ -11,6 +11,7 @@ import (
 	"github.com/k-shibuki/reinguard/internal/githubapi"
 )
 
+// TestCollect_zeroPR ensures PR number ≤0 returns zero thread counts without calling the network.
 func TestCollect_zeroPR(t *testing.T) {
 	t.Parallel()
 	// Given: PR number 0 — no HTTP needed
@@ -27,6 +28,7 @@ func TestCollect_zeroPR(t *testing.T) {
 	}
 }
 
+// TestCollect_graphqlOnePage exercises one GraphQL page with mixed resolved threads and complete pagination.
 func TestCollect_graphqlOnePage(t *testing.T) {
 	t.Parallel()
 	// Given: GraphQL returns two threads, one unresolved
@@ -82,6 +84,7 @@ func TestCollect_graphqlOnePage(t *testing.T) {
 	}
 }
 
+// TestCollect_graphqlPaginationIncomplete simulates endless hasNextPage until the page cap sets pagination_incomplete.
 func TestCollect_graphqlPaginationIncomplete(t *testing.T) {
 	t.Parallel()
 	// Given: every page reports hasNextPage true (simulated infinite pages → cap)
@@ -133,6 +136,7 @@ func TestCollect_graphqlPaginationIncomplete(t *testing.T) {
 	}
 }
 
+// TestCollect_nullPullRequest covers pullRequest: null (missing PR) as zero threads and complete pagination.
 func TestCollect_nullPullRequest(t *testing.T) {
 	t.Parallel()
 	// Given: GraphQL returns pullRequest: null (e.g. wrong PR number)

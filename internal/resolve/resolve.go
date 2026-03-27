@@ -32,11 +32,13 @@ import (
 	"github.com/k-shibuki/reinguard/internal/match"
 )
 
+// priorityEpsilon is used when comparing rule priorities for ties and ordering.
 const priorityEpsilon = 1e-9
 
 // OutcomeKind classifies resolution result.
 type OutcomeKind string
 
+// Standard values for Result.Kind in control rule resolution (ADR-0007).
 const (
 	OutcomeResolved    OutcomeKind = "resolved"
 	OutcomeAmbiguous   OutcomeKind = "ambiguous"
@@ -87,6 +89,7 @@ func filterType(rules []config.Rule, typ string) []config.Rule {
 	return out
 }
 
+// resolveProfile carries human-readable reasons and flags for one invocation of Resolve.
 type resolveProfile struct {
 	ruleType            string
 	noMatchReason       string
@@ -95,6 +98,7 @@ type resolveProfile struct {
 	routeStyle          bool
 }
 
+// profileForRuleType returns the outcome strings and route-style flag for state, route, or guard rules.
 func profileForRuleType(ruleType string) (resolveProfile, error) {
 	switch ruleType {
 	case "state":

@@ -3,6 +3,9 @@
 
 const fs = require("fs");
 
+/**
+ * Loads labels.json, fetches the Issue, optionally adds a type label from the Task form, and posts informational comments.
+ */
 const run = async () => {
   const issue = context.payload.issue;
   if (!issue || !issue.number) {
