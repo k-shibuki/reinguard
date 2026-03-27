@@ -28,7 +28,9 @@ instead of only checking that some JSON exists.
 
 When creating or substantially editing non-trivial tests:
 
-- add concise Given/When/Then comments
+- add a concise **function-level** Given/When/Then summary
+- for **table-driven** tests, do not repeat GWT inside each table row or loop
+  iteration (see [`testing--given-when-then.md`](testing--given-when-then.md))
 - keep test intent readable in code review
 
 ## Rule 4: Add boundary checks when changing contracts

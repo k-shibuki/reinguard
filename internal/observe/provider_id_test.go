@@ -42,9 +42,6 @@ func TestIntFromMap(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			// Given: map and key from tc
-			// When: intFromMap runs
-			// Then: result matches tc.want
 			if got := intFromMap(tc.m, tc.key); got != tc.want {
 				t.Fatalf("intFromMap(%v, %q) = %d, want %d", tc.m, tc.key, got, tc.want)
 			}

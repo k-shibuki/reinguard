@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/k-shibuki/reinguard/internal/evaluator"
 )
 
 func requireMatchErr(t *testing.T, err error) {
@@ -49,6 +51,9 @@ func TestEval_unknownMapShape(t *testing.T) {
 	requireMatchErr(t, err)
 	if !strings.Contains(err.Error(), "unknown when shape") {
 		t.Fatal(err)
+	}
+	if !strings.Contains(err.Error(), "eval") {
+		t.Fatal("expected error to mention eval alternative:", err)
 	}
 }
 
@@ -331,9 +336,6 @@ func TestEvalOperatorMatrix(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			// Given: tc.sig and tc.when (see name)
-			// When: Eval runs
-			// Then: want / wantErr
 			ok, err := Eval(tc.when, tc.sig)
 			if err != nil {
 				t.Fatal(err)
@@ -345,9 +347,197 @@ func TestEvalOperatorMatrix(t *testing.T) {
 	}
 }
 
+// intReturnEval is a test evaluator that returns a non-bool (match requires bool for when).
+type intReturnEval struct{}
+
+func (intReturnEval) Name() string { return "returns-int" }
+
+func (intReturnEval) Eval(map[string]any, map[string]any) (any, error) { return 42, nil }
+
+func registryWithIntReturn() *evaluator.Registry {
+	r := evaluator.NewRegistry()
+	if err := r.Register(intReturnEval{}); err != nil {
+		panic(err)
+	}
+	return r
+}
+
+func TestEval_namedEvaluator_table(t *testing.T) {
+	t.Parallel()
+	// Given: when clauses with optional custom registry per row
+	// When: Eval or EvalWithRegistry runs
+	// Then: boolean result or error substring matches expectations
+	emptyReg := evaluator.NewRegistry()
+	//nolint:govet // table-driven case struct; fieldalignment is not worth obfuscating field order
+	tests := []struct {
+		name    string
+		when    any
+		sig     map[string]any
+		reg     *evaluator.Registry
+		wantOK  bool
+		wantErr string
+	}{
+		{
+			name: "any_nested_custom_registry",
+			when: map[string]any{
+				"op":   "any",
+				"path": "items",
+				"when": map[string]any{"eval": "returns-int", "params": map[string]any{}},
+			},
+			sig:     map[string]any{"items": []any{1}},
+			reg:     registryWithIntReturn(),
+			wantErr: "want bool",
+		},
+		{
+			name: "count_nested_builtin_evaluator",
+			when: map[string]any{
+				"op":   "count",
+				"path": "items",
+				"eq":   2,
+				"when": map[string]any{"eval": "constant", "params": map[string]any{"value": true}},
+			},
+			sig:    map[string]any{"items": []any{1, 2}},
+			wantOK: true,
+		},
+		{
+			name: "constant_true",
+			when: map[string]any{"eval": "constant", "params": map[string]any{"value": true}},
+			sig:  map[string]any{},
+			// reg nil → default registry
+			wantOK: true,
+		},
+		{
+			name:   "constant_false",
+			when:   map[string]any{"eval": "constant", "params": map[string]any{"value": false}},
+			sig:    map[string]any{},
+			wantOK: false,
+		},
+		{
+			name:    "unknown_name_empty_registry",
+			when:    map[string]any{"eval": "nope", "params": map[string]any{}},
+			sig:     map[string]any{},
+			reg:     emptyReg,
+			wantErr: "unknown evaluator",
+		},
+		{
+			name:    "unknown_builtin_name_empty_registry",
+			when:    map[string]any{"eval": "constant", "params": map[string]any{"value": true}},
+			sig:     map[string]any{},
+			reg:     emptyReg,
+			wantErr: "unknown evaluator",
+		},
+		{
+			name:    "constant_missing_params",
+			when:    map[string]any{"eval": "constant"},
+			sig:     map[string]any{},
+			wantErr: "missing params.value",
+		},
+		{
+			name:    "constant_value_not_bool",
+			when:    map[string]any{"eval": "constant", "params": map[string]any{"value": "yes"}},
+			sig:     map[string]any{},
+			wantErr: "params.value must be boolean",
+		},
+		{
+			name:    "params_not_object",
+			when:    map[string]any{"eval": "constant", "params": "bad"},
+			sig:     map[string]any{},
+			wantErr: "params must be object",
+		},
+		{
+			name: "eval_combined_with_op",
+			when: map[string]any{
+				"eval": "constant", "op": "eq", "path": "a", "value": 1,
+			},
+			sig:     map[string]any{},
+			wantErr: "combine eval with op",
+		},
+		{
+			name: "eval_with_non_string_op_value",
+			when: map[string]any{
+				"eval": "constant", "params": map[string]any{"value": true}, "op": 1,
+			},
+			sig:     map[string]any{},
+			wantErr: "combine eval with op",
+		},
+		{
+			name:    "eval_wrong_type",
+			when:    map[string]any{"eval": 1, "op": "eq"},
+			sig:     map[string]any{},
+			wantErr: "eval must be non-empty string",
+		},
+		{
+			name:    "eval_empty_string",
+			when:    map[string]any{"eval": ""},
+			sig:     map[string]any{},
+			wantErr: "eval must be non-empty string",
+		},
+		{
+			name: "eval_combined_with_and",
+			when: map[string]any{
+				"eval": "constant",
+				"and":  []any{},
+			},
+			sig:     map[string]any{},
+			wantErr: "combine eval with and",
+		},
+		{
+			name: "eval_combined_with_or",
+			when: map[string]any{
+				"eval": "constant",
+				"or":   []any{},
+			},
+			sig:     map[string]any{},
+			wantErr: "combine eval with or",
+		},
+		{
+			name: "eval_combined_with_not",
+			when: map[string]any{
+				"eval": "constant",
+				"not":  map[string]any{"op": "eq", "path": "a", "value": 1},
+			},
+			sig:     map[string]any{},
+			wantErr: "combine eval with not",
+		},
+		{
+			name:    "evaluator_returns_non_bool",
+			when:    map[string]any{"eval": "returns-int", "params": map[string]any{}},
+			sig:     map[string]any{},
+			reg:     registryWithIntReturn(),
+			wantErr: "want bool",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var ok bool
+			var err error
+			if tc.reg != nil {
+				ok, err = EvalWithRegistry(tc.when, tc.sig, tc.reg)
+			} else {
+				ok, err = Eval(tc.when, tc.sig)
+			}
+			if tc.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("err=%v want substring %q", err, tc.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if ok != tc.wantOK {
+				t.Fatalf("got ok=%v want %v", ok, tc.wantOK)
+			}
+		})
+	}
+}
+
 func TestEvalLteGteTable(t *testing.T) {
 	t.Parallel()
-	// Given: fixed signal n=5
+	// Given: fixed signal n=5 and lte/gte comparison rows
+	// When: Eval runs per op and threshold
+	// Then: truth matches want
 	s := map[string]any{"n": 5.0}
 	for _, tc := range []struct {
 		op   string
@@ -361,9 +551,6 @@ func TestEvalLteGteTable(t *testing.T) {
 	} {
 		t.Run(fmt.Sprintf("%s_%g", tc.op, tc.v), func(t *testing.T) {
 			t.Parallel()
-			// Given: signal n=5 and comparison op
-			// When: Eval lte/gte
-			// Then: want truth value
 			when := map[string]any{"op": tc.op, "path": "n", "value": tc.v}
 			ok, err := Eval(when, s)
 			if err != nil {

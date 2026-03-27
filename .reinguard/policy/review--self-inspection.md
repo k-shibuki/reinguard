@@ -63,13 +63,15 @@ patterns are present in changed code.
 
 ### 4. Test adequacy
 
-For each behavior change in the diff, confirm:
+For each **behavior change in the diff** (not the Issue checklist alone),
+confirm:
 
-- At least one test per **Normal / Abnormal / Boundary** perspective
-  (see `testing--strategy.md` § Perspectives)
+- Coverage across **Normal / Abnormal / Boundary** perspectives where
+  meaningful (see `testing--strategy.md` § Perspectives)
 - Table-driven format when two or more scenarios test the same function
   (see `testing--strategy.md` § Table-driven tests)
-- GWT comments on non-trivial tests (see `testing--given-when-then.md`)
+- **GWT**: a summary at **test function** level for non-trivial tests; not
+  required inside table-driven loop bodies (see `testing--given-when-then.md`)
 - No `_ = <fallible call>` in test setup (immediate fail-fast with
   `t.Fatal`)
 

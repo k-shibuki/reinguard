@@ -258,6 +258,8 @@ present, against embedded JSON Schemas. Non-zero exit on hard validation
 errors. **Deprecated** configuration keys (marked in JSON Schema) emit **warnings
 on stderr** but still exit **0** when validation succeeds.
 
+**Named evaluators (ADR-0002):** `when` may include `{ "eval": "<name>", "params": { ... } }` nodes (composed with `and` / `or` / `not` like other clauses). `rgd config validate` rejects unknown evaluator names against the built-in registry. To count built-ins for review/metrics, call `evaluator.DefaultRegistry().ListRegistered()` from Go (sorted names), or enumerate registrations in `internal/evaluator/` (see `newBuiltinRegistry`).
+
 **`schema_version` vs this binary (ADR-0008):** `reinguard.yaml` declares a
 semver `schema_version` synchronized with embedded JSON Schemas. This `rgd`
 build compares it to its contract version (`MAJOR.MINOR.PATCH`):

@@ -63,6 +63,9 @@ func TestParseObservationJSON_stringDiagnostics(t *testing.T) {
 
 func TestParseObservationJSON_errors(t *testing.T) {
 	t.Parallel()
+	// Given: malformed observation JSON payloads
+	// When: ParseObservationJSON runs
+	// Then: non-nil error; message mentions wantSubstr when set
 	tests := []struct {
 		name       string
 		wantSubstr string
@@ -76,10 +79,7 @@ func TestParseObservationJSON_errors(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			// Given: malformed or invalid observation payload (see name)
-			// When: ParseObservationJSON runs
 			_, _, _, err := ParseObservationJSON(tc.data)
-			// Then: non-nil error; when wantSubstr set, message mentions it
 			if err == nil {
 				t.Fatal("expected error")
 			}

@@ -30,9 +30,6 @@ func TestEqScalar_table(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			// Given: pair (tc.a, tc.b)
-			// When: eqScalar runs
-			// Then: result is tc.want
 			if got := eqScalar(tc.a, tc.b); got != tc.want {
 				t.Fatalf("eqScalar(%v, %v) = %v, want %v", tc.a, tc.b, got, tc.want)
 			}

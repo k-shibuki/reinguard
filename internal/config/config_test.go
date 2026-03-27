@@ -93,6 +93,9 @@ func TestDeprecatedWarnings_schemaSkewAndLegacy(t *testing.T) {
 
 func TestLoad_schemaVersion_policy(t *testing.T) {
 	t.Parallel()
+	// Given: declared schema_version values vs rgd contract
+	// When: Load and DeprecatedWarnings run per row
+	// Then: load error, skew warning, or clean success as expected
 	cur := schema.CurrentSchemaVersion
 	cm, ci, cp, err := parseSemverCore(cur)
 	if err != nil {
@@ -121,58 +124,36 @@ func TestLoad_schemaVersion_policy(t *testing.T) {
 		{
 			name:     "same_as_contract",
 			declared: cur,
-			// Given: schema_version equals rgd contract
-			// When: Load runs
-			// Then: success and no skew warning from DeprecatedWarnings
 		},
 		{
 			name:           "older_same_major",
 			declared:       olderSameMajor,
 			skipWhen:       olderSameMajor == "",
 			wantSkewSubstr: "schema_version",
-			// Given: same major, older minor or patch than contract
-			// When: Load runs
-			// Then: success; DeprecatedWarnings mentions schema_version skew
-			// (skipped when contract is x.0.0 — no older same-major exists)
 		},
 		{
 			name:           "newer_patch_same_major",
 			declared:       newerPatch,
 			wantSkewSubstr: "schema_version",
-			// Given: same major, newer patch than contract
-			// When: Load runs
-			// Then: success with skew warning
 		},
 		{
 			name:           "newer_minor_same_major",
 			declared:       newerMinor,
 			wantSkewSubstr: "schema_version",
-			// Given: same major, newer minor than contract
-			// When: Load runs
-			// Then: success with skew warning
 		},
 		{
 			name:          "major_mismatch",
 			declared:      majorMismatch,
 			wantLoadErr:   true,
 			wantErrSubstr: "incompatible",
-			// Given: declared major differs from rgd contract
-			// When: Load runs
-			// Then: error (no silent load)
 		},
 		{
 			name:     "prerelease_same_core_as_contract",
 			declared: cur + "-rc.1",
-			// Given: prerelease tag on same MAJOR.MINOR.PATCH as contract
-			// When: Load runs
-			// Then: success; core matches so no skew warning
 		},
 		{
 			name:     "build_metadata_same_core_as_contract",
 			declared: cur + "+build.1",
-			// Given: build metadata on same MAJOR.MINOR.PATCH as contract
-			// When: Load runs
-			// Then: success; core matches so no skew warning
 		},
 	}
 	for _, tt := range tests {
@@ -189,13 +170,11 @@ providers: []
 
 			res, lerr := Load(dir)
 			if tt.wantLoadErr {
-				// Then: Load returns an error
 				if lerr == nil || !strings.Contains(lerr.Error(), tt.wantErrSubstr) {
 					t.Fatalf("Load: got %v, want err containing %q", lerr, tt.wantErrSubstr)
 				}
 				return
 			}
-			// Then: Load succeeds
 			if lerr != nil {
 				t.Fatal(lerr)
 			}
@@ -601,6 +580,87 @@ func TestLoad_controlStatesFile(t *testing.T) {
 	}
 }
 
+func TestLoad_evaluatorReferencesInWhen_table(t *testing.T) {
+	t.Parallel()
+	// Given: minimal config plus guard rules with varied when shapes
+	// When: Load runs
+	// Then: success or unknown-evaluator error per row
+	tests := []struct {
+		name       string
+		whenYAML   string
+		wantErrSub string
+	}{
+		{
+			name: "valid_constant_top_level",
+			whenYAML: `
+      eval: constant
+      params:
+        value: true`,
+		},
+		{
+			name: "valid_constant_nested_in_and",
+			whenYAML: `
+      and:
+        - op: eq
+          path: x
+          value: 1
+        - eval: constant
+          params:
+            value: true`,
+		},
+		{
+			name: "valid_constant_nested_in_count_when",
+			whenYAML: `
+      op: count
+      path: items
+      eq: 0
+      when:
+        eval: constant
+        params:
+          value: true`,
+		},
+		{
+			name: "unknown_evaluator_name",
+			whenYAML: `
+      eval: no-such-evaluator`,
+			wantErrSub: "unknown evaluator",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
+			guardsDir := filepath.Join(dir, "control", "guards")
+			if err := os.MkdirAll(guardsDir, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			body := `rules:
+  - type: guard
+    id: g1
+    priority: 1
+    guard_id: merge-readiness
+    when:` + tc.whenYAML + "\n"
+			writeFile(t, filepath.Join(guardsDir, "g.yaml"), []byte(body))
+
+			res, err := Load(dir)
+			if tc.wantErrSub != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErrSub) {
+					t.Fatalf("Load() err=%v want substring %q", err, tc.wantErrSub)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			rs := res.Rules()
+			if len(rs) != 1 || rs[0].ID != "g1" {
+				t.Fatalf("rules: %+v", rs)
+			}
+		})
+	}
+}
+
 func TestLoad_controlStatesSchemaInvalid(t *testing.T) {
 	t.Parallel()
 	// Given: rules file missing required when shape (empty when object may still parse — use missing rules key)
@@ -624,7 +684,9 @@ func TestLoad_controlStatesSchemaInvalid(t *testing.T) {
 
 func TestLoad_controlKindTypeMismatchRejected(t *testing.T) {
 	t.Parallel()
-	// Given/When/Then: each case places a rule of the wrong type under control/{states,routes,guards}; Load must error with wantSub
+	// Given: control rules whose type does not match their control/ subdirectory
+	// When: Load runs
+	// Then: error contains expected type mismatch substring
 	tests := []struct {
 		name     string
 		kind     string
@@ -671,7 +733,6 @@ func TestLoad_controlKindTypeMismatchRejected(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			// Given: rule type in wrong control/ subdirectory (see tt)
 			dir := t.TempDir()
 			writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
 			kindDir := filepath.Join(dir, "control", tt.kind)
@@ -680,9 +741,7 @@ func TestLoad_controlKindTypeMismatchRejected(t *testing.T) {
 			}
 			writeFile(t, filepath.Join(kindDir, "bad.yaml"), []byte(tt.yamlBody))
 
-			// When: Load runs
 			_, err := Load(dir)
-			// Then: error contains expected mismatch substring
 			if err == nil || !strings.Contains(err.Error(), tt.wantSub) {
 				t.Fatalf("got err=%v, want substring %q", err, tt.wantSub)
 			}

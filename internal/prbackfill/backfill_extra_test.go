@@ -146,8 +146,9 @@ func TestParseOpenPullPages_emptyInput(t *testing.T) {
 
 func TestHasHeading_variousStyles(t *testing.T) {
 	t.Parallel()
-	// Given: various heading formats
-	// When/Then: hasHeading matches case-insensitively with flexible whitespace
+	// Given: markdown bodies and section title strings
+	// When: hasHeading runs per row
+	// Then: result matches want (case-insensitive, flexible whitespace)
 	tests := []struct {
 		name  string
 		body  string
@@ -171,8 +172,9 @@ func TestHasHeading_variousStyles(t *testing.T) {
 
 func TestPrTypeFromTitle_allTypes(t *testing.T) {
 	t.Parallel()
-	// Given: titles with each valid Conventional Commits type
-	// When/Then: the correct type is extracted
+	// Given: canonical Conventional Commits type strings
+	// When: prTypeFromTitle runs on a title prefixed with each type
+	// Then: extracted type matches the prefix
 	for _, typ := range []string{"feat", "fix", "refactor", "perf", "test", "docs", "build", "ci", "chore", "style", "revert"} {
 		t.Run(typ, func(t *testing.T) {
 			t.Parallel()

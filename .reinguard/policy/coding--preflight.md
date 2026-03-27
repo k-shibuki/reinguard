@@ -52,9 +52,10 @@ For each behavior change, confirm:
 2. **Table-driven applicability** — use table-driven format when the same
    function has two or more test scenarios; a single-scenario test may
    remain standalone (see `testing--strategy.md` § Table-driven tests).
-3. **GWT comments** — add Given / When / Then comments on non-trivial
-   tests (multi-step setup or multiple assertions); trivial single-assert
-   tests may omit them (see `testing--given-when-then.md`).
+3. **GWT comments** — add a **function-level** Given / When / Then summary on
+   non-trivial tests; for **table-driven** tests, omit GWT inside the `t.Run`
+   loop (see `testing--given-when-then.md`). Trivial single-assert tests may
+   omit GWT.
 4. **Setup error handling** — never discard errors from test setup calls
    (`_ = f(...)`); use `t.Fatal(err)` to fail fast on unexpected setup
    failures.
@@ -65,6 +66,8 @@ Before hand-off (commit or PR creation), scan the diff for:
 
 - [ ] No `_ = <fallible call>` in test setup
 - [ ] No silent type-assertion fallthrough on config values
+- [ ] Validate / walk logic stays aligned with runtime evaluation for the same
+  decoded keys (no “present but wrong type” silent branch)
 - [ ] Doc impact list carried forward from implementation
 - [ ] Same-kind sweep completed per `coding--standards.md` § Change scope
 

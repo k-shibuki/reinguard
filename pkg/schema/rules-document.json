@@ -27,7 +27,7 @@
               },
               "when": {
                 "type": "object",
-                "description": "Match expression (ADR-0002); validated structurally in Go.",
+                "description": "Match expression (ADR-0002): op/and/or/not plus optional named eval nodes { \"eval\": \"<name>\", \"params\": { ... } }; evaluator names validated at load.",
                 "additionalProperties": true
               },
               "depends_on": {

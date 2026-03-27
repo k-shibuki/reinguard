@@ -42,5 +42,16 @@ func TestLoadConfig_validFixture(t *testing.T) {
 }
 ```
 
-Use `t.Run` for multiple scenarios; each subtest may repeat Given/When/Then
-for clarity.
+## Table-driven tests
+
+When using a `[]struct{ ... }` table with `t.Run(tc.name, ...)`:
+
+- Put **one summary GWT block at the function start** (or a single-line
+  `// Given/When/Then:`) describing what the table exercises as a whole.
+- **Do not** repeat `// Given:` / `// When:` / `// Then:` inside the loop body —
+  the case `name` and struct fields document each row.
+- For **non-table** tests with multiple steps, keep full GWT comments as in the
+  example above.
+
+Standalone `t.Run` subtests **without** a table (each subtest is a distinct
+scenario) may still use per-subtest GWT when the setup is non-trivial.

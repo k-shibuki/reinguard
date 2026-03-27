@@ -45,10 +45,7 @@ func TestFlatten(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			// Given: input signals from test case
-			// When: Flatten runs
 			out := Flatten(tc.input)
-			// Then: output matches expected key/value
 			if tc.wantKey == "" {
 				if len(out) != 0 {
 					t.Fatalf("expected empty output, got %v", out)
