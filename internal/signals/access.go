@@ -1,3 +1,4 @@
+// Package signals reads typed values from nested map[string]any trees using dot-separated paths.
 package signals
 
 import "strings"

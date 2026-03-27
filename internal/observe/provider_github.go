@@ -110,52 +110,78 @@ func (p *GitHubProvider) Collect(ctx context.Context, opts Options) (Fragment, e
 		return opts.GitHubFacet == name
 	}
 
-	if wantFacet("issues") {
-		if m, err := issues.Collect(ctx, client, owner, repo); err != nil {
-			degraded = true
-			diags = append(diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github.issues"})
-		} else {
-			mergeSignals(signals, m)
-		}
-	}
-
 	var prNum int
-	needPRData := wantFacet("pull-requests") || wantFacet("reviews")
-	if needPRData {
-		if m, warns, err := pullrequests.Collect(ctx, client, owner, repo, opts.WorkDir); err != nil {
-			degraded = true
-			diags = append(diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github.pull-requests"})
-		} else {
-			appendWarnings("github.pull-requests", warns)
-			if wantFacet("pull-requests") {
-				mergeSignals(signals, m)
-			}
-			if prMap, ok := m["pull_requests"].(map[string]any); ok {
-				prNum = intFromMap(prMap, "pr_number_for_branch")
-			}
-		}
-	}
-
-	if wantFacet("ci") {
-		if m, warns, err := ci.Collect(ctx, client, owner, repo, opts.WorkDir); err != nil {
-			degraded = true
-			diags = append(diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github.ci"})
-		} else {
-			appendWarnings("github.ci", warns)
-			mergeSignals(signals, m)
-		}
-	}
-
-	if wantFacet("reviews") {
-		if m, err := reviews.Collect(ctx, client, owner, repo, prNum); err != nil {
-			degraded = true
-			diags = append(diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github.reviews"})
-		} else {
-			mergeSignals(signals, m)
-		}
-	}
+	prLookupOK := true
+	p.githubCollectIssues(ctx, client, owner, repo, wantFacet("issues"), signals, &diags, &degraded)
+	p.githubCollectPullRequestsAndPRNum(ctx, client, owner, repo, opts.WorkDir, wantFacet, signals, appendWarnings, &diags, &degraded, &prNum, &prLookupOK)
+	p.githubCollectCI(ctx, client, owner, repo, opts.WorkDir, wantFacet("ci"), signals, appendWarnings, &diags, &degraded)
+	p.githubCollectReviews(ctx, client, owner, repo, prNum, wantFacet("reviews"), prLookupOK, signals, &diags, &degraded)
 
 	return Fragment{Signals: signals, Diagnostics: diags, Degraded: degraded}, nil
+}
+
+func (*GitHubProvider) githubCollectIssues(ctx context.Context, client *githubapi.Client, owner, repo string, want bool, signals map[string]any, diags *[]Diagnostic, degraded *bool) {
+	if !want {
+		return
+	}
+	m, err := issues.Collect(ctx, client, owner, repo)
+	if err != nil {
+		*degraded = true
+		*diags = append(*diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github.issues"})
+		return
+	}
+	mergeSignals(signals, m)
+}
+
+func (*GitHubProvider) githubCollectPullRequestsAndPRNum(ctx context.Context, client *githubapi.Client, owner, repo, workDir string, wantFacet func(string) bool, signals map[string]any, appendWarnings func(string, []string), diags *[]Diagnostic, degraded *bool, prNum *int, prLookupOK *bool) {
+	if !wantFacet("pull-requests") && !wantFacet("reviews") {
+		return
+	}
+	m, warns, err := pullrequests.Collect(ctx, client, owner, repo, workDir)
+	if err != nil {
+		*prLookupOK = false
+		*degraded = true
+		*diags = append(*diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github.pull-requests"})
+		return
+	}
+	*prLookupOK = true
+	appendWarnings("github.pull-requests", warns)
+	if wantFacet("pull-requests") {
+		mergeSignals(signals, m)
+	}
+	if prMap, ok := m["pull_requests"].(map[string]any); ok {
+		*prNum = intFromMap(prMap, "pr_number_for_branch")
+	}
+}
+
+func (*GitHubProvider) githubCollectCI(ctx context.Context, client *githubapi.Client, owner, repo, workDir string, want bool, signals map[string]any, appendWarnings func(string, []string), diags *[]Diagnostic, degraded *bool) {
+	if !want {
+		return
+	}
+	m, warns, err := ci.Collect(ctx, client, owner, repo, workDir)
+	if err != nil {
+		*degraded = true
+		*diags = append(*diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github.ci"})
+		return
+	}
+	appendWarnings("github.ci", warns)
+	mergeSignals(signals, m)
+}
+
+func (*GitHubProvider) githubCollectReviews(ctx context.Context, client *githubapi.Client, owner, repo string, prNum int, want bool, prLookupOK bool, signals map[string]any, diags *[]Diagnostic, degraded *bool) {
+	if !want {
+		return
+	}
+	if !prLookupOK {
+		return
+	}
+	m, err := reviews.Collect(ctx, client, owner, repo, prNum)
+	if err != nil {
+		*degraded = true
+		*diags = append(*diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github.reviews"})
+		return
+	}
+	mergeSignals(signals, m)
 }
 
 func mergeSignals(dst map[string]any, src map[string]any) {

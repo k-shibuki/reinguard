@@ -16,6 +16,7 @@ import (
 	"github.com/k-shibuki/reinguard/internal/labels"
 )
 
+// pull is a subset of GitHub pull request JSON from gh api.
 type pull struct {
 	Body   *string     `json:"body"`
 	Title  string      `json:"title"`
@@ -23,12 +24,15 @@ type pull struct {
 	Number int         `json:"number"`
 }
 
+// pullLabel is a label object on a pull request.
 type pullLabel struct {
 	Name string `json:"name"`
 }
 
 var (
-	titleTypeRe  = regexp.MustCompile(`^(feat|fix|refactor|perf|test|docs|build|ci|chore|style|revert)(\([^)]+\))?!?:`)
+	// titleTypeRe matches Conventional Commits style PR titles for type inference.
+	titleTypeRe = regexp.MustCompile(`^(feat|fix|refactor|perf|test|docs|build|ci|chore|style|revert)(\([^)]+\))?!?:`)
+	// closesLineRe matches Closes/Fixes/Resolves #N lines in a PR body.
 	closesLineRe = regexp.MustCompile(`(?i)(closes|fixes|resolves)\s+#\d+`)
 )
 

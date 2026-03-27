@@ -25,11 +25,13 @@ func CheckFreshness(m *config.KnowledgeManifest, repoRootAbs, knowledgeAbsDir st
 	return nil
 }
 
+// normalizedManifest is a compare-friendly view of a knowledge manifest (sorted entries, stable paths).
 type normalizedManifest struct {
 	schemaVersion string
 	entries       []normalizedEntry
 }
 
+// normalizedEntry is one manifest row after normalization for DeepEqual checks.
 type normalizedEntry struct {
 	id          string
 	path        string
@@ -37,6 +39,7 @@ type normalizedEntry struct {
 	triggers    []string
 }
 
+// normalizeManifest copies m into a canonical form so two manifests can be compared with reflect.DeepEqual.
 func normalizeManifest(m *config.KnowledgeManifest) normalizedManifest {
 	entries := make([]normalizedEntry, 0, len(m.Entries))
 	for _, e := range m.Entries {

@@ -2,6 +2,7 @@ package schema
 
 import "testing"
 
+// TestNewCompiler compiles every embedded schema URI so JSON Schema assets stay loadable.
 func TestNewCompiler(t *testing.T) {
 	t.Parallel()
 	// Given/When: compiler loads embedded schemas

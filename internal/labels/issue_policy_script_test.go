@@ -72,6 +72,7 @@ func repoRoot(t *testing.T) string {
 	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
 }
 
+// TestCheckIssuePolicyScript runs .reinguard/scripts/check-issue-policy.sh against synthetic Issue metadata (template, labels, body).
 func TestCheckIssuePolicyScript(t *testing.T) {
 	root := repoRoot(t)
 	mustMikefarahYq(t, root)

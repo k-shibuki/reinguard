@@ -17,15 +17,18 @@ type prSearchItem struct {
 	Number int `json:"number"`
 }
 
+// searchResponse is GitHub issue-search JSON for the open PR count query.
 type searchResponse struct {
 	Items      []prSearchItem `json:"items"`
 	TotalCount int            `json:"total_count"`
 }
 
+// pullHead is the head branch ref on a pull request list item.
 type pullHead struct {
 	Ref string `json:"ref"`
 }
 
+// pullListItem is one element from GET /repos/{owner}/{repo}/pulls for branch matching.
 type pullListItem struct {
 	Head   pullHead `json:"head"`
 	Number int      `json:"number"`
@@ -84,6 +87,7 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir stri
 	}, warnings, nil
 }
 
+// resolveBranch returns the current branch name or warnings for detached HEAD / errors.
 func resolveBranch(ctx context.Context, workDir string) (branch string, warnings []string) {
 	b, detached, err := gitroot.CurrentBranch(ctx, workDir)
 	if err != nil {

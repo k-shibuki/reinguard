@@ -107,6 +107,74 @@ exit 1
 	}
 }
 
+func TestGitHubProvider_Collect_reviewsFacetSkippedWhenPullRequestsFail(t *testing.T) {
+	// Given: fake gh on PATH (auth + repo view succeed)
+	if runtime.GOOS == "windows" {
+		t.Skip("fake gh executable is a Unix #!/bin/sh script")
+	}
+	tmp := t.TempDir()
+	ghBin := filepath.Join(tmp, "gh")
+	script := `#!/bin/sh
+if [ "$1" = "auth" ] && [ "$2" = "token" ]; then
+  echo testtoken
+  exit 0
+fi
+if [ "$1" = "repo" ] && [ "$2" = "view" ]; then
+  echo "octocat/hello-world"
+  exit 0
+fi
+exit 1
+`
+	if err := os.WriteFile(ghBin, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", tmp+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	repoDir := t.TempDir()
+	runGitCmd(t, repoDir, "init")
+	runGitCmd(t, repoDir, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "init")
+	runGitCmd(t, repoDir, "checkout", "-b", "feature")
+
+	// Given: search/issues succeeds but /pulls fails so pullrequests.Collect errors
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/search/issues":
+			_, _ = w.Write([]byte(`{"total_count": 0}`))
+		case strings.HasPrefix(r.URL.Path, "/repos/octocat/hello-world/pulls"):
+			http.Error(w, "upstream error", http.StatusBadGateway)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	p := NewGitHubProvider()
+	p.APIBase = srv.URL
+
+	// When: Collect requests reviews facet only
+	frag, err := p.Collect(context.Background(), Options{WorkDir: repoDir, GitHubFacet: "reviews"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Then: degraded from pull-requests error and no misleading zero review signals
+	if !frag.Degraded {
+		t.Fatalf("want degraded, got %+v", frag)
+	}
+	if frag.Signals["reviews"] != nil {
+		t.Fatalf("reviews signals must be omitted when PR lookup failed: %v", frag.Signals["reviews"])
+	}
+	var pullErr bool
+	for _, d := range frag.Diagnostics {
+		if d.Provider == "github.pull-requests" {
+			pullErr = true
+			break
+		}
+	}
+	if !pullErr {
+		t.Fatalf("want github.pull-requests diagnostic, got %+v", frag.Diagnostics)
+	}
+}
+
 func TestGitHubProvider_Collect_ghAuthFails(t *testing.T) {
 	// Given: gh exits non-zero immediately (auth failure)
 	if runtime.GOOS == "windows" {

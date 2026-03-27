@@ -31,12 +31,15 @@ type MergeReadinessResult struct {
 	OK      bool   `json:"ok"`
 }
 
+// mergeReadinessGuard is the built-in guard with ID "merge-readiness".
 type mergeReadinessGuard struct{}
 
+// ID returns the stable guard identifier "merge-readiness".
 func (mergeReadinessGuard) ID() string {
 	return "merge-readiness"
 }
 
+// Eval runs merge-readiness checks on flattened observation signals.
 func (mergeReadinessGuard) Eval(sigs map[string]any) MergeReadinessResult {
 	return evalMergeReadiness(sigs)
 }

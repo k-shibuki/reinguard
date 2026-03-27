@@ -46,20 +46,21 @@ func (*GitProvider) Collect(ctx context.Context, opts Options) (Fragment, error)
 			}},
 		}, nil
 	}
+	return gitCollectFragment(ctx, wd, opts.DefaultBranch), nil
+}
 
+// gitCollectFragment gathers git signals and diagnostics for wd (git must be on PATH).
+func gitCollectFragment(ctx context.Context, wd, defaultBranch string) Fragment {
+	defaultBranch = strings.TrimSpace(defaultBranch)
 	branch, detached, berr := gitroot.CurrentBranch(ctx, wd)
 	porcelain, serr := gitRunOut(ctx, wd, "git", "status", "--porcelain")
 	uncommitted := 0
-	if serr == nil {
-		if strings.TrimSpace(porcelain) != "" {
-			lines := strings.Split(strings.TrimSpace(porcelain), "\n")
-			uncommitted = len(lines)
-		}
+	if serr == nil && strings.TrimSpace(porcelain) != "" {
+		uncommitted = len(strings.Split(strings.TrimSpace(porcelain), "\n"))
 	}
-
 	stashCount, stashErr := gitStashCount(ctx, wd)
 	ahead, behind, upstreamOK, upstreamErr := gitUpstreamAheadBehind(ctx, wd)
-	staleRemote, staleDiag := gitStaleRemoteBranchesMerged(ctx, wd, opts.DefaultBranch)
+	staleRemote, staleDiag := gitStaleRemoteBranchesMerged(ctx, wd, defaultBranch)
 
 	signals := map[string]any{}
 	if berr == nil {
@@ -102,7 +103,7 @@ func (*GitProvider) Collect(ctx context.Context, opts Options) (Fragment, error)
 			break
 		}
 	}
-	return Fragment{Signals: signals, Diagnostics: diags, Degraded: degraded}, nil
+	return Fragment{Signals: signals, Diagnostics: diags, Degraded: degraded}
 }
 
 func gitStashCount(ctx context.Context, wd string) (int, error) {

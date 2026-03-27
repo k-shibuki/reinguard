@@ -11,6 +11,7 @@ import (
 	"github.com/k-shibuki/reinguard/internal/githubapi"
 )
 
+// searchResponse is the total_count field from GitHub issue search API results.
 type searchResponse struct {
 	TotalCount int `json:"total_count"`
 }
