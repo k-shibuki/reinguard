@@ -80,6 +80,23 @@ zero value (`var r T` then mutating methods). Either document that callers must
 use a constructor, or lazily allocate the map on first write (e.g. in
 `Register` before assignment).
 
+Mutating methods that accept interface-typed arguments (e.g. `Register(e
+Evaluator)`) must reject a **nil** interface value **before** calling interface
+methods such as `Name()` — otherwise callers get a panic instead of a stable
+error.
+
+## Match-time vs validate-time walkers
+
+When decoded YAML/JSON maps carry optional keys (for example `eval` beside
+`op` / `and` / `or` / `not`), keep **runtime evaluation** and **config
+validation** walkers aligned:
+
+- If the key is **present**, require the expected type and non-empty values
+  where applicable — do not fall through to another branch on type mismatch.
+- When forbidding combinations (e.g. `eval` with `op`), treat **`op` present**
+  as a conflict even if `op` is not a string, so malformed configs error
+  instead of executing as a scalar op.
+
 ## Blank and duplicate ID rejection
 
 When iterating enabled collection entries (e.g. provider specs), treat

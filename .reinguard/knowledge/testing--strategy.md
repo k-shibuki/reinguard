@@ -64,6 +64,14 @@ When `govet` `fieldalignment` nags on large case structs, you may use
 `//nolint:govet` on the table struct with a short rationale (same pattern as
 `internal/observe/engine_test.go`).
 
+## Recursive evaluation paths
+
+When new dependencies (registry, context, or similar) are threaded through
+**recursive** helpers — for example `count` / `any` / `all` with nested `when`,
+or logical combinators — extend table-driven tests with at least one row per
+**distinct entry path**, not only top-level shapes. Otherwise a regression in
+plumbing inside nested clauses can still pass while top-level cases stay green.
+
 ## Test setup error handling
 
 Never discard errors from test setup or helper calls:

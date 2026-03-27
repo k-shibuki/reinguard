@@ -66,6 +66,8 @@ Before hand-off (commit or PR creation), scan the diff for:
 
 - [ ] No `_ = <fallible call>` in test setup
 - [ ] No silent type-assertion fallthrough on config values
+- [ ] Validate / walk logic stays aligned with runtime evaluation for the same
+  decoded keys (no “present but wrong type” silent branch)
 - [ ] Doc impact list carried forward from implementation
 - [ ] Same-kind sweep completed per `coding--standards.md` § Change scope
 
