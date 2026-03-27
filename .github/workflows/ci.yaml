@@ -48,8 +48,9 @@ jobs:
             const p = path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/pr-policy-check.js');
             const code = fs.readFileSync(p, 'utf8');
             const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-            const fn = new AsyncFunction('github', 'context', 'core', code);
-            return await fn(github, context, core);
+            // Evaluated script uses require("fs"); pass Node's require into the function body.
+            const fn = new AsyncFunction('github', 'context', 'core', 'require', code);
+            return await fn(github, context, core, require);
 
   lint-markdown:
     name: Lint — Markdown

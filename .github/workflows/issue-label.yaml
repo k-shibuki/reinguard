@@ -40,5 +40,5 @@ jobs:
             const p = path.join(process.env.GITHUB_WORKSPACE, '.github/scripts/issue-label-sync.js');
             const code = fs.readFileSync(p, 'utf8');
             const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-            const fn = new AsyncFunction('github', 'context', 'core', code);
-            return await fn(github, context, core);
+            const fn = new AsyncFunction('github', 'context', 'core', 'require', code);
+            return await fn(github, context, core, require);
