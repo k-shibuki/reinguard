@@ -114,6 +114,16 @@ The GitHub client retries **429** responses with limited exponential backoff.
 | `has_upstream` | boolean | True when `@{upstream}` resolves for the current branch |
 | `stale_remote_branches_count` | number | Count of `git branch -r --merged origin/<default_branch>` lines (excludes `HEAD ->`), `0` if `origin/<default_branch>` is missing; uses `default_branch` from `reinguard.yaml` |
 
+### `signals.github.reviews` (GitHub provider, reviews facet)
+
+Populated when the `reviews` facet runs (see `rgd observe github reviews`). Counts reflect **review threads** from the GitHub GraphQL `reviewThreads` connection (`isResolved`), not raw REST review-comment rows (ADR-0012).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `review_threads_total` | number | Threads fetched for the current PR after pagination (or up to the engine page cap). |
+| `review_threads_unresolved` | number | Threads where `isResolved` is false. Used by `merge-readiness`. |
+| `pagination_incomplete` | boolean | True if not all thread pages could be read (e.g. pagination capped). |
+
 ## `rgd state eval`
 
 Evaluates `type: state` rules from configuration against an observation.

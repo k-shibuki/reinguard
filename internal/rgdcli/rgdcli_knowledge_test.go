@@ -47,7 +47,7 @@ func TestRunKnowledgePack_queryFilter(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(cfgDir, "knowledge", "manifest.json"), []byte(`{
-  "schema_version": "0.3.0",
+  "schema_version": "0.4.0",
   "entries": [
     {
       "id": "a",
@@ -181,7 +181,7 @@ triggers:
 ---
 `))
 	writeFile(t, filepath.Join(kdir, "manifest.json"), []byte(`{
-  "schema_version": "0.3.0",
+  "schema_version": "0.4.0",
   "entries": [{
     "id": "wrong",
     "path": "knowledge/only.md",
@@ -212,7 +212,7 @@ func TestRunConfigValidate_knowledgeMissingPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(kdir, "manifest.json"), []byte(`{
-  "schema_version": "0.3.0",
+  "schema_version": "0.4.0",
   "entries": [{
     "id": "ghost",
     "path": "knowledge/missing.md",

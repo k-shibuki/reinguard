@@ -24,7 +24,7 @@
   },
   "observation": {
     "degraded": false,
-    "schema_version": "0.3.0",
+    "schema_version": "0.4.0",
     "signals": {
       "git": {
         "ahead_of_upstream": 0,
@@ -65,7 +65,7 @@
       ]
     }
   ],
-  "schema_version": "0.3.0",
+  "schema_version": "0.4.0",
   "state": {
     "kind": "resolved",
     "state_id": "Idle",

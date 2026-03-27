@@ -16,7 +16,7 @@ const (
 	KnowledgeManifest    = "knowledge-manifest.json"
 	ObservationDocument  = "observation-document.json"
 	OperationalContext   = "operational-context.json"
-	CurrentSchemaVersion = "0.3.0"
+	CurrentSchemaVersion = "0.4.0"
 )
 
 // Files returns the embedded JSON Schema filesystem (read-only).

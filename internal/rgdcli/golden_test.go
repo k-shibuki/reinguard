@@ -83,7 +83,7 @@ triggers:
 # Doc
 `))
 	writeFile(t, filepath.Join(root, "knowledge", "manifest.json"), []byte(`{
-  "schema_version": "0.3.0",
+  "schema_version": "0.4.0",
   "entries": [{
     "id": "doc1",
     "path": "knowledge/doc.md",
