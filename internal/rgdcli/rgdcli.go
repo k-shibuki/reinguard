@@ -607,6 +607,30 @@ func NewApp(version string) *cli.App {
 				},
 			},
 		},
+		{
+			Name:   "ensure-labels",
+			Usage:  "create missing GitHub labels from .reinguard/labels.yaml",
+			Flags:  []cli.Flag{newCwdFlag(), newConfigDirFlag()},
+			Action: runEnsureLabels,
+		},
+		{
+			Name:  "labels",
+			Usage: "GitHub label helpers (repository tooling)",
+			Subcommands: []*cli.Command{
+				{
+					Name:   "list",
+					Usage:  "print label names as JSON (stdout)",
+					Flags:  []cli.Flag{newCwdFlag(), newConfigDirFlag(), newLabelsCategoryFlag()},
+					Action: runLabelsList,
+				},
+				{
+					Name:   "sync",
+					Usage:  "sync GitHub label color and description from labels.yaml",
+					Flags:  []cli.Flag{newCwdFlag(), newConfigDirFlag(), newDryRunFlag()},
+					Action: runLabelsSync,
+				},
+			},
+		},
 	}
 	hideHelpOnCommands(commands)
 

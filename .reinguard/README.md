@@ -20,6 +20,8 @@ Normative architecture lives in `docs/adr/`. This directory describes how
 | `control/routes/*.yaml` | `type: route` rules only |
 | `control/guards/*.yaml` | `type: guard` rules only |
 | `control/catalog.yaml` | Manual index of control rule files (`id`, `path`, `type`, `description`); not read by `config.Load` / `rgd config validate` (only subtree `*.yaml`) |
+| `labels.yaml` | GitHub label categories + `commit_prefix` flags (ADR-0008); SSOT for type/exception/scope labels |
+| `scripts/` | Repo-specific policy scripts (commit/PR/Issue validation; Issue template sync) |
 
 Unified **priority** across all control YAML files: ADR-0004.
 

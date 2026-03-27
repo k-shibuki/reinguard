@@ -40,6 +40,8 @@ Evaluate **every** review comment — regardless of severity label (P0, P1, nitp
 
 Map each finding to **exactly one** of the four disposition categories in `.reinguard/policy/review--consensus-protocol.md` § **Disposition Categories (4, exhaustive)** (**Fixed** / **By design** / **False positive** / **Acknowledged**). When planning fixes, treat a finding as "valid for this PR" when the disposition will be **Fixed**; treat as out-of-scope when it will be **Acknowledged** (with a tracking Issue per that protocol).
 
+For **Acknowledged** specifically — **before** posting the thread reply: read `.reinguard/policy/review--consensus-protocol.md` § **Acknowledged — follow-up Issue (evaluate before reply)**. Decide whether to open a new GitHub Issue for the deferred work (default when work remains); if you skip creating one, the disposition must state **why** (same protocol). Never use `Tracked in #N` where `N` equals the PR’s `Closes` issue.
+
 ### 2. Fix all findings that will be disposition **Fixed**
 
 Apply code or doc changes for every comment you will close with **Fixed**. Do not silently defer valid in-scope findings; use **Acknowledged** only per the protocol (tracking Issue distinct from the PR's `Closes` target).

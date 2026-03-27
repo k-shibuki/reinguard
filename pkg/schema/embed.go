@@ -16,6 +16,7 @@ const (
 	KnowledgeManifest    = "knowledge-manifest.json"
 	ObservationDocument  = "observation-document.json"
 	OperationalContext   = "operational-context.json"
+	LabelsConfig         = "labels-config.json"
 	CurrentSchemaVersion = "0.4.0"
 )
 

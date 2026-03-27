@@ -24,7 +24,7 @@
 
 # Local shortcuts and repo scripts
 /Makefile @k-shibuki
-/tools/ @k-shibuki
+/.reinguard/scripts/ @k-shibuki
 
 # In-repo dogfood; CI runs `rgd` against this tree
 /.reinguard/ @k-shibuki

@@ -1,0 +1,72 @@
+# GitHub label catalog + commit prefix config (ADR-0008). SSOT for rgd ensure-labels, labels sync, CI policy.
+schema_version: "0.3.0"
+
+categories:
+  type:
+    description: "Conventional Commits type labels (shared: PR + Issue)"
+    scope: shared
+    labels:
+      - name: feat
+        color: "A2EEEF"
+        description: "Type: new feature"
+        commit_prefix: true
+      - name: fix
+        color: "D73A4A"
+        description: "Type: bug fix"
+        commit_prefix: true
+      - name: refactor
+        color: "FEF2C0"
+        description: "Type: refactor"
+        commit_prefix: true
+      - name: perf
+        color: "5319E7"
+        description: "Type: performance"
+        commit_prefix: true
+      - name: docs
+        color: "0075CA"
+        description: "Type: documentation"
+        commit_prefix: true
+      - name: test
+        color: "0E8A16"
+        description: "Type: tests"
+        commit_prefix: true
+      - name: ci
+        color: "FBCA04"
+        description: "Type: CI config"
+        commit_prefix: true
+      - name: build
+        color: "D4C5F9"
+        description: "Type: build system"
+        commit_prefix: true
+      - name: chore
+        color: "C2E0C6"
+        description: "Type: chore"
+        commit_prefix: true
+      - name: style
+        color: "BFDADC"
+        description: "Type: formatting / style"
+        commit_prefix: true
+      - name: revert
+        color: "D4C5F9"
+        description: "Type: revert"
+        commit_prefix: true
+
+  exception:
+    description: "Exception labels (PR only)"
+    scope: pr
+    labels:
+      - name: hotfix
+        color: "B60205"
+        description: "Exception: urgent fix without normal Issue flow"
+        commit_prefix: true
+      - name: no-issue
+        color: "F9D0C4"
+        description: "Exception: PR without linked Issue (justification required)"
+
+  scope:
+    description: "Scope labels (Issue only)"
+    scope: issue
+    labels:
+      - name: epic
+        color: "7057FF"
+        description: "Scope: epic planning issue"

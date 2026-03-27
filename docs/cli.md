@@ -51,9 +51,24 @@ rgd guard eval <guard-id> [flags...]
 rgd knowledge index
 rgd knowledge pack [--query STRING]
 rgd context build [--observation-file FILE]
+rgd ensure-labels
+rgd labels list [--category TYPE]
+rgd labels sync [--dry-run]
 ```
 
 Phase 1 does **not** define command aliases (e.g. no `pr` for `pull-requests`).
+
+## Maintainer / repository commands
+
+These commands read [`.reinguard/labels.yaml`](../.reinguard/labels.yaml) and shell out to `gh` for GitHub label operations. They are **repository tooling** for this repo’s label SSOT (not the core observation/evaluation pipeline). See also [`.github/CONTRIBUTING.md`](../.github/CONTRIBUTING.md) § Labels.
+
+| Command | Purpose |
+|---------|---------|
+| `rgd ensure-labels` | Create missing labels on the current repo (`gh label create`). |
+| `rgd labels list` | Print type / exception / scope label names as JSON (stdout). |
+| `rgd labels sync` | Align existing GitHub label color/description with `labels.yaml` (`gh label edit`); does not delete extra labels. Use `--dry-run` to preview. |
+
+Issue/PR **policy enforcement** scripts live under **`.reinguard/scripts/`** (`check-commit-msg.sh`, `check-pr-policy.sh`, `check-issue-policy.sh`, `sync-issue-templates.sh`).
 
 ## Provider IDs ↔ commands
 
@@ -297,7 +312,7 @@ go vet ./...
 ```bash
 go mod download
 go test ./... -race -coverpkg=./... -coverprofile=coverage.out -count=1
-bash tools/check-coverage-threshold.sh 80 coverage.out
+bash .reinguard/scripts/check-coverage-threshold.sh 80 coverage.out
 go build -o /tmp/rgd ./cmd/rgd
 /tmp/rgd version
 /tmp/rgd config validate

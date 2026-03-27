@@ -1,0 +1,53 @@
+name: Epic
+description: Parent epic for phased work — scope and dependencies; implementation lives in child Issues
+title: "epic: short title"
+labels:
+  - epic
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What this epic tracks; child Issues hold implementation
+    validations:
+      required: true
+
+  - type: textarea
+    id: background
+    attributes:
+      label: Background
+      description: Context, constraints, review axes
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependency_graph
+    attributes:
+      label: Dependency graph
+      description: Mermaid or bullet ordering of work items
+    validations:
+      required: false
+
+  - type: textarea
+    id: parallel_tracks
+    attributes:
+      label: Parallel tracks
+      description: What can run in parallel vs serialized dependencies
+    validations:
+      required: false
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification baseline
+      description: e.g. go test -race, go vet, golangci-lint, rgd config validate before push/PR
+    validations:
+      required: true
+
+  - type: textarea
+    id: child_work
+    attributes:
+      label: Child work items (sub-issues)
+      description: Bullet list linking child Issues (P1-1 — #N ...)
+    validations:
+      required: true

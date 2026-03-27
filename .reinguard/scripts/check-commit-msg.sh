@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# tools/check-commit-msg.sh -- Validate commit message format
+# .reinguard/scripts/check-commit-msg.sh — Validate commit message format
 # Used as a commit-msg hook via pre-commit framework.
-# Usage: bash tools/check-commit-msg.sh <commit-msg-file>
+# Commit types are derived from .reinguard/labels.yaml (commit_prefix: true).
+# Usage: bash .reinguard/scripts/check-commit-msg.sh <commit-msg-file>
 set -euo pipefail
 
 MSG_FILE="${1:?Usage: check-commit-msg.sh <commit-msg-file>}"
@@ -16,20 +17,24 @@ if [[ -z "$MSG" ]]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TYPES_FILE="$SCRIPT_DIR/commit-types.txt"
+LABELS_FILE="$SCRIPT_DIR/../labels.yaml"
 
-if [[ ! -f "$TYPES_FILE" ]]; then
-  echo "ERROR: $TYPES_FILE not found." >&2
+if [[ ! -f "$LABELS_FILE" ]]; then
+  echo "ERROR: $LABELS_FILE not found." >&2
+  exit 1
+fi
+if ! command -v yq >/dev/null 2>&1; then
+  echo "ERROR: yq is required for commit-msg validation. See CONTRIBUTING.md." >&2
   exit 1
 fi
 
-TYPES=$(grep -v '^#' "$TYPES_FILE" | grep -v '^$' | paste -sd '|' -)
+TYPES=$(yq -r '[.categories[].labels[] | select(.commit_prefix == true)] | .[].name' "$LABELS_FILE" | paste -sd '|' -)
 PATTERN="^($TYPES)(\(.+\))?!?: .+"
 
 if ! echo "$MSG" | grep -Eq "$PATTERN"; then
   echo "ERROR: First line must match Conventional Commits format:" >&2
   echo "  <type>(<scope>): <summary>" >&2
-  echo "  Types: $TYPES" >&2
+  echo "  Types (from labels.yaml): $TYPES" >&2
   echo "  Got: $MSG" >&2
   exit 1
 fi

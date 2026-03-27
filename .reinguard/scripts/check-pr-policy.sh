@@ -1,15 +1,29 @@
 #!/usr/bin/env bash
-# tools/check-pr-policy.sh -- Local pre-flight check for PR policy compliance.
+# .reinguard/scripts/check-pr-policy.sh — Local pre-flight check for PR policy compliance.
 # Mirrors the checks in .github/workflows/pr-policy.yaml so issues are caught
-# before `gh pr create`.
+# before `gh pr create`. Type labels are read from .reinguard/labels.yaml (requires yq).
 #
 # Usage:
-#   bash tools/check-pr-policy.sh --title "chore(scope): summary" \
+#   bash .reinguard/scripts/check-pr-policy.sh --title "chore(scope): summary" \
 #       --body-file /tmp/pr-body.md --label chore [--base main]
 #
 # --title, --body-file, and at least one --label are required.
 # --base defaults to main (must be main or master to match gate-policy CI).
 set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LABELS_YAML="$SCRIPT_DIR/../labels.yaml"
+if [[ ! -f "$LABELS_YAML" ]]; then
+  echo "ERROR: $LABELS_YAML not found." >&2
+  exit 2
+fi
+if ! command -v yq >/dev/null 2>&1; then
+  echo "ERROR: yq is required. Install: https://github.com/mikefarah/yq" >&2
+  exit 2
+fi
+mapfile -t TYPE_LABELS < <(yq -r '.categories.type.labels[].name' "$LABELS_YAML")
+mapfile -t EXCEPTION_LABELS < <(yq -r '.categories.exception.labels[].name' "$LABELS_YAML")
+TYPE_PATTERN=$(printf '%s\n' "${TYPE_LABELS[@]}" | paste -sd '|' -)
 
 TITLE=""
 BODY_FILE=""
@@ -76,7 +90,6 @@ strip_comments() {
 
 # 1. Issue linkage
 if ! grep -qiE '(closes|fixes|resolves)\s+#[0-9]+' <<< "$BODY"; then
-  EXCEPTION_LABELS=("no-issue" "hotfix")
   IS_EXCEPTION=false
   for el in "${EXCEPTION_LABELS[@]}"; do
     for l in "${LABELS[@]}"; do
@@ -161,14 +174,13 @@ elif [[ ${#ROLLBACK_CLEAN} -lt 3 ]]; then
   ERRORS+=("Rollback Plan: section exists but appears empty.")
 fi
 
-# 8. PR title format (Conventional Commits)
-TITLE_RE='^(feat|fix|refactor|perf|test|docs|build|ci|chore|style|revert)(\(.+\))?!?: .+$'
+# 8. PR title format (Conventional Commits; types from labels.yaml categories.type)
+TITLE_RE="^($TYPE_PATTERN)(\\(.+\\))?!?: .+$"
 if ! grep -qE "$TITLE_RE" <<< "$TITLE"; then
   ERRORS+=("PR title: must match Conventional Commits: <type>(<scope>): <summary>. Got: $TITLE")
 fi
 
 # 9. Type label (exactly one)
-TYPE_LABELS=(feat fix refactor perf docs test ci build chore style revert)
 HITS=()
 for tl in "${TYPE_LABELS[@]}"; do
   for l in "${LABELS[@]}"; do
