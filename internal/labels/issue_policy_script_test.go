@@ -72,83 +72,85 @@ func repoRoot(t *testing.T) string {
 	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
 }
 
-func TestCheckIssuePolicyScript_taskOK(t *testing.T) {
-	// Given: valid task template body and feat title/label
-	// When: running check-issue-policy.sh
-	// Then: exit 0 and output contains OK
+func TestCheckIssuePolicyScript(t *testing.T) {
 	root := repoRoot(t)
 	mustMikefarahYq(t, root)
 	script := filepath.Join(root, ".reinguard", "scripts", "check-issue-policy.sh")
-	f, err := os.CreateTemp(t.TempDir(), "issue-body-*.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	path := f.Name()
-	if _, werr := f.WriteString(taskBodyMinimal); werr != nil {
-		t.Fatal(werr)
-	}
-	if cerr := f.Close(); cerr != nil {
-		t.Fatal(cerr)
-	}
-	cmd := exec.Command("bash", script, "--title", "feat(scope): add feature", "--body-file", path, "--label", "feat", "--template", "task")
-	cmd.Dir = root
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("check-issue-policy: %v\n%s", err, out)
-	}
-	if !strings.Contains(string(out), "OK") {
-		t.Fatalf("expected OK in output: %s", out)
-	}
-}
 
-func TestCheckIssuePolicyScript_taskBadTitle(t *testing.T) {
-	// Given: valid body but non-Conventional Commits title
-	// When: running check-issue-policy.sh
-	// Then: non-zero exit
-	root := repoRoot(t)
-	mustMikefarahYq(t, root)
-	script := filepath.Join(root, ".reinguard", "scripts", "check-issue-policy.sh")
-	f, err := os.CreateTemp(t.TempDir(), "issue-body-*.md")
-	if err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name       string
+		title      string
+		template   string
+		label      string
+		body       string
+		wantSubstr []string
+		wantErr    bool
+	}{
+		{
+			name:       "taskOK",
+			title:      "feat(scope): add feature",
+			template:   "task",
+			label:      "feat",
+			body:       taskBodyMinimal,
+			wantSubstr: []string{"pre-flight OK"},
+			wantErr:    false,
+		},
+		{
+			name:       "taskBadTitle",
+			title:      "not-a-conventional-title",
+			template:   "task",
+			label:      "feat",
+			body:       taskBodyMinimal,
+			wantSubstr: []string{"Issue title:", "Conventional Commits"},
+			wantErr:    true,
+		},
+		{
+			name:       "epicOK",
+			title:      "epic: phase work",
+			template:   "epic",
+			label:      "epic",
+			body:       epicBodyMinimal,
+			wantSubstr: []string{"pre-flight OK"},
+			wantErr:    false,
+		},
 	}
-	path := f.Name()
-	if _, werr := f.WriteString(taskBodyMinimal); werr != nil {
-		t.Fatal(werr)
-	}
-	if cerr := f.Close(); cerr != nil {
-		t.Fatal(cerr)
-	}
-	cmd := exec.Command("bash", script, "--title", "not-a-conventional-title", "--body-file", path, "--label", "feat", "--template", "task")
-	cmd.Dir = root
-	out, err := cmd.CombinedOutput()
-	if err == nil {
-		t.Fatalf("expected non-zero exit, got success: %s", out)
-	}
-}
 
-func TestCheckIssuePolicyScript_epicOK(t *testing.T) {
-	// Given: epic template body and epic label
-	// When: running check-issue-policy.sh
-	// Then: exit 0
-	root := repoRoot(t)
-	mustMikefarahYq(t, root)
-	script := filepath.Join(root, ".reinguard", "scripts", "check-issue-policy.sh")
-	f, err := os.CreateTemp(t.TempDir(), "epic-body-*.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	path := f.Name()
-	if _, werr := f.WriteString(epicBodyMinimal); werr != nil {
-		t.Fatal(werr)
-	}
-	if cerr := f.Close(); cerr != nil {
-		t.Fatal(cerr)
-	}
-	cmd := exec.Command("bash", script, "--title", "epic: phase work", "--body-file", path, "--label", "epic", "--template", "epic")
-	cmd.Dir = root
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("check-issue-policy: %v\n%s", err, out)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Given: Issue body file and CLI args for check-issue-policy.sh
+			f, err := os.CreateTemp(t.TempDir(), "issue-body-*.md")
+			if err != nil {
+				t.Fatal(err)
+			}
+			path := f.Name()
+			if _, werr := f.WriteString(tt.body); werr != nil {
+				t.Fatal(werr)
+			}
+			if cerr := f.Close(); cerr != nil {
+				t.Fatal(cerr)
+			}
+
+			// When: running the script
+			cmd := exec.Command("bash", script, "--title", tt.title, "--body-file", path, "--label", tt.label, "--template", tt.template)
+			cmd.Dir = root
+			out, err := cmd.CombinedOutput()
+			s := string(out)
+
+			// Then: exit code and output match expectations
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected non-zero exit, got success: %s", s)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("check-issue-policy: %v\n%s", err, s)
+				}
+			}
+			for _, sub := range tt.wantSubstr {
+				if !strings.Contains(s, sub) {
+					t.Fatalf("expected output to contain %q, got:\n%s", sub, s)
+				}
+			}
+		})
 	}
 }

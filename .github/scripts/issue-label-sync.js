@@ -25,7 +25,7 @@ const run = async () => {
 
   if (
     !labelsDoc.categories?.type?.labels?.length ||
-    !labelsDoc.categories?.exception?.labels
+    !labelsDoc.categories?.exception?.labels?.length
   ) {
     core.setFailed(
       `issue-label-sync: label config at ${labelsPath} is missing required categories (type/exception).`,
