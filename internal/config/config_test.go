@@ -601,63 +601,81 @@ func TestLoad_controlStatesFile(t *testing.T) {
 	}
 }
 
-func TestLoad_unknownEvaluatorInWhen(t *testing.T) {
+func TestLoad_evaluatorReferencesInWhen_table(t *testing.T) {
 	t.Parallel()
-	// Given: guard rule referencing an evaluator name not in the registry
-	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
-	guardsDir := filepath.Join(dir, "control", "guards")
-	if err := os.MkdirAll(guardsDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	writeFile(t, filepath.Join(guardsDir, "g.yaml"), []byte(`rules:
-  - type: guard
-    id: g1
-    priority: 1
-    guard_id: merge-readiness
-    when:
-      eval: no-such-evaluator
-`))
-
-	// When: Load runs
-	_, err := Load(dir)
-
-	// Then: validation error names unknown evaluator
-	if err == nil || !strings.Contains(err.Error(), "unknown evaluator") {
-		t.Fatalf("got err=%v", err)
-	}
-}
-
-func TestLoad_validNamedEvaluatorInWhen(t *testing.T) {
-	t.Parallel()
-	// Given: guard rule with built-in constant evaluator (TC-N-01)
-	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
-	guardsDir := filepath.Join(dir, "control", "guards")
-	if err := os.MkdirAll(guardsDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	writeFile(t, filepath.Join(guardsDir, "g.yaml"), []byte(`rules:
-  - type: guard
-    id: g1
-    priority: 1
-    guard_id: merge-readiness
-    when:
+	tests := []struct {
+		name       string
+		whenYAML   string
+		wantErrSub string
+	}{
+		{
+			name: "valid_constant_top_level",
+			whenYAML: `
       eval: constant
       params:
-        value: true
-`))
-
-	// When: Load runs
-	res, err := Load(dir)
-
-	// Then: load succeeds
-	if err != nil {
-		t.Fatal(err)
+        value: true`,
+		},
+		{
+			name: "valid_constant_nested_in_and",
+			whenYAML: `
+      and:
+        - op: eq
+          path: x
+          value: 1
+        - eval: constant
+          params:
+            value: true`,
+		},
+		{
+			name: "valid_constant_nested_in_count_when",
+			whenYAML: `
+      op: count
+      path: items
+      eq: 0
+      when:
+        eval: constant
+        params:
+          value: true`,
+		},
+		{
+			name: "unknown_evaluator_name",
+			whenYAML: `
+      eval: no-such-evaluator`,
+			wantErrSub: "unknown evaluator",
+		},
 	}
-	rs := res.Rules()
-	if len(rs) != 1 || rs[0].ID != "g1" {
-		t.Fatalf("rules: %+v", rs)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
+			guardsDir := filepath.Join(dir, "control", "guards")
+			if err := os.MkdirAll(guardsDir, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			body := `rules:
+  - type: guard
+    id: g1
+    priority: 1
+    guard_id: merge-readiness
+    when:` + tc.whenYAML + "\n"
+			writeFile(t, filepath.Join(guardsDir, "g.yaml"), []byte(body))
+
+			res, err := Load(dir)
+			if tc.wantErrSub != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErrSub) {
+					t.Fatalf("Load() err=%v want substring %q", err, tc.wantErrSub)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			rs := res.Rules()
+			if len(rs) != 1 || rs[0].ID != "g1" {
+				t.Fatalf("rules: %+v", rs)
+			}
+		})
 	}
 }
 

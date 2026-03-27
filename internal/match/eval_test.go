@@ -350,51 +350,144 @@ func TestEvalOperatorMatrix(t *testing.T) {
 	}
 }
 
-func TestEval_namedEvaluator_constant(t *testing.T) {
-	t.Parallel()
-	// Given: constant true / false
-	// When: Eval runs
-	// Then: matches params.value
-	ok, err := Eval(map[string]any{
-		"eval":   "constant",
-		"params": map[string]any{"value": true},
-	}, map[string]any{})
-	if err != nil || !ok {
-		t.Fatalf("got %v %v", ok, err)
+// intReturnEval is a test evaluator that returns a non-bool (match requires bool for when).
+type intReturnEval struct{}
+
+func (intReturnEval) Name() string { return "returns-int" }
+
+func (intReturnEval) Eval(map[string]any, map[string]any) (any, error) { return 42, nil }
+
+func registryWithIntReturn() *evaluator.Registry {
+	r := evaluator.NewRegistry()
+	if err := r.Register(intReturnEval{}); err != nil {
+		panic(err)
 	}
-	ok, err = Eval(map[string]any{
-		"eval":   "constant",
-		"params": map[string]any{"value": false},
-	}, map[string]any{})
-	if err != nil || ok {
-		t.Fatalf("got %v %v", ok, err)
-	}
+	return r
 }
 
-func TestEval_namedEvaluator_unknown(t *testing.T) {
+func TestEval_namedEvaluator_table(t *testing.T) {
 	t.Parallel()
-	_, err := EvalWithRegistry(
-		map[string]any{"eval": "nope", "params": map[string]any{}},
-		map[string]any{},
-		evaluator.NewRegistry(),
-	)
-	requireMatchErr(t, err)
-	if !strings.Contains(err.Error(), "unknown evaluator") {
-		t.Fatal(err)
+	emptyReg := evaluator.NewRegistry()
+	//nolint:govet // table-driven case struct; fieldalignment is not worth obfuscating field order
+	tests := []struct {
+		name    string
+		when    any
+		sig     map[string]any
+		reg     *evaluator.Registry
+		wantOK  bool
+		wantErr string
+	}{
+		{
+			name: "constant_true",
+			when: map[string]any{"eval": "constant", "params": map[string]any{"value": true}},
+			sig:  map[string]any{},
+			// reg nil → default registry
+			wantOK: true,
+		},
+		{
+			name:   "constant_false",
+			when:   map[string]any{"eval": "constant", "params": map[string]any{"value": false}},
+			sig:    map[string]any{},
+			wantOK: false,
+		},
+		{
+			name:    "unknown_name_empty_registry",
+			when:    map[string]any{"eval": "nope", "params": map[string]any{}},
+			sig:     map[string]any{},
+			reg:     emptyReg,
+			wantErr: "unknown evaluator",
+		},
+		{
+			name:    "unknown_builtin_name_empty_registry",
+			when:    map[string]any{"eval": "constant", "params": map[string]any{"value": true}},
+			sig:     map[string]any{},
+			reg:     emptyReg,
+			wantErr: "unknown evaluator",
+		},
+		{
+			name:    "constant_missing_params",
+			when:    map[string]any{"eval": "constant"},
+			sig:     map[string]any{},
+			wantErr: "missing params.value",
+		},
+		{
+			name:    "constant_value_not_bool",
+			when:    map[string]any{"eval": "constant", "params": map[string]any{"value": "yes"}},
+			sig:     map[string]any{},
+			wantErr: "params.value must be boolean",
+		},
+		{
+			name:    "params_not_object",
+			when:    map[string]any{"eval": "constant", "params": "bad"},
+			sig:     map[string]any{},
+			wantErr: "params must be object",
+		},
+		{
+			name: "eval_combined_with_op",
+			when: map[string]any{
+				"eval": "constant", "op": "eq", "path": "a", "value": 1,
+			},
+			sig:     map[string]any{},
+			wantErr: "combine eval with op",
+		},
+		{
+			name: "eval_combined_with_and",
+			when: map[string]any{
+				"eval": "constant",
+				"and":  []any{},
+			},
+			sig:     map[string]any{},
+			wantErr: "combine eval with and",
+		},
+		{
+			name: "eval_combined_with_or",
+			when: map[string]any{
+				"eval": "constant",
+				"or":   []any{},
+			},
+			sig:     map[string]any{},
+			wantErr: "combine eval with or",
+		},
+		{
+			name: "eval_combined_with_not",
+			when: map[string]any{
+				"eval": "constant",
+				"not":  map[string]any{"op": "eq", "path": "a", "value": 1},
+			},
+			sig:     map[string]any{},
+			wantErr: "combine eval with not",
+		},
+		{
+			name:    "evaluator_returns_non_bool",
+			when:    map[string]any{"eval": "returns-int", "params": map[string]any{}},
+			sig:     map[string]any{},
+			reg:     registryWithIntReturn(),
+			wantErr: "want bool",
+		},
 	}
-}
-
-func TestEval_evalCombineOpError(t *testing.T) {
-	t.Parallel()
-	_, err := Eval(map[string]any{
-		"eval":  "constant",
-		"op":    "eq",
-		"path":  "a",
-		"value": 1,
-	}, map[string]any{})
-	requireMatchErr(t, err)
-	if !strings.Contains(err.Error(), "combine eval with op") {
-		t.Fatal(err)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var ok bool
+			var err error
+			if tc.reg != nil {
+				ok, err = EvalWithRegistry(tc.when, tc.sig, tc.reg)
+			} else {
+				ok, err = Eval(tc.when, tc.sig)
+			}
+			if tc.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+					t.Fatalf("err=%v want substring %q", err, tc.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if ok != tc.wantOK {
+				t.Fatalf("got ok=%v want %v", ok, tc.wantOK)
+			}
+		})
 	}
 }
 
