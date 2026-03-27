@@ -39,6 +39,7 @@ func TestRunKnowledgePack_emptyManifest(t *testing.T) {
 
 func TestRunKnowledgePack_observationFileFiltersWhen(t *testing.T) {
 	t.Parallel()
+	// Given: manifest with two entries having different when-clauses (on-main vs other-branch)
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
 	kdir := filepath.Join(cfgDir, "knowledge")
@@ -46,7 +47,7 @@ func TestRunKnowledgePack_observationFileFiltersWhen(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(kdir, "manifest.json"), []byte(`{
-  "schema_version": "0.5.0",
+  "schema_version": "0.6.0",
   "entries": [
     {
       "id": "on-main",
@@ -66,13 +67,14 @@ func TestRunKnowledgePack_observationFileFiltersWhen(t *testing.T) {
 }`))
 	obsDir := t.TempDir()
 	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{
-  "schema_version": "0.5.0",
+  "schema_version": "0.6.0",
   "signals": {"git": {"branch": "main"}},
   "degraded": false
 }`))
 	var buf bytes.Buffer
 	app := NewApp("t")
 	app.Writer = &buf
+	// When: knowledge pack runs with observation where git.branch=main
 	if err := app.Run([]string{
 		"rgd", "knowledge", "pack", "--config-dir", cfgDir,
 		"--observation-file", filepath.Join(obsDir, "o.json"),
@@ -85,6 +87,7 @@ func TestRunKnowledgePack_observationFileFiltersWhen(t *testing.T) {
 	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
 		t.Fatal(err)
 	}
+	// Then: only "on-main" entry returned (when-clause matches)
 	if len(out.Entries) != 1 || out.Entries[0]["id"] != "on-main" {
 		t.Fatalf("got %s", buf.String())
 	}
@@ -92,6 +95,7 @@ func TestRunKnowledgePack_observationFileFiltersWhen(t *testing.T) {
 
 func TestRunKnowledgePack_observationFileAndQueryUnion(t *testing.T) {
 	t.Parallel()
+	// Given: manifest with two when-filtered entries; query matches the non-matching branch's trigger
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
 	kdir := filepath.Join(cfgDir, "knowledge")
@@ -99,7 +103,7 @@ func TestRunKnowledgePack_observationFileAndQueryUnion(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(kdir, "manifest.json"), []byte(`{
-  "schema_version": "0.5.0",
+  "schema_version": "0.6.0",
   "entries": [
     {
       "id": "on-main",
@@ -119,13 +123,14 @@ func TestRunKnowledgePack_observationFileAndQueryUnion(t *testing.T) {
 }`))
 	obsDir := t.TempDir()
 	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{
-  "schema_version": "0.5.0",
+  "schema_version": "0.6.0",
   "signals": {"git": {"branch": "main"}},
   "degraded": false
 }`))
 	var buf bytes.Buffer
 	app := NewApp("t")
 	app.Writer = &buf
+	// When: pack runs with same observation plus --query matching "beta" trigger
 	if err := app.Run([]string{
 		"rgd", "knowledge", "pack", "--config-dir", cfgDir,
 		"--observation-file", filepath.Join(obsDir, "o.json"),
@@ -139,6 +144,7 @@ func TestRunKnowledgePack_observationFileAndQueryUnion(t *testing.T) {
 	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
 		t.Fatal(err)
 	}
+	// Then: both entries returned (OR union of when match and trigger match)
 	if len(out.Entries) != 2 {
 		t.Fatalf("want OR union, got %s", buf.String())
 	}
@@ -154,19 +160,21 @@ func TestRunKnowledgePack_queryFilter(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(cfgDir, "knowledge", "manifest.json"), []byte(`{
-  "schema_version": "0.5.0",
+  "schema_version": "0.6.0",
   "entries": [
     {
       "id": "a",
       "path": "knowledge/a.md",
       "description": "alpha",
-      "triggers": ["apple", "alpha"]
+      "triggers": ["apple", "alpha"],
+      "when": {"eval": "constant", "params": {"value": true}}
     },
     {
       "id": "b",
       "path": "knowledge/b.md",
       "description": "beta",
-      "triggers": ["banana"]
+      "triggers": ["banana"],
+      "when": {"eval": "constant", "params": {"value": true}}
     }
   ]
 }`))
@@ -204,6 +212,10 @@ id: zed
 description: last file
 triggers:
   - z
+when:
+  eval: constant
+  params:
+    value: true
 ---
 
 # Z
@@ -248,6 +260,10 @@ id: only
 description: d
 triggers:
   - t
+when:
+  eval: constant
+  params:
+    value: true
 ---
 `))
 	var idxBuf bytes.Buffer
@@ -285,15 +301,20 @@ id: only
 description: d
 triggers:
   - t
+when:
+  eval: constant
+  params:
+    value: true
 ---
 `))
 	writeFile(t, filepath.Join(kdir, "manifest.json"), []byte(`{
-  "schema_version": "0.5.0",
+  "schema_version": "0.6.0",
   "entries": [{
     "id": "wrong",
     "path": "knowledge/only.md",
     "description": "d",
-    "triggers": ["t"]
+    "triggers": ["t"],
+    "when": {"eval": "constant", "params": {"value": true}}
   }]
 }`))
 
@@ -319,12 +340,13 @@ func TestRunConfigValidate_knowledgeMissingPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(kdir, "manifest.json"), []byte(`{
-  "schema_version": "0.5.0",
+  "schema_version": "0.6.0",
   "entries": [{
     "id": "ghost",
     "path": "knowledge/missing.md",
     "description": "d",
-    "triggers": ["t"]
+    "triggers": ["t"],
+    "when": {"eval": "constant", "params": {"value": true}}
   }]
 }`))
 

@@ -16,10 +16,12 @@ merge, or restructure commits (commit organization is `implement` step 7).
 **Knowledge discovery** (substrate):
 
 ```bash
-rgd knowledge pack --query '<keyword from Issue>'
+rgd context build
 ```
 
-Open each `entries[].path` under `.reinguard/knowledge/` as needed (testing strategy, defensive patterns, etc.).
+Use `knowledge.entries` from stdout JSON (signal-filtered). Open each `entries[].path` as needed (testing strategy, defensive patterns, etc.).
+
+Optional: `rgd observe > /tmp/rgd-observe.json` then `rgd knowledge pack --observation-file /tmp/rgd-observe.json --query '<keyword from Issue>'` for trigger substring OR-union (`docs/cli.md`).
 
 **Diff and metadata** (no PR required):
 
@@ -39,7 +41,7 @@ gh issue view <ISSUE> --json title,body,labels
 - Commit log (`git log --oneline origin/main..HEAD`)
 - `implement` output: scope, DoD progress, doc impact, preflight result, commit status
 - Issue metadata (Definition of Done, Test plan, Refs: ADR)
-- Relevant knowledge entries (`rgd knowledge pack`)
+- Relevant knowledge entries (`rgd context build` → `knowledge.entries`)
 
 ### 2. Inspect each dimension
 
@@ -60,7 +62,7 @@ Classify each finding as **Blocking** or **Non-blocking** per `review--self-insp
 If **Blocking** findings exist:
 
 1. Return to `implement` for fixes (and commit restructuring if recommended)
-2. Re-run applicable preflight steps (`go test`, `go vet`, `golangci-lint`, `markdownlint-cli2`)
+2. Re-run applicable preflight steps (`go test`, `go vet`, `golangci-lint`, `npx --yes markdownlint-cli2@latest '**/*.md'`)
 3. Commit with `Refs: #<issue>`
 4. Re-run inspection (go to step 2) until no Blocking findings remain
 

@@ -20,7 +20,7 @@ func TestValidateWhen_table(t *testing.T) {
 			name: "unknown_nested_under_count",
 			when: map[string]any{
 				"op":   "count",
-				"path": "items",
+				"path": "state.items",
 				"eq":   0,
 				"when": map[string]any{"eval": "bogus"},
 			},
@@ -31,8 +31,8 @@ func TestValidateWhen_table(t *testing.T) {
 			when: map[string]any{
 				"eval":  "constant",
 				"op":    "eq",
-				"path":  "a",
-				"value": 1,
+				"path":  "git.branch",
+				"value": "main",
 			},
 			wantErr: "combine eval with op",
 		},
@@ -70,9 +70,35 @@ func TestValidateWhen_table(t *testing.T) {
 			name: "valid_nested_and",
 			when: map[string]any{
 				"and": []any{
-					map[string]any{"op": "eq", "path": "x", "value": 1},
+					map[string]any{"op": "eq", "path": "git.branch", "value": "main"},
 					map[string]any{"eval": "constant", "params": map[string]any{"value": true}},
 				},
+			},
+		},
+		{
+			name:    "unknown_op",
+			when:    map[string]any{"op": "bogus", "path": "git.branch", "value": 1},
+			wantErr: "unknown op",
+		},
+		{
+			name:    "path_bad_prefix",
+			when:    map[string]any{"op": "eq", "path": "foo.bar", "value": 1},
+			wantErr: "must start with git.",
+		},
+		{
+			name:    "eq_missing_value",
+			when:    map[string]any{"op": "eq", "path": "git.branch"},
+			wantErr: "requires value",
+		},
+		{
+			name:    "constant_missing_params",
+			when:    map[string]any{"eval": "constant"},
+			wantErr: "requires params object",
+		},
+		{
+			name: "path_dollar_quantifier_ok",
+			when: map[string]any{
+				"op": "any", "path": "state.items", "when": map[string]any{"op": "eq", "path": "$.x", "value": 1.0},
 			},
 		},
 	}

@@ -10,12 +10,12 @@ import (
 
 // FrontMatter is YAML metadata from the leading block in a knowledge .md file.
 //
-//nolint:govet // fieldalignment: keep id/description/triggers before optional when for readability
+//nolint:govet // fieldalignment: keep id/description/triggers/when grouping for readability
 type FrontMatter struct {
 	ID          string   `yaml:"id"`
 	Description string   `yaml:"description"`
 	Triggers    []string `yaml:"triggers"`
-	When        any      `yaml:"when,omitempty"`
+	When        any      `yaml:"when"`
 }
 
 // ParseFrontMatter extracts and parses the first YAML front matter block (--- ... ---).
@@ -54,5 +54,24 @@ func ParseFrontMatter(md []byte) (*FrontMatter, error) {
 	if len(fm.Triggers) == 0 {
 		return nil, fmt.Errorf("knowledge: front matter: triggers must have at least one non-empty entry")
 	}
+	if err := validateUniqueTriggers(fm.ID, fm.Triggers); err != nil {
+		return nil, err
+	}
+	if fm.When == nil {
+		return nil, fmt.Errorf("knowledge: front matter: missing required when")
+	}
 	return &fm, nil
+}
+
+// validateUniqueTriggers rejects duplicate triggers after trim, compared case-insensitively.
+func validateUniqueTriggers(entryID string, triggers []string) error {
+	seen := make(map[string]string)
+	for _, t := range triggers {
+		key := strings.ToLower(t)
+		if prev, ok := seen[key]; ok {
+			return fmt.Errorf("knowledge: front matter: duplicate trigger %q (also %q) in id %q", t, prev, entryID)
+		}
+		seen[key] = t
+	}
+	return nil
 }

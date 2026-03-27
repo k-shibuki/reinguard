@@ -6,6 +6,12 @@ triggers:
   - output shape
   - null vs array
   - unmarshal
+when:
+  or:
+    - op: exists
+      path: git.branch
+    - op: exists
+      path: github.repository.owner
 ---
 
 # JSON Contracts in Tests and CLI Output

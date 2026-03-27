@@ -13,7 +13,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "path", "description", "triggers"],
+        "required": ["id", "path", "description", "triggers", "when"],
         "properties": {
           "id": {
             "type": "string",
@@ -38,7 +38,7 @@
           },
           "when": {
             "type": "object",
-            "description": "Match expression (ADR-0002); when omitted, entry is always selected.",
+            "description": "Match expression (ADR-0002); required on every knowledge entry.",
             "additionalProperties": true
           }
         },

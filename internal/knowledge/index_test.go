@@ -22,6 +22,10 @@ id: second
 description: B doc
 triggers:
   - beta
+when:
+  eval: constant
+  params:
+    value: true
 ---
 
 # B
@@ -31,6 +35,10 @@ id: first
 description: A doc
 triggers:
   - alpha
+when:
+  eval: constant
+  params:
+    value: true
 ---
 
 # A
@@ -87,6 +95,13 @@ when:
 	if m.Entries[0].When == nil {
 		t.Fatal("expected When")
 	}
+	got, ok := m.Entries[0].When.(map[string]any)
+	if !ok {
+		t.Fatalf("when type: %T", m.Entries[0].When)
+	}
+	if got["op"] != "eq" || got["path"] != "state.kind" || got["value"] != "resolved" {
+		t.Fatalf("unexpected when: %#v", got)
+	}
 }
 
 func TestBuildManifest_duplicateID(t *testing.T) {
@@ -102,6 +117,10 @@ id: same
 description: x
 triggers:
   - t
+when:
+  eval: constant
+  params:
+    value: true
 ---
 `
 	writeFile(t, filepath.Join(kdir, "a.md"), []byte(body))

@@ -19,7 +19,7 @@ Whole-change inspection criteria applied **after** `coding--preflight.md`
 ## Relationship to preflight
 
 `coding--preflight.md` covers mechanical, line-level checks (nil guards,
-silent ignores, setup error handling, `go vet`, `markdownlint-cli2`).
+silent ignores, setup error handling, `go vet`, `npx --yes markdownlint-cli2@latest`).
 Self-inspection operates at the **whole-change** level: coherence,
 alignment, and coverage that only become visible when reviewing the
 complete diff against the Issue and architecture.
@@ -42,7 +42,7 @@ Verify the diff satisfies the Issue's **Definition of Done** and
 ### 2. ADR compliance
 
 For each ADR listed in the Issue's **Refs: ADR** (or discovered via
-`rgd knowledge pack`), confirm the implementation respects the
+`rgd context build` / `rgd knowledge pack`), confirm the implementation respects the
 **Decision** and **Consequences** sections. Flag:
 
 - Contradictions (e.g. orchestration logic in the substrate)

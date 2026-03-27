@@ -211,13 +211,16 @@ JSON `{ "guard_id": "merge-readiness", "ok": true|false, "reason": "..." }`
 ## `rgd knowledge index`
 
 Scans `.reinguard/knowledge/*.md`, parses YAML front matter (`id`, `description`,
-`triggers`, optional `when`), and writes `.reinguard/knowledge/manifest.json` with
+`triggers`, **`when`** — all required), and writes `.reinguard/knowledge/manifest.json` with
 `schema_version` set to the binary’s current contract version (ADR-0010). Prints
 a one-line summary to stdout (human-readable).
 
-Optional `when` is a match expression (same shape as control rules; ADR-0002). It is
-copied into the manifest as-is; **`rgd config validate`** checks evaluator names
-inside `when` (e.g. `eval:` nodes). `knowledge index` does not validate `when`.
+`when` is a match expression (same shape as control rules; ADR-0002). It is
+copied into the manifest as-is. **`rgd knowledge index`** does not walk `when` beyond
+YAML parse; **`rgd config validate`** applies the same static checks as for control rules’
+`when`: registered `eval:` names, known `op` values (see `internal/match`), required operands per
+`op`, `eval: constant` requires `params.value` as boolean, and every `path` must start with
+`git.`, `github.`, `state.`, or `$` / `$.` (quantifier scope). `knowledge index` rejects **duplicate triggers** (case-insensitive) and missing `when`.
 
 After editing knowledge metadata in front matter, run this command and commit the
 updated manifest so `rgd config validate` freshness checks pass.
@@ -230,14 +233,14 @@ Reads `.reinguard/knowledge/manifest.json` and prints JSON:
 { "entries": [ { "id": "...", "path": "...", "description": "...", "triggers": ["..."], "when": { } } ] }
 ```
 
-`when` is omitted when absent in the manifest. Repo-relative `path` values point at Markdown files; bodies are not embedded.
+Every committed manifest entry includes `when` (schema-required). Repo-relative `path` values point at Markdown files; bodies are not embedded.
 
 | Flag | Description |
 |------|-------------|
 | `--query` | Optional. Case-insensitive substring match against each entry’s `triggers`. |
 | `--observation-file FILE` | Optional. Observation JSON (same shape as `rgd observe` stdout). When set, entries with a `when` clause are kept only if `when` matches the **nested** `signals` object from the file (not state-resolved; use `context build` for `state.*` paths in `when`). |
 
-**Selection when `--observation-file` is set:** entries included if `when` matches **or** `--query` matches triggers (OR union by `id`). Entries without `when` are always included. When `--observation-file` is omitted, all entries are returned and `--query` behaves as before (trigger filter only).
+**Selection when `--observation-file` is set:** entries included if `when` matches **or** `--query` matches triggers (OR union by `id`). When `--observation-file` is omitted, all entries are returned and `--query` behaves as before (trigger filter only).
 
 If evaluating `when` fails (e.g. malformed clause), the entry is **still included** and a **`diagnostics`** array is added to the JSON with `severity: "warning"` and `code: "knowledge_when_eval"` (safe-side for judgment aids).
 
@@ -246,7 +249,7 @@ If evaluating `when` fails (e.g. malformed clause), the entry is **still include
 Runs the default pipeline: **observe → state eval → knowledge filter → route select → guard eval
 (merge-readiness) → operational context JSON**.
 
-After state resolution, `state.kind`, `state.state_id`, and `state.rule_id` are merged into the flat signal map; **knowledge `entries`** are then filtered with `match.Eval` per optional `when` (entries without `when` stay included). Route and guard steps use the same flat map as before; they do not see route/guard outcomes inside `when` (avoids circularity).
+After state resolution, `state.kind`, `state.state_id`, and `state.rule_id` are merged into the flat signal map; **knowledge `entries`** are then filtered with `match.Eval` per entry `when`. Route and guard steps use the same flat map as before; they do not see route/guard outcomes inside `when` (avoids circularity).
 
 - **`--observation-file FILE`**: if set, skips live `observe` and uses the
   given observation document JSON as input (same shape as `rgd observe` stdout).
@@ -269,7 +272,7 @@ present, against embedded JSON Schemas. Non-zero exit on hard validation
 errors. **Deprecated** configuration keys (marked in JSON Schema) emit **warnings
 on stderr** but still exit **0** when validation succeeds.
 
-**Named evaluators (ADR-0002):** `when` may include `{ "eval": "<name>", "params": { ... } }` nodes (composed with `and` / `or` / `not` like other clauses). `rgd config validate` rejects unknown evaluator names against the built-in registry. To count built-ins for review/metrics, call `evaluator.DefaultRegistry().ListRegistered()` from Go (sorted names), or enumerate registrations in `internal/evaluator/` (see `newBuiltinRegistry`).
+**`when` clauses (ADR-0002):** Control rules and knowledge manifest entries are checked with the same static validator: unknown `eval:` names, unknown `op` strings, missing required keys per `op` (e.g. `eq` needs `path` and `value`), `eval: constant` requires `params.value` (boolean), and `path` strings must use allowed roots (`git.`, `github.`, `state.`, or `$` / `$.` for nested quantifier clauses). Named evaluators: `rgd config validate` rejects unknown `eval:` names against the built-in registry. To list built-ins, call `evaluator.DefaultRegistry().ListRegistered()` from Go (sorted names), or see `internal/evaluator/`.
 
 **`schema_version` vs this binary (ADR-0008):** `reinguard.yaml` declares a
 semver `schema_version` synchronized with embedded JSON Schemas. This `rgd`
@@ -286,7 +289,7 @@ Skew and deprecation messages go to **stderr**; success messages go to **stdout*
 When `knowledge/manifest.json` is present, validation also:
 
 - Ensures each `entries[].path` exists under the repository root and is a file.
-- Validates `when` clauses in each entry (unknown `eval:` names are rejected, same as control rules).
+- Validates `when` clauses in each entry (same static rules as control rules: `eval` registry, `op` / operands, `path` prefixes).
 - Re-indexes knowledge Markdown front matter and **errors** if the committed
   manifest is stale (run `rgd knowledge index` and commit).
 - May emit **warnings** on stderr for large knowledge files or many triggers per
@@ -295,8 +298,8 @@ When `knowledge/manifest.json` is present, validation also:
 ## Agent bootstrap (Cursor and other tools)
 
 Repositories may add editor-specific rules that point agents at
-`.reinguard/knowledge/manifest.json` and describe how to use `entries` and
-`--query` (see ADR-0010). `rgd` does not require a particular bridge file; this
+`.reinguard/knowledge/manifest.json` and describe how to use `entries`, `when`, and
+`rgd context build` / optional `knowledge pack` (see ADR-0010). `rgd` does not require a particular bridge file; this
 repo includes `.cursor/rules/reinguard-bridge.mdc` as an example.
 
 ## `rgd schema export`

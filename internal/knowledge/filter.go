@@ -29,8 +29,8 @@ func FilterByQuery(entries []config.KnowledgeManifestEntry, query string) []conf
 	return out
 }
 
-// FilterBySignals returns entries whose optional when-clause matches signals (match.Eval).
-// Entries without when are always included. On match.Eval error, the entry is included and a warning is appended (safe-side).
+// FilterBySignals returns entries whose when-clause matches signals (match.Eval).
+// Entries with nil When are always included (invalid manifests should be caught at index/validate time). On match.Eval error, the entry is included and a warning is appended (safe-side).
 func FilterBySignals(entries []config.KnowledgeManifestEntry, signals map[string]any) (included []config.KnowledgeManifestEntry, warnings []string) {
 	for _, e := range entries {
 		if e.When == nil {

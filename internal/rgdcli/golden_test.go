@@ -78,17 +78,22 @@ id: doc1
 description: fixture knowledge for golden tests
 triggers:
   - fixture
+when:
+  eval: constant
+  params:
+    value: true
 ---
 
 # Doc
 `))
 	writeFile(t, filepath.Join(root, "knowledge", "manifest.json"), []byte(`{
-  "schema_version": "0.5.0",
+  "schema_version": "0.6.0",
   "entries": [{
     "id": "doc1",
     "path": "knowledge/doc.md",
     "description": "fixture knowledge for golden tests",
-    "triggers": ["fixture"]
+    "triggers": ["fixture"],
+    "when": {"eval": "constant", "params": {"value": true}}
   }]
 }`))
 	return root

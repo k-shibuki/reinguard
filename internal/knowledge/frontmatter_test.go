@@ -14,6 +14,10 @@ description: Short summary
 triggers:
   - one
   - two
+when:
+  eval: constant
+  params:
+    value: true
 ---
 
 # Body
@@ -69,6 +73,33 @@ triggers: []
 `,
 			contain: "triggers",
 		},
+		{
+			name: "missing_when",
+			input: `---
+id: x
+description: d
+triggers:
+  - t
+---
+`,
+			contain: "when",
+		},
+		{
+			name: "duplicate_trigger",
+			input: `---
+id: x
+description: d
+triggers:
+  - alpha
+  - Alpha
+when:
+  op: eq
+  path: git.branch
+  value: main
+---
+`,
+			contain: "duplicate trigger",
+		},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -82,8 +113,9 @@ triggers: []
 	}
 }
 
-func TestParseFrontMatter_whenOptional(t *testing.T) {
+func TestParseFrontMatter_whenParses(t *testing.T) {
 	t.Parallel()
+	// Given: markdown with valid front matter including when clause
 	md := `---
 id: x
 description: d
@@ -95,10 +127,12 @@ when:
   value: main
 ---
 `
+	// When: ParseFrontMatter runs
 	fm, err := ParseFrontMatter([]byte(md))
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: when parsed as map with expected op
 	m, ok := fm.When.(map[string]any)
 	if !ok || m["op"] != "eq" {
 		t.Fatalf("%+v", fm.When)
@@ -115,6 +149,10 @@ triggers:
   - "  a  "
   - ""
   - b
+when:
+  eval: constant
+  params:
+    value: true
 ---
 `
 	// When: ParseFrontMatter runs

@@ -23,6 +23,10 @@ id: only
 description: d
 triggers:
   - t
+when:
+  eval: constant
+  params:
+    value: true
 ---
 `))
 
@@ -86,13 +90,20 @@ id: only
 description: d
 triggers:
   - t
+when:
+  eval: constant
+  params:
+    value: true
 ---
 `))
 
 	stale := &config.KnowledgeManifest{
 		SchemaVersion: schema.CurrentSchemaVersion,
 		Entries: []config.KnowledgeManifestEntry{
-			{ID: "other", Path: "knowledge/x.md", Description: "d", Triggers: []string{"t"}},
+			{
+				ID: "other", Path: "knowledge/x.md", Description: "d", Triggers: []string{"t"},
+				When: map[string]any{"eval": "constant", "params": map[string]any{"value": true}},
+			},
 		},
 	}
 	// When: CheckFreshness runs

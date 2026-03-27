@@ -6,6 +6,9 @@ triggers:
   - least privilege
   - ci-pass
   - required checks
+when:
+  op: exists
+  path: github.ci.ci_status
 ---
 
 # CI Permissions and Aggregate Gates

@@ -16,7 +16,7 @@ func TestRunStateEval_observationFile(t *testing.T) {
 	writeFile(t, filepath.Join(cfgDir, "control", "states", "r.yaml"), []byte(testFixtureRulesStateIdle))
 	obsDir := t.TempDir()
 	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{
-  "schema_version": "0.5.0",
+  "schema_version": "0.6.0",
   "signals": {"git": {"branch": "main"}},
   "degraded": false
 }`))
@@ -53,7 +53,7 @@ func TestRunStateEval_failOnNonResolved(t *testing.T) {
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
 	writeFile(t, filepath.Join(cfgDir, "control", "states", "r.yaml"), []byte(testFixtureRulesStateAmbiguous))
 	obsDir := t.TempDir()
-	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{"signals":{"x":1}}`))
+	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{"signals":{"git":{"branch":"feat"}}}`))
 	app := NewApp("t")
 	app.Writer = &bytes.Buffer{}
 	// When: state eval runs with --fail-on-non-resolved
@@ -80,12 +80,12 @@ func TestRunStateEval_failOnUnsupported(t *testing.T) {
     priority: 1
     state_id: X
     when:
-      op: bogus
-      path: git.branch
-      value: main
+      op: gt
+      path: git.stash_count
+      value: not-a-number
 `))
 	obsDir := t.TempDir()
-	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{"signals":{"git":{"branch":"main"}}}`))
+	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{"signals":{"git":{"stash_count": 0}}}`))
 	app := NewApp("t")
 	app.Writer = &bytes.Buffer{}
 	// When: state eval runs with --fail-on-non-resolved
@@ -95,7 +95,7 @@ func TestRunStateEval_failOnUnsupported(t *testing.T) {
 		"--observation-file", filepath.Join(obsDir, "o.json"),
 		"--fail-on-non-resolved",
 	})
-	// Then: non-nil error mentioning unsupported
+	// Then: non-nil error mentioning unsupported (when evaluation fails at resolve time)
 	if err == nil || !strings.Contains(err.Error(), "unsupported") {
 		t.Fatalf("%v", err)
 	}
@@ -103,7 +103,7 @@ func TestRunStateEval_failOnUnsupported(t *testing.T) {
 
 func TestRunStateEval_unsupportedJSONOmitsEmptyFields(t *testing.T) {
 	t.Parallel()
-	// Given: same invalid when as TestRunStateEval_failOnUnsupported
+	// Given: same when as TestRunStateEval_failOnUnsupported (valid at config load; fails at match eval)
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
 	writeFile(t, filepath.Join(cfgDir, "control", "states", "bad.yaml"), []byte(`rules:
@@ -112,12 +112,12 @@ func TestRunStateEval_unsupportedJSONOmitsEmptyFields(t *testing.T) {
     priority: 1
     state_id: X
     when:
-      op: bogus
-      path: git.branch
-      value: main
+      op: gt
+      path: git.stash_count
+      value: not-a-number
 `))
 	obsDir := t.TempDir()
-	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{"signals":{"git":{"branch":"main"}}}`))
+	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{"signals":{"git":{"stash_count": 0}}}`))
 	var buf bytes.Buffer
 	app := NewApp("t")
 	app.Writer = &buf

@@ -9,6 +9,12 @@ triggers:
   - duplicate id
   - typed options
   - config validation pattern
+when:
+  or:
+    - op: exists
+      path: git.branch
+    - op: exists
+      path: github.repository.owner
 ---
 
 # Defensive config validation (Go)

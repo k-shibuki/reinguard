@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.5.0",
+  "schema_version": "0.6.0",
   "entries": [
     {
       "id": "ci-permissions-and-gates",
@@ -10,7 +10,11 @@
         "least privilege",
         "ci-pass",
         "required checks"
-      ]
+      ],
+      "when": {
+        "op": "exists",
+        "path": "github.ci.ci_status"
+      }
     },
     {
       "id": "cli-json-contracts",
@@ -21,7 +25,19 @@
         "output shape",
         "null vs array",
         "unmarshal"
-      ]
+      ],
+      "when": {
+        "or": [
+          {
+            "op": "exists",
+            "path": "git.branch"
+          },
+          {
+            "op": "exists",
+            "path": "github.repository.owner"
+          }
+        ]
+      }
     },
     {
       "id": "implementation-defensive-config-validation",
@@ -35,7 +51,19 @@
         "duplicate id",
         "typed options",
         "config validation pattern"
-      ]
+      ],
+      "when": {
+        "or": [
+          {
+            "op": "exists",
+            "path": "git.branch"
+          },
+          {
+            "op": "exists",
+            "path": "github.repository.owner"
+          }
+        ]
+      }
     },
     {
       "id": "knowledge-ops",
@@ -47,7 +75,19 @@
         "review flow",
         "retrieval strategy",
         "rgd knowledge index"
-      ]
+      ],
+      "when": {
+        "or": [
+          {
+            "op": "exists",
+            "path": "git.branch"
+          },
+          {
+            "op": "exists",
+            "path": "github.repository.owner"
+          }
+        ]
+      }
     },
     {
       "id": "observation-signal-shape-and-flattening",
@@ -58,7 +98,19 @@
         "observation-file validation",
         "state.kind",
         "flatten dotted keys"
-      ]
+      ],
+      "when": {
+        "or": [
+          {
+            "op": "exists",
+            "path": "git.branch"
+          },
+          {
+            "op": "exists",
+            "path": "github.repository.owner"
+          }
+        ]
+      }
     },
     {
       "id": "review-bot-operations",
@@ -74,7 +126,12 @@
         "@coderabbitai review",
         "@codex review",
         "rate limit recovery"
-      ]
+      ],
+      "when": {
+        "op": "eq",
+        "path": "github.pull_requests.pr_exists_for_branch",
+        "value": true
+      }
     },
     {
       "id": "review-github-thread-api",
@@ -87,7 +144,12 @@
         "GraphQL reviewThreads",
         "thread resolution API",
         "gh api graphql"
-      ]
+      ],
+      "when": {
+        "op": "eq",
+        "path": "github.pull_requests.pr_exists_for_branch",
+        "value": true
+      }
     },
     {
       "id": "testing-assertions",
@@ -98,7 +160,19 @@
         "assertion strength",
         "given when then",
         "table-driven"
-      ]
+      ],
+      "when": {
+        "or": [
+          {
+            "op": "exists",
+            "path": "git.branch"
+          },
+          {
+            "op": "exists",
+            "path": "github.repository.owner"
+          }
+        ]
+      }
     },
     {
       "id": "testing-given-when-then",
@@ -109,7 +183,19 @@
         "test comment format",
         "GWT",
         "Go testing"
-      ]
+      ],
+      "when": {
+        "or": [
+          {
+            "op": "exists",
+            "path": "git.branch"
+          },
+          {
+            "op": "exists",
+            "path": "github.repository.owner"
+          }
+        ]
+      }
     },
     {
       "id": "testing-strategy",
@@ -123,7 +209,19 @@
         "mock",
         "httptest",
         "urfave cli"
-      ]
+      ],
+      "when": {
+        "or": [
+          {
+            "op": "exists",
+            "path": "git.branch"
+          },
+          {
+            "op": "exists",
+            "path": "github.repository.owner"
+          }
+        ]
+      }
     }
   ]
 }

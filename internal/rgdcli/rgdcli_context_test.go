@@ -55,6 +55,7 @@ func TestRunContextBuild_gitOnly(t *testing.T) {
 
 func TestRunContextBuild_knowledgeWhenExcludes(t *testing.T) {
 	t.Parallel()
+	// Given: config with a knowledge entry whose when-clause requires git.branch=not-main
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
 	writeFile(t, filepath.Join(cfgDir, "control", "states", "default.yaml"), []byte(testFixtureRulesStateIdle))
@@ -75,7 +76,7 @@ when:
 ---
 `))
 	writeFile(t, filepath.Join(kdir, "manifest.json"), []byte(`{
-  "schema_version": "0.5.0",
+  "schema_version": "0.6.0",
   "entries": [{
     "id": "doc1",
     "path": "knowledge/doc.md",
@@ -90,6 +91,7 @@ when:
 	var buf bytes.Buffer
 	app := NewApp("test")
 	app.Writer = &buf
+	// When: context build runs with observation where git.branch=main
 	if err := app.Run([]string{"rgd", "context", "build", "--config-dir", cfgDir, "--observation-file", obs}); err != nil {
 		t.Fatal(err)
 	}
@@ -105,6 +107,7 @@ when:
 	if !ok {
 		t.Fatalf("entries: %T", km["entries"])
 	}
+	// Then: knowledge.entries is empty (when-clause does not match)
 	if len(entries) != 0 {
 		t.Fatalf("expected no knowledge entries, got %v", entries)
 	}
