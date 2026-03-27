@@ -1,6 +1,7 @@
 package githubapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -96,6 +97,113 @@ func (c *Client) GetJSON(ctx context.Context, u string, out any) error {
 	}
 	if lastErr == nil {
 		lastErr = fmt.Errorf("github request failed")
+	}
+	return lastErr
+}
+
+// graphqlEnvelope is the GitHub GraphQL HTTP JSON body (data + optional errors).
+type graphqlEnvelope struct {
+	Data   json.RawMessage        `json:"data"`
+	Errors []graphqlErrorFragment `json:"errors"`
+}
+
+type graphqlErrorFragment struct {
+	Message string `json:"message"`
+}
+
+// PostGraphQL posts a GraphQL request to {APIBase}/graphql with the same auth and
+// 429 retry behavior as GetJSON (ADR-0006). If the response includes GraphQL-level
+// errors, PostGraphQL returns a non-nil error after a successful HTTP status.
+// The `data` field is unmarshaled into `out` when `out` is non-nil.
+func (c *Client) PostGraphQL(ctx context.Context, query string, variables map[string]any, out any) error {
+	if c == nil {
+		return fmt.Errorf("nil client")
+	}
+	payload := map[string]any{"query": query}
+	if len(variables) > 0 {
+		payload["variables"] = variables
+	}
+	bodyBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("graphql encode body: %w", err)
+	}
+	u := c.APIBase() + "/graphql"
+
+	httpClient := c.HTTP
+	if httpClient == nil {
+		httpClient = http.DefaultClient
+	}
+	const maxAttempts = 4
+	var lastErr error
+	backoff := 300 * time.Millisecond
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(bodyBytes))
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Authorization", "Bearer "+c.Token)
+		req.Header.Set("Accept", "application/vnd.github+json")
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			lastErr = err
+			if attempt < maxAttempts-1 {
+				if err := sleepCtx(ctx, backoff); err != nil {
+					return err
+				}
+				backoff *= 2
+			}
+			continue
+		}
+		body, readErr := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if readErr != nil {
+			lastErr = fmt.Errorf("read response body: %w", readErr)
+			if attempt < maxAttempts-1 {
+				if err := sleepCtx(ctx, backoff); err != nil {
+					return err
+				}
+				backoff *= 2
+			}
+			continue
+		}
+		if resp.StatusCode == http.StatusTooManyRequests && attempt < maxAttempts-1 {
+			lastErr = fmt.Errorf("429 from GitHub")
+			if err := sleepCtx(ctx, retryAfterDelay(resp, backoff)); err != nil {
+				return err
+			}
+			backoff *= 2
+			continue
+		}
+		if isGitHubRateLimit403(resp, body) && attempt < maxAttempts-1 {
+			lastErr = fmt.Errorf("403 rate limited from GitHub")
+			if err := sleepCtx(ctx, retryAfterDelay(resp, backoff)); err != nil {
+				return err
+			}
+			backoff *= 2
+			continue
+		}
+		if resp.StatusCode >= 400 {
+			return fmt.Errorf("github graphql %s: %s: %s", req.URL.String(), resp.Status, strings.TrimSpace(string(body)))
+		}
+		var env graphqlEnvelope
+		if err := json.Unmarshal(body, &env); err != nil {
+			return fmt.Errorf("decode graphql json: %w", err)
+		}
+		if len(env.Errors) > 0 {
+			return fmt.Errorf("graphql error: %s", env.Errors[0].Message)
+		}
+		if out != nil && len(env.Data) > 0 && string(env.Data) != "null" {
+			if err := json.Unmarshal(env.Data, out); err != nil {
+				return fmt.Errorf("decode graphql data: %w", err)
+			}
+		}
+		return nil
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("github graphql request failed")
 	}
 	return lastErr
 }
