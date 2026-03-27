@@ -32,7 +32,7 @@ import (
 	"github.com/k-shibuki/reinguard/internal/match"
 )
 
-// priorityEpsilon is used when comparing rule priorities for ties and ordering.
+// priorityEpsilon is used when comparing rule priorities for ties.
 const priorityEpsilon = 1e-9
 
 // OutcomeKind classifies resolution result.

@@ -91,6 +91,7 @@ func TestClient_graphQLEndpoint(t *testing.T) {
 // TestPostGraphQL_restApiV3BaseHitsApiGraphqlPath ensures PostGraphQL posts to /api/graphql when REST base ends with /api/v3.
 func TestPostGraphQL_restApiV3BaseHitsApiGraphqlPath(t *testing.T) {
 	t.Parallel()
+	// Given: httptest server accepting only /api/graphql
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.URL.Path != "/api/graphql" {
 			http.NotFound(w, r)
@@ -101,7 +102,9 @@ func TestPostGraphQL_restApiV3BaseHitsApiGraphqlPath(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	c := &Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL + "/api/v3"}
+	// When: PostGraphQL is called with /api/v3 base
 	err := c.PostGraphQL(context.Background(), `query { __typename }`, nil, nil)
+	// Then: request succeeds (server received at /api/graphql)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,12 +113,15 @@ func TestPostGraphQL_restApiV3BaseHitsApiGraphqlPath(t *testing.T) {
 // TestPostGraphQL_graphqlErrors asserts GraphQL-level errors become a non-nil Go error with the first message.
 func TestPostGraphQL_graphqlErrors(t *testing.T) {
 	t.Parallel()
+	// Given: httptest server returning a GraphQL error response
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"errors":[{"message":"boom"}],"data":null}`))
 	}))
 	t.Cleanup(srv.Close)
 	c := &Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	// When: PostGraphQL is called
 	err := c.PostGraphQL(context.Background(), `query { __typename }`, nil, nil)
+	// Then: error is set with the first GraphQL error message
 	if err == nil || err.Error() != "graphql error: boom" {
 		t.Fatalf("got %v", err)
 	}
@@ -124,8 +130,11 @@ func TestPostGraphQL_graphqlErrors(t *testing.T) {
 // TestPostGraphQL_nilClient verifies PostGraphQL rejects a nil *Client.
 func TestPostGraphQL_nilClient(t *testing.T) {
 	t.Parallel()
+	// Given: a nil Client
 	var c *Client
+	// When: PostGraphQL is called
 	err := c.PostGraphQL(context.Background(), "q", nil, nil)
+	// Then: error indicates nil client
 	if err == nil || err.Error() != "nil client" {
 		t.Fatalf("got %v", err)
 	}
