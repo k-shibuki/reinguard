@@ -37,6 +37,113 @@ func TestRunKnowledgePack_emptyManifest(t *testing.T) {
 	}
 }
 
+func TestRunKnowledgePack_observationFileFiltersWhen(t *testing.T) {
+	t.Parallel()
+	cfgDir := t.TempDir()
+	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
+	kdir := filepath.Join(cfgDir, "knowledge")
+	if err := os.Mkdir(kdir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(kdir, "manifest.json"), []byte(`{
+  "schema_version": "0.5.0",
+  "entries": [
+    {
+      "id": "on-main",
+      "path": "knowledge/a.md",
+      "description": "d",
+      "triggers": ["alpha"],
+      "when": {"op": "eq", "path": "git.branch", "value": "main"}
+    },
+    {
+      "id": "other-branch",
+      "path": "knowledge/b.md",
+      "description": "d",
+      "triggers": ["beta"],
+      "when": {"op": "eq", "path": "git.branch", "value": "feature"}
+    }
+  ]
+}`))
+	obsDir := t.TempDir()
+	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{
+  "schema_version": "0.5.0",
+  "signals": {"git": {"branch": "main"}},
+  "degraded": false
+}`))
+	var buf bytes.Buffer
+	app := NewApp("t")
+	app.Writer = &buf
+	if err := app.Run([]string{
+		"rgd", "knowledge", "pack", "--config-dir", cfgDir,
+		"--observation-file", filepath.Join(obsDir, "o.json"),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var out struct {
+		Entries []map[string]any `json:"entries"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Entries) != 1 || out.Entries[0]["id"] != "on-main" {
+		t.Fatalf("got %s", buf.String())
+	}
+}
+
+func TestRunKnowledgePack_observationFileAndQueryUnion(t *testing.T) {
+	t.Parallel()
+	cfgDir := t.TempDir()
+	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
+	kdir := filepath.Join(cfgDir, "knowledge")
+	if err := os.Mkdir(kdir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(kdir, "manifest.json"), []byte(`{
+  "schema_version": "0.5.0",
+  "entries": [
+    {
+      "id": "on-main",
+      "path": "knowledge/a.md",
+      "description": "d",
+      "triggers": ["alpha"],
+      "when": {"op": "eq", "path": "git.branch", "value": "main"}
+    },
+    {
+      "id": "other-branch",
+      "path": "knowledge/b.md",
+      "description": "d",
+      "triggers": ["beta"],
+      "when": {"op": "eq", "path": "git.branch", "value": "feature"}
+    }
+  ]
+}`))
+	obsDir := t.TempDir()
+	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{
+  "schema_version": "0.5.0",
+  "signals": {"git": {"branch": "main"}},
+  "degraded": false
+}`))
+	var buf bytes.Buffer
+	app := NewApp("t")
+	app.Writer = &buf
+	if err := app.Run([]string{
+		"rgd", "knowledge", "pack", "--config-dir", cfgDir,
+		"--observation-file", filepath.Join(obsDir, "o.json"),
+		"--query", "bet",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var out struct {
+		Entries []map[string]any `json:"entries"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Entries) != 2 {
+		t.Fatalf("want OR union, got %s", buf.String())
+	}
+}
+
 func TestRunKnowledgePack_queryFilter(t *testing.T) {
 	t.Parallel()
 	// Given: a config directory with a manifest containing two entries
@@ -47,7 +154,7 @@ func TestRunKnowledgePack_queryFilter(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(cfgDir, "knowledge", "manifest.json"), []byte(`{
-  "schema_version": "0.4.0",
+  "schema_version": "0.5.0",
   "entries": [
     {
       "id": "a",
@@ -181,7 +288,7 @@ triggers:
 ---
 `))
 	writeFile(t, filepath.Join(kdir, "manifest.json"), []byte(`{
-  "schema_version": "0.4.0",
+  "schema_version": "0.5.0",
   "entries": [{
     "id": "wrong",
     "path": "knowledge/only.md",
@@ -212,7 +319,7 @@ func TestRunConfigValidate_knowledgeMissingPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(kdir, "manifest.json"), []byte(`{
-  "schema_version": "0.4.0",
+  "schema_version": "0.5.0",
   "entries": [{
     "id": "ghost",
     "path": "knowledge/missing.md",

@@ -65,6 +65,12 @@ Each file under `knowledge/` is Markdown with a **YAML front matter** block
 | `description` | One-line summary |
 | `triggers` | Non-empty keyword list for `rgd knowledge pack --query` |
 
+### Optional front matter
+
+| Field | Rule |
+|-------|------|
+| `when` | Match expression (ADR-0002), same shape as control rules’ `when`. If present, `rgd knowledge pack --observation-file` and `rgd context build` can narrow entries by signals. Omit to always include the entry in those outputs. |
+
 ### After editing knowledge metadata
 
 1. `rgd knowledge index`

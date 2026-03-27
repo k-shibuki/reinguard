@@ -220,7 +220,26 @@ func applyOptionalKnowledge(res *LoadResult, dir string, kmSch *jsonschema.Schem
 	if err := validateDeclaredSchemaVersion(km.SchemaVersion, kmPath); err != nil {
 		return err
 	}
+	if err := validateKnowledgeWhenClauses(&km, kmPath); err != nil {
+		return err
+	}
 	res.KnowledgePresent = true
 	res.Knowledge = &km
+	return nil
+}
+
+func validateKnowledgeWhenClauses(km *KnowledgeManifest, pathHint string) error {
+	if km == nil {
+		return nil
+	}
+	reg := evaluator.DefaultRegistry()
+	for i, e := range km.Entries {
+		if e.When == nil {
+			continue
+		}
+		if err := evaluator.ValidateWhen(e.When, reg); err != nil {
+			return fmt.Errorf("config: knowledge manifest %s entry[%d] id %q: %w", pathHint, i, e.ID, err)
+		}
+	}
 	return nil
 }

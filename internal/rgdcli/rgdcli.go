@@ -192,7 +192,7 @@ func RunRouteSelect(c *cli.Context) error {
 
 // RunKnowledgePack lists knowledge entries from manifest (ADR-0010).
 func RunKnowledgePack(c *cli.Context) error {
-	_, cfgDir, err := resolvePaths(c)
+	wd, cfgDir, err := resolvePaths(c)
 	if err != nil {
 		return err
 	}
@@ -203,8 +203,29 @@ func RunKnowledgePack(c *cli.Context) error {
 	if !loaded.KnowledgePresent || loaded.Knowledge == nil {
 		return writeJSON(c.App.Writer, map[string]any{"entries": []config.KnowledgeManifestEntry{}})
 	}
-	entries := knowledge.FilterByQuery(loaded.Knowledge.Entries, c.String("query"))
-	return writeJSON(c.App.Writer, map[string]any{"entries": entries})
+	useSig := c.String("observation-file") != ""
+	var flat map[string]any
+	if useSig {
+		sig, _, _, lerr := observe.LoadSignalsFileOrCollect(context.Background(), &loaded.Root, loadSignalsOpts(c, wd))
+		if lerr != nil {
+			return lerr
+		}
+		flat = signals.Flatten(sig)
+	}
+	entries, warns := knowledge.FilterUnion(loaded.Knowledge.Entries, flat, useSig, c.String("query"))
+	out := map[string]any{"entries": entries}
+	if len(warns) > 0 {
+		var diags []any
+		for _, w := range warns {
+			diags = append(diags, map[string]any{
+				"severity": "warning",
+				"message":  w,
+				"code":     "knowledge_when_eval",
+			})
+		}
+		out["diagnostics"] = diags
+	}
+	return writeJSON(c.App.Writer, out)
 }
 
 // RunContextBuild runs the default operational-context pipeline.
@@ -237,15 +258,32 @@ func RunContextBuild(c *cli.Context) error {
 	}) {
 		flat[k] = v
 	}
+	kEntries := make([]config.KnowledgeManifestEntry, 0)
+	var kWarns []string
+	if loaded.KnowledgePresent && loaded.Knowledge != nil {
+		kEntries, kWarns = knowledge.FilterBySignals(loaded.Knowledge.Entries, flat)
+		if kEntries == nil {
+			kEntries = []config.KnowledgeManifestEntry{}
+		}
+	}
 	routeRes, err := resolve.ResolveRoute(loaded.Rules(), flat, degSet)
 	if err != nil {
 		return err
 	}
 	gr := guard.EvalWithRules(loaded.Rules(), guard.DefaultRegistry(), "merge-readiness", flat, degSet)
-	kEntries := make([]config.KnowledgeManifestEntry, 0)
-	if loaded.KnowledgePresent && loaded.Knowledge != nil {
-		kEntries = append(kEntries, loaded.Knowledge.Entries...)
+	ctxDiags := diagsToMaps(diags)
+	for _, w := range kWarns {
+		ctxDiags = append(ctxDiags, map[string]any{
+			"severity": "warning",
+			"message":  w,
+			"code":     "knowledge_when_eval",
+		})
 	}
+	ctxDiags = append(ctxDiags, map[string]any{
+		"severity": "info",
+		"message":  "context build pipeline complete",
+		"code":     "context_built",
+	})
 	ctxDoc := map[string]any{
 		"schema_version": schema.CurrentSchemaVersion,
 		"observation":    obsDoc,
@@ -254,12 +292,8 @@ func RunContextBuild(c *cli.Context) error {
 		"guards": map[string]any{
 			"merge-readiness": gr,
 		},
-		"knowledge": map[string]any{"entries": kEntries},
-		"diagnostics": append(diagsToMaps(diags), map[string]any{
-			"severity": "info",
-			"message":  "context build pipeline complete",
-			"code":     "context_built",
-		}),
+		"knowledge":   map[string]any{"entries": kEntries},
+		"diagnostics": ctxDiags,
 	}
 	return writeJSON(c.App.Writer, ctxDoc)
 }
@@ -561,9 +595,14 @@ func NewApp(version string) *cli.App {
 					Action: runKnowledgeIndex,
 				},
 				{
-					Name:   "pack",
-					Usage:  "list knowledge entries from manifest",
-					Flags:  []cli.Flag{newCwdFlag(), newConfigDirFlag(), newKnowledgeQueryFlag()},
+					Name:  "pack",
+					Usage: "list knowledge entries from manifest",
+					Flags: []cli.Flag{
+						newCwdFlag(),
+						newConfigDirFlag(),
+						newKnowledgeQueryFlag(),
+						newObservationFileFlag(),
+					},
 					Action: RunKnowledgePack,
 				},
 			},

@@ -19,12 +19,12 @@ func writeFile(t *testing.T, path string, data []byte) {
 // Shared fixtures for CLI tests: keep rule shapes aligned with config.Load expectations
 // (schema_version, default_branch, providers, control/{states,routes,guards}/*.yaml).
 
-const testFixtureReinguardRoot = `schema_version: "0.4.0"
+const testFixtureReinguardRoot = `schema_version: "0.5.0"
 default_branch: main
 providers: []
 `
 
-const testFixtureReinguardGitOnly = `schema_version: "0.4.0"
+const testFixtureReinguardGitOnly = `schema_version: "0.5.0"
 default_branch: main
 providers:
   - id: git

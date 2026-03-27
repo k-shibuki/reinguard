@@ -75,6 +75,7 @@ func indexEntries(repoRootAbs, knowledgeAbsDir string) ([]config.KnowledgeManife
 			Path:        rel,
 			Description: fm.Description,
 			Triggers:    append([]string(nil), fm.Triggers...),
+			When:        fm.When,
 		})
 	}
 	return entries, nil

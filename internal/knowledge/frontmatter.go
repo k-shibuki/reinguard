@@ -9,10 +9,13 @@ import (
 )
 
 // FrontMatter is YAML metadata from the leading block in a knowledge .md file.
+//
+//nolint:govet // fieldalignment: keep id/description/triggers before optional when for readability
 type FrontMatter struct {
 	ID          string   `yaml:"id"`
 	Description string   `yaml:"description"`
 	Triggers    []string `yaml:"triggers"`
+	When        any      `yaml:"when,omitempty"`
 }
 
 // ParseFrontMatter extracts and parses the first YAML front matter block (--- ... ---).

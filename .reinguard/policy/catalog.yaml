@@ -1,7 +1,7 @@
 # Policy catalog — normative documents referenced by Adapter and AGENTS.md.
 # Not indexed by `rgd knowledge index`. Not read by `rgd config validate`
 # (manual index only). Maintained manually.
-schema_version: "0.4.0"
+schema_version: "0.5.0"
 entries:
   - id: review-consensus-protocol
     path: review--consensus-protocol.md

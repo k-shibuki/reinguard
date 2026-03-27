@@ -250,6 +250,30 @@ func TestLoad_knowledgeManifest_invalidJSON(t *testing.T) {
 	}
 }
 
+func TestLoad_knowledgeManifest_whenUnknownEvaluator(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
+	if err := os.Mkdir(filepath.Join(dir, "knowledge"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(dir, "knowledge", "manifest.json"), []byte(fmt.Sprintf(`{
+  "schema_version": %q,
+  "entries": [{
+    "id": "bad",
+    "path": "docs/a.md",
+    "description": "d",
+    "triggers": ["t"],
+    "when": { "eval": "nonexistent-evaluator" }
+  }]
+}`, schema.CurrentSchemaVersion)))
+
+	_, err := Load(dir)
+	if err == nil || !strings.Contains(err.Error(), "unknown evaluator") {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestLoad_knowledgeManifest_schemaInvalid(t *testing.T) {
 	t.Parallel()
 	// Given: manifest missing required fields

@@ -57,6 +57,38 @@ triggers:
 	}
 }
 
+func TestBuildManifest_whenPropagates(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	kdir := filepath.Join(root, "knowledge")
+	if err := os.MkdirAll(kdir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(kdir, "w.md"), []byte(`---
+id: with-when
+description: d
+triggers:
+  - t
+when:
+  op: eq
+  path: state.kind
+  value: resolved
+---
+
+# W
+`))
+	m, err := BuildManifest(root, kdir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Entries) != 1 {
+		t.Fatalf("%+v", m.Entries)
+	}
+	if m.Entries[0].When == nil {
+		t.Fatal("expected When")
+	}
+}
+
 func TestBuildManifest_duplicateID(t *testing.T) {
 	t.Parallel()
 	// Given: two files declaring the same id

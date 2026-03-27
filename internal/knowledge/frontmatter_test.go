@@ -82,6 +82,29 @@ triggers: []
 	}
 }
 
+func TestParseFrontMatter_whenOptional(t *testing.T) {
+	t.Parallel()
+	md := `---
+id: x
+description: d
+triggers:
+  - t
+when:
+  op: eq
+  path: git.branch
+  value: main
+---
+`
+	fm, err := ParseFrontMatter([]byte(md))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, ok := fm.When.(map[string]any)
+	if !ok || m["op"] != "eq" {
+		t.Fatalf("%+v", fm.When)
+	}
+}
+
 func TestParseFrontMatter_triggersSkipBlank(t *testing.T) {
 	t.Parallel()
 	// Given: triggers list with whitespace-only and empty entries

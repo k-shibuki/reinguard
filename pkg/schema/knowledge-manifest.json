@@ -35,6 +35,11 @@
               "minLength": 1
             },
             "minItems": 1
+          },
+          "when": {
+            "type": "object",
+            "description": "Match expression (ADR-0002); when omitted, entry is always selected.",
+            "additionalProperties": true
           }
         },
         "additionalProperties": false

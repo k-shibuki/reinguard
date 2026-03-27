@@ -1,6 +1,7 @@
 package knowledge
 
 import (
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"reflect"
@@ -32,11 +33,14 @@ type normalizedManifest struct {
 }
 
 // normalizedEntry is one manifest row after normalization for DeepEqual checks.
+//
+//nolint:govet // fieldalignment: mirror manifest field grouping
 type normalizedEntry struct {
 	id          string
 	path        string
 	description string
 	triggers    []string
+	when        any
 }
 
 // normalizeManifest copies m into a canonical form so two manifests can be compared with reflect.DeepEqual.
@@ -50,6 +54,7 @@ func normalizeManifest(m *config.KnowledgeManifest) normalizedManifest {
 			path:        filepath.ToSlash(e.Path),
 			description: e.Description,
 			triggers:    tr,
+			when:        canonicalizeWhenForCompare(e.When),
 		})
 	}
 	sort.Slice(entries, func(i, j int) bool {
@@ -63,4 +68,20 @@ func normalizeManifest(m *config.KnowledgeManifest) normalizedManifest {
 		sv = schema.CurrentSchemaVersion
 	}
 	return normalizedManifest{schemaVersion: sv, entries: entries}
+}
+
+// canonicalizeWhenForCompare round-trips when through JSON so YAML vs JSON numeric shapes compare equal.
+func canonicalizeWhenForCompare(v any) any {
+	if v == nil {
+		return nil
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return v
+	}
+	var out any
+	if err := json.Unmarshal(b, &out); err != nil {
+		return v
+	}
+	return out
 }
