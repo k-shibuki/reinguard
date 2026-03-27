@@ -80,7 +80,10 @@ reflect unresolved **threads**, not raw comment row counts.
   (GraphQL threads, accurate `pagination_incomplete`, `review_threads_total`).
 - **Phase 2** — Additional PR/CI/issue fields for FSM (separate issues; e.g.
   mergeability, check runs, issue labels) without changing the reviews
-  contract’s meaning.
+  contract’s meaning. **P2-1 (#70)** extends `signals.github.pull_requests` and
+  `signals.github.reviews` per `docs/cli.md` (unified GraphQL PR context,
+  `latestReviews` aggregates, optional `tracked_reviewer_status` with pluggable
+  `enrich` names validated at provider build / `rgd config validate`).
 
 ## Consequences
 
