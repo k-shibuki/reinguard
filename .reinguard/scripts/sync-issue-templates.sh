@@ -2,8 +2,7 @@
 # Sync `.github/ISSUE_TEMPLATE/task.yml` Type dropdown from `.reinguard/labels.yaml`
 # via `rgd labels list` (same SSOT). Requires `jq` and mikefarah `yq` v4
 # (https://github.com/mikefarah/yq). If PATH `yq` is not mikefarah v4, a copy is
-# downloaded to `.reinguard/scripts/.bin/yq` on first run (Linux or macOS), with
-# SHA-256 verification against the release checksums file.
+# downloaded to `.reinguard/scripts/.bin/yq` on first run.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -26,39 +25,6 @@ is_mikefarah_yq() {
   return 0
 }
 
-# Download mikefarah yq for os (linux|darwin) and arch (amd64|arm64); verify SHA-256
-# using the release checksums and upstream extract-checksum.sh.
-download_mikefarah_yq_verified() {
-  local ver="$1"
-  local dest="$2"
-  local os="$3"
-  local arch="$4"
-  local asset="yq_${os}_${arch}"
-  local tmp base
-  tmp=$(mktemp -d)
-  base="https://github.com/mikefarah/yq/releases/download/v${ver}"
-  curl -fsSL "$base/checksums" -o "$tmp/checksums"
-  curl -fsSL "$base/checksums_hashes_order" -o "$tmp/checksums_hashes_order"
-  curl -fsSL "$base/extract-checksum.sh" -o "$tmp/extract-checksum.sh"
-  chmod +x "$tmp/extract-checksum.sh"
-  curl -fsSL "$base/$asset" -o "$dest"
-  (
-    cd "$tmp"
-    line=$(./extract-checksum.sh SHA-256 "$asset")
-    exp=$(echo "$line" | awk '{print $2}')
-    if command -v sha256sum >/dev/null 2>&1; then
-      echo "$exp  $dest" | sha256sum -c -
-    elif command -v shasum >/dev/null 2>&1; then
-      echo "$exp  $dest" | shasum -a 256 -c -
-    else
-      echo "ERROR: need sha256sum or shasum to verify yq download" >&2
-      exit 1
-    fi
-  )
-  rm -rf "$tmp"
-  chmod +x "$dest"
-}
-
 ensure_yq() {
   if is_mikefarah_yq; then
     YQ_CMD=(yq)
@@ -68,8 +34,7 @@ ensure_yq() {
   if [[ ! -x "$YQ_CACHED" ]]; then
     echo "Installing mikefarah yq to $YQ_CACHED (one-time)..." >&2
     local ver=4.45.1
-    local arch kernel
-    kernel=$(uname -s)
+    local arch
     arch=$(uname -m)
     case "$arch" in
       x86_64) arch=amd64 ;;
@@ -79,16 +44,9 @@ ensure_yq() {
         exit 1
         ;;
     esac
-    local os
-    case "$kernel" in
-      Linux) os=linux ;;
-      Darwin) os=darwin ;;
-      *)
-        echo "ERROR: unsupported OS for bundled yq: $kernel (install mikefarah yq v4 and ensure it is on PATH)" >&2
-        exit 1
-        ;;
-    esac
-    download_mikefarah_yq_verified "$ver" "$YQ_CACHED" "$os" "$arch"
+    local url="https://github.com/mikefarah/yq/releases/download/v${ver}/yq_linux_${arch}"
+    curl -sSL "$url" -o "$YQ_CACHED"
+    chmod +x "$YQ_CACHED"
   fi
   YQ_CMD=("$YQ_CACHED")
 }
