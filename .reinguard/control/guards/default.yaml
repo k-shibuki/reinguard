@@ -1,10 +1,15 @@
 # Dogfood guard rules: enable merge-readiness (built-in) when not on a detached HEAD.
+# Named evaluator (ADR-0002) wires the match-layer registry alongside scalar op (constant is a no-op true).
 rules:
   - type: guard
     id: merge_readiness_when_branch_attached
     priority: 10
     guard_id: merge-readiness
     when:
-      op: eq
-      path: git.detached_head
-      value: false
+      and:
+        - op: eq
+          path: git.detached_head
+          value: false
+        - eval: constant
+          params:
+            value: true

@@ -23,60 +23,84 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/k-shibuki/reinguard/internal/evaluator"
 	"github.com/k-shibuki/reinguard/internal/signals"
 )
 
 // Eval evaluates a when-clause (YAML/JSON decoded as map, slice, or scalar per ADR-0002)
-// against signals. Dot paths address nested maps (for example "git.branch"). A nil signals
-// map is treated like an empty map for path lookups.
+// against signals using [evaluator.DefaultRegistry] for named eval nodes. Dot paths address
+// nested maps (for example "git.branch"). A nil signals map is treated like an empty map for path lookups.
 func Eval(when any, signals map[string]any) (bool, error) {
+	return EvalWithRegistry(when, signals, nil)
+}
+
+// EvalWithRegistry evaluates a when-clause against signals. If reg is nil, [evaluator.DefaultRegistry] is used.
+func EvalWithRegistry(when any, signals map[string]any, reg *evaluator.Registry) (bool, error) {
 	if when == nil {
 		return false, fmt.Errorf("match: nil when")
 	}
-	return evalValue(when, signals)
+	if reg == nil {
+		reg = evaluator.DefaultRegistry()
+	}
+	return evalValue(when, signals, reg)
 }
 
-func evalValue(v any, signals map[string]any) (bool, error) {
+func evalValue(v any, signals map[string]any, reg *evaluator.Registry) (bool, error) {
 	switch t := v.(type) {
 	case map[string]any:
-		return evalMap(t, signals)
+		return evalMap(t, signals, reg)
 	case []any:
 		// Treat bare array as AND of elements (convenience).
-		return evalAnd(t, signals)
+		return evalAnd(t, signals, reg)
 	default:
 		return false, fmt.Errorf("match: unsupported when type %T", v)
 	}
 }
 
-func evalMap(m map[string]any, signals map[string]any) (bool, error) {
+func evalMap(m map[string]any, signals map[string]any, reg *evaluator.Registry) (bool, error) {
+	if name, ok := m["eval"].(string); ok && name != "" {
+		if _, opOK := m["op"].(string); opOK {
+			return false, fmt.Errorf("match: when clause cannot combine eval with op")
+		}
+		if _, ok := m["and"]; ok {
+			return false, fmt.Errorf("match: when clause cannot combine eval with and")
+		}
+		if _, ok := m["or"]; ok {
+			return false, fmt.Errorf("match: when clause cannot combine eval with or")
+		}
+		if _, ok := m["not"]; ok {
+			return false, fmt.Errorf("match: when clause cannot combine eval with not")
+		}
+		return evalNamed(name, m, signals, reg)
+	}
 	if op, ok := m["op"].(string); ok {
-		return evalOp(op, m, signals)
+		return evalOp(op, m, signals, reg)
 	}
 	if v, ok := m["and"]; ok {
 		arr, err := asSlice(v)
 		if err != nil {
 			return false, err
 		}
-		return evalAnd(arr, signals)
+		return evalAnd(arr, signals, reg)
 	}
 	if v, ok := m["or"]; ok {
 		arr, err := asSlice(v)
 		if err != nil {
 			return false, err
 		}
-		return evalOr(arr, signals)
+		return evalOr(arr, signals, reg)
 	}
 	if v, ok := m["not"]; ok {
-		inner, err := evalValue(v, signals)
+		inner, err := evalValue(v, signals, reg)
 		if err != nil {
 			return false, err
 		}
 		return !inner, nil
 	}
-	return false, fmt.Errorf("match: unknown when shape (missing op/and/or/not)")
+	return false, fmt.Errorf("match: unknown when shape (missing op/and/or/not/eval)")
 }
 
-func evalOp(op string, m map[string]any, signals map[string]any) (bool, error) {
+func evalOp(op string, m map[string]any, signals map[string]any, reg *evaluator.Registry) (bool, error) {
 	switch op {
 	case "eq":
 		return cmpScalar(m, signals, func(c int) bool { return c == 0 })
@@ -99,19 +123,19 @@ func evalOp(op string, m map[string]any, signals map[string]any) (bool, error) {
 	case "not_exists":
 		return evalExists(m, signals, false)
 	case "count":
-		return evalCount(m, signals)
+		return evalCount(m, signals, reg)
 	case "any":
-		return evalQuant("any", m, signals)
+		return evalQuant("any", m, signals, reg)
 	case "all":
-		return evalQuant("all", m, signals)
+		return evalQuant("all", m, signals, reg)
 	default:
 		return false, fmt.Errorf("match: unknown op %q", op)
 	}
 }
 
-func evalAnd(nodes []any, signals map[string]any) (bool, error) {
+func evalAnd(nodes []any, signals map[string]any, reg *evaluator.Registry) (bool, error) {
 	for _, n := range nodes {
-		ok, err := evalValue(n, signals)
+		ok, err := evalValue(n, signals, reg)
 		if err != nil {
 			return false, err
 		}
@@ -122,9 +146,9 @@ func evalAnd(nodes []any, signals map[string]any) (bool, error) {
 	return true, nil
 }
 
-func evalOr(nodes []any, signals map[string]any) (bool, error) {
+func evalOr(nodes []any, signals map[string]any, reg *evaluator.Registry) (bool, error) {
 	for _, n := range nodes {
-		ok, err := evalValue(n, signals)
+		ok, err := evalValue(n, signals, reg)
 		if err != nil {
 			return false, err
 		}
@@ -133,6 +157,31 @@ func evalOr(nodes []any, signals map[string]any) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+func evalNamed(name string, m map[string]any, signals map[string]any, reg *evaluator.Registry) (bool, error) {
+	if reg == nil {
+		reg = evaluator.DefaultRegistry()
+	}
+	e, ok := reg.Get(name)
+	if !ok {
+		return false, fmt.Errorf("match: unknown evaluator %q", name)
+	}
+	var params map[string]any
+	if p, paramsOK := m["params"].(map[string]any); paramsOK {
+		params = p
+	} else if _, has := m["params"]; has {
+		return false, fmt.Errorf("match: evaluator %q params must be object", name)
+	}
+	out, err := e.Eval(signals, params)
+	if err != nil {
+		return false, fmt.Errorf("match: evaluator %q: %w", name, err)
+	}
+	b, isBool := out.(bool)
+	if !isBool {
+		return false, fmt.Errorf("match: evaluator %q returned %T, want bool", name, out)
+	}
+	return b, nil
 }
 
 func cmpScalar(m map[string]any, signals map[string]any, pred func(int) bool) (bool, error) {
@@ -236,7 +285,7 @@ func evalExists(m map[string]any, signals map[string]any, wantExists bool) (bool
 	return !ok, nil
 }
 
-func evalCount(m map[string]any, signals map[string]any) (bool, error) {
+func evalCount(m map[string]any, signals map[string]any, reg *evaluator.Registry) (bool, error) {
 	path, err := pathFrom(m)
 	if err != nil {
 		return false, err
@@ -262,7 +311,7 @@ func evalCount(m map[string]any, signals map[string]any) (bool, error) {
 	cnt := 0
 	for _, elt := range arr {
 		sig := map[string]any{"$": elt}
-		ok, subErr := evalValue(sub, sig)
+		ok, subErr := evalValue(sub, sig, reg)
 		if subErr != nil {
 			return false, subErr
 		}
@@ -291,7 +340,7 @@ func expectCount(m map[string]any) (int, error) {
 	return 0, fmt.Errorf("match: count requires eq")
 }
 
-func evalQuant(kind string, m map[string]any, signals map[string]any) (bool, error) {
+func evalQuant(kind string, m map[string]any, signals map[string]any, reg *evaluator.Registry) (bool, error) {
 	path, err := pathFrom(m)
 	if err != nil {
 		return false, err
@@ -317,7 +366,7 @@ func evalQuant(kind string, m map[string]any, signals map[string]any) (bool, err
 	}
 	for _, elt := range arr {
 		sig := map[string]any{"$": elt}
-		ok, err := evalValue(sub, sig)
+		ok, err := evalValue(sub, sig, reg)
 		if err != nil {
 			return false, err
 		}

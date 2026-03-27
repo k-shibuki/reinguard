@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/k-shibuki/reinguard/internal/evaluator"
 )
 
 func requireMatchErr(t *testing.T, err error) {
@@ -49,6 +51,9 @@ func TestEval_unknownMapShape(t *testing.T) {
 	requireMatchErr(t, err)
 	if !strings.Contains(err.Error(), "unknown when shape") {
 		t.Fatal(err)
+	}
+	if !strings.Contains(err.Error(), "eval") {
+		t.Fatal("expected error to mention eval alternative:", err)
 	}
 }
 
@@ -342,6 +347,54 @@ func TestEvalOperatorMatrix(t *testing.T) {
 				t.Fatalf("got %v want %v", ok, tc.want)
 			}
 		})
+	}
+}
+
+func TestEval_namedEvaluator_constant(t *testing.T) {
+	t.Parallel()
+	// Given: constant true / false
+	// When: Eval runs
+	// Then: matches params.value
+	ok, err := Eval(map[string]any{
+		"eval":   "constant",
+		"params": map[string]any{"value": true},
+	}, map[string]any{})
+	if err != nil || !ok {
+		t.Fatalf("got %v %v", ok, err)
+	}
+	ok, err = Eval(map[string]any{
+		"eval":   "constant",
+		"params": map[string]any{"value": false},
+	}, map[string]any{})
+	if err != nil || ok {
+		t.Fatalf("got %v %v", ok, err)
+	}
+}
+
+func TestEval_namedEvaluator_unknown(t *testing.T) {
+	t.Parallel()
+	_, err := EvalWithRegistry(
+		map[string]any{"eval": "nope", "params": map[string]any{}},
+		map[string]any{},
+		evaluator.NewRegistry(),
+	)
+	requireMatchErr(t, err)
+	if !strings.Contains(err.Error(), "unknown evaluator") {
+		t.Fatal(err)
+	}
+}
+
+func TestEval_evalCombineOpError(t *testing.T) {
+	t.Parallel()
+	_, err := Eval(map[string]any{
+		"eval":  "constant",
+		"op":    "eq",
+		"path":  "a",
+		"value": 1,
+	}, map[string]any{})
+	requireMatchErr(t, err)
+	if !strings.Contains(err.Error(), "combine eval with op") {
+		t.Fatal(err)
 	}
 }
 

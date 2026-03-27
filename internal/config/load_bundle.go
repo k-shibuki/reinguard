@@ -11,6 +11,7 @@ import (
 	jsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 	"gopkg.in/yaml.v3"
 
+	"github.com/k-shibuki/reinguard/internal/evaluator"
 	"github.com/k-shibuki/reinguard/internal/labels"
 	"github.com/k-shibuki/reinguard/pkg/schema"
 )
@@ -148,6 +149,24 @@ func readControlRuleFiles(dir string, rulesSch *jsonschema.Schema) (map[string]R
 		}
 	}
 	return ruleFiles, nil
+}
+
+func validateEvaluatorReferences(ruleFiles map[string]RulesDocument) error {
+	reg := evaluator.DefaultRegistry()
+	paths := make([]string, 0, len(ruleFiles))
+	for p := range ruleFiles {
+		paths = append(paths, p)
+	}
+	sort.Strings(paths)
+	for _, key := range paths {
+		doc := ruleFiles[key]
+		for i, r := range doc.Rules {
+			if err := evaluator.ValidateWhen(r.When, reg); err != nil {
+				return fmt.Errorf("config: rule[%d] id %q in control/%s: %w", i, r.ID, key, err)
+			}
+		}
+	}
+	return nil
 }
 
 func applyOptionalLabels(res *LoadResult, dir string, labelsSch *jsonschema.Schema) error {

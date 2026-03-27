@@ -89,6 +89,9 @@ func Load(dir string) (*LoadResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := validateEvaluatorReferences(ruleFiles); err != nil {
+		return nil, err
+	}
 	res := &LoadResult{Dir: dir, Root: root, RuleFiles: ruleFiles}
 	if err := applyOptionalLabels(res, dir, ss.labels); err != nil {
 		return nil, err

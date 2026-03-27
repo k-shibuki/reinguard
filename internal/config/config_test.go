@@ -601,6 +601,66 @@ func TestLoad_controlStatesFile(t *testing.T) {
 	}
 }
 
+func TestLoad_unknownEvaluatorInWhen(t *testing.T) {
+	t.Parallel()
+	// Given: guard rule referencing an evaluator name not in the registry
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
+	guardsDir := filepath.Join(dir, "control", "guards")
+	if err := os.MkdirAll(guardsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(guardsDir, "g.yaml"), []byte(`rules:
+  - type: guard
+    id: g1
+    priority: 1
+    guard_id: merge-readiness
+    when:
+      eval: no-such-evaluator
+`))
+
+	// When: Load runs
+	_, err := Load(dir)
+
+	// Then: validation error names unknown evaluator
+	if err == nil || !strings.Contains(err.Error(), "unknown evaluator") {
+		t.Fatalf("got err=%v", err)
+	}
+}
+
+func TestLoad_validNamedEvaluatorInWhen(t *testing.T) {
+	t.Parallel()
+	// Given: guard rule with built-in constant evaluator (TC-N-01)
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
+	guardsDir := filepath.Join(dir, "control", "guards")
+	if err := os.MkdirAll(guardsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(guardsDir, "g.yaml"), []byte(`rules:
+  - type: guard
+    id: g1
+    priority: 1
+    guard_id: merge-readiness
+    when:
+      eval: constant
+      params:
+        value: true
+`))
+
+	// When: Load runs
+	res, err := Load(dir)
+
+	// Then: load succeeds
+	if err != nil {
+		t.Fatal(err)
+	}
+	rs := res.Rules()
+	if len(rs) != 1 || rs[0].ID != "g1" {
+		t.Fatalf("rules: %+v", rs)
+	}
+}
+
 func TestLoad_controlStatesSchemaInvalid(t *testing.T) {
 	t.Parallel()
 	// Given: rules file missing required when shape (empty when object may still parse — use missing rules key)
