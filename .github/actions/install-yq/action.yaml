@@ -1,0 +1,19 @@
+name: Install mikefarah yq
+description: Download and install mikefarah/yq binary for Linux amd64.
+
+inputs:
+  version:
+    description: yq release version (without leading v)
+    required: false
+    default: "4.45.1"
+
+runs:
+  using: composite
+  steps:
+    - name: Install mikefarah yq v${{ inputs.version }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        curl -sSL "https://github.com/mikefarah/yq/releases/download/v${{ inputs.version }}/yq_linux_amd64" -o /tmp/yq
+        sudo install -m 0755 /tmp/yq /usr/local/bin/yq
+        yq --version
