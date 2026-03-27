@@ -14,6 +14,7 @@ import (
 // TestPostGraphQL_success checks JSON body shape, successful GraphQL data decode, and handler-side validation without racing testing.T.
 func TestPostGraphQL_success(t *testing.T) {
 	t.Parallel()
+	// Given: a GraphQL endpoint that returns viewer.login for a valid query body
 	var mu sync.Mutex
 	var handlerErr error
 	setHandlerErr := func(err error) {
@@ -48,6 +49,7 @@ func TestPostGraphQL_success(t *testing.T) {
 			Login string `json:"login"`
 		} `json:"viewer"`
 	}
+	// When: PostGraphQL runs with a simple query
 	err := c.PostGraphQL(context.Background(), `query { viewer { login } }`, nil, &out)
 	if handlerErr != nil {
 		t.Fatal(handlerErr)
@@ -55,6 +57,7 @@ func TestPostGraphQL_success(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: decoded login matches the stub response
 	if out.Viewer.Login != "alice" {
 		t.Fatalf("got %+v", out)
 	}

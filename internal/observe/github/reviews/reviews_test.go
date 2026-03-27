@@ -164,3 +164,18 @@ func TestCollect_nullPullRequest(t *testing.T) {
 		t.Fatalf("%+v", rev)
 	}
 }
+
+// TestCollect_graphqlErrorsPropagates asserts Collect returns an error when GraphQL responds with an errors envelope (facet reliability).
+func TestCollect_graphqlErrorsPropagates(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"errors":[{"message":"upstream failure"}],"data":null}`))
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	_, err := Collect(context.Background(), c, "o", "r", 1)
+	if err == nil || err.Error() != "graphql error: upstream failure" {
+		t.Fatalf("got %v", err)
+	}
+}

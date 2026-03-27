@@ -24,6 +24,7 @@ Repository-wide coding and documentation rules. The Cursor Adapter rule `reingua
 - Run `go vet ./...` and `go test ./...` locally before push (see `.reinguard/policy/safety--agent-invariants.md` § **HS-LOCAL-VERIFY**).
 - Prefer small packages under `internal/` and `cmd/` per repository layout conventions.
 - **Documentation**: meaningful godoc for exported APIs and package comments; mechanical enforcement via `golangci-lint` / `revive` — see [coding--godoc.md](coding--godoc.md).
+- **Complexity**: `golangci-lint` / `gocyclo` with `min-complexity: 15` (aligned with Go Report Card); refactor or extract helpers when a function exceeds the threshold.
 
 ## Markdown
 
