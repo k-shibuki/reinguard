@@ -45,14 +45,17 @@ agent posts a new disposition reply per round until consensus is reached.
 | **Fixed** | Code change addresses the finding | Re-review confirms fix (no new finding on same lines) | `Fixed in \`<sha7>\`. <what changed>.` |
 | **By design** | Intentional design decision | Bot reply does not object (acceptance or no further comment after re-review) | `By design. <rationale> (ref: <source>).` |
 | **False positive** | Bot misidentified an issue | Bot reply does not object | `False positive. <why detection was wrong>.` |
-| **Acknowledged** | Valid but out of PR scope | Follow-up Issue **evaluated** (see below); bot notified | `Acknowledged. <brief assessment>. Tracked in #<issue>.` *or* rationale if no Issue |
+| **Acknowledged** | Valid but deferred (see below) | Follow-up Issue **only** when work is a substantial separate deliverable; otherwise rationale without `Tracked in` | `Acknowledged. <brief assessment>. Tracked in #<issue>.` *or* rationale if no Issue |
 
-### Acknowledged — follow-up Issue (evaluate before reply)
+### Acknowledged — in-PR resolution vs follow-up Issue
 
-When you map a finding to **Acknowledged**, explicitly **decide** whether deferred work should have a **new GitHub Issue** (scope, risk, traceability to parents/epics).
+**Principle**: Prefer **Fixed**, **By design**, or **False positive** in the **same PR** when the finding is correct and the change fits the PR’s scope or is proportionate. Do **not** use **Acknowledged** + a new Issue to avoid small, in-scope edits.
 
-- **Default**: If the finding is valid and work remains, **create** a follow-up Issue before resolving the thread. Use `Refs: #…` to parent Issues/epics as appropriate; the Issue number MUST differ from the PR’s `Closes #…` target (**Acknowledged invariant** below).
-- **No new Issue**: Allowed only when you document **why** in the disposition reply (for example: superseded by `#M`, duplicate of existing work, or explicit decision not to pursue). Do **not** use `Tracked in #N` when `N` is the same as the PR’s `Closes` issue.
+When you map a finding to **Acknowledged**, explicitly **decide** how deferred work is tracked:
+
+- **In-PR default**: If the reviewer is right and the fix is reasonable for this PR, disposition **Fixed** (or **By design** / **False positive** as appropriate) instead of **Acknowledged**.
+- **New GitHub Issue** (`Tracked in #<issue>`): Use **only** when the remaining work would reasonably be a **large, separately scoped** deliverable (its own Definition of Done, multiple subsystems, or a different release intent than the current PR). Use `Refs: #…` to parent Issues/epics as appropriate; the Issue number MUST differ from the PR’s `Closes #…` target (**Acknowledged invariant** below).
+- **No new Issue**: Allowed when you document **why** in the disposition reply (for example: superseded by `#M`, duplicate of existing work, explicit decision not to pursue, or the deferral is documented without needing a standalone Issue). Do **not** use `Tracked in #N` when `N` is the same as the PR’s `Closes` issue.
 
 #### Acknowledged invariant
 
