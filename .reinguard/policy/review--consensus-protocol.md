@@ -45,11 +45,18 @@ agent posts a new disposition reply per round until consensus is reached.
 | **Fixed** | Code change addresses the finding | Re-review confirms fix (no new finding on same lines) | `Fixed in \`<sha7>\`. <what changed>.` |
 | **By design** | Intentional design decision | Bot reply does not object (acceptance or no further comment after re-review) | `By design. <rationale> (ref: <source>).` |
 | **False positive** | Bot misidentified an issue | Bot reply does not object | `False positive. <why detection was wrong>.` |
-| **Acknowledged** | Valid but out of PR scope | Tracking Issue created; bot notified | `Acknowledged. <brief assessment>. Tracked in #<issue>.` |
+| **Acknowledged** | Valid but out of PR scope | Follow-up Issue **evaluated** (see below); bot notified | `Acknowledged. <brief assessment>. Tracked in #<issue>.` *or* rationale if no Issue |
 
-**Acknowledged invariant**: The tracking target (`#<issue>`) MUST differ
-from the Issue the PR closes. If the PR `Closes #N`, then `Tracked in #N`
-is prohibited — the finding would be lost on merge.
+### Acknowledged — follow-up Issue (evaluate before reply)
+
+When you map a finding to **Acknowledged**, explicitly **decide** whether deferred work should have a **new GitHub Issue** (scope, risk, traceability to parents/epics).
+
+- **Default**: If the finding is valid and work remains, **create** a follow-up Issue before resolving the thread. Use `Refs: #…` to parent Issues/epics as appropriate; the Issue number MUST differ from the PR’s `Closes #…` target (**Acknowledged invariant** below).
+- **No new Issue**: Allowed only when you document **why** in the disposition reply (for example: superseded by `#M`, duplicate of existing work, or explicit decision not to pursue). Do **not** use `Tracked in #N` when `N` is the same as the PR’s `Closes` issue.
+
+#### Acknowledged invariant
+
+Any `Tracked in #<issue>` MUST refer to an Issue **other than** the one the PR closes. If the PR `Closes #N`, then `Tracked in #N` is prohibited — the finding would be lost on merge.
 
 ## Consensus Flow
 
