@@ -23,9 +23,12 @@ jobs:
 
       - name: Install mikefarah yq
         if: github.event_name == 'pull_request'
-        env:
-          YQ_VER: "4.45.1"
-        run: bash .github/scripts/install-mikefarah-yq.sh
+        run: |
+          set -euo pipefail
+          YQ_VER=4.45.1
+          curl -sSL "https://github.com/mikefarah/yq/releases/download/v${YQ_VER}/yq_linux_amd64" -o /tmp/yq
+          sudo install -m 0755 /tmp/yq /usr/local/bin/yq
+          yq --version
 
       - name: Skip policy check (non-PR events)
         if: github.event_name != 'pull_request'
@@ -103,9 +106,12 @@ jobs:
         run: go mod download
 
       - name: Install mikefarah yq (for check-issue-policy.sh integration tests)
-        env:
-          YQ_VER: "4.45.1"
-        run: bash .github/scripts/install-mikefarah-yq.sh
+        run: |
+          set -euo pipefail
+          YQ_VER=4.45.1
+          curl -sSL "https://github.com/mikefarah/yq/releases/download/v${YQ_VER}/yq_linux_amd64" -o /tmp/yq
+          sudo install -m 0755 /tmp/yq /usr/local/bin/yq
+          yq --version
 
       - name: go test
         run: go test ./... -race -coverpkg=./... -coverprofile=coverage.out -count=1

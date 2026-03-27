@@ -10,7 +10,7 @@ Review routing for touched areas is defined in **[`CODEOWNERS`](CODEOWNERS)**.
 
 - **Go**: match `go.mod` / CI (toolchain **1.26.1** as of this writing).
 - **golangci-lint**: optional locally; CI runs it on every PR.
-- **`yq`**: **[mikefarah/yq](https://github.com/mikefarah/yq) v4** — required for local runs of `.reinguard/scripts/check-commit-msg.sh`, `check-pr-policy.sh`, `check-issue-policy.sh`, and for `.reinguard/scripts/sync-issue-templates.sh`. GitHub Actions installs a pinned release via [`.github/scripts/install-mikefarah-yq.sh`](scripts/install-mikefarah-yq.sh), which checks **SHA-256** against the upstream `checksums` file before `sudo install`. On **macOS or Linux**, if `yq` on your `PATH` is not mikefarah v4, `sync-issue-templates.sh` downloads a verified binary to `.reinguard/scripts/.bin/yq` on first run; otherwise install from Homebrew or the [yq releases](https://github.com/mikefarah/yq/releases) page.
+- **`yq`**: **[mikefarah/yq](https://github.com/mikefarah/yq) v4** — required for local runs of `.reinguard/scripts/check-commit-msg.sh`, `check-pr-policy.sh`, `check-issue-policy.sh`, and for `.reinguard/scripts/sync-issue-templates.sh` (CI installs a pinned binary in workflows).
 - **`gh`**: required only when using commands that call the GitHub API (e.g.
   `rgd observe github`, or live observation in `rgd state eval` / `rgd context build`
   without `--observation-file`). See ADR-0006.
