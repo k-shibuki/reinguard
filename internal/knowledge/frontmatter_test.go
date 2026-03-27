@@ -100,6 +100,18 @@ when:
 `,
 			contain: "duplicate trigger",
 		},
+		{
+			name: "when_scalar",
+			input: `---
+id: x
+description: d
+triggers:
+  - t
+when: true
+---
+`,
+			contain: "when must be object or array",
+		},
 	}
 	for _, tt := range tests {
 		tt := tt

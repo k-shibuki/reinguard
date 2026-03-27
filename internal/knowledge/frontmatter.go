@@ -60,6 +60,11 @@ func ParseFrontMatter(md []byte) (*FrontMatter, error) {
 	if fm.When == nil {
 		return nil, fmt.Errorf("knowledge: front matter: missing required when")
 	}
+	if _, ok := fm.When.(map[string]any); !ok {
+		if _, ok := fm.When.([]any); !ok {
+			return nil, fmt.Errorf("knowledge: front matter: when must be object or array, got %T", fm.When)
+		}
+	}
 	return &fm, nil
 }
 

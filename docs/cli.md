@@ -49,7 +49,7 @@ rgd state eval [--observation-file FILE]
 rgd route select [--observation-file FILE] [--state-file FILE]
 rgd guard eval <guard-id> [flags...]
 rgd knowledge index
-rgd knowledge pack [--query STRING]
+rgd knowledge pack [--query STRING] [--observation-file FILE]
 rgd context build [--observation-file FILE]
 rgd ensure-labels
 rgd labels list [--category TYPE]

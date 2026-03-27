@@ -36,7 +36,7 @@ func walkWhen(when any, reg *Registry) error {
 		}
 		return nil
 	default:
-		return nil
+		return fmt.Errorf("when clause must be object or array, got %T", when)
 	}
 }
 
@@ -75,9 +75,6 @@ func walkWhenMap(m map[string]any, reg *Registry) error {
 		return err
 	}
 	if hasLogicalKey(m) {
-		return nil
-	}
-	if len(m) == 0 {
 		return nil
 	}
 	return fmt.Errorf("when clause unknown shape (missing op/and/or/not/eval)")
@@ -186,8 +183,15 @@ func requirePathString(m map[string]any) (string, error) {
 		return "", fmt.Errorf("when clause missing path")
 	}
 	p, ok := raw.(string)
-	if !ok || strings.TrimSpace(p) == "" {
+	if !ok {
 		return "", fmt.Errorf("when clause path must be non-empty string")
+	}
+	trimmed := strings.TrimSpace(p)
+	if trimmed == "" {
+		return "", fmt.Errorf("when clause path must be non-empty string")
+	}
+	if p != trimmed {
+		return "", fmt.Errorf("when clause path must not have leading or trailing whitespace")
 	}
 	return p, nil
 }
@@ -195,7 +199,6 @@ func requirePathString(m map[string]any) (string, error) {
 // validateSignalPathPrefix enforces dot-path roots used by observation (git, github),
 // merged state (state), and quantifier element scope ($).
 func validateSignalPathPrefix(path string) error {
-	path = strings.TrimSpace(path)
 	if path == "$" || strings.HasPrefix(path, "$.") {
 		return nil
 	}

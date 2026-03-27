@@ -67,6 +67,7 @@ when:
 
 func TestBuildManifest_whenPropagates(t *testing.T) {
 	t.Parallel()
+	// Given: knowledge file with when clause containing op/path/value
 	root := t.TempDir()
 	kdir := filepath.Join(root, "knowledge")
 	if err := os.MkdirAll(kdir, 0o755); err != nil {
@@ -85,10 +86,12 @@ when:
 
 # W
 `))
+	// When: BuildManifest runs
 	m, err := BuildManifest(root, kdir)
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: entry.When is map with expected op/path/value
 	if len(m.Entries) != 1 {
 		t.Fatalf("%+v", m.Entries)
 	}

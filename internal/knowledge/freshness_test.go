@@ -43,6 +43,7 @@ when:
 
 func TestCheckFreshness_whenMismatchIsStale(t *testing.T) {
 	t.Parallel()
+	// Given: on-disk knowledge with when={value: main} and manifest with when={value: other}
 	root := t.TempDir()
 	kdir := filepath.Join(root, "knowledge")
 	if err := os.MkdirAll(kdir, 0o755); err != nil {
@@ -59,7 +60,7 @@ when:
   value: main
 ---
 `))
-	built, err := BuildManifest(root, kdir)
+	_, err := BuildManifest(root, kdir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,8 +73,10 @@ when:
 			},
 		},
 	}
+	// When: CheckFreshness compares stale manifest to disk
+	// Then: stale error due to when mismatch
 	if err := CheckFreshness(stale, root, kdir); err == nil || !strings.Contains(err.Error(), "stale") {
-		t.Fatalf("built=%v err=%v", built, err)
+		t.Fatalf("got err=%v", err)
 	}
 }
 
