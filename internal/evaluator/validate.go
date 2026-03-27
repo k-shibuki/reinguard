@@ -18,12 +18,15 @@ func ValidateWhen(when any, reg *Registry) error {
 	if reg == nil {
 		reg = DefaultRegistry()
 	}
+	if when == nil {
+		return nil
+	}
 	return walkWhen(when, reg)
 }
 
 func walkWhen(when any, reg *Registry) error {
 	if when == nil {
-		return nil
+		return fmt.Errorf("when clause is nil")
 	}
 	switch t := when.(type) {
 	case map[string]any:

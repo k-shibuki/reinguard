@@ -238,9 +238,9 @@ Every committed manifest entry includes `when` (schema-required). Repo-relative 
 | Flag | Description |
 |------|-------------|
 | `--query` | Optional. Case-insensitive substring match against each entry’s `triggers`. |
-| `--observation-file FILE` | Optional. Observation JSON (same shape as `rgd observe` stdout). When set, entries with a `when` clause are kept only if `when` matches the **nested** `signals` object from the file (not state-resolved; use `context build` for `state.*` paths in `when`). |
+| `--observation-file FILE` | Optional. Observation JSON (same shape as `rgd observe` stdout). When set, the file’s `signals` object is flattened first, and entries are kept only if `when` matches that flat signal map (not state-resolved; use `context build` for `state.*` paths in `when`). |
 
-**Selection when `--observation-file` is set:** entries included if `when` matches **or** `--query` matches triggers (OR union by `id`). When `--observation-file` is omitted, all entries are returned and `--query` behaves as before (trigger filter only).
+**Selection when `--observation-file` is set:** entries included if `when` matches **or** `--query` matches triggers (OR union by `id`). When `--observation-file` is omitted, `--query` remains the only filter; with an empty query, all entries are returned.
 
 If evaluating `when` fails (e.g. malformed clause), the entry is **still included** and a **`diagnostics`** array is added to the JSON with `severity: "warning"` and `code: "knowledge_when_eval"` (safe-side for judgment aids).
 

@@ -116,6 +116,25 @@ func TestValidateWhen_table(t *testing.T) {
 			when:    map[string]any{"op": "eq", "path": " github.repository.owner", "value": "x"},
 			wantErr: "leading or trailing whitespace",
 		},
+		{
+			name:    "not_child_nil",
+			when:    map[string]any{"not": nil},
+			wantErr: "nil",
+		},
+		{
+			name:    "and_child_nil",
+			when:    map[string]any{"and": []any{nil}},
+			wantErr: "nil",
+		},
+		{
+			name: "any_when_nil",
+			when: map[string]any{
+				"op":   "any",
+				"path": "state.items",
+				"when": nil,
+			},
+			wantErr: "nil",
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
