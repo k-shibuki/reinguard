@@ -23,7 +23,7 @@ gh issue list --state open --limit 30 --json number,title,labels
 
 **Knowledge discovery** (substrate):
 
-1. **Read the Issue** (`gh issue view …` above): pull **1–3 concrete search terms** from the **title and body** — subsystem or package names, ADR/issue refs, CLI subcommands, domain nouns, error messages, or phrases from **Touches** / **Definition of Done**. These are not generic words (“fix”, “bug”); use `description` and `triggers` in the manifest (and optional `when`) for human context when choosing terms.
+1. **Read the Issue** (`gh issue view …` above): pull **1–3 concrete search terms** from the **title and body** — subsystem or package names, ADR/issue refs, CLI subcommands, domain nouns, error messages, or phrases from **Touches** / **Definition of Done**. These are not generic words (“fix”, “bug”); use `description`, `triggers`, and required `when` in the manifest for human context when choosing terms.
 1. **Run operational context** (default path — knowledge entries are signal-filtered after state merge):
 
 ```bash

@@ -233,6 +233,8 @@ Reads `.reinguard/knowledge/manifest.json` and prints JSON:
 { "entries": [ { "id": "...", "path": "...", "description": "...", "triggers": ["..."], "when": { } } ] }
 ```
 
+Each entry’s `when` is either one clause object or an array of clause objects (same shapes as control rules; see ADR-0002). The sample above uses an object placeholder only.
+
 Every committed manifest entry includes `when` (schema-required). Repo-relative `path` values point at Markdown files; bodies are not embedded.
 
 | Flag | Description |

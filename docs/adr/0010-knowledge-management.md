@@ -39,6 +39,7 @@ Alternatives considered:
 
 ## Consequences
 
+- **Clarification**: `when` is **required** in knowledge front matter and on every manifest entry (JSON Schema). Omission is an error at `rgd knowledge index` / parse time. Any earlier issue discussion that treated `when` as optional for knowledge entries is **withdrawn** and not authoritative relative to this ADR.
 - **Easier**: Single SSOT for knowledge metadata (front matter); manifest drift is caught by `config validate`
 - **Easier**: Agents can choose files using descriptions and triggers without opening every file first
 - **Harder**: Authors must run `rgd knowledge index` after editing knowledge metadata and commit the updated manifest

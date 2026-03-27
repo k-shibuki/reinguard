@@ -30,7 +30,7 @@ Follow these policy documents in every interaction:
 
 ## Knowledge retrieval
 
-- **Primary:** `rgd context build` — use `knowledge.entries` in stdout JSON (entries match optional per-entry `when` against observation + merged `state.*` signals; see `docs/cli.md`).
+- **Primary:** `rgd context build` — use `knowledge.entries` in stdout JSON (each entry’s required `when` is evaluated against observation + merged `state.*` signals to filter inclusion; see `docs/cli.md`).
 - **Catalog only:** triage with `entries` in `manifest.json` when you are not running `rgd` (paths and metadata; `when` shows relevance conditions).
 - Read only the Markdown paths you need.
 - **Optional** trigger substring filter (OR-union with observation signals): save observation JSON (`rgd observe > /tmp/rgd-observe.json`), then:

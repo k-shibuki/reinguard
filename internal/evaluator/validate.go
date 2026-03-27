@@ -44,6 +44,9 @@ func walkWhen(when any, reg *Registry) error {
 }
 
 func walkWhenMap(m map[string]any, reg *Registry) error {
+	if err := rejectMultipleLogicalRoots(m); err != nil {
+		return err
+	}
 	if raw, hasEval := m["eval"]; hasEval {
 		name, ok := raw.(string)
 		if !ok || name == "" {
@@ -70,6 +73,9 @@ func walkWhenMap(m map[string]any, reg *Registry) error {
 		}
 		if opStr == "" {
 			return fmt.Errorf("when clause op must be non-empty string")
+		}
+		if err := rejectOpWithLogical(m); err != nil {
+			return err
 		}
 		return validateOpClause(m, opStr, reg)
 	}
@@ -211,6 +217,31 @@ func validateSignalPathPrefix(path string) error {
 		}
 	}
 	return fmt.Errorf("when clause path %q must start with git., github., state., or $", path)
+}
+
+// rejectMultipleLogicalRoots rejects maps that list more than one of and / or / not at the same level,
+// matching match.evalMap's single-branch evaluation order (ADR-0002).
+func rejectMultipleLogicalRoots(m map[string]any) error {
+	n := 0
+	for _, key := range []string{"and", "or", "not"} {
+		if _, has := m[key]; has {
+			n++
+		}
+	}
+	if n > 1 {
+		return fmt.Errorf("when clause cannot combine multiple logical combiners (and, or, not) in one object")
+	}
+	return nil
+}
+
+// rejectOpWithLogical rejects op clauses combined with logical combiners; evalMap would only evaluate op.
+func rejectOpWithLogical(m map[string]any) error {
+	for _, key := range []string{"and", "or", "not"} {
+		if _, has := m[key]; has {
+			return fmt.Errorf("when clause cannot combine op with %s", key)
+		}
+	}
+	return nil
 }
 
 func rejectEvalCombiners(m map[string]any) error {

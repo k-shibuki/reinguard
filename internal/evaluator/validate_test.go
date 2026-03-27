@@ -135,6 +135,22 @@ func TestValidateWhen_table(t *testing.T) {
 			},
 			wantErr: "nil",
 		},
+		{
+			name: "op_with_not",
+			when: map[string]any{
+				"op": "eq", "path": "git.branch", "value": "main",
+				"not": map[string]any{"op": "eq", "path": "git.branch", "value": "x"},
+			},
+			wantErr: "cannot combine op with not",
+		},
+		{
+			name: "and_with_or",
+			when: map[string]any{
+				"and": []any{map[string]any{"op": "eq", "path": "git.branch", "value": "main"}},
+				"or":  []any{map[string]any{"op": "eq", "path": "git.branch", "value": "main"}},
+			},
+			wantErr: "multiple logical combiners",
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
