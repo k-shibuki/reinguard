@@ -60,6 +60,9 @@ func TestTypeLabelsMatchEmbeddedYAML(t *testing.T) {
 }
 
 func TestTypeLabelNamesMatchesTypeLabelsSet(t *testing.T) {
+	// Given: TypeLabelNames() and TypeLabels from init()
+	// When: comparing lengths and membership
+	// Then: every name appears in the set
 	names := TypeLabelNames()
 	if len(names) != len(TypeLabels) {
 		t.Fatalf("len(TypeLabelNames)=%d len(TypeLabels)=%d", len(names), len(TypeLabels))
@@ -72,6 +75,9 @@ func TestTypeLabelNamesMatchesTypeLabelsSet(t *testing.T) {
 }
 
 func TestAllRepoLabelsTypeNamesMatchTypeLabels(t *testing.T) {
+	// Given: embedded catalog
+	// When: iterating AllRepoLabels
+	// Then: type-like names are in TypeLabels; exception/scope names are not
 	c, err := LoadFromBytes(embeddedLabelsYAML)
 	if err != nil {
 		t.Fatal(err)
@@ -126,6 +132,9 @@ func TestIssueTemplateTaskDropdownMatchesTypeLabels(t *testing.T) {
 }
 
 func TestParseTypeLabelsFromPRPolicy(t *testing.T) {
+	// Given: a JS fragment with TYPE_LABELS (single quotes)
+	// When: ParseTypeLabelsFromPRPolicy runs
+	// Then: sorted label names match
 	sample := []byte(`foo
             const TYPE_LABELS = ['feat', 'fix', 'docs'];
             bar`)

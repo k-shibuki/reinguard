@@ -13,4 +13,7 @@ func TestNewCompiler(t *testing.T) {
 	if _, err := c.Compile(URIReinguardConfig); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := c.Compile(URILabelsConfig); err != nil {
+		t.Fatal(err)
+	}
 }

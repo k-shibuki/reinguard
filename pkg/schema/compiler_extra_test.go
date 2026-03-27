@@ -17,6 +17,7 @@ func TestListEmbedded_nonEmpty(t *testing.T) {
 		"observation-document.json": {},
 		"operational-context.json":  {},
 		"knowledge-manifest.json":   {},
+		"labels-config.json":        {},
 	}
 	got := make(map[string]struct{}, len(names))
 	for _, n := range names {
