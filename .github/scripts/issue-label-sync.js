@@ -85,6 +85,12 @@ const run = async () => {
   const typeMatch = body.match(/^### Type\s*\n+\s*(\S+)/m);
   const dropdownType = typeMatch ? typeMatch[1].trim() : null;
 
+  if (!dropdownType && /###\s*Type/i.test(body)) {
+    core.info(
+      "issue-label-sync: found '### Type' in body but could not extract value (markdown layout may have changed).",
+    );
+  }
+
   if (
     exceptionOnIssue.length === 0 &&
     dropdownType &&
