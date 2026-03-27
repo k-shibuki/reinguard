@@ -40,7 +40,7 @@ Before pushing Go changes:
 
 Before pushing Markdown changes:
 
-- `markdownlint-cli2 '**/*.md'` (or `pre-commit run markdownlint-cli2 --all-files`)
+- `npx --yes markdownlint-cli2@latest '**/*.md'` (or `pre-commit run markdownlint-cli2 --all-files`)
 
 ## HS-NO-SKIP
 

@@ -8,10 +8,12 @@
 **Review knowledge (discover via substrate):**
 
 ```bash
-rgd knowledge pack --query "review"
+rgd context build
 ```
 
-Open each `entries[].path` returned (typically includes `review--bot-operations.md`, `review--github-thread-api.md`). Use those docs for API channels, re-review triggers, REST vs GraphQL for `isResolved`, and outside-diff-range collection.
+Use `knowledge.entries` when a PR exists for the branch (review entries match `github.pull_requests.pr_exists_for_branch`). Open each `entries[].path` returned (typically includes `review--bot-operations.md`, `review--github-thread-api.md`). Use those docs for API channels, re-review triggers, REST vs GraphQL for `isResolved`, and outside-diff-range collection.
+
+Optional trigger pass: `rgd observe > /tmp/rgd-observe.json` then `rgd knowledge pack --observation-file /tmp/rgd-observe.json --query "review"`.
 
 **Already in context**: `reinguard-bridge.mdc` (HS-*).
 
@@ -23,14 +25,14 @@ rgd observe github reviews
 
 Use aggregate review / CI signals from observation JSON where helpful.
 
-**Thread-level work:** `rgd observe github reviews` does not replace per-thread `isResolved` enumeration — use `gh api` / GraphQL per knowledge from `rgd knowledge pack --query "review"` (see `review--github-thread-api.md`).
+**Thread-level work:** `rgd observe github reviews` does not replace per-thread `isResolved` enumeration — use `gh api` / GraphQL per knowledge from `rgd context build` / `knowledge.entries` (or the optional `knowledge pack --observation-file … --query "review"` pass) (see `review--github-thread-api.md`).
 
 **Aggregate + manual checks (after `rgd observe github reviews`):**
 
 - GitHub **Files changed** → each review thread; root comment **CodeRabbit**, **Codex / chatgpt-codex-connector**, or human.
 - `gh pr view <N> --comments` and `gh pr checks <N>` — failing checks vs review findings.
 - Inline threads: `gh api repos/{owner}/{repo}/pulls/<N>/comments` until `rgd observe` covers this workflow.
-- **Outside diff range / non-inline bot findings** — per knowledge from `knowledge pack`: do **not** treat "zero unresolved threads" as "no review work left." Collect summary bodies, PR conversation, Checks text. Classify and disposition like inline threads; without comment id, post a **PR conversation comment** (quote + disposition), then `@coderabbitai review` when budget/rules allow.
+- **Outside diff range / non-inline bot findings** — per review knowledge from context / pack: do **not** treat "zero unresolved threads" as "no review work left." Collect summary bodies, PR conversation, Checks text. Classify and disposition like inline threads; without comment id, post a **PR conversation comment** (quote + disposition), then `@coderabbitai review` when budget/rules allow.
 
 ## Act
 
@@ -56,7 +58,7 @@ For **outside-diff / summary-only** findings (see Context) with no anchor id, a 
 
 Follow `.reinguard/policy/review--consensus-protocol.md` § **CodeRabbit Resolution Gate** (do **not** `resolve` until consensus evidence). After you push fixes, **incremental auto-review** often runs on its own (`.coderabbit.yaml`). If it does not (pause threshold, skip, or you need a guaranteed pass), trigger a new review cycle with a **PR conversation comment**:
 `gh pr comment <N> --body "@coderabbitai review"`
-(budget and skip rules: paths from `rgd knowledge pack --query "review"`.)
+(budget and skip rules: paths from `knowledge.entries` after `rgd context build`, or optional `knowledge pack --observation-file … --query "review"`.)
 
 ### 5. Codex threads
 
@@ -73,7 +75,7 @@ When Go code changed:
 
 When Markdown changed:
 
-- `markdownlint-cli2 '**/*.md'`
+- `npx --yes markdownlint-cli2@latest '**/*.md'`
 
 New commit with `Refs: #<issue>` (no amend+force-push on the PR head).
 

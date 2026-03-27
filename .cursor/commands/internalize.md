@@ -36,7 +36,7 @@ gh pr view <N> --json reviews,comments
 6. **Apply and validate**:
    - Edit knowledge / policy / command files per the diffs.
    - `rgd knowledge index` (when knowledge files changed).
-   - **Preflight** per `coding--preflight.md` (covers `rgd config validate`, `markdownlint-cli2`, and Go checks when those paths change).
+   - **Preflight** per `coding--preflight.md` (covers `rgd config validate`, `npx --yes markdownlint-cli2@latest`, and Go checks when those paths change).
 
 ## Output
 

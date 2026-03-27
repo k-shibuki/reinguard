@@ -63,7 +63,8 @@ Each file under `knowledge/` is Markdown with a **YAML front matter** block
 |-------|------|
 | `id` | Unique across entries |
 | `description` | One-line summary |
-| `triggers` | Non-empty keyword list for `rgd knowledge pack --query` |
+| `triggers` | Non-empty keyword list; no duplicate strings after trim (case-insensitive). Used with `rgd knowledge pack --query` (substring match). |
+| `when` | **Required.** Match expression (ADR-0002), same shape as control rules’ `when`. `rgd config validate` checks `op` / operands, `eval:` names, and that each `path` starts with `git.`, `github.`, `state.`, or `$` / `.$.`. `rgd context build` and `rgd knowledge pack --observation-file` filter with `match.Eval`. Prefer conditions on real signals (e.g. `or` of `exists` on `git.branch` and `github.repository.owner` when either provider is present). Rare always-on aids may use `eval: constant` with `params.value: true`. |
 
 ### After editing knowledge metadata
 

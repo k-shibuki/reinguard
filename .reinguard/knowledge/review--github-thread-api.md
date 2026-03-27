@@ -8,6 +8,10 @@ triggers:
   - GraphQL reviewThreads
   - thread resolution API
   - gh api graphql
+when:
+  op: eq
+  path: github.pull_requests.pr_exists_for_branch
+  value: true
 ---
 
 # GitHub review thread API (REST vs GraphQL)

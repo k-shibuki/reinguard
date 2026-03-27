@@ -23,20 +23,23 @@ gh issue list --state open --limit 30 --json number,title,labels
 
 **Knowledge discovery** (substrate):
 
-1. **Read the Issue** (`gh issue view …` above): pull **1–3 concrete search terms** from the **title and body** — subsystem or package names, ADR/issue refs, CLI subcommands, domain nouns, error messages, or phrases from **Touches** / **Definition of Done**. These are not generic words (“fix”, “bug”); `rgd knowledge pack --query` matches **triggers** only (case-insensitive substring), not `description` text — use `description` in the manifest for human context when choosing terms.
-1. **Run retrieval** with each term (separate runs or one combined phrase if it reads naturally):
-
-```bash
-rgd knowledge pack --query '<term derived from Issue title/body>'
-```
-
-Repeat for other salient terms if the first pack is thin or off-topic.
-
-1. Open each returned `entries[].path` under `.reinguard/knowledge/` as needed. Optional full pipeline snapshot:
+1. **Read the Issue** (`gh issue view …` above): pull **1–3 concrete search terms** from the **title and body** — subsystem or package names, ADR/issue refs, CLI subcommands, domain nouns, error messages, or phrases from **Touches** / **Definition of Done**. These are not generic words (“fix”, “bug”); use `description`, `triggers`, and required `when` in the manifest for human context when choosing terms.
+1. **Run operational context** (default path — knowledge entries are signal-filtered after state merge):
 
 ```bash
 rgd context build
 ```
+
+Parse stdout JSON: use `knowledge.entries` for `id`, `path`, `description`, `triggers`, and `when`. Open each Markdown path (repo-relative) as needed.
+
+1. **Optional keyword safety net** — if you need trigger substring matching **OR**-unioned with the same observation signals (see `docs/cli.md`): save observation JSON once, then run pack with `--query` (matches **triggers** only, case-insensitive substring):
+
+```bash
+rgd observe > /tmp/rgd-observe.json
+rgd knowledge pack --observation-file /tmp/rgd-observe.json --query '<term derived from Issue title/body>'
+```
+
+Repeat with other salient terms if results are thin or off-topic.
 
 **Observation** (when local GitHub signals help scope work):
 

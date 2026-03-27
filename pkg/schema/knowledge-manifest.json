@@ -13,7 +13,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "path", "description", "triggers"],
+        "required": ["id", "path", "description", "triggers", "when"],
         "properties": {
           "id": {
             "type": "string",
@@ -35,6 +35,11 @@
               "minLength": 1
             },
             "minItems": 1
+          },
+          "when": {
+            "type": "object",
+            "description": "Match expression (ADR-0002); required on every knowledge entry.",
+            "additionalProperties": true
           }
         },
         "additionalProperties": false

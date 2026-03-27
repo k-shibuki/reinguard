@@ -19,12 +19,12 @@ func writeFile(t *testing.T, path string, data []byte) {
 // Shared fixtures for CLI tests: keep rule shapes aligned with config.Load expectations
 // (schema_version, default_branch, providers, control/{states,routes,guards}/*.yaml).
 
-const testFixtureReinguardRoot = `schema_version: "0.4.0"
+const testFixtureReinguardRoot = `schema_version: "0.6.0"
 default_branch: main
 providers: []
 `
 
-const testFixtureReinguardGitOnly = `schema_version: "0.4.0"
+const testFixtureReinguardGitOnly = `schema_version: "0.6.0"
 default_branch: main
 providers:
   - id: git
@@ -61,12 +61,12 @@ const testFixtureRulesStateAmbiguous = `rules:
     id: a
     priority: 1
     state_id: A
-    when: {op: eq, path: x, value: 1}
+    when: {op: eq, path: git.branch, value: feat}
   - type: state
     id: b
     priority: 1
     state_id: B
-    when: {op: eq, path: x, value: 1}
+    when: {op: eq, path: git.branch, value: feat}
 `
 
 // Two route rules with same priority and overlapping when -> ambiguous.
@@ -75,12 +75,12 @@ const testFixtureRulesRouteAmbiguous = `rules:
     id: a
     priority: 1
     route_id: R1
-    when: {op: eq, path: x, value: 1}
+    when: {op: eq, path: git.branch, value: feat}
   - type: route
     id: b
     priority: 1
     route_id: R2
-    when: {op: eq, path: x, value: 1}
+    when: {op: eq, path: git.branch, value: feat}
 `
 
 const testFixtureRulesEmpty = "rules: []\n"

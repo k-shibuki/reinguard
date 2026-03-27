@@ -6,6 +6,12 @@ triggers:
   - assertion strength
   - given when then
   - table-driven
+when:
+  or:
+    - op: exists
+      path: git.branch
+    - op: exists
+      path: github.repository.owner
 ---
 
 # Test Assertion Quality

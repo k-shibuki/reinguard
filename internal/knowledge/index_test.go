@@ -22,6 +22,10 @@ id: second
 description: B doc
 triggers:
   - beta
+when:
+  eval: constant
+  params:
+    value: true
 ---
 
 # B
@@ -31,6 +35,10 @@ id: first
 description: A doc
 triggers:
   - alpha
+when:
+  eval: constant
+  params:
+    value: true
 ---
 
 # A
@@ -57,6 +65,48 @@ triggers:
 	}
 }
 
+func TestBuildManifest_whenPropagates(t *testing.T) {
+	t.Parallel()
+	// Given: knowledge file with when clause containing op/path/value
+	root := t.TempDir()
+	kdir := filepath.Join(root, "knowledge")
+	if err := os.MkdirAll(kdir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(kdir, "w.md"), []byte(`---
+id: with-when
+description: d
+triggers:
+  - t
+when:
+  op: eq
+  path: state.kind
+  value: resolved
+---
+
+# W
+`))
+	// When: BuildManifest runs
+	m, err := BuildManifest(root, kdir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Then: entry.When is map with expected op/path/value
+	if len(m.Entries) != 1 {
+		t.Fatalf("%+v", m.Entries)
+	}
+	if m.Entries[0].When == nil {
+		t.Fatal("expected When")
+	}
+	got, ok := m.Entries[0].When.(map[string]any)
+	if !ok {
+		t.Fatalf("when type: %T", m.Entries[0].When)
+	}
+	if got["op"] != "eq" || got["path"] != "state.kind" || got["value"] != "resolved" {
+		t.Fatalf("unexpected when: %#v", got)
+	}
+}
+
 func TestBuildManifest_duplicateID(t *testing.T) {
 	t.Parallel()
 	// Given: two files declaring the same id
@@ -70,6 +120,10 @@ id: same
 description: x
 triggers:
   - t
+when:
+  eval: constant
+  params:
+    value: true
 ---
 `
 	writeFile(t, filepath.Join(kdir, "a.md"), []byte(body))

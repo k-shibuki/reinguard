@@ -73,7 +73,7 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["id", "path"],
+            "required": ["id", "path", "when"],
             "properties": {
               "id": {
                 "type": "string"
@@ -89,6 +89,11 @@
                 "items": {
                   "type": "string"
                 }
+              },
+              "when": {
+                "type": "object",
+                "description": "Match expression (ADR-0002) from knowledge manifest.",
+                "additionalProperties": true
               }
             },
             "additionalProperties": false

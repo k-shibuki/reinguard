@@ -53,6 +53,66 @@ func TestRunContextBuild_gitOnly(t *testing.T) {
 	}
 }
 
+func TestRunContextBuild_knowledgeWhenExcludes(t *testing.T) {
+	t.Parallel()
+	// Given: config with a knowledge entry whose when-clause requires git.branch=not-main
+	cfgDir := t.TempDir()
+	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
+	writeFile(t, filepath.Join(cfgDir, "control", "states", "default.yaml"), []byte(testFixtureRulesStateIdle))
+	writeFile(t, filepath.Join(cfgDir, "control", "routes", "default.yaml"), []byte(testFixtureControlRoutesNext))
+	kdir := filepath.Join(cfgDir, "knowledge")
+	if err := os.Mkdir(kdir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(kdir, "doc.md"), []byte(`---
+id: doc1
+description: d
+triggers:
+  - fixture
+when:
+  op: eq
+  path: git.branch
+  value: not-main
+---
+`))
+	writeFile(t, filepath.Join(kdir, "manifest.json"), []byte(`{
+  "schema_version": "0.6.0",
+  "entries": [{
+    "id": "doc1",
+    "path": "knowledge/doc.md",
+    "description": "d",
+    "triggers": ["fixture"],
+    "when": {"op": "eq", "path": "git.branch", "value": "not-main"}
+  }]
+}`))
+	dir := goldenCaseDir(t, "context_build")
+	obs := filepath.Join(dir, "observation.json")
+
+	var buf bytes.Buffer
+	app := NewApp("test")
+	app.Writer = &buf
+	// When: context build runs with observation where git.branch=main
+	if err := app.Run([]string{"rgd", "context", "build", "--config-dir", cfgDir, "--observation-file", obs}); err != nil {
+		t.Fatal(err)
+	}
+	var out map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	km, ok := out["knowledge"].(map[string]any)
+	if !ok {
+		t.Fatalf("knowledge: %T", out["knowledge"])
+	}
+	entries, ok := km["entries"].([]any)
+	if !ok {
+		t.Fatalf("entries: %T", km["entries"])
+	}
+	// Then: knowledge.entries is empty (when-clause does not match)
+	if len(entries) != 0 {
+		t.Fatalf("expected no knowledge entries, got %v", entries)
+	}
+}
+
 func runGit(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", args...)

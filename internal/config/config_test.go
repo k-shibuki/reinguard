@@ -214,7 +214,8 @@ func TestLoad_knowledgeManifest_ok(t *testing.T) {
     "id": "doc1",
     "path": "docs/a.md",
     "description": "test doc",
-    "triggers": ["test"]
+    "triggers": ["test"],
+    "when": {"eval": "constant", "params": {"value": true}}
   }]
 }`, schema.CurrentSchemaVersion)))
 
@@ -250,6 +251,78 @@ func TestLoad_knowledgeManifest_invalidJSON(t *testing.T) {
 	}
 }
 
+func TestLoad_knowledgeManifest_whenUnknownOp(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
+	if err := os.Mkdir(filepath.Join(dir, "knowledge"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(dir, "knowledge", "manifest.json"), []byte(fmt.Sprintf(`{
+  "schema_version": %q,
+  "entries": [{
+    "id": "bad",
+    "path": "docs/a.md",
+    "description": "d",
+    "triggers": ["t"],
+    "when": {"op": "bogus", "path": "git.branch", "value": 1}
+  }]
+}`, schema.CurrentSchemaVersion)))
+
+	_, err := Load(dir)
+	if err == nil || !strings.Contains(err.Error(), "unknown op") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestLoad_knowledgeManifest_whenPathBadPrefix(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
+	if err := os.Mkdir(filepath.Join(dir, "knowledge"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(dir, "knowledge", "manifest.json"), []byte(fmt.Sprintf(`{
+  "schema_version": %q,
+  "entries": [{
+    "id": "bad",
+    "path": "docs/a.md",
+    "description": "d",
+    "triggers": ["t"],
+    "when": {"op": "eq", "path": "invalid.prefix", "value": 1}
+  }]
+}`, schema.CurrentSchemaVersion)))
+
+	_, err := Load(dir)
+	if err == nil || !strings.Contains(err.Error(), "must start with git.") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestLoad_knowledgeManifest_whenUnknownEvaluator(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
+	if err := os.Mkdir(filepath.Join(dir, "knowledge"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(dir, "knowledge", "manifest.json"), []byte(fmt.Sprintf(`{
+  "schema_version": %q,
+  "entries": [{
+    "id": "bad",
+    "path": "docs/a.md",
+    "description": "d",
+    "triggers": ["t"],
+    "when": {"eval": "nonexistent-evaluator"}
+  }]
+}`, schema.CurrentSchemaVersion)))
+
+	_, err := Load(dir)
+	if err == nil || !strings.Contains(err.Error(), "unknown evaluator") {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestLoad_knowledgeManifest_schemaInvalid(t *testing.T) {
 	t.Parallel()
 	// Given: manifest missing required fields
@@ -258,8 +331,8 @@ func TestLoad_knowledgeManifest_schemaInvalid(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(dir, "knowledge"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	// Missing required "entries"
-	writeFile(t, filepath.Join(dir, "knowledge", "manifest.json"), []byte(`{"schema_version":"0.1.0"}`))
+	// Missing required "entries" (schema_version matches contract so JSON Schema runs)
+	writeFile(t, filepath.Join(dir, "knowledge", "manifest.json"), []byte(fmt.Sprintf(`{"schema_version":%q}`, schema.CurrentSchemaVersion)))
 
 	// When: Load runs
 	_, err := Load(dir)
@@ -284,6 +357,8 @@ func TestLoad_controlStatesDotYmlAndStableOrder(t *testing.T) {
     priority: 10
     when:
       op: eq
+      path: git.branch
+      value: main
     state_id: Z
 `))
 	writeFile(t, filepath.Join(statesDir, "a.yaml"), []byte(`rules:
@@ -292,6 +367,8 @@ func TestLoad_controlStatesDotYmlAndStableOrder(t *testing.T) {
     priority: 10
     when:
       op: eq
+      path: git.branch
+      value: main
     state_id: A
 `))
 	if err := os.Mkdir(filepath.Join(statesDir, "skipdir"), 0o755); err != nil {
@@ -564,6 +641,8 @@ func TestLoad_controlStatesFile(t *testing.T) {
     priority: 10
     when:
       op: eq
+      path: git.branch
+      value: main
     state_id: Idle
 `))
 
@@ -602,8 +681,8 @@ func TestLoad_evaluatorReferencesInWhen_table(t *testing.T) {
 			whenYAML: `
       and:
         - op: eq
-          path: x
-          value: 1
+          path: git.branch
+          value: main
         - eval: constant
           params:
             value: true`,
@@ -612,7 +691,7 @@ func TestLoad_evaluatorReferencesInWhen_table(t *testing.T) {
 			name: "valid_constant_nested_in_count_when",
 			whenYAML: `
       op: count
-      path: items
+      path: state.items
       eq: 0
       when:
         eval: constant

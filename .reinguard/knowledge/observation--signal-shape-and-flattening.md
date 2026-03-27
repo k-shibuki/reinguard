@@ -6,6 +6,12 @@ triggers:
   - observation-file validation
   - state.kind
   - flatten dotted keys
+when:
+  or:
+    - op: exists
+      path: git.branch
+    - op: exists
+      path: github.repository.owner
 ---
 
 # Observation Signal Shape and Flattening

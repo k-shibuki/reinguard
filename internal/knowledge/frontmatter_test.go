@@ -14,6 +14,10 @@ description: Short summary
 triggers:
   - one
   - two
+when:
+  eval: constant
+  params:
+    value: true
 ---
 
 # Body
@@ -69,6 +73,45 @@ triggers: []
 `,
 			contain: "triggers",
 		},
+		{
+			name: "missing_when",
+			input: `---
+id: x
+description: d
+triggers:
+  - t
+---
+`,
+			contain: "when",
+		},
+		{
+			name: "duplicate_trigger",
+			input: `---
+id: x
+description: d
+triggers:
+  - alpha
+  - Alpha
+when:
+  op: eq
+  path: git.branch
+  value: main
+---
+`,
+			contain: "duplicate trigger",
+		},
+		{
+			name: "when_scalar",
+			input: `---
+id: x
+description: d
+triggers:
+  - t
+when: true
+---
+`,
+			contain: "when must be object or array",
+		},
 	}
 	for _, tt := range tests {
 		tt := tt
@@ -82,6 +125,57 @@ triggers: []
 	}
 }
 
+func TestParseFrontMatter_whenSequenceParses(t *testing.T) {
+	t.Parallel()
+	// Given: markdown with top-level when as a YAML sequence
+	md := `---
+id: x
+description: d
+triggers:
+  - t
+when:
+  - op: eq
+    path: git.branch
+    value: main
+---
+`
+	// When: ParseFrontMatter runs
+	fm, err := ParseFrontMatter([]byte(md))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Then: when parsed as a clause array
+	if _, ok := fm.When.([]any); !ok {
+		t.Fatalf("when type: %T", fm.When)
+	}
+}
+
+func TestParseFrontMatter_whenParses(t *testing.T) {
+	t.Parallel()
+	// Given: markdown with valid front matter including when clause
+	md := `---
+id: x
+description: d
+triggers:
+  - t
+when:
+  op: eq
+  path: git.branch
+  value: main
+---
+`
+	// When: ParseFrontMatter runs
+	fm, err := ParseFrontMatter([]byte(md))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Then: when parsed as map with expected op
+	m, ok := fm.When.(map[string]any)
+	if !ok || m["op"] != "eq" {
+		t.Fatalf("%+v", fm.When)
+	}
+}
+
 func TestParseFrontMatter_triggersSkipBlank(t *testing.T) {
 	t.Parallel()
 	// Given: triggers list with whitespace-only and empty entries
@@ -92,6 +186,10 @@ triggers:
   - "  a  "
   - ""
   - b
+when:
+  eval: constant
+  params:
+    value: true
 ---
 `
 	// When: ParseFrontMatter runs

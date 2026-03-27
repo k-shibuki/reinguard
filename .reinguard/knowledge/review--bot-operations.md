@@ -11,6 +11,10 @@ triggers:
   - "@coderabbitai review"
   - "@codex review"
   - rate limit recovery
+when:
+  op: eq
+  path: github.pull_requests.pr_exists_for_branch
+  value: true
 ---
 
 # Bot Review Operations

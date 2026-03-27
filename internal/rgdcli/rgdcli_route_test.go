@@ -15,7 +15,7 @@ func TestRunRouteSelect_failOnNonResolved(t *testing.T) {
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
 	writeFile(t, filepath.Join(cfgDir, "control", "routes", "r.yaml"), []byte(testFixtureRulesRouteAmbiguous))
 	obsDir := t.TempDir()
-	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{"signals":{"x":1},"degraded":false}`))
+	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{"signals":{"git":{"branch":"feat"}},"degraded":false}`))
 	var buf bytes.Buffer
 	app := NewApp("t")
 	app.Writer = &buf
@@ -39,7 +39,7 @@ func TestRunRouteSelect_stateFileFlattensStateDottedKeys(t *testing.T) {
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
 	writeFile(t, filepath.Join(cfgDir, "control", "routes", "r.yaml"), []byte(testFixtureControlRoutesNext))
 	obsDir := t.TempDir()
-	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{"signals":{"x":1},"degraded":false}`))
+	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{"signals":{"git":{"branch":"main"}},"degraded":false}`))
 	stateDir := t.TempDir()
 	writeFile(t, filepath.Join(stateDir, "s.json"), []byte(`{"kind":"resolved","state_id":"Idle"}`))
 
@@ -74,7 +74,7 @@ func TestRunRouteSelect_relativeObservationAndStateFileWithCwd(t *testing.T) {
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
 	writeFile(t, filepath.Join(cfgDir, "control", "routes", "r.yaml"), []byte(testFixtureControlRoutesNext))
 	dataDir := t.TempDir()
-	writeFile(t, filepath.Join(dataDir, "o.json"), []byte(`{"signals":{"x":1},"degraded":false}`))
+	writeFile(t, filepath.Join(dataDir, "o.json"), []byte(`{"signals":{"git":{"branch":"main"}},"degraded":false}`))
 	writeFile(t, filepath.Join(dataDir, "s.json"), []byte(`{"kind":"resolved","state_id":"Idle"}`))
 
 	var buf bytes.Buffer

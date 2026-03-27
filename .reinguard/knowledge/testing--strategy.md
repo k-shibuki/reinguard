@@ -9,6 +9,12 @@ triggers:
   - mock
   - httptest
   - urfave cli
+when:
+  or:
+    - op: exists
+      path: git.branch
+    - op: exists
+      path: github.repository.owner
 ---
 
 # Test strategy (reinguard / Go)

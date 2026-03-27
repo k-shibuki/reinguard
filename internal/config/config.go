@@ -48,11 +48,14 @@ type RulesDocument struct {
 }
 
 // KnowledgeManifestEntry is one knowledge file entry in manifest.json (ADR-0010).
+//
+//nolint:govet // fieldalignment: keep JSON field order (id, path, description, …) for readable manifests
 type KnowledgeManifestEntry struct {
 	ID          string   `json:"id"`
 	Path        string   `json:"path"`
 	Description string   `json:"description"`
 	Triggers    []string `json:"triggers"`
+	When        any      `json:"when,omitempty"`
 }
 
 // KnowledgeManifest is .reinguard/knowledge/manifest.json.

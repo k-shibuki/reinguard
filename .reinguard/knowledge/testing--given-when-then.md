@@ -6,6 +6,12 @@ triggers:
   - test comment format
   - GWT
   - Go testing
+when:
+  or:
+    - op: exists
+      path: git.branch
+    - op: exists
+      path: github.repository.owner
 ---
 
 # Given / When / Then Comment Format (Go)
