@@ -17,12 +17,7 @@ jobs:
       - uses: actions/checkout@v6.0.2
 
       - name: Install mikefarah yq
-        run: |
-          set -euo pipefail
-          YQ_VER=4.45.1
-          curl -sSL "https://github.com/mikefarah/yq/releases/download/v${YQ_VER}/yq_linux_amd64" -o /tmp/yq
-          sudo install -m 0755 /tmp/yq /usr/local/bin/yq
-          yq --version
+        uses: ./.github/actions/install-yq
 
       - name: Extract label config for PR policy
         run: yq -o json .reinguard/labels.yaml > /tmp/labels.json
