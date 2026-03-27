@@ -78,10 +78,14 @@ const run = async () => {
         );
       }
     } else {
+      const exceptionHint =
+        EXCEPTION_LABELS.map((l) => "`" + l + "`").join(" / ") || "(exception labels)";
       errors.push(
         "**Issue linkage**: PR body must contain `Closes #<number>` " +
           "(or `Fixes #N` / `Resolves #N`). " +
-          "If this is an exception, add a label (`no-issue` / `hotfix`) " +
+          "If this is an exception, add an exception label (" +
+          exceptionHint +
+          ") " +
           "and fill in the `## Exception` section.",
       );
     }

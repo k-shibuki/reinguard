@@ -29,6 +29,8 @@ jobs:
 
       - name: Check PR policy compliance
         uses: actions/github-script@v8
+        env:
+          LABELS_POLICY_JSON: /tmp/labels.json
         with:
           script: |
             const fs = require('fs');
