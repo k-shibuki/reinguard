@@ -73,6 +73,9 @@ func repoRoot(t *testing.T) string {
 }
 
 func TestCheckIssuePolicyScript_taskOK(t *testing.T) {
+	// Given: valid task template body and feat title/label
+	// When: running check-issue-policy.sh
+	// Then: exit 0 and output contains OK
 	root := repoRoot(t)
 	mustMikefarahYq(t, root)
 	script := filepath.Join(root, ".reinguard", "scripts", "check-issue-policy.sh")
@@ -99,6 +102,9 @@ func TestCheckIssuePolicyScript_taskOK(t *testing.T) {
 }
 
 func TestCheckIssuePolicyScript_taskBadTitle(t *testing.T) {
+	// Given: valid body but non-Conventional Commits title
+	// When: running check-issue-policy.sh
+	// Then: non-zero exit
 	root := repoRoot(t)
 	mustMikefarahYq(t, root)
 	script := filepath.Join(root, ".reinguard", "scripts", "check-issue-policy.sh")
@@ -122,6 +128,9 @@ func TestCheckIssuePolicyScript_taskBadTitle(t *testing.T) {
 }
 
 func TestCheckIssuePolicyScript_epicOK(t *testing.T) {
+	// Given: epic template body and epic label
+	// When: running check-issue-policy.sh
+	// Then: exit 0
 	root := repoRoot(t)
 	mustMikefarahYq(t, root)
 	script := filepath.Join(root, ".reinguard", "scripts", "check-issue-policy.sh")

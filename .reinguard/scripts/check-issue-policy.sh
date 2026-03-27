@@ -24,6 +24,7 @@ if ! command -v yq >/dev/null 2>&1; then
 fi
 
 mapfile -t TYPE_LABELS < <(yq -r '.categories.type.labels[].name' "$LABELS_YAML")
+mapfile -t EXCEPTION_LABELS < <(yq -r '.categories.exception.labels[].name' "$LABELS_YAML")
 mapfile -t SCOPE_LABELS < <(yq -r '.categories.scope.labels[].name' "$LABELS_YAML")
 TYPE_PATTERN=$(printf '%s\n' "${TYPE_LABELS[@]}" | paste -sd '|' -)
 
@@ -88,9 +89,22 @@ fi
 BODY=$(cat "$BODY_FILE")
 ERRORS=()
 
+for l in "${LABELS[@]}"; do
+  for el in "${EXCEPTION_LABELS[@]}"; do
+    if [[ "$l" == "$el" ]]; then
+      ERRORS+=("Label: \`$el\` is PR-only (exception category); do not use on Issues.")
+    fi
+  done
+done
+
 strip_comments() {
-  # shellcheck disable=SC2001
-  sed 's/<!--[^>]*-->//g' <<< "$1" | sed '/^[[:space:]]*$/d'
+  # Prefer perl for multiline <!-- ... -->; fall back to sed for single-line only.
+  if command -v perl >/dev/null 2>&1; then
+    perl -0777 -pe 's/<!--.*?-->//gs' <<< "$1" | sed '/^[[:space:]]*$/d'
+  else
+    # shellcheck disable=SC2001
+    sed 's/<!--[^>]*-->//g' <<< "$1" | sed '/^[[:space:]]*$/d'
+  fi
 }
 
 # Match ## or ### heading (Issue Form markdown or hand-authored).

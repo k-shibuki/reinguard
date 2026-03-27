@@ -23,7 +23,23 @@ const run = async () => {
     return;
   }
 
+  if (
+    !labelsDoc.categories?.type?.labels?.length ||
+    !labelsDoc.categories?.exception?.labels
+  ) {
+    core.setFailed(
+      `issue-label-sync: label config at ${labelsPath} is missing required categories (type/exception).`,
+    );
+    return;
+  }
+
   const TYPE_LABELS = labelsDoc.categories.type.labels.map((x) => x.name);
+  const EXCEPTION_LABELS = labelsDoc.categories.exception.labels.map(
+    (x) => x.name,
+  );
+  const SCOPE_LABEL_NAMES = (
+    labelsDoc.categories.scope?.labels || []
+  ).map((x) => x.name);
 
   const { data: full } = await github.rest.issues.get({
     owner: context.repo.owner,
@@ -35,12 +51,14 @@ const run = async () => {
 
   const messages = [];
 
-  // --- Epic: type labels should not be combined with epic ---
-  if (labels.includes("epic")) {
+  const isEpicIssue = SCOPE_LABEL_NAMES.some((n) => labels.includes(n));
+
+  // --- Epic (scope labels from SSOT): type labels should not be combined ---
+  if (isEpicIssue) {
     const typeOnEpic = TYPE_LABELS.filter((t) => labels.includes(t));
     if (typeOnEpic.length > 0) {
       messages.push(
-        `This Issue has the \`epic\` label but also type label(s): ${typeOnEpic.join(", ")}. For epic planning Issues, remove type labels.`,
+        `This Issue has a scope label (${SCOPE_LABEL_NAMES.filter((n) => labels.includes(n)).join(", ")}) but also type label(s): ${typeOnEpic.join(", ")}. For epic planning Issues, remove type labels.`,
       );
     }
     if (messages.length > 0) {
@@ -56,11 +74,22 @@ const run = async () => {
     return;
   }
 
-  // --- Task form: ### Type → optional auto-label ---
+  const exceptionOnIssue = EXCEPTION_LABELS.filter((e) => labels.includes(e));
+  if (exceptionOnIssue.length > 0) {
+    messages.push(
+      `PR-only exception label(s) on an Issue: ${exceptionOnIssue.join(", ")}. Remove them (exception labels apply to PRs, not Issues).`,
+    );
+  }
+
+  // --- Task form: ### Type → optional auto-label (skip if PR-only exception labels present) ---
   const typeMatch = body.match(/^### Type\s*\n+\s*(\S+)/m);
   const dropdownType = typeMatch ? typeMatch[1].trim() : null;
 
-  if (dropdownType && TYPE_LABELS.includes(dropdownType)) {
+  if (
+    exceptionOnIssue.length === 0 &&
+    dropdownType &&
+    TYPE_LABELS.includes(dropdownType)
+  ) {
     if (!labels.includes(dropdownType)) {
       await github.rest.issues.addLabels({
         owner: context.repo.owner,

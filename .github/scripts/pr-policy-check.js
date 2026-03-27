@@ -25,6 +25,16 @@ const run = async () => {
     return;
   }
 
+  if (
+    !labelsDoc.categories?.type?.labels?.length ||
+    !labelsDoc.categories?.exception?.labels
+  ) {
+    core.setFailed(
+      `PR policy: label config at ${labelsPath} is missing required categories (type/exception labels).`,
+    );
+    return;
+  }
+
   const TYPE_LABELS = labelsDoc.categories.type.labels.map((x) => x.name);
   const EXCEPTION_LABELS = labelsDoc.categories.exception.labels.map(
     (x) => x.name,

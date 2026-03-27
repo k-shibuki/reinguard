@@ -12,6 +12,9 @@ import (
 )
 
 func TestEmbeddedDataMatchesReinguardYAML(t *testing.T) {
+	// Given: SSOT at .reinguard/labels.yaml and embedded copy for go:embed
+	// When: comparing bytes
+	// Then: they must match so runtime policy and tests agree
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("runtime.Caller failed")
@@ -28,6 +31,9 @@ func TestEmbeddedDataMatchesReinguardYAML(t *testing.T) {
 }
 
 func TestTypeLabelsMatchEmbeddedYAML(t *testing.T) {
+	// Given: parsed labels.yaml on disk and TypeLabels map from init()
+	// When: comparing sorted type names
+	// Then: they must match
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("runtime.Caller failed")
@@ -85,6 +91,9 @@ func TestAllRepoLabelsTypeNamesMatchTypeLabels(t *testing.T) {
 }
 
 func TestIssueTemplateTaskDropdownMatchesTypeLabels(t *testing.T) {
+	// Given: task Issue Form YAML and TypeLabelNames() from SSOT
+	// When: reading dropdown options from task.yml
+	// Then: options equal TypeLabelNames() (sync script keeps them aligned)
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("runtime.Caller failed")
