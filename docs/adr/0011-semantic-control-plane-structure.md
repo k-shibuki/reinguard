@@ -29,6 +29,10 @@ Without explicit structure:
      - `control/states/*.yaml` — `type: state` rules only
      - `control/routes/*.yaml` — `type: route` rules only
      - `control/guards/*.yaml` — `type: guard` rules only
+   - `procedure/` — agent **action-card** bodies (Markdown with YAML front
+     matter: `id`, `purpose`, `applies_to`, `reads`, `sense`, `act`, `output`,
+     `done_when`, `escalate_when`). Adapter commands under `.cursor/commands/`
+     link here; SSOT for procedural steps lives in Semantics (ADR-0013).
 
 2. **No `.reinguard/rules/`** — Replaced by `control/` subdirectories to
    avoid ambiguous naming.
@@ -43,7 +47,8 @@ Without explicit structure:
    - Improves judgment when read → `knowledge/`
    - Must be followed as a norm → `policy/`
    - State / route / guard meaning in match YAML → `control/`
-   - Client-specific procedure or bridge → Adapter layer (`.cursor/`)
+   - Repeatable agent procedure bound to state/route → `procedure/`
+   - Client-specific bridge only (no SSOT prose) → Adapter layer (`.cursor/`)
 
 5. **Adapter layer** — `.cursor/` remains thin: bridge files and commands
    reference `.reinguard/` paths; they do not restate Semantics-layer body
@@ -65,3 +70,4 @@ Without explicit structure:
 - ADR-0001 (Adapter / Semantics / Substrate layers)
 - ADR-0004 (unified priority resolution)
 - ADR-0010 (knowledge format and manifest)
+- ADR-0013 (FSM v1 states and Adapter mapping)

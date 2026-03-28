@@ -1,0 +1,55 @@
+# Routes keyed off flattened state.state_id (ADR-0013). One primary route per state for v1.
+rules:
+  - type: route
+    id: route_implement
+    priority: 20
+    route_id: cursor-implement
+    when:
+      op: eq
+      path: state.state_id
+      value: working_no_pr
+
+  - type: route
+    id: route_monitor
+    priority: 21
+    route_id: cursor-monitor-pr
+    when:
+      op: eq
+      path: state.state_id
+      value: pr_open
+
+  - type: route
+    id: route_address
+    priority: 22
+    route_id: cursor-address-review
+    when:
+      op: eq
+      path: state.state_id
+      value: changes_requested
+
+  - type: route
+    id: route_wait_bot_rl
+    priority: 23
+    route_id: cursor-wait-bot
+    when:
+      op: eq
+      path: state.state_id
+      value: bot_rate_limited
+
+  - type: route
+    id: route_wait_bot_pause
+    priority: 24
+    route_id: cursor-wait-bot
+    when:
+      op: eq
+      path: state.state_id
+      value: bot_review_paused
+
+  - type: route
+    id: route_merge
+    priority: 25
+    route_id: cursor-merge
+    when:
+      op: eq
+      path: state.state_id
+      value: ready_to_merge

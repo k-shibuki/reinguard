@@ -19,7 +19,7 @@
 // No matching rules, all rules suppressed, or duplicate best priority return OutcomeDegraded or
 // OutcomeAmbiguous with a Reason string. Resolve returns a nil error; callers inspect Result.Kind.
 //
-// ADR-0004 (priority and selection), ADR-0007 (outcomes and reporting).
+// ADR-0004 (priority and selection), ADR-0007 (outcomes and reporting), ADR-0013 (workflow state/route catalog).
 package resolve
 
 import (

@@ -20,10 +20,9 @@ Treat **inspect**, **create**, **address**, and **merge** as distinct steps (sup
 
 ## Agent procedure reference
 
-Commit, PR, and review procedures are defined in `.cursor/commands/`
-(`implement.md`, `change-inspect.md`, `pr-create.md`, `review-address.md`, `pr-merge.md`).
-**Semantics feedback**: `internalize.md` — feed review findings back into `.reinguard/` knowledge and policy.
-Use `gh` CLI for observation (`gh issue view`, `gh pr view`, `gh pr checks`, etc.).
+Procedure **bodies** live under [`.reinguard/procedure/`](../../.reinguard/procedure/) (SSOT). `.cursor/commands/` holds **thin stubs** that link there (`implement`, `change-inspect`, `pr-create`, `review-address`, `internalize`, `pr-merge`). Optional orchestrator: [`reinguard-next.md`](../commands/reinguard-next.md) (`rgd context build` + procedure hints; ADR-0013).
+
+Use `gh` CLI for observation (`gh issue view`, `gh pr view`, `gh pr checks`, etc.) until full `rgd observe` coverage.
 
 ## Maintainer reference
 

@@ -1,0 +1,88 @@
+# FSM v1 state rules (ADR-0013). Lower priority number wins among matches (ADR-0004).
+rules:
+  - type: state
+    id: rate_limited
+    priority: 8
+    state_id: bot_rate_limited
+    when:
+      op: any
+      path: github.reviews.tracked_reviewer_status
+      when:
+        op: eq
+        path: $.contains_rate_limit
+        value: true
+
+  - type: state
+    id: review_paused
+    priority: 10
+    state_id: bot_review_paused
+    when:
+      op: any
+      path: github.reviews.tracked_reviewer_status
+      when:
+        op: eq
+        path: $.contains_review_paused
+        value: true
+
+  - type: state
+    id: changes_requested
+    priority: 15
+    state_id: changes_requested
+    when:
+      and:
+        - op: eq
+          path: github.pull_requests.pr_exists_for_branch
+          value: true
+        - op: gt
+          path: github.reviews.review_decisions_changes_requested
+          value: 0
+
+  - type: state
+    id: ready_to_merge
+    priority: 25
+    state_id: ready_to_merge
+    when:
+      and:
+        - op: eq
+          path: github.pull_requests.pr_exists_for_branch
+          value: true
+        - op: eq
+          path: github.reviews.review_threads_unresolved
+          value: 0
+        - op: eq
+          path: github.reviews.review_decisions_changes_requested
+          value: 0
+        - op: eq
+          path: git.working_tree_clean
+          value: true
+        - op: eq
+          path: github.ci.ci_status
+          value: success
+        - op: eq
+          path: github.pull_requests.merge_state_status
+          value: clean
+
+  - type: state
+    id: pr_open
+    priority: 40
+    state_id: pr_open
+    when:
+      op: eq
+      path: github.pull_requests.pr_exists_for_branch
+      value: true
+
+  - type: state
+    id: working_no_pr
+    priority: 60
+    state_id: working_no_pr
+    when:
+      and:
+        - op: eq
+          path: git.detached_head
+          value: false
+        - or:
+            - op: eq
+              path: github.pull_requests.pr_exists_for_branch
+              value: false
+            - op: not_exists
+              path: github.pull_requests.pr_exists_for_branch

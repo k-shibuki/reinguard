@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -825,6 +826,25 @@ func TestLoad_controlKindTypeMismatchRejected(t *testing.T) {
 				t.Fatalf("got err=%v, want substring %q", err, tt.wantSub)
 			}
 		})
+	}
+}
+
+func TestLoad_repositoryReinguard(t *testing.T) {
+	t.Parallel()
+	// Given: this repository's committed .reinguard bundle (control + knowledge)
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller")
+	}
+	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
+	dir := filepath.Join(root, ".reinguard")
+	if _, err := os.Stat(dir); err != nil {
+		t.Fatalf("stat %s: %v", dir, err)
+	}
+	// When: Load runs
+	// Then: no error (schema + when validation for FSM YAML)
+	if _, err := Load(dir); err != nil {
+		t.Fatalf("Load: %v", err)
 	}
 }
 

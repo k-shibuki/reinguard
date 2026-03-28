@@ -171,6 +171,8 @@ GraphQL failures for this query are reported as diagnostics with provider **`git
 
 Evaluates `type: state` rules from configuration against an observation.
 
+Committed workflow `state_id` priorities for this repository are documented in **ADR-0013** (`docs/adr/0013-fsm-v1-workflow-states.md`).
+
 ### Inputs
 
 - **Default:** runs observation inline (same as `rgd observe`) unless:
