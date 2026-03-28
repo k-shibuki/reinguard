@@ -4,10 +4,11 @@ purpose: Classify review feedback, fix as needed, post dispositions, and satisfy
 applies_to:
   state_ids:
     - pr_open
+    - unresolved_threads
     - changes_requested
   route_ids:
-    - cursor-monitor-pr
-    - cursor-address-review
+    - user-monitor-pr
+    - user-address-review
 reads:
   - ../policy/review--consensus-protocol.md
   - ../policy/coding--standards.md

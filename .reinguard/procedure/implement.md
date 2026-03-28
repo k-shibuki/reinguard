@@ -5,7 +5,7 @@ applies_to:
   state_ids:
     - working_no_pr
   route_ids:
-    - cursor-implement
+    - user-implement
 reads:
   - ../policy/coding--preflight.md
   - ../policy/coding--standards.md

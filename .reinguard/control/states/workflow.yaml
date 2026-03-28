@@ -54,6 +54,21 @@ rules:
           path: github.reviews.bot_review_diagnostics.bot_review_pending
           value: true
 
+  # Open review threads (GitHub reviewThreads isResolved=false). Distinct from
+  # changes_requested, which keys off formal CHANGES_REQUESTED review decisions only.
+  - type: state
+    id: unresolved_threads
+    priority: 14
+    state_id: unresolved_threads
+    when:
+      and:
+        - op: eq
+          path: github.pull_requests.pr_exists_for_branch
+          value: true
+        - op: gt
+          path: github.reviews.review_threads_unresolved
+          value: 0
+
   - type: state
     id: changes_requested
     priority: 15

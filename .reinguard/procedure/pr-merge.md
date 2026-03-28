@@ -5,7 +5,7 @@ applies_to:
   state_ids:
     - ready_to_merge
   route_ids:
-    - cursor-merge
+    - user-merge
 reads:
   - ../policy/review--consensus-protocol.md
 sense:

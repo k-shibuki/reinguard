@@ -1,9 +1,10 @@
 # Routes keyed off flattened state.state_id (ADR-0013). One primary route per state for v1.
+# route_id uses the user-* prefix (Adapter-agnostic; not tied to a specific IDE).
 rules:
   - type: route
     id: route_implement
     priority: 20
-    route_id: cursor-implement
+    route_id: user-implement
     when:
       op: eq
       path: state.state_id
@@ -12,25 +13,29 @@ rules:
   - type: route
     id: route_monitor
     priority: 21
-    route_id: cursor-monitor-pr
+    route_id: user-monitor-pr
     when:
       op: eq
       path: state.state_id
       value: pr_open
 
   - type: route
-    id: route_address
+    id: route_address_review
     priority: 22
-    route_id: cursor-address-review
+    route_id: user-address-review
     when:
-      op: eq
-      path: state.state_id
-      value: changes_requested
+      or:
+        - op: eq
+          path: state.state_id
+          value: unresolved_threads
+        - op: eq
+          path: state.state_id
+          value: changes_requested
 
   - type: route
     id: route_wait_bot_fail
     priority: 23
-    route_id: cursor-wait-bot
+    route_id: user-wait-bot
     when:
       op: eq
       path: state.state_id
@@ -39,7 +44,7 @@ rules:
   - type: route
     id: route_wait_bot_reviewing
     priority: 24
-    route_id: cursor-wait-bot
+    route_id: user-wait-bot
     when:
       op: eq
       path: state.state_id
@@ -48,7 +53,7 @@ rules:
   - type: route
     id: route_wait_bot_rl
     priority: 25
-    route_id: cursor-wait-bot
+    route_id: user-wait-bot
     when:
       op: eq
       path: state.state_id
@@ -57,7 +62,7 @@ rules:
   - type: route
     id: route_wait_bot_pause
     priority: 26
-    route_id: cursor-wait-bot
+    route_id: user-wait-bot
     when:
       op: eq
       path: state.state_id
@@ -66,7 +71,7 @@ rules:
   - type: route
     id: route_merge
     priority: 27
-    route_id: cursor-merge
+    route_id: user-merge
     when:
       op: eq
       path: state.state_id

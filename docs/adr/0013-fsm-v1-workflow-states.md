@@ -29,7 +29,8 @@ wins** among matching rules (ADR-0004). `state_id` values:
 | `bot_review_paused` | Required bot `status` is `review_paused` | Same pattern |
 | `bot_review_failed` | Any required bot in failed tier (aggregate) | `github.reviews.bot_review_diagnostics.bot_review_failed` |
 | `bot_reviewing` | Waiting on required bot outcome | `bot_review_diagnostics.bot_review_pending` and PR exists |
-| `changes_requested` | Blocking review decision | `github.reviews.review_decisions_changes_requested` > 0 |
+| `unresolved_threads` | Actionable review threads remain open | `github.reviews.review_threads_unresolved` > 0 (GraphQL `reviewThreads` with `isResolved` false) |
+| `changes_requested` | Formal GitHub “Request changes” on the PR | `github.reviews.review_decisions_changes_requested` > 0 (`latestReviews` with state `CHANGES_REQUESTED`). **Not** the same as open review threads; a bot may leave threads without a CHANGES_REQUESTED review. |
 | `ready_to_merge` | Coarse merge gate (clean tree, CI, threads, decisions) | Aligns with `merge-readiness` guard signals |
 | `pr_open` | PR exists; work in flight | `github.pull_requests.pr_exists_for_branch` true |
 | `working_no_pr` | No PR for branch (or PR facet absent) | `pr_exists_for_branch` false or path missing; not detached HEAD |
@@ -56,12 +57,15 @@ after state resolution (same mechanism as `rgd route select` with merged state).
 
 | route_id | Typical state_id | Procedure hint (Semantics) |
 |----------|------------------|----------------------------|
-| `cursor-implement` | `working_no_pr` | `implement` |
-| `cursor-pr-create` | `working_no_pr` | `pr-create` (after local work) |
-| `cursor-monitor-pr` | `pr_open` | `review-address` / observe |
-| `cursor-address-review` | `changes_requested` | `review-address` |
-| `cursor-wait-bot` | `bot_rate_limited`, `bot_review_paused`, `bot_review_failed`, `bot_reviewing` | wait / retry per bot docs |
-| `cursor-merge` | `ready_to_merge` | `pr-merge` |
+| `user-implement` | `working_no_pr` | `implement` |
+| `user-monitor-pr` | `pr_open` | Observe PR / CI (no open threads gate) |
+| `user-address-review` | `unresolved_threads`, `changes_requested` | `review-address` |
+| `user-wait-bot` | `bot_rate_limited`, `bot_review_paused`, `bot_review_failed`, `bot_reviewing` | wait / retry per bot docs |
+| `user-merge` | `ready_to_merge` | `pr-merge` |
+
+`user-*` names are **Adapter-agnostic** (not tied to a specific IDE). A given Adapter maps `rgd` output to local commands.
+
+`pr-create` (after local work) still applies when `state_id` is `working_no_pr`; there is no separate `route_id` for it in v1.
 
 Multiple routes may match one state; **lowest route `priority` wins** for the
 primary `route_id` in `rgd route select` output. Alternatives appear in
@@ -79,7 +83,8 @@ primary `route_id` in `rgd route select` output. Alternatives appear in
 |---------------|------------------------------|
 | `working_no_pr` | `.reinguard/procedure/implement.md` |
 | `working_no_pr` | `.reinguard/procedure/pr-create.md` (when opening a PR) |
-| `pr_open` | `.reinguard/procedure/review-address.md` |
+| `pr_open` | `.reinguard/procedure/review-address.md` (monitor / light touch) |
+| `unresolved_threads` | `.reinguard/procedure/review-address.md` |
 | `changes_requested` | `.reinguard/procedure/review-address.md` |
 | `bot_rate_limited` / `bot_review_paused` / `bot_review_failed` / `bot_reviewing` | `.reinguard/knowledge/review--bot-operations.md` (+ `knowledge.entries`) |
 | `ready_to_merge` | `.reinguard/procedure/pr-merge.md` |

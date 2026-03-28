@@ -22,8 +22,9 @@ Use ADR-0013 and `.reinguard/control/` as SSOT. Heuristic table (when `state.kin
 | `state_id` | Open procedure |
 |------------|----------------|
 | `working_no_pr` | `.reinguard/procedure/implement.md` (or `pr-create.md` when opening a PR) |
-| `pr_open` | `.reinguard/procedure/review-address.md` |
-| `changes_requested` | `.reinguard/procedure/review-address.md` |
+| `pr_open` | `.reinguard/procedure/review-address.md` (monitor / observe) |
+| `unresolved_threads` | `.reinguard/procedure/review-address.md` (thread disposition) |
+| `changes_requested` | `.reinguard/procedure/review-address.md` (formal “Request changes” on the PR) |
 | `bot_rate_limited` / `bot_review_paused` / `bot_review_failed` / `bot_reviewing` | `.reinguard/knowledge/review--bot-operations.md` (and bot-specific docs from `knowledge.entries`) |
 | `ready_to_merge` | `.reinguard/procedure/pr-merge.md` |
 

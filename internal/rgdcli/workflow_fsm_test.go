@@ -35,7 +35,7 @@ var workflowFSMScenarioFixtures = []struct {
   "degraded": false
 }`,
 		wantStateID: "working_no_pr",
-		wantRouteID: "cursor-implement",
+		wantRouteID: "user-implement",
 	},
 	{
 		name: "working_no_pr_explicit_false",
@@ -49,10 +49,33 @@ var workflowFSMScenarioFixtures = []struct {
   "degraded": false
 }`,
 		wantStateID: "working_no_pr",
-		wantRouteID: "cursor-implement",
+		wantRouteID: "user-implement",
 	},
 	{
-		name: "pr_open",
+		name: "pr_open_ci_pending",
+		observation: `{
+  "signals": {
+    "git": {"detached_head": false, "working_tree_clean": true},
+    "github": {
+      "pull_requests": {
+        "pr_exists_for_branch": true,
+        "merge_state_status": "unstable"
+      },
+      "ci": {"ci_status": "pending"},
+      "reviews": {
+        "review_threads_unresolved": 0,
+        "review_decisions_changes_requested": 0,
+        "bot_reviewer_status": []
+      }
+    }
+  },
+  "degraded": false
+}`,
+		wantStateID: "pr_open",
+		wantRouteID: "user-monitor-pr",
+	},
+	{
+		name: "unresolved_threads",
 		observation: `{
   "signals": {
     "git": {"detached_head": false, "working_tree_clean": true},
@@ -71,8 +94,8 @@ var workflowFSMScenarioFixtures = []struct {
   },
   "degraded": false
 }`,
-		wantStateID: "pr_open",
-		wantRouteID: "cursor-monitor-pr",
+		wantStateID: "unresolved_threads",
+		wantRouteID: "user-address-review",
 	},
 	{
 		name: "changes_requested",
@@ -92,7 +115,7 @@ var workflowFSMScenarioFixtures = []struct {
   "degraded": false
 }`,
 		wantStateID: "changes_requested",
-		wantRouteID: "cursor-address-review",
+		wantRouteID: "user-address-review",
 	},
 	{
 		name: "ready_to_merge",
@@ -115,7 +138,7 @@ var workflowFSMScenarioFixtures = []struct {
   "degraded": false
 }`,
 		wantStateID: "ready_to_merge",
-		wantRouteID: "cursor-merge",
+		wantRouteID: "user-merge",
 	},
 	{
 		name: "bot_rate_limited",
@@ -136,7 +159,7 @@ var workflowFSMScenarioFixtures = []struct {
   "degraded": false
 }`,
 		wantStateID: "bot_rate_limited",
-		wantRouteID: "cursor-wait-bot",
+		wantRouteID: "user-wait-bot",
 	},
 	{
 		name: "bot_review_paused",
@@ -157,7 +180,7 @@ var workflowFSMScenarioFixtures = []struct {
   "degraded": false
 }`,
 		wantStateID: "bot_review_paused",
-		wantRouteID: "cursor-wait-bot",
+		wantRouteID: "user-wait-bot",
 	},
 	{
 		name: "bot_review_failed",
@@ -182,7 +205,7 @@ var workflowFSMScenarioFixtures = []struct {
   "degraded": false
 }`,
 		wantStateID: "bot_review_failed",
-		wantRouteID: "cursor-wait-bot",
+		wantRouteID: "user-wait-bot",
 	},
 	{
 		name: "bot_reviewing",
@@ -207,7 +230,7 @@ var workflowFSMScenarioFixtures = []struct {
   "degraded": false
 }`,
 		wantStateID: "bot_reviewing",
-		wantRouteID: "cursor-wait-bot",
+		wantRouteID: "user-wait-bot",
 	},
 }
 
