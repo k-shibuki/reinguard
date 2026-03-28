@@ -36,7 +36,9 @@ func TestCollect_pullRequestNull(t *testing.T) {
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(resp)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
 	}))
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
@@ -68,11 +70,20 @@ func TestCollect_graphqlErrorsPropagates(t *testing.T) {
 func TestCollect_onePage_threadsAndDetail(t *testing.T) {
 	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, _ := io.ReadAll(r.Body)
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("read request body: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		var req struct {
 			Variables map[string]any `json:"variables"`
 		}
-		_ = json.Unmarshal(body, &req)
+		if err := json.Unmarshal(body, &req); err != nil {
+			t.Errorf("unmarshal request: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		include, _ := req.Variables["includeDetail"].(bool)
 		if !include {
 			t.Fatal("first page must include detail")
@@ -116,7 +127,9 @@ func TestCollect_onePage_threadsAndDetail(t *testing.T) {
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(resp)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
 	}))
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
@@ -163,11 +176,20 @@ func TestCollect_reviewThreadsPaginationIncomplete(t *testing.T) {
 	var calls atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls.Add(1)
-		body, _ := io.ReadAll(r.Body)
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("read request body: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		var req struct {
 			Variables map[string]any `json:"variables"`
 		}
-		_ = json.Unmarshal(body, &req)
+		if err := json.Unmarshal(body, &req); err != nil {
+			t.Errorf("unmarshal request: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		include, _ := req.Variables["includeDetail"].(bool)
 		resp := map[string]any{
 			"data": map[string]any{
@@ -195,7 +217,9 @@ func TestCollect_reviewThreadsPaginationIncomplete(t *testing.T) {
 			"nodes":    []map[string]any{{"isResolved": false}},
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(resp)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
 	}))
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
@@ -237,7 +261,9 @@ func TestCollect_latestReviewsTruncated(t *testing.T) {
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(resp)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
 	}))
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
@@ -284,7 +310,9 @@ func TestCollect_trackedReviewer_rateLimitAndEnrich(t *testing.T) {
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(resp)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
 	}))
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
@@ -326,7 +354,9 @@ func TestCollect_emptyLabelsAndClosingIssuesAreArrays(t *testing.T) {
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(resp)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
 	}))
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
@@ -372,7 +402,9 @@ func TestCollect_trackedReviewer_noEnrichOmitsRateLimitSeconds(t *testing.T) {
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(resp)
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
 	}))
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}

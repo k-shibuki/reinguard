@@ -1,14 +1,11 @@
 ---
 id: testing-strategy
-description: Go test strategy — coverage, perspectives, table-driven tests, CLI tests, mocks
+description: "Go test strategy — coverage, perspectives, table-driven tests, recursive evaluation paths"
 triggers:
   - test strategy
   - coverage target
   - table-driven
-  - CLI test
-  - mock
-  - httptest
-  - urfave cli
+  - test perspectives
 when:
   or:
     - op: exists
@@ -80,30 +77,6 @@ plumbing inside nested clauses can still pass while top-level cases stay green.
 
 Setup error handling (never `_ =` fallible calls): see [`testing--setup-error-handling.md`](testing--setup-error-handling.md).
 
-## CLI tests (urfave/cli v2)
-
-1. **Package-global flags**: `urfave/cli/v2` exposes `cli.HelpFlag` and
-   `cli.VersionFlag` as shared `*BoolFlag` instances. The library appends them to
-   every `App` and subcommand; **concurrent `App.Run` mutates the same pointers**
-   and trips the race detector. Production code uses `HideHelp: true`,
-   `HideVersion: true`, per-app root clones (`newRootHelpFlag`, `newRootVersionFlag`
-   with a `version` `Action` calling `cli.ShowVersion`), and `hideHelpOnCommands`
-   so subcommands never append the globals (see `internal/rgdcli/rgdcli.go`).
-2. **Per-`Flags` slice instances**: The library also mutates flags during
-   `Apply`. **Do not register the same `*cli.BoolFlag` / `*cli.StringFlag` on
-   more than one command's `Flags` slice.** Use factories (`newSerialFlag`,
-   `observeFlags`, etc.) — **a new instance per slice**.
-3. **Fixtures**: Shared YAML for CLI tests lives in `internal/rgdcli/fixtures_test.go`.
-
-## Mocks and subprocesses
-
-- **HTTP**: `net/http/httptest` for GitHub API shapes; do not hit real API
-  in default tests.
-- **Git**: temporary repositories with `git init` or mocked command
-  runners; avoid depending on the developer's global git config.
-- **`gh`**: inject fake token or stub the command runner in unit tests;
-  integration tests may use build tag `integration`.
-
 ## Review expectations
 
 PRs that change production behavior without updating or adding tests
@@ -114,4 +87,5 @@ should be rejected unless the change is documentation-only.
 - [`testing--assertions.md`](testing--assertions.md)
 - [`testing--given-when-then.md`](testing--given-when-then.md)
 - [`testing--setup-error-handling.md`](testing--setup-error-handling.md)
-- `.reinguard/knowledge/manifest.json` — index entry for this document
+- [`testing--cli-specifics.md`](testing--cli-specifics.md)
+- [`testing--mock-strategy.md`](testing--mock-strategy.md)

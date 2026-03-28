@@ -61,3 +61,12 @@ When using a `[]struct{ ... }` table with `t.Run(tc.name, ...)`:
 
 Standalone `t.Run` subtests **without** a table (each subtest is a distinct
 scenario) may still use per-subtest GWT when the setup is non-trivial.
+
+## When editing existing tests
+
+When creating or substantially editing non-trivial tests:
+
+- add a concise **function-level** Given/When/Then summary
+- for **table-driven** tests, do not repeat GWT inside each table row or loop
+  iteration (see Table-driven tests above)
+- keep test intent readable in code review

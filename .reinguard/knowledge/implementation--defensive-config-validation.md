@@ -1,6 +1,6 @@
 ---
 id: implementation-defensive-config-validation
-description: Defensive coding patterns for config-driven Go code — nil guards, typed option validation, blank/duplicate ID rejection
+description: "Defensive coding patterns for config-driven Go code — nil guards, typed option validation, blank/duplicate ID rejection"
 triggers:
   - defensive config
   - nil guard
@@ -8,7 +8,6 @@ triggers:
   - blank id
   - duplicate id
   - typed options
-  - config validation pattern
 when:
   or:
     - op: exists
@@ -91,46 +90,6 @@ Evaluator)`) must reject a **nil** interface value **before** calling interface
 methods such as `Name()` — otherwise callers get a panic instead of a stable
 error.
 
-## RWMutex re-entrancy trap
-
-`sync.RWMutex` is **not re-entrant**. Avoid calling a helper that acquires the
-same lock from a section that already holds `RLock`/`Lock` on that mutex.
-
-Preferred pattern:
-
-- keep a `...Locked` helper that assumes the caller already holds the lock
-- call that helper from both exported lock-taking functions and validation paths
-
-Example shape:
-
-```go
-func Names() []string {
-    mu.RLock()
-    defer mu.RUnlock()
-    return namesLocked()
-}
-
-func Validate(input []string) error {
-    mu.RLock()
-    defer mu.RUnlock()
-    known := namesLocked()
-    // ... validate against known
-    return nil
-}
-```
-
-## Match-time vs validate-time walkers
-
-When decoded YAML/JSON maps carry optional keys (for example `eval` beside
-`op` / `and` / `or` / `not`), keep **runtime evaluation** and **config
-validation** walkers aligned:
-
-- If the key is **present**, require the expected type and non-empty values
-  where applicable — do not fall through to another branch on type mismatch.
-- When forbidding combinations (e.g. `eval` with `op`), treat **`op` present**
-  as a conflict even if `op` is not a string, so malformed configs error
-  instead of executing as a scalar op.
-
 ## Blank and duplicate ID rejection
 
 When iterating enabled collection entries (e.g. provider specs), treat
@@ -154,6 +113,8 @@ for i, spec := range specs {
 
 ## Related
 
+- `.reinguard/knowledge/implementation--concurrency-patterns.md` — RWMutex re-entrancy
+- `.reinguard/knowledge/match--walker-separation.md` — match-time vs validate-time walkers
 - `.reinguard/policy/coding--preflight.md` — verification obligations
 - `.reinguard/knowledge/testing--strategy.md` — test perspectives
 - `.reinguard/knowledge/testing--setup-error-handling.md` — fail-fast setup (`_ =` anti-pattern)
