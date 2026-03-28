@@ -317,6 +317,14 @@ func buildReviewDecisions(lr *latestReviewsConn) map[string]any {
 	return out
 }
 
+// normalizeGitHubActorLogin maps login variants to one comparison key. GitHub App bots
+// may appear as "name[bot]" in config/REST and as "name" on GraphQL issue comments / reviews.
+func normalizeGitHubActorLogin(login string) string {
+	s := strings.TrimSpace(strings.ToLower(login))
+	s = strings.TrimSuffix(s, "[bot]")
+	return strings.TrimSpace(s)
+}
+
 func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer) []any {
 	if len(bots) == 0 {
 		return []any{}
@@ -329,7 +337,7 @@ func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer) []any {
 			}
 			login := n.Author.Login
 			if login != "" {
-				reviewByLogin[strings.ToLower(login)] = n.State
+				reviewByLogin[normalizeGitHubActorLogin(login)] = n.State
 			}
 		}
 	}
@@ -349,7 +357,7 @@ func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer) []any {
 		if login == "" {
 			continue
 		}
-		key := strings.ToLower(login)
+		key := normalizeGitHubActorLogin(login)
 		state, hasRev := reviewByLogin[key]
 		if !hasRev {
 			state = ""
@@ -390,7 +398,7 @@ func latestCommentForLogin(nodes []struct {
 		if n.Author == nil {
 			continue
 		}
-		if !strings.EqualFold(n.Author.Login, wantLogin) {
+		if normalizeGitHubActorLogin(n.Author.Login) != normalizeGitHubActorLogin(wantLogin) {
 			continue
 		}
 		// Lexicographic compare on RFC3339 works for picking latest.

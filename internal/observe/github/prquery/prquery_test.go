@@ -459,6 +459,76 @@ func TestCollect_botReviewer_noEnrichOmitsRateLimitSeconds(t *testing.T) {
 	}
 }
 
+func TestNormalizeGitHubActorLogin(t *testing.T) {
+	t.Parallel()
+	for _, tt := range []struct {
+		a, b  string
+		equal bool
+	}{
+		{"coderabbitai[bot]", "coderabbitai", true},
+		{"CoderabbitAI", "coderabbitai[bot]", true},
+		{"foo", "bar", false},
+	} {
+		if got := normalizeGitHubActorLogin(tt.a) == normalizeGitHubActorLogin(tt.b); got != tt.equal {
+			t.Fatalf("%q vs %q: got %v want %v", tt.a, tt.b, got, tt.equal)
+		}
+	}
+}
+
+func TestCollect_configLoginBotSuffix_graphQLLoginPlain(t *testing.T) {
+	t.Parallel()
+	// Given: GraphQL uses plain app login on comments/reviews; config uses "[bot]" suffix.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		resp := map[string]any{
+			"data": map[string]any{
+				"repository": map[string]any{
+					"pullRequest": map[string]any{
+						"state": "OPEN", "isDraft": false, "title": "t",
+						"mergeable": "UNKNOWN", "mergeStateStatus": "UNKNOWN",
+						"baseRefName": "main", "headRefOid": "x",
+						"labels":                  map[string]any{"nodes": []any{}},
+						"closingIssuesReferences": map[string]any{"nodes": []any{}},
+						"latestReviews": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false},
+							"nodes": []any{
+								map[string]any{"state": "COMMENTED", "author": map[string]any{"login": "coderabbitai"}},
+							},
+						},
+						"comments": map[string]any{
+							"nodes": []map[string]any{
+								{
+									"author":    map[string]any{"login": "coderabbitai"},
+									"body":      "hello",
+									"updatedAt": "2026-03-28T12:00:00Z",
+								},
+							},
+						},
+						"reviewThreads": map[string]any{"pageInfo": map[string]any{"hasNextPage": false}, "nodes": []any{}},
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	bots := []BotReviewer{{ID: "cr", Login: "coderabbitai[bot]", Required: true, Enrich: []string{"coderabbit"}}}
+	_, rev, err := Collect(context.Background(), c, "o", "r", 1, bots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := rev["bot_reviewer_status"].([]any)[0].(map[string]any)
+	if !m["has_review"].(bool) || m["review_state"].(string) != "COMMENTED" {
+		t.Fatalf("review: %+v", m)
+	}
+	if m["latest_comment_at"].(string) != "2026-03-28T12:00:00Z" {
+		t.Fatalf("comment: %+v", m)
+	}
+}
+
 func assertReviewsZeros(t *testing.T, rev map[string]any, incomplete bool) {
 	t.Helper()
 	if rev["review_threads_total"].(int) != 0 || rev["review_threads_unresolved"].(int) != 0 {
