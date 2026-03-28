@@ -15,18 +15,24 @@ Single Cursor entry for workflow procedures: use **substrate** output to pick Se
    - `routes[0].route_id` (when `kind` is `resolved`)
    - `knowledge.entries` (filtered aids)
 
-## Map (v1)
+## Map (v2)
 
 Use ADR-0013 and `.reinguard/control/` as SSOT. Heuristic table (when `state.kind` is `resolved`):
 
 | `state_id` | Open procedure |
 |------------|----------------|
 | `working_no_pr` | `.reinguard/procedure/implement.md` (or `pr-create.md` when opening a PR) |
-| `pr_open` | `.reinguard/procedure/review-address.md` (monitor / observe) |
+| `pr_open` | `.reinguard/procedure/review-address.md` (residual monitor) |
+| `waiting_ci` | `.reinguard/procedure/review-address.md` (checks / mergeability) |
 | `unresolved_threads` | `.reinguard/procedure/review-address.md` (thread disposition) |
 | `changes_requested` | `.reinguard/procedure/review-address.md` (formal “Request changes” on the PR) |
-| `bot_rate_limited` / `bot_review_paused` / `bot_review_failed` / `bot_reviewing` | `.reinguard/knowledge/review--bot-operations.md` (and bot-specific docs from `knowledge.entries`) |
-| `ready_to_merge` | `.reinguard/procedure/pr-merge.md` |
+| `waiting_bot_run` | `.reinguard/procedure/wait-bot-review.md` (+ `review--bot-operations.md` from `knowledge.entries`) |
+| `waiting_bot_rate_limited` | `.reinguard/procedure/wait-bot-review.md` |
+| `waiting_bot_paused` | `.reinguard/procedure/wait-bot-review.md` |
+| `waiting_bot_failed` | `.reinguard/procedure/wait-bot-review.md` |
+| `merge_ready` | `.reinguard/procedure/pr-merge.md` |
+
+**Dirty working tree + `review-address`:** When `observation.signals.git.working_tree_clean` is `false` and the resolved procedure is `review-address`, run **Step 0** in that procedure first (`change-inspect` → commit → refresh context). See `.reinguard/knowledge/review--incremental-fix-flow.md`.
 
 When `state.kind` is not `resolved`, follow ADR-0007 handoff: gather observation diagnostics, fix config or observation, re-run `context build` — do not invent a winning state.
 

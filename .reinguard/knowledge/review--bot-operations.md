@@ -108,4 +108,6 @@ Deduplicate when both reviewers flag the same issue.
 
 - `.reinguard/policy/review--consensus-protocol.md` — disposition, resolve, consensus
 - `.reinguard/policy/safety--agent-invariants.md` § **HS-REVIEW-RESOLVE**
-- `.reinguard/procedure/review-address.md`
+- `.reinguard/procedure/wait-bot-review.md` — FSM routes `user-wait-bot-*` (quota, pause, failed, run)
+- `.reinguard/procedure/review-address.md` — thread disposition and multi-source triage
+- `.reinguard/knowledge/review--multi-source-review-signals.md` — inbox model across sources

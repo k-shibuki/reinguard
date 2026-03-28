@@ -3,7 +3,7 @@ id: procedure-pr-merge
 purpose: Merge a PR after guard and GitHub checks agree with policy.
 applies_to:
   state_ids:
-    - ready_to_merge
+    - merge_ready
   route_ids:
     - user-merge
 reads:

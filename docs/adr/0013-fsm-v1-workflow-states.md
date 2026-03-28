@@ -18,21 +18,22 @@ hard-coded to a single vendor).
 
 ## Decision
 
-### 1. State catalog (v1)
+### 1. State catalog (v2)
 
 States live in `.reinguard/control/states/*.yaml`. **Lower numeric `priority`
 wins** among matching rules (ADR-0004). `state_id` values:
 
 | state_id | Intent | Notes |
 |----------|--------|--------|
-| `bot_rate_limited` | Required bot `status` is `rate_limited` | `op: any` on `github.reviews.bot_reviewer_status` with `$.required` and `$.status` |
-| `bot_review_paused` | Required bot `status` is `review_paused` | Same pattern |
-| `bot_review_failed` | Any required bot in failed tier (aggregate) | `github.reviews.bot_review_diagnostics.bot_review_failed` |
-| `bot_reviewing` | Waiting on required bot outcome | `bot_review_diagnostics.bot_review_pending` and PR exists |
-| `unresolved_threads` | Actionable review threads remain open | `github.reviews.review_threads_unresolved` > 0 (GraphQL `reviewThreads` with `isResolved` false) |
+| `unresolved_threads` | Actionable review threads remain open | `github.reviews.review_threads_unresolved` > 0 (GraphQL `reviewThreads` with `isResolved` false). **Stronger than** bot-wait states when both match so agents fix threads instead of waiting on bots. |
 | `changes_requested` | Formal GitHub “Request changes” on the PR | `github.reviews.review_decisions_changes_requested` > 0 (`latestReviews` with state `CHANGES_REQUESTED`). **Not** the same as open review threads; a bot may leave threads without a CHANGES_REQUESTED review. |
-| `ready_to_merge` | Coarse merge gate (clean tree, CI, threads, decisions) | Aligns with `merge-readiness` guard signals |
-| `pr_open` | PR exists; work in flight | `github.pull_requests.pr_exists_for_branch` true |
+| `waiting_bot_rate_limited` | Required bot `status` is `rate_limited` | `op: any` on `github.reviews.bot_reviewer_status` with `$.required` and `$.status` |
+| `waiting_bot_paused` | Required bot `status` is `review_paused` | Same pattern |
+| `waiting_bot_failed` | Any required bot in failed tier (aggregate) | `github.reviews.bot_review_diagnostics.bot_review_failed` |
+| `waiting_bot_run` | Waiting on required bot outcome | `bot_review_diagnostics.bot_review_pending` and PR exists |
+| `merge_ready` | Coarse merge gate (clean tree, CI, threads, decisions) | Aligns with `merge-readiness` guard signals |
+| `waiting_ci` | PR open; no thread/decision work; CI or mergeability not satisfied | Threads 0, changes 0, working tree clean; `ci_status` ≠ `success` **or** `merge_state_status` ≠ `clean` |
+| `pr_open` | PR exists; residual (e.g. dirty working tree) | `github.pull_requests.pr_exists_for_branch` true |
 | `working_no_pr` | No PR for branch (or PR facet absent) | `pr_exists_for_branch` false or path missing; not detached HEAD |
 
 **Bot status tiers** (per-element `status` in `bot_reviewer_status`):
@@ -50,7 +51,7 @@ affect aggregates.
 Consensus-style conditions (approved + no changes + threads resolved) are
 **expressed as rules**, not a single derived observation key (see issue #72).
 
-### 2. Routes (v1)
+### 2. Routes (v2)
 
 Routes in `.reinguard/control/routes/*.yaml` key off flattened `state.state_id`
 after state resolution (same mechanism as `rgd route select` with merged state).
@@ -58,10 +59,14 @@ after state resolution (same mechanism as `rgd route select` with merged state).
 | route_id | Typical state_id | Procedure hint (Semantics) |
 |----------|------------------|----------------------------|
 | `user-implement` | `working_no_pr` | `implement` |
-| `user-monitor-pr` | `pr_open` | Observe PR / CI (no open threads gate) |
+| `user-monitor-pr` | `pr_open` | Observe PR / residual |
+| `user-wait-ci` | `waiting_ci` | `review-address` (checks / mergeability) |
 | `user-address-review` | `unresolved_threads`, `changes_requested` | `review-address` |
-| `user-wait-bot` | `bot_rate_limited`, `bot_review_paused`, `bot_review_failed`, `bot_reviewing` | wait / retry per bot docs |
-| `user-merge` | `ready_to_merge` | `pr-merge` |
+| `user-wait-bot-failed` | `waiting_bot_failed` | `wait-bot-review` |
+| `user-wait-bot-run` | `waiting_bot_run` | `wait-bot-review` |
+| `user-wait-bot-quota` | `waiting_bot_rate_limited` | `wait-bot-review` |
+| `user-wait-bot-paused` | `waiting_bot_paused` | `wait-bot-review` |
+| `user-merge` | `merge_ready` | `pr-merge` |
 
 `user-*` names are **Adapter-agnostic** (not tied to a specific IDE). A given Adapter maps `rgd` output to local commands.
 
@@ -74,20 +79,21 @@ primary `route_id` in `rgd route select` output. Alternatives appear in
 ### 3. Guards
 
 `merge-readiness` (built-in) stays gated by declarative rules in
-`control/guards/*.yaml` as today. State `ready_to_merge` is a **coarse** picture;
+`control/guards/*.yaml` as today. State `merge_ready` is a **coarse** picture;
 `guard eval merge-readiness` remains the explicit merge gate signal.
 
 ### 4. Adapter mapping (durable)
 
-| state_id (v1) | Primary procedure (Semantics) |
-|---------------|------------------------------|
+| state_id | Primary procedure (Semantics) |
+|----------|------------------------------|
 | `working_no_pr` | `.reinguard/procedure/implement.md` |
 | `working_no_pr` | `.reinguard/procedure/pr-create.md` (when opening a PR) |
-| `pr_open` | `.reinguard/procedure/review-address.md` (monitor / light touch) |
+| `pr_open` | `.reinguard/procedure/review-address.md` |
+| `waiting_ci` | `.reinguard/procedure/review-address.md` |
 | `unresolved_threads` | `.reinguard/procedure/review-address.md` |
 | `changes_requested` | `.reinguard/procedure/review-address.md` |
-| `bot_rate_limited` / `bot_review_paused` / `bot_review_failed` / `bot_reviewing` | `.reinguard/knowledge/review--bot-operations.md` (+ `knowledge.entries`) |
-| `ready_to_merge` | `.reinguard/procedure/pr-merge.md` |
+| `waiting_bot_rate_limited` / `waiting_bot_paused` / `waiting_bot_failed` / `waiting_bot_run` | `.reinguard/procedure/wait-bot-review.md` (+ `review--bot-operations.md` in `knowledge.entries`) |
+| `merge_ready` | `.reinguard/procedure/pr-merge.md` |
 
 Self-inspection before PR creation: `.reinguard/procedure/change-inspect.md`.
 Post-review learning: `.reinguard/procedure/internalize.md`.

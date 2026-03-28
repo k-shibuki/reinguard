@@ -1,9 +1,38 @@
-# FSM v1 state rules (ADR-0013). Lower priority number wins among matches (ADR-0004).
+# FSM workflow states (ADR-0013). Lower priority number wins among matches (ADR-0004).
+# v2: actionable human review (threads / formal changes) beats bot-wait states;
+#     bot-wait states split by reason (state_id); CI/merge gate split as waiting_ci.
 rules:
+  # Human-actionable review work first (before any bot-wait tier).
+  - type: state
+    id: unresolved_threads
+    priority: 8
+    state_id: unresolved_threads
+    when:
+      and:
+        - op: eq
+          path: github.pull_requests.pr_exists_for_branch
+          value: true
+        - op: gt
+          path: github.reviews.review_threads_unresolved
+          value: 0
+
+  - type: state
+    id: changes_requested
+    priority: 9
+    state_id: changes_requested
+    when:
+      and:
+        - op: eq
+          path: github.pull_requests.pr_exists_for_branch
+          value: true
+        - op: gt
+          path: github.reviews.review_decisions_changes_requested
+          value: 0
+
   - type: state
     id: rate_limited
-    priority: 8
-    state_id: bot_rate_limited
+    priority: 10
+    state_id: waiting_bot_rate_limited
     when:
       op: any
       path: github.reviews.bot_reviewer_status
@@ -18,8 +47,8 @@ rules:
 
   - type: state
     id: review_paused
-    priority: 10
-    state_id: bot_review_paused
+    priority: 11
+    state_id: waiting_bot_paused
     when:
       op: any
       path: github.reviews.bot_reviewer_status
@@ -34,17 +63,17 @@ rules:
 
   - type: state
     id: review_failed
-    priority: 11
-    state_id: bot_review_failed
+    priority: 12
+    state_id: waiting_bot_failed
     when:
       op: eq
       path: github.reviews.bot_review_diagnostics.bot_review_failed
       value: true
 
   - type: state
-    id: bot_reviewing
-    priority: 12
-    state_id: bot_reviewing
+    id: bot_run
+    priority: 13
+    state_id: waiting_bot_run
     when:
       and:
         - op: eq
@@ -54,38 +83,11 @@ rules:
           path: github.reviews.bot_review_diagnostics.bot_review_pending
           value: true
 
-  # Open review threads (GitHub reviewThreads isResolved=false). Distinct from
-  # changes_requested, which keys off formal CHANGES_REQUESTED review decisions only.
+  # Coarse merge gate (clean tree, CI, threads, decisions). Aligns with merge-readiness guard signals.
   - type: state
-    id: unresolved_threads
-    priority: 14
-    state_id: unresolved_threads
-    when:
-      and:
-        - op: eq
-          path: github.pull_requests.pr_exists_for_branch
-          value: true
-        - op: gt
-          path: github.reviews.review_threads_unresolved
-          value: 0
-
-  - type: state
-    id: changes_requested
-    priority: 15
-    state_id: changes_requested
-    when:
-      and:
-        - op: eq
-          path: github.pull_requests.pr_exists_for_branch
-          value: true
-        - op: gt
-          path: github.reviews.review_decisions_changes_requested
-          value: 0
-
-  - type: state
-    id: ready_to_merge
+    id: merge_ready
     priority: 25
-    state_id: ready_to_merge
+    state_id: merge_ready
     when:
       and:
         - op: eq
@@ -106,6 +108,33 @@ rules:
         - op: eq
           path: github.pull_requests.merge_state_status
           value: clean
+
+  # No open review decisions/threads, clean tree, but CI or mergeability not yet satisfied.
+  - type: state
+    id: waiting_ci
+    priority: 35
+    state_id: waiting_ci
+    when:
+      and:
+        - op: eq
+          path: github.pull_requests.pr_exists_for_branch
+          value: true
+        - op: eq
+          path: github.reviews.review_threads_unresolved
+          value: 0
+        - op: eq
+          path: github.reviews.review_decisions_changes_requested
+          value: 0
+        - op: eq
+          path: git.working_tree_clean
+          value: true
+        - or:
+            - op: ne
+              path: github.ci.ci_status
+              value: success
+            - op: ne
+              path: github.pull_requests.merge_state_status
+              value: clean
 
   - type: state
     id: pr_open

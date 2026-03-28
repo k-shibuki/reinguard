@@ -7,11 +7,11 @@ entries:
   - id: workflow-states
     path: states/workflow.yaml
     type: state
-    description: "FSM v1 workflow states (ADR-0013)"
+    description: "FSM workflow states v2 (ADR-0013)"
   - id: workflow-routes
     path: routes/workflow.yaml
     type: route
-    description: "FSM v1 routes keyed on state.state_id (ADR-0013)"
+    description: "FSM workflow routes v2 keyed on state.state_id (ADR-0013)"
   - id: merge-readiness-guard
     path: guards/default.yaml
     type: guard

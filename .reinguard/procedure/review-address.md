@@ -4,19 +4,23 @@ purpose: Classify review feedback, fix as needed, post dispositions, and satisfy
 applies_to:
   state_ids:
     - pr_open
+    - waiting_ci
     - unresolved_threads
     - changes_requested
   route_ids:
     - user-monitor-pr
+    - user-wait-ci
     - user-address-review
 reads:
   - ../policy/review--consensus-protocol.md
   - ../policy/coding--standards.md
+  - ../knowledge/review--multi-source-review-signals.md
+  - ../knowledge/review--incremental-fix-flow.md
 sense:
   - rgd context build
   - rgd observe github reviews
 act:
-  - Classify, fix, thread replies, bot re-review triggers, push, verify CI.
+  - Step 0 when tree dirty; change-inspect then commit; classify, fix, thread replies, bot re-review triggers, push, verify CI.
 output:
   - Disposition map, fixes, remaining blockers.
 done_when: Threads dispositioned; ci-pass green when required; HS-REVIEW-RESOLVE satisfied before resolve.
@@ -29,6 +33,8 @@ escalate_when: Cannot reach consensus with bot reviewers per policy.
 
 - [`../policy/review--consensus-protocol.md`](../policy/review--consensus-protocol.md) — disposition categories, CodeRabbit resolution gate, no unilateral resolve
 - [`../policy/coding--standards.md`](../policy/coding--standards.md) § **Change scope** — same-kind drift across code, `.reinguard/`, and `.cursor/` before hand-off
+- [`../knowledge/review--multi-source-review-signals.md`](../knowledge/review--multi-source-review-signals.md) — dedupe and priority across bots, humans, checks, and timeline (single inbox)
+- **Bot quota / pause / in-flight only** (no open thread work): prefer [`wait-bot-review.md`](wait-bot-review.md) when FSM routes to `user-wait-bot-*`.
 
 **Review knowledge (discover via substrate):**
 
@@ -36,7 +42,7 @@ escalate_when: Cannot reach consensus with bot reviewers per policy.
 rgd context build
 ```
 
-Use `knowledge.entries` when a PR exists for the branch (review entries match `github.pull_requests.pr_exists_for_branch`). Open each `entries[].path` returned (typically includes `review--bot-operations.md`, `review--github-thread-api.md`). Use those docs for API channels, re-review triggers, REST vs GraphQL for `isResolved`, and outside-diff-range collection.
+Use `knowledge.entries` when a PR exists for the branch (review entries match `github.pull_requests.pr_exists_for_branch`). Open each `entries[].path` returned (typically includes `review--incremental-fix-flow.md`, `review--multi-source-review-signals.md`, `review--bot-operations.md`, `review--github-thread-api.md`). Use those docs for API channels, re-review triggers, REST vs GraphQL for `isResolved`, and outside-diff-range collection.
 
 Optional trigger pass: `rgd observe > /tmp/rgd-observe.json` then `rgd knowledge pack --observation-file /tmp/rgd-observe.json --query "review"`.
 
@@ -52,6 +58,8 @@ Use aggregate review / CI signals from observation JSON where helpful.
 
 **Thread-level work:** `rgd observe github reviews` does not replace per-thread `isResolved` enumeration — use `gh api` / GraphQL per knowledge from `rgd context build` / `knowledge.entries` (or the optional `knowledge pack --observation-file … --query "review"` pass) (see `review--github-thread-api.md`).
 
+**When `state_id` is `waiting_ci` (`user-wait-ci`):** no open thread or formal changes-request work is implied by the FSM. Focus on **`gh pr checks`**, **`ci-pass`**, and mergeability (`gh pr view`); fix failing jobs or wait for pending checks. Re-run `rgd context build` after pushes.
+
 **Aggregate + manual checks (after `rgd observe github reviews`):**
 
 - GitHub **Files changed** → each review thread; root comment **CodeRabbit**, **Codex / chatgpt-codex-connector**, or human.
@@ -60,6 +68,16 @@ Use aggregate review / CI signals from observation JSON where helpful.
 - **Outside diff range / non-inline bot findings** — per review knowledge from context / pack: do **not** treat "zero unresolved threads" as "no review work left." Collect summary bodies, PR conversation, Checks text. Classify and disposition like inline threads; without comment id, post a **PR conversation comment** (quote + disposition), then `@coderabbitai review` when budget/rules allow.
 
 ## Act
+
+### 0. Local work gate (uncommitted changes)
+
+If `observation.signals.git.working_tree_clean` is `false` (from `rgd context build` or `rgd observe`):
+
+1. Run [`change-inspect.md`](change-inspect.md) against **committed delta + staged + unstaged** (same dimensions as pre-PR in `review--self-inspection.md`, scoped to the incremental change).
+2. **Commit** fixes with `Refs: #<issue>` (no amend+force-push on the PR head).
+3. Re-run `rgd context build` (or `rgd observe`) to refresh signals before continuing below.
+
+This keeps review-sourced fixes inspected and committed before disposition-heavy steps. Full pattern: [`../knowledge/review--incremental-fix-flow.md`](../knowledge/review--incremental-fix-flow.md).
 
 ### 1. Classify every comment by correctness
 

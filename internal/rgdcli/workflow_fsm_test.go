@@ -52,7 +52,7 @@ var workflowFSMScenarioFixtures = []struct {
 		wantRouteID: "user-implement",
 	},
 	{
-		name: "pr_open_ci_pending",
+		name: "waiting_ci_pending",
 		observation: `{
   "signals": {
     "git": {"detached_head": false, "working_tree_clean": true},
@@ -71,8 +71,8 @@ var workflowFSMScenarioFixtures = []struct {
   },
   "degraded": false
 }`,
-		wantStateID: "pr_open",
-		wantRouteID: "user-monitor-pr",
+		wantStateID: "waiting_ci",
+		wantRouteID: "user-wait-ci",
 	},
 	{
 		name: "unresolved_threads",
@@ -118,7 +118,7 @@ var workflowFSMScenarioFixtures = []struct {
 		wantRouteID: "user-address-review",
 	},
 	{
-		name: "ready_to_merge",
+		name: "merge_ready",
 		observation: `{
   "signals": {
     "git": {"detached_head": false, "working_tree_clean": true},
@@ -137,8 +137,34 @@ var workflowFSMScenarioFixtures = []struct {
   },
   "degraded": false
 }`,
-		wantStateID: "ready_to_merge",
+		wantStateID: "merge_ready",
 		wantRouteID: "user-merge",
+	},
+	{
+		name: "unresolved_threads_beats_bot_pending",
+		observation: `{
+  "signals": {
+    "git": {"detached_head": false, "working_tree_clean": true},
+    "github": {
+      "pull_requests": {"pr_exists_for_branch": true, "merge_state_status": "unstable"},
+      "ci": {"ci_status": "pending"},
+      "reviews": {
+        "review_threads_unresolved": 1,
+        "review_decisions_changes_requested": 0,
+        "bot_reviewer_status": [],
+        "bot_review_diagnostics": {
+          "bot_review_failed": false,
+          "bot_review_completed": false,
+          "bot_review_pending": true,
+          "bot_review_terminal": false
+        }
+      }
+    }
+  },
+  "degraded": false
+}`,
+		wantStateID: "unresolved_threads",
+		wantRouteID: "user-address-review",
 	},
 	{
 		name: "bot_rate_limited",
@@ -158,8 +184,8 @@ var workflowFSMScenarioFixtures = []struct {
   },
   "degraded": false
 }`,
-		wantStateID: "bot_rate_limited",
-		wantRouteID: "user-wait-bot",
+		wantStateID: "waiting_bot_rate_limited",
+		wantRouteID: "user-wait-bot-quota",
 	},
 	{
 		name: "bot_review_paused",
@@ -179,8 +205,8 @@ var workflowFSMScenarioFixtures = []struct {
   },
   "degraded": false
 }`,
-		wantStateID: "bot_review_paused",
-		wantRouteID: "user-wait-bot",
+		wantStateID: "waiting_bot_paused",
+		wantRouteID: "user-wait-bot-paused",
 	},
 	{
 		name: "bot_review_failed",
@@ -204,8 +230,8 @@ var workflowFSMScenarioFixtures = []struct {
   },
   "degraded": false
 }`,
-		wantStateID: "bot_review_failed",
-		wantRouteID: "user-wait-bot",
+		wantStateID: "waiting_bot_failed",
+		wantRouteID: "user-wait-bot-failed",
 	},
 	{
 		name: "bot_reviewing",
@@ -229,8 +255,8 @@ var workflowFSMScenarioFixtures = []struct {
   },
   "degraded": false
 }`,
-		wantStateID: "bot_reviewing",
-		wantRouteID: "user-wait-bot",
+		wantStateID: "waiting_bot_run",
+		wantRouteID: "user-wait-bot-run",
 	},
 }
 
