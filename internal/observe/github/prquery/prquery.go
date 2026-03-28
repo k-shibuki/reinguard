@@ -1,5 +1,5 @@
 // Package prquery runs a unified GitHub GraphQL query for the current PR: detail, review
-// threads, latest review decisions, linked issues, and PR comments for tracked reviewers
+// threads, latest review decisions, linked issues, and PR comments for configured bot reviewers
 // (ADR-0006, ADR-0012).
 package prquery
 
@@ -11,10 +11,12 @@ import (
 	"github.com/k-shibuki/reinguard/internal/githubapi"
 )
 
-// TrackedReviewer is one github provider option entry for bot / reviewer status observation.
-type TrackedReviewer struct {
-	Login  string
-	Enrich []string
+// BotReviewer is one github provider option entry for bot / AI reviewer observation.
+type BotReviewer struct {
+	ID       string
+	Login    string
+	Enrich   []string
+	Required bool
 }
 
 const prContextQuery = `query PRContext($owner: String!, $name: String!, $number: Int!, $cursor: String, $includeDetail: Boolean!) {
@@ -137,7 +139,7 @@ type reviewThreadsConn struct {
 // Collect returns pull-request detail fields to merge into signals.github.pull_requests and
 // the inner map for signals.github.reviews. pullDetail is nil when there is nothing to merge.
 // reviewsInner is always non-nil when err is nil (empty maps on PR≤0 or missing PR).
-func Collect(ctx context.Context, c *githubapi.Client, owner, repo string, prNumber int, tracked []TrackedReviewer) (pullDetail map[string]any, reviewsInner map[string]any, err error) {
+func Collect(ctx context.Context, c *githubapi.Client, owner, repo string, prNumber int, bots []BotReviewer) (pullDetail map[string]any, reviewsInner map[string]any, err error) {
 	if c == nil {
 		return nil, nil, fmt.Errorf("nil client")
 	}
@@ -160,7 +162,9 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo string, prNum
 	reviewsInner["review_threads_total"] = total
 	reviewsInner["review_threads_unresolved"] = unresolved
 	reviewsInner["pagination_incomplete"] = incomplete
-	reviewsInner["tracked_reviewer_status"] = buildTrackedReviewerStatus(firstPR, tracked)
+	statusList := buildBotReviewerStatus(firstPR, bots)
+	reviewsInner["bot_reviewer_status"] = statusList
+	reviewsInner["bot_review_diagnostics"] = ComputeBotReviewDiagnostics(statusList)
 	return pullDetail, reviewsInner, nil
 }
 
@@ -222,7 +226,13 @@ func emptyReviewsInner() map[string]any {
 		"review_decisions_approved":          0,
 		"review_decisions_changes_requested": 0,
 		"review_decisions_truncated":         false,
-		"tracked_reviewer_status":            []any{},
+		"bot_reviewer_status":                []any{},
+		"bot_review_diagnostics": map[string]any{
+			"bot_review_completed": true,
+			"bot_review_pending":   false,
+			"bot_review_terminal":  true,
+			"bot_review_failed":    false,
+		},
 	}
 }
 
@@ -307,8 +317,8 @@ func buildReviewDecisions(lr *latestReviewsConn) map[string]any {
 	return out
 }
 
-func buildTrackedReviewerStatus(pr *prPullRequestNode, tracked []TrackedReviewer) []any {
-	if len(tracked) == 0 {
+func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer) []any {
+	if len(bots) == 0 {
 		return []any{}
 	}
 	reviewByLogin := map[string]string{}
@@ -333,9 +343,9 @@ func buildTrackedReviewerStatus(pr *prPullRequestNode, tracked []TrackedReviewer
 	if pr.Comments != nil {
 		nodes = pr.Comments.Nodes
 	}
-	out := make([]any, 0, len(tracked))
-	for _, tr := range tracked {
-		login := strings.TrimSpace(tr.Login)
+	out := make([]any, 0, len(bots))
+	for _, br := range bots {
+		login := strings.TrimSpace(br.Login)
 		if login == "" {
 			continue
 		}
@@ -347,7 +357,9 @@ func buildTrackedReviewerStatus(pr *prPullRequestNode, tracked []TrackedReviewer
 		body, updated := latestCommentForLogin(nodes, login)
 		lower := strings.ToLower(body)
 		status := map[string]any{
+			"id":                     strings.TrimSpace(br.ID),
 			"login":                  login,
+			"required":               br.Required,
 			"has_review":             hasRev,
 			"review_state":           state,
 			"latest_comment_at":      updated,
@@ -355,11 +367,12 @@ func buildTrackedReviewerStatus(pr *prPullRequestNode, tracked []TrackedReviewer
 			"contains_review_paused": strings.Contains(lower, "review paused") || strings.Contains(lower, "review pause"),
 			"contains_review_failed": strings.Contains(lower, "review failed"),
 		}
-		if extra := applyEnrichments(body, tr.Enrich); len(extra) > 0 {
+		if extra := applyEnrichments(body, br.Enrich); len(extra) > 0 {
 			for k, v := range extra {
 				status[k] = v
 			}
 		}
+		status["status"] = ClassifyBotStatus(status, br.Enrich)
 		out = append(out, status)
 	}
 	return out

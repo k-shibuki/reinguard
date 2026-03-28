@@ -10,13 +10,71 @@ type coderabbitEnrichment struct{}
 
 func (coderabbitEnrichment) Name() string { return "coderabbit" }
 
-// Enrich extracts rate_limit_remaining_seconds from CodeRabbit-style messages.
+// Enrich extracts rate-limit timing and CodeRabbit Review Status markers from issue comments.
 func (coderabbitEnrichment) Enrich(commentBody string) map[string]any {
-	sec := parseCoderabbitRateLimitSeconds(commentBody)
-	if sec <= 0 {
+	body := strings.TrimSpace(commentBody)
+	if body == "" {
 		return nil
 	}
-	return map[string]any{"rate_limit_remaining_seconds": sec}
+	out := make(map[string]any)
+	if sec := parseCoderabbitRateLimitSeconds(body); sec > 0 {
+		out["rate_limit_remaining_seconds"] = sec
+	}
+	for k, v := range parseCoderabbitReviewStatusMarkers(body) {
+		out[k] = v
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// ClassifyStatus applies CodeRabbit-aware rules on top of generic substring flags.
+func (coderabbitEnrichment) ClassifyStatus(m map[string]any) string {
+	if signalBool(m, "contains_rate_limit") {
+		return BotStatusRateLimited
+	}
+	if signalBool(m, "contains_review_paused") {
+		return BotStatusReviewPaused
+	}
+	if signalBool(m, "contains_review_failed") {
+		return BotStatusReviewFailed
+	}
+	if v, ok := m["cr_review_processing"].(bool); ok && v {
+		return BotStatusPending
+	}
+	if signalBool(m, "has_review") {
+		return BotStatusCompleted
+	}
+	if signalBool(m, "cr_walkthrough_present") {
+		return BotStatusPending
+	}
+	if strings.TrimSpace(signalString(m, "latest_comment_at")) != "" {
+		return BotStatusPending
+	}
+	return BotStatusNotTriggered
+}
+
+// Heuristic markers for CodeRabbit "Review Status" / walkthrough issue comments (best-effort).
+var (
+	reCRReviewCompleted  = regexp.MustCompile(`(?i)(review\s+completed|✅\s*completed|status[:\s\*]*\s*✅|\*\*status\*\*[^\n]*(complete|finished|done)|no\s+issues\s+found)`)
+	reCRReviewProcessing = regexp.MustCompile(`(?i)(processing\s+new\s+changes|review\s+in\s+progress|\bin\s+progress\b|\*\*status\*\*[^\n]*(in\s+progress|pending|processing)|⏳\s*processing)`)
+	reCRWalkthrough      = regexp.MustCompile(`(?i)(^|\n)#{1,3}\s*[^\n]*(walkthrough|review\s+walkthrough)|\*\*walkthrough\*\*`)
+)
+
+func parseCoderabbitReviewStatusMarkers(body string) map[string]any {
+	out := make(map[string]any)
+	if reCRWalkthrough.MatchString(body) {
+		out["cr_walkthrough_present"] = true
+	}
+	if reCRReviewCompleted.MatchString(body) {
+		out["cr_review_processing"] = false
+		return out
+	}
+	if reCRReviewProcessing.MatchString(body) {
+		out["cr_review_processing"] = true
+	}
+	return out
 }
 
 // Matches: "try again in 5 minutes and 30 seconds", "try again in 1 minute", "in 2 minutes and 15 seconds"

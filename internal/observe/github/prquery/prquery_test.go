@@ -293,11 +293,11 @@ func TestCollect_latestReviewsTruncated(t *testing.T) {
 	}
 }
 
-func TestCollect_trackedReviewer_rateLimitAndEnrich(t *testing.T) {
+func TestCollect_botReviewer_rateLimitAndEnrich(t *testing.T) {
 	t.Parallel()
-	// Given: tracked reviewer comments contain a CodeRabbit rate-limit message with enrich enabled.
-	// When:  Collect computes tracked_reviewer_status.
-	// Then:  contains_rate_limit=true and rate_limit_remaining_seconds is populated.
+	// Given: bot reviewer comments contain a CodeRabbit rate-limit message with enrich enabled.
+	// When:  Collect computes bot_reviewer_status.
+	// Then:  contains_rate_limit=true, rate_limit_remaining_seconds is populated, status=rate_limited.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := map[string]any{
 			"data": map[string]any{
@@ -336,12 +336,12 @@ func TestCollect_trackedReviewer_rateLimitAndEnrich(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
-	tracked := []TrackedReviewer{{Login: "coderabbitai[bot]", Enrich: []string{"coderabbit"}}}
-	_, rev, err := Collect(context.Background(), c, "o", "r", 1, tracked)
+	bots := []BotReviewer{{ID: "coderabbit", Login: "coderabbitai[bot]", Required: true, Enrich: []string{"coderabbit"}}}
+	_, rev, err := Collect(context.Background(), c, "o", "r", 1, bots)
 	if err != nil {
 		t.Fatal(err)
 	}
-	st := rev["tracked_reviewer_status"].([]any)
+	st := rev["bot_reviewer_status"].([]any)
 	if len(st) != 1 {
 		t.Fatalf("status len: %v", st)
 	}
@@ -351,6 +351,13 @@ func TestCollect_trackedReviewer_rateLimitAndEnrich(t *testing.T) {
 	}
 	if m["rate_limit_remaining_seconds"].(int) != 125 {
 		t.Fatalf("seconds: %+v", m)
+	}
+	if m["status"].(string) != BotStatusRateLimited {
+		t.Fatalf("status: %+v", m)
+	}
+	diag := rev["bot_review_diagnostics"].(map[string]any)
+	if diag["bot_review_failed"].(bool) != true || diag["bot_review_pending"].(bool) != false {
+		t.Fatalf("diag: %+v", diag)
 	}
 }
 
@@ -397,11 +404,11 @@ func TestCollect_emptyLabelsAndClosingIssuesAreArrays(t *testing.T) {
 	}
 }
 
-func TestCollect_trackedReviewer_noEnrichOmitsRateLimitSeconds(t *testing.T) {
+func TestCollect_botReviewer_noEnrichOmitsRateLimitSeconds(t *testing.T) {
 	t.Parallel()
-	// Given: tracked reviewer with no enrich plugins and rate-limit comments present.
-	// When:  Collect computes tracked_reviewer_status.
-	// Then:  rate_limit_remaining_seconds key is absent.
+	// Given: bot reviewer with no enrich plugins and rate-limit comments present.
+	// When:  Collect computes bot_reviewer_status.
+	// Then:  rate_limit_remaining_seconds key is absent; generic classifier still sets rate_limited.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := map[string]any{
 			"data": map[string]any{
@@ -434,18 +441,21 @@ func TestCollect_trackedReviewer_noEnrichOmitsRateLimitSeconds(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
-	tracked := []TrackedReviewer{{Login: "coderabbitai[bot]"}}
-	_, rev, err := Collect(context.Background(), c, "o", "r", 1, tracked)
+	bots := []BotReviewer{{ID: "cr", Login: "coderabbitai[bot]", Required: true}}
+	_, rev, err := Collect(context.Background(), c, "o", "r", 1, bots)
 	if err != nil {
 		t.Fatal(err)
 	}
-	st := rev["tracked_reviewer_status"].([]any)
+	st := rev["bot_reviewer_status"].([]any)
 	if len(st) != 1 {
 		t.Fatalf("status len: %v", st)
 	}
 	m := st[0].(map[string]any)
 	if _, exists := m["rate_limit_remaining_seconds"]; exists {
 		t.Fatalf("unexpected key: %+v", m)
+	}
+	if m["status"].(string) != BotStatusRateLimited {
+		t.Fatalf("status: %+v", m)
 	}
 }
 

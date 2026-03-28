@@ -56,3 +56,47 @@ func assertSeconds(t *testing.T, got map[string]any, want int) {
 		t.Fatalf("got %v", got)
 	}
 }
+
+func TestCoderabbitEnrichment_reviewStatusProcessing(t *testing.T) {
+	t.Parallel()
+	e := coderabbitEnrichment{}
+	got := e.Enrich("## Review status\n**Status:** in progress\n")
+	if !got["cr_review_processing"].(bool) {
+		t.Fatalf("got %v", got)
+	}
+}
+
+func TestCoderabbitEnrichment_reviewStatusCompleted(t *testing.T) {
+	t.Parallel()
+	e := coderabbitEnrichment{}
+	got := e.Enrich("**Status:** ✅ completed\n")
+	if got["cr_review_processing"].(bool) {
+		t.Fatalf("want processing false/absent, got %v", got)
+	}
+}
+
+func TestCoderabbitEnrichment_walkthroughMarker(t *testing.T) {
+	t.Parallel()
+	e := coderabbitEnrichment{}
+	got := e.Enrich("### Walkthrough\nSome text")
+	if !got["cr_walkthrough_present"].(bool) {
+		t.Fatalf("got %v", got)
+	}
+}
+
+func TestCoderabbitEnrichment_ClassifyStatus_order(t *testing.T) {
+	t.Parallel()
+	e := coderabbitEnrichment{}
+	if g := e.ClassifyStatus(map[string]any{"contains_rate_limit": true, "cr_review_processing": true}); g != BotStatusRateLimited {
+		t.Fatalf("got %q", g)
+	}
+	if g := e.ClassifyStatus(map[string]any{"cr_review_processing": true}); g != BotStatusPending {
+		t.Fatalf("got %q", g)
+	}
+	if g := e.ClassifyStatus(map[string]any{"has_review": true}); g != BotStatusCompleted {
+		t.Fatalf("got %q", g)
+	}
+	if g := e.ClassifyStatus(map[string]any{"cr_walkthrough_present": true, "latest_comment_at": "2026-01-01T00:00:00Z"}); g != BotStatusPending {
+		t.Fatalf("got %q", g)
+	}
+}

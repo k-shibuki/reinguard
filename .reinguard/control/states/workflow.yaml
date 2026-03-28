@@ -6,11 +6,15 @@ rules:
     state_id: bot_rate_limited
     when:
       op: any
-      path: github.reviews.tracked_reviewer_status
+      path: github.reviews.bot_reviewer_status
       when:
-        op: eq
-        path: $.contains_rate_limit
-        value: true
+        and:
+          - op: eq
+            path: $.required
+            value: true
+          - op: eq
+            path: $.status
+            value: rate_limited
 
   - type: state
     id: review_paused
@@ -18,11 +22,37 @@ rules:
     state_id: bot_review_paused
     when:
       op: any
-      path: github.reviews.tracked_reviewer_status
+      path: github.reviews.bot_reviewer_status
       when:
-        op: eq
-        path: $.contains_review_paused
-        value: true
+        and:
+          - op: eq
+            path: $.required
+            value: true
+          - op: eq
+            path: $.status
+            value: review_paused
+
+  - type: state
+    id: review_failed
+    priority: 11
+    state_id: bot_review_failed
+    when:
+      op: eq
+      path: github.reviews.bot_review_diagnostics.bot_review_failed
+      value: true
+
+  - type: state
+    id: bot_reviewing
+    priority: 12
+    state_id: bot_reviewing
+    when:
+      and:
+        - op: eq
+          path: github.pull_requests.pr_exists_for_branch
+          value: true
+        - op: eq
+          path: github.reviews.bot_review_diagnostics.bot_review_pending
+          value: true
 
   - type: state
     id: changes_requested

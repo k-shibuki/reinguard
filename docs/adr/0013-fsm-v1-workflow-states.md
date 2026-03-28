@@ -11,21 +11,40 @@ position from GitHub + git observation, without copying an external tool’s sta
 inventory. Cursor commands are **derived** from this FSM as thin Adapter bridges
 (ADR-0001, Epic #59).
 
+Bot review position uses **`bot_reviewers`** in `reinguard.yaml` and derived
+signals `github.reviews.bot_reviewer_status` plus aggregate
+`github.reviews.bot_review_diagnostics` so the FSM stays **bot-agnostic** (not
+hard-coded to a single vendor).
+
 ## Decision
 
 ### 1. State catalog (v1)
 
 States live in `.reinguard/control/states/*.yaml`. **Lower numeric `priority`
-wins** among matching rules (ADR-0004). Draft `state_id` values:
+wins** among matching rules (ADR-0004). `state_id` values:
 
 | state_id | Intent | Notes |
 |----------|--------|--------|
-| `bot_rate_limited` | Tracked reviewer comment signals rate limit | `any` on `github.reviews.tracked_reviewer_status` |
-| `bot_review_paused` | Pause / status comment on tracked reviewer | Same array; higher priority number than rate limit |
+| `bot_rate_limited` | Required bot `status` is `rate_limited` | `op: any` on `github.reviews.bot_reviewer_status` with `$.required` and `$.status` |
+| `bot_review_paused` | Required bot `status` is `review_paused` | Same pattern |
+| `bot_review_failed` | Any required bot in failed tier (aggregate) | `github.reviews.bot_review_diagnostics.bot_review_failed` |
+| `bot_reviewing` | Waiting on required bot outcome | `bot_review_diagnostics.bot_review_pending` and PR exists |
 | `changes_requested` | Blocking review decision | `github.reviews.review_decisions_changes_requested` > 0 |
 | `ready_to_merge` | Coarse merge gate (clean tree, CI, threads, decisions) | Aligns with `merge-readiness` guard signals |
 | `pr_open` | PR exists; work in flight | `github.pull_requests.pr_exists_for_branch` true |
 | `working_no_pr` | No PR for branch (or PR facet absent) | `pr_exists_for_branch` false or path missing; not detached HEAD |
+
+**Bot status tiers** (per-element `status` in `bot_reviewer_status`):
+
+- **Reviewed (success path):** `completed`, `completed_clean`
+- **Failed:** `rate_limited`, `review_paused`, `review_failed`
+- **In progress:** `pending`, `not_triggered`
+
+**Diagnostics:** `bot_review_completed` means every **required** bot is in the
+Reviewed tier and none in the Failed tier; `bot_review_failed` if any required
+bot is in the Failed tier; `bot_review_terminal` = failed OR completed;
+`bot_review_pending` = not terminal. Optional bots (`required: false`) do not
+affect aggregates.
 
 Consensus-style conditions (approved + no changes + threads resolved) are
 **expressed as rules**, not a single derived observation key (see issue #72).
@@ -41,7 +60,7 @@ after state resolution (same mechanism as `rgd route select` with merged state).
 | `cursor-pr-create` | `working_no_pr` | `pr-create` (after local work) |
 | `cursor-monitor-pr` | `pr_open` | `review-address` / observe |
 | `cursor-address-review` | `changes_requested` | `review-address` |
-| `cursor-wait-bot` | `bot_rate_limited`, `bot_review_paused` | wait / retry per bot docs |
+| `cursor-wait-bot` | `bot_rate_limited`, `bot_review_paused`, `bot_review_failed`, `bot_reviewing` | wait / retry per bot docs |
 | `cursor-merge` | `ready_to_merge` | `pr-merge` |
 
 Multiple routes may match one state; **lowest route `priority` wins** for the
@@ -62,7 +81,7 @@ primary `route_id` in `rgd route select` output. Alternatives appear in
 | `working_no_pr` | `.reinguard/procedure/pr-create.md` (when opening a PR) |
 | `pr_open` | `.reinguard/procedure/review-address.md` |
 | `changes_requested` | `.reinguard/procedure/review-address.md` |
-| `bot_rate_limited` / `bot_review_paused` | `.reinguard/knowledge/review--bot-operations.md` (+ `knowledge.entries`) |
+| `bot_rate_limited` / `bot_review_paused` / `bot_review_failed` / `bot_reviewing` | `.reinguard/knowledge/review--bot-operations.md` (+ `knowledge.entries`) |
 | `ready_to_merge` | `.reinguard/procedure/pr-merge.md` |
 
 Self-inspection before PR creation: `.reinguard/procedure/change-inspect.md`.

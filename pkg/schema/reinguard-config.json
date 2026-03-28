@@ -29,7 +29,48 @@
           },
           "options": {
             "type": "object",
-            "additionalProperties": true
+            "additionalProperties": true,
+            "properties": {
+              "api_base": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Optional GitHub REST API root override."
+              },
+              "bot_reviewers": {
+                "type": "array",
+                "description": "Bot / AI reviewer observation entries for PR issue comments (ADR-0012).",
+                "items": {
+                  "type": "object",
+                  "required": ["id", "login", "required"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "pattern": "^[a-z0-9_]+$",
+                      "description": "Stable bot identifier for signals and diagnostics."
+                    },
+                    "login": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "GitHub login to match (case-insensitive)."
+                    },
+                    "required": {
+                      "type": "boolean",
+                      "description": "When true, bot outcome participates in aggregate merge-readiness-style diagnostics."
+                    },
+                    "enrich": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "description": "Optional built-in enrichment plugin names (e.g. coderabbit)."
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "additionalProperties": false

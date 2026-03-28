@@ -82,7 +82,7 @@ reflect unresolved **threads**, not raw comment row counts.
   mergeability, check runs, issue labels) without changing the reviews
   contract’s meaning. **P2-1 (#70)** extends `signals.github.pull_requests` and
   `signals.github.reviews` per `docs/cli.md` (unified GraphQL PR context,
-  `latestReviews` aggregates, optional `tracked_reviewer_status` with pluggable
+  `latestReviews` aggregates, optional `bot_reviewer_status` / `bot_review_diagnostics` with pluggable
   `enrich` names validated at provider build / `rgd config validate`).
 
 ## Consequences

@@ -24,7 +24,7 @@ Use ADR-0013 and `.reinguard/control/` as SSOT. Heuristic table (when `state.kin
 | `working_no_pr` | `.reinguard/procedure/implement.md` (or `pr-create.md` when opening a PR) |
 | `pr_open` | `.reinguard/procedure/review-address.md` |
 | `changes_requested` | `.reinguard/procedure/review-address.md` |
-| `bot_rate_limited` / `bot_review_paused` | `.reinguard/knowledge/review--bot-operations.md` (and bot-specific docs from `knowledge.entries`) |
+| `bot_rate_limited` / `bot_review_paused` / `bot_review_failed` / `bot_reviewing` | `.reinguard/knowledge/review--bot-operations.md` (and bot-specific docs from `knowledge.entries`) |
 | `ready_to_merge` | `.reinguard/procedure/pr-merge.md` |
 
 When `state.kind` is not `resolved`, follow ADR-0007 handoff: gather observation diagnostics, fix config or observation, re-run `context build` — do not invent a winning state.

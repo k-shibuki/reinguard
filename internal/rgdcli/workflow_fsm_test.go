@@ -65,7 +65,7 @@ var workflowFSMScenarioFixtures = []struct {
       "reviews": {
         "review_threads_unresolved": 1,
         "review_decisions_changes_requested": 0,
-        "tracked_reviewer_status": []
+        "bot_reviewer_status": []
       }
     }
   },
@@ -85,7 +85,7 @@ var workflowFSMScenarioFixtures = []struct {
       "reviews": {
         "review_threads_unresolved": 0,
         "review_decisions_changes_requested": 1,
-        "tracked_reviewer_status": []
+        "bot_reviewer_status": []
       }
     }
   },
@@ -108,7 +108,7 @@ var workflowFSMScenarioFixtures = []struct {
       "reviews": {
         "review_threads_unresolved": 0,
         "review_decisions_changes_requested": 0,
-        "tracked_reviewer_status": []
+        "bot_reviewer_status": []
       }
     }
   },
@@ -127,8 +127,8 @@ var workflowFSMScenarioFixtures = []struct {
       "reviews": {
         "review_threads_unresolved": 0,
         "review_decisions_changes_requested": 0,
-        "tracked_reviewer_status": [
-          {"login": "bot", "contains_rate_limit": true, "contains_review_paused": false}
+        "bot_reviewer_status": [
+          {"login": "bot", "required": true, "status": "rate_limited", "contains_rate_limit": true}
         ]
       }
     }
@@ -148,8 +148,8 @@ var workflowFSMScenarioFixtures = []struct {
       "reviews": {
         "review_threads_unresolved": 0,
         "review_decisions_changes_requested": 0,
-        "tracked_reviewer_status": [
-          {"login": "bot", "contains_rate_limit": false, "contains_review_paused": true}
+        "bot_reviewer_status": [
+          {"login": "bot", "required": true, "status": "review_paused", "contains_review_paused": true}
         ]
       }
     }
@@ -157,6 +157,56 @@ var workflowFSMScenarioFixtures = []struct {
   "degraded": false
 }`,
 		wantStateID: "bot_review_paused",
+		wantRouteID: "cursor-wait-bot",
+	},
+	{
+		name: "bot_review_failed",
+		observation: `{
+  "signals": {
+    "git": {"detached_head": false},
+    "github": {
+      "pull_requests": {"pr_exists_for_branch": true},
+      "reviews": {
+        "review_threads_unresolved": 0,
+        "review_decisions_changes_requested": 0,
+        "bot_reviewer_status": [],
+        "bot_review_diagnostics": {
+          "bot_review_failed": true,
+          "bot_review_completed": false,
+          "bot_review_pending": false,
+          "bot_review_terminal": true
+        }
+      }
+    }
+  },
+  "degraded": false
+}`,
+		wantStateID: "bot_review_failed",
+		wantRouteID: "cursor-wait-bot",
+	},
+	{
+		name: "bot_reviewing",
+		observation: `{
+  "signals": {
+    "git": {"detached_head": false},
+    "github": {
+      "pull_requests": {"pr_exists_for_branch": true},
+      "reviews": {
+        "review_threads_unresolved": 0,
+        "review_decisions_changes_requested": 0,
+        "bot_reviewer_status": [],
+        "bot_review_diagnostics": {
+          "bot_review_failed": false,
+          "bot_review_completed": false,
+          "bot_review_pending": true,
+          "bot_review_terminal": false
+        }
+      }
+    }
+  },
+  "degraded": false
+}`,
+		wantStateID: "bot_reviewing",
 		wantRouteID: "cursor-wait-bot",
 	},
 }

@@ -84,7 +84,7 @@ Each `providers[]` entry may include `options` (object). Built-in factories cons
 | Provider `id` | Key | Type | Description |
 |---------------|-----|------|-------------|
 | `github` | `api_base` | string | Optional GitHub REST API root override (e.g. `httptest` or a host whose REST root is `https://HOST/api/v3`); GraphQL uses `https://api.github.com/graphql` by default and maps `.../api/v3` → `.../api/graphql` for that Enterprise Server shape; leading/trailing space trimmed |
-| `github` | `tracked_reviewers` | array | Optional. Each element is an object: `login` (string, required), `enrich` (optional string array of built-in enrichment names). Used to report `signals.github.reviews.tracked_reviewer_status` from the latest matching PR issue comments plus optional structured fields (e.g. CodeRabbit rate-limit seconds). Unknown `enrich` names fail `rgd config validate` / provider build. Built-in enrichments: `coderabbit` (parses rate-limit retry duration into `rate_limit_remaining_seconds`). |
+| `github` | `bot_reviewers` | array | Optional. Each element: `id` (string, required, `^[a-z0-9_]+$`, unique), `login` (string, required), `required` (boolean, required — whether this bot participates in aggregate diagnostics), `enrich` (optional string array of built-in enrichment names). Drives `signals.github.reviews.bot_reviewer_status` and `bot_review_diagnostics`. Unknown `enrich` names fail `rgd config validate` / provider build. Built-in enrichments: `coderabbit` (rate-limit seconds, CodeRabbit Review Status markers, `StatusClassifier`). |
 
 The `git` provider accepts `options` for forward compatibility; keys are currently unused.
 
@@ -152,7 +152,7 @@ The **pull-requests** facet always includes REST-derived fields for the current 
 
 ### `signals.github.reviews` (GitHub provider, reviews facet)
 
-Populated when the `reviews` facet runs (see `rgd observe github reviews`). Data comes from a unified GraphQL **PR context** query: `reviewThreads` (`isResolved`), `latestReviews`, and optional PR issue `comments` for configured `tracked_reviewers` (ADR-0012).
+Populated when the `reviews` facet runs (see `rgd observe github reviews`). Data comes from a unified GraphQL **PR context** query: `reviewThreads` (`isResolved`), `latestReviews`, and optional PR issue `comments` for configured `bot_reviewers` (ADR-0012).
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -163,7 +163,8 @@ Populated when the `reviews` facet runs (see `rgd observe github reviews`). Data
 | `review_decisions_approved` | number | Count with state `APPROVED`. |
 | `review_decisions_changes_requested` | number | Count with state `CHANGES_REQUESTED`. |
 | `review_decisions_truncated` | boolean | True if `latestReviews` reports `hasNextPage` (more than one page of decisions not fetched). |
-| `tracked_reviewer_status` | array | One object per configured `tracked_reviewers` entry (empty array if unset). Each object includes: `login`, `has_review`, `review_state` (from `latestReviews`, empty if none), `latest_comment_at` (ISO8601 from newest matching PR comment in the fetched `comments(last: 50)` window, or empty), generic flags `contains_rate_limit`, `contains_review_paused`, `contains_review_failed` (substring checks on that comment body, case-insensitive), and optional `rate_limit_remaining_seconds` when a matching `enrich` plugin applies (e.g. `coderabbit`). |
+| `bot_reviewer_status` | array | One object per configured `bot_reviewers` entry (empty array if unset). Each object includes: `id`, `login`, `required`, `status` (classified string: `not_triggered`, `pending`, `completed`, `completed_clean`, `rate_limited`, `review_paused`, `review_failed`), `has_review`, `review_state` (from `latestReviews`, empty if none), `latest_comment_at` (ISO8601 from newest matching PR comment in the fetched `comments(last: 50)` window, or empty), generic flags `contains_rate_limit`, `contains_review_paused`, `contains_review_failed` (substring checks on that comment body, case-insensitive), optional enrich fields (e.g. `rate_limit_remaining_seconds`, `cr_review_processing`, `cr_walkthrough_present` from `coderabbit`). |
+| `bot_review_diagnostics` | object | Aggregates over **required** bots only: `bot_review_completed`, `bot_review_pending`, `bot_review_terminal`, `bot_review_failed` (booleans). Vacuously completed when no required bots are configured. See ADR-0013. |
 
 GraphQL failures for this query are reported as diagnostics with provider **`github.pr-query`** (non-fatal to other facets unless the whole provider degrades).
 
@@ -300,7 +301,7 @@ including `route_candidates` when applicable). See `pkg/schema/operational-conte
 ## `rgd config validate`
 
 Validates `reinguard.yaml`, `control/{states,routes,guards}/*.yaml`, and `knowledge/manifest.json` when
-present, against embedded JSON Schemas. Also **builds enabled observation providers** (same path as `rgd observe`) so invalid `providers[].options` (e.g. unknown `tracked_reviewers[].enrich` names) fail validation. Non-zero exit on hard validation
+present, against embedded JSON Schemas. Also **builds enabled observation providers** (same path as `rgd observe`) so invalid `providers[].options` (e.g. unknown `bot_reviewers[].enrich` names) fail validation. Non-zero exit on hard validation
 errors. **Deprecated** configuration keys (marked in JSON Schema) emit **warnings
 on stderr** but still exit **0** when validation succeeds.
 

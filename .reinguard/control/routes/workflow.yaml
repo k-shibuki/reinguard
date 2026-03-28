@@ -28,8 +28,26 @@ rules:
       value: changes_requested
 
   - type: route
-    id: route_wait_bot_rl
+    id: route_wait_bot_fail
     priority: 23
+    route_id: cursor-wait-bot
+    when:
+      op: eq
+      path: state.state_id
+      value: bot_review_failed
+
+  - type: route
+    id: route_wait_bot_reviewing
+    priority: 24
+    route_id: cursor-wait-bot
+    when:
+      op: eq
+      path: state.state_id
+      value: bot_reviewing
+
+  - type: route
+    id: route_wait_bot_rl
+    priority: 25
     route_id: cursor-wait-bot
     when:
       op: eq
@@ -38,7 +56,7 @@ rules:
 
   - type: route
     id: route_wait_bot_pause
-    priority: 24
+    priority: 26
     route_id: cursor-wait-bot
     when:
       op: eq
@@ -47,7 +65,7 @@ rules:
 
   - type: route
     id: route_merge
-    priority: 25
+    priority: 27
     route_id: cursor-merge
     when:
       op: eq

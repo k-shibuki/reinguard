@@ -6,4 +6,9 @@ providers:
     enabled: true
   - id: github
     enabled: true
-    options: {}
+    options:
+      bot_reviewers:
+        - id: coderabbit
+          login: "coderabbitai[bot]"
+          required: true
+          enrich: [coderabbit]
