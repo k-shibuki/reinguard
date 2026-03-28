@@ -248,6 +248,46 @@ func TestGitHubProviderFactory_apiBase_notAbsoluteHTTPURL(t *testing.T) {
 	}
 }
 
+func TestGitHubProviderFactory_trackedReviewers_ok(t *testing.T) {
+	t.Parallel()
+	p, err := GitHubProviderFactory(map[string]any{
+		"tracked_reviewers": []any{
+			map[string]any{"login": "coderabbitai[bot]", "enrich": []any{"coderabbit"}},
+			map[string]any{"login": "chatgpt-codex-connector[bot]"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	gp, ok := p.(*GitHubProvider)
+	if !ok || len(gp.TrackedReviewers) != 2 {
+		t.Fatalf("got %T %+v", p, gp)
+	}
+	if gp.TrackedReviewers[0].Login != "coderabbitai[bot]" || len(gp.TrackedReviewers[0].Enrich) != 1 || gp.TrackedReviewers[0].Enrich[0] != "coderabbit" {
+		t.Fatalf("%+v", gp.TrackedReviewers[0])
+	}
+}
+
+func TestGitHubProviderFactory_trackedReviewers_unknownEnrich(t *testing.T) {
+	t.Parallel()
+	_, err := GitHubProviderFactory(map[string]any{
+		"tracked_reviewers": []any{
+			map[string]any{"login": "x", "enrich": []any{"no-such-plugin"}},
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "unknown enrich") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestGitHubProviderFactory_trackedReviewers_badShape(t *testing.T) {
+	t.Parallel()
+	_, err := GitHubProviderFactory(map[string]any{"tracked_reviewers": "nope"})
+	if err == nil || !strings.Contains(err.Error(), "must be an array") {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func runGitCmd(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)

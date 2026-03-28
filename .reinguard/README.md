@@ -66,6 +66,22 @@ Each file under `knowledge/` is Markdown with a **YAML front matter** block
 | `triggers` | Non-empty keyword list; no duplicate strings after trim (case-insensitive). Used with `rgd knowledge pack --query` (substring match). |
 | `when` | **Required.** Match expression (ADR-0002), same shape as control rules’ `when`. `rgd config validate` checks `op` / operands, `eval:` names, and that each `path` starts with `git.`, `github.`, `state.`, or `$` / `.$.`. `rgd context build` and `rgd knowledge pack --observation-file` filter with `match.Eval`. Prefer conditions on real signals (e.g. `or` of `exists` on `git.branch` and `github.repository.owner` when either provider is present). Rare always-on aids may use `eval: constant` with `params.value: true`. |
 
+### Atomicity
+
+Each knowledge file addresses **one concern** — a "knowledge atom."
+
+| Layer | Guarantee | Enforced by |
+|-------|-----------|-------------|
+| **Structural** | Valid front matter, unique `id`, resolvable `path` | `rgd knowledge index` / `rgd config validate` |
+| **Heuristic** | Oversized files or excessive trigger counts flagged | `rgd config validate` hints (warnings, non-blocking) |
+| **Semantic** | One concern per file | Review and authoring discipline — not machine-guaranteed |
+
+Structural and heuristic layers are tool-enforced; semantic atomicity is a
+**human judgment**. Tooling supports it with hints but cannot enforce it.
+When in doubt, split the file.
+
+Authoritative decision: **ADR-0010 §4**.
+
 ### After editing knowledge metadata
 
 1. `rgd knowledge index`

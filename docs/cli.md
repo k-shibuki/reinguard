@@ -81,9 +81,10 @@ Issue/PR **policy enforcement** scripts live under **`.reinguard/scripts/`** (`c
 
 Each `providers[]` entry may include `options` (object). Built-in factories consume:
 
-| Provider `id` | Key        | Type   | Description |
-|-----------------|------------|--------|-------------|
-| `github`        | `api_base` | string | Optional GitHub REST API root override (e.g. `httptest` or a host whose REST root is `https://HOST/api/v3`); GraphQL uses `https://api.github.com/graphql` by default and maps `.../api/v3` → `.../api/graphql` for that Enterprise Server shape; leading/trailing space trimmed |
+| Provider `id` | Key | Type | Description |
+|---------------|-----|------|-------------|
+| `github` | `api_base` | string | Optional GitHub REST API root override (e.g. `httptest` or a host whose REST root is `https://HOST/api/v3`); GraphQL uses `https://api.github.com/graphql` by default and maps `.../api/v3` → `.../api/graphql` for that Enterprise Server shape; leading/trailing space trimmed |
+| `github` | `tracked_reviewers` | array | Optional. Each element is an object: `login` (string, required), `enrich` (optional string array of built-in enrichment names). Used to report `signals.github.reviews.tracked_reviewer_status` from the latest matching PR issue comments plus optional structured fields (e.g. CodeRabbit rate-limit seconds). Unknown `enrich` names fail `rgd config validate` / provider build. Built-in enrichments: `coderabbit` (parses rate-limit retry duration into `rate_limit_remaining_seconds`). |
 
 The `git` provider accepts `options` for forward compatibility; keys are currently unused.
 
@@ -129,15 +130,42 @@ The GitHub client retries **429** responses with limited exponential backoff.
 | `has_upstream` | boolean | True when `@{upstream}` resolves for the current branch |
 | `stale_remote_branches_count` | number | Count of `git branch -r --merged origin/<default_branch>` lines (excludes `HEAD ->`), `0` if `origin/<default_branch>` is missing; uses `default_branch` from `reinguard.yaml` |
 
+### `signals.github.pull_requests` (GitHub provider, pull-requests facet)
+
+The **pull-requests** facet always includes REST-derived fields for the current branch. When `pr_exists_for_branch` is true, the provider also runs a **GraphQL** query (same request family as the reviews facet) and merges the following fields into `pull_requests`:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `open_count` | number | Open PR count for the repo (REST search). |
+| `current_branch` | string | Current git branch name (empty if detached). |
+| `pr_exists_for_branch` | boolean | Whether an open PR exists whose head matches the current branch. |
+| `pr_number_for_branch` | number | That PR’s number, or `0`. |
+| `state` | string | GraphQL PR state lowercased: `open`, `closed`, `merged`. |
+| `draft` | boolean | Draft flag. |
+| `title` | string | PR title. |
+| `base_ref` | string | Base branch name (`baseRefName`). |
+| `head_sha` | string | Head commit OID. |
+| `mergeable` | string | `mergeable`, `conflicting`, or `unknown` (from GraphQL `mergeable`). |
+| `merge_state_status` | string | GraphQL `mergeStateStatus` lowercased (e.g. `clean`, `dirty`, `blocked`, `unstable`, `behind`). |
+| `labels` | string array | Label names (first page, up to 20). |
+| `closing_issue_numbers` | number array | Linked issues from `closingIssuesReferences` (first page, up to 20). |
+
 ### `signals.github.reviews` (GitHub provider, reviews facet)
 
-Populated when the `reviews` facet runs (see `rgd observe github reviews`). Counts reflect **review threads** from the GitHub GraphQL `reviewThreads` connection (`isResolved`), not raw REST review-comment rows (ADR-0012).
+Populated when the `reviews` facet runs (see `rgd observe github reviews`). Data comes from a unified GraphQL **PR context** query: `reviewThreads` (`isResolved`), `latestReviews`, and optional PR issue `comments` for configured `tracked_reviewers` (ADR-0012).
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `review_threads_total` | number | Threads fetched for the current PR after pagination (or up to the engine page cap). |
 | `review_threads_unresolved` | number | Threads where `isResolved` is false. Used by `merge-readiness`. |
 | `pagination_incomplete` | boolean | True if not all thread pages could be read (e.g. pagination capped). |
+| `review_decisions_total` | number | Count of nodes returned from `latestReviews` (latest decision per reviewer). |
+| `review_decisions_approved` | number | Count with state `APPROVED`. |
+| `review_decisions_changes_requested` | number | Count with state `CHANGES_REQUESTED`. |
+| `review_decisions_truncated` | boolean | True if `latestReviews` reports `hasNextPage` (more than one page of decisions not fetched). |
+| `tracked_reviewer_status` | array | One object per configured `tracked_reviewers` entry (empty array if unset). Each object includes: `login`, `has_review`, `review_state` (from `latestReviews`, empty if none), `latest_comment_at` (ISO8601 from newest matching PR comment in the fetched `comments(last: 50)` window, or empty), generic flags `contains_rate_limit`, `contains_review_paused`, `contains_review_failed` (substring checks on that comment body, case-insensitive), and optional `rate_limit_remaining_seconds` when a matching `enrich` plugin applies (e.g. `coderabbit`). |
+
+GraphQL failures for this query are reported as diagnostics with provider **`github.pr-query`** (non-fatal to other facets unless the whole provider degrades).
 
 ## `rgd state eval`
 
@@ -270,7 +298,7 @@ including `route_candidates` when applicable). See `pkg/schema/operational-conte
 ## `rgd config validate`
 
 Validates `reinguard.yaml`, `control/{states,routes,guards}/*.yaml`, and `knowledge/manifest.json` when
-present, against embedded JSON Schemas. Non-zero exit on hard validation
+present, against embedded JSON Schemas. Also **builds enabled observation providers** (same path as `rgd observe`) so invalid `providers[].options` (e.g. unknown `tracked_reviewers[].enrich` names) fail validation. Non-zero exit on hard validation
 errors. **Deprecated** configuration keys (marked in JSON Schema) emit **warnings
 on stderr** but still exit **0** when validation succeeds.
 

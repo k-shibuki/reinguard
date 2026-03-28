@@ -1,6 +1,6 @@
 ---
 id: implementation-defensive-config-validation
-description: Defensive coding patterns for config-driven Go code — nil guards, typed option validation, blank/duplicate ID rejection
+description: "Defensive coding patterns for config-driven Go code — nil guards, typed option validation, blank/duplicate ID rejection"
 triggers:
   - defensive config
   - nil guard
@@ -8,7 +8,6 @@ triggers:
   - blank id
   - duplicate id
   - typed options
-  - config validation pattern
 when:
   or:
     - op: exists
@@ -91,18 +90,6 @@ Evaluator)`) must reject a **nil** interface value **before** calling interface
 methods such as `Name()` — otherwise callers get a panic instead of a stable
 error.
 
-## Match-time vs validate-time walkers
-
-When decoded YAML/JSON maps carry optional keys (for example `eval` beside
-`op` / `and` / `or` / `not`), keep **runtime evaluation** and **config
-validation** walkers aligned:
-
-- If the key is **present**, require the expected type and non-empty values
-  where applicable — do not fall through to another branch on type mismatch.
-- When forbidding combinations (e.g. `eval` with `op`), treat **`op` present**
-  as a conflict even if `op` is not a string, so malformed configs error
-  instead of executing as a scalar op.
-
 ## Blank and duplicate ID rejection
 
 When iterating enabled collection entries (e.g. provider specs), treat
@@ -124,24 +111,10 @@ for i, spec := range specs {
 }
 ```
 
-## Test setup error handling
-
-Never discard errors from test helper or setup calls:
-
-```go
-// BAD
-_ = r.Register("a", factory)
-
-// GOOD
-if err := r.Register("a", factory); err != nil {
-    t.Fatal(err)
-}
-```
-
-Discarding setup errors masks root causes and makes later assertion
-failures non-diagnostic.
-
 ## Related
 
+- `.reinguard/knowledge/implementation--concurrency-patterns.md` — RWMutex re-entrancy
+- `.reinguard/knowledge/match--walker-separation.md` — match-time vs validate-time walkers
 - `.reinguard/policy/coding--preflight.md` — verification obligations
 - `.reinguard/knowledge/testing--strategy.md` — test perspectives
+- `.reinguard/knowledge/testing--setup-error-handling.md` — fail-fast setup (`_ =` anti-pattern)

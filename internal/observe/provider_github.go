@@ -11,8 +11,8 @@ import (
 	"github.com/k-shibuki/reinguard/internal/githubapi"
 	"github.com/k-shibuki/reinguard/internal/observe/github/ci"
 	"github.com/k-shibuki/reinguard/internal/observe/github/issues"
+	"github.com/k-shibuki/reinguard/internal/observe/github/prquery"
 	"github.com/k-shibuki/reinguard/internal/observe/github/pullrequests"
-	"github.com/k-shibuki/reinguard/internal/observe/github/reviews"
 )
 
 // GitHubProvider aggregates GitHub facets (ADR-0006).
@@ -20,6 +20,8 @@ type GitHubProvider struct {
 	HTTPClient *http.Client
 	// APIBase optionally overrides the GitHub REST root (tests / httptest).
 	APIBase string
+	// TrackedReviewers configures optional PR comment / review status observation per login (P2-1).
+	TrackedReviewers []prquery.TrackedReviewer
 }
 
 // NewGitHubProvider returns a GitHub aggregate provider.
@@ -28,7 +30,7 @@ func NewGitHubProvider() *GitHubProvider {
 }
 
 // GitHubProviderFactory builds a GitHub provider from config options (ADR-0009).
-// Supported keys: api_base (string) — absolute http(s) REST API root override for tests or enterprise endpoints.
+// Supported keys: api_base (string); tracked_reviewers (array of { login, enrich? }).
 func GitHubProviderFactory(opts map[string]any) (Provider, error) {
 	p := NewGitHubProvider()
 	if len(opts) == 0 {
@@ -52,7 +54,58 @@ func GitHubProviderFactory(opts map[string]any) (Provider, error) {
 		}
 		p.APIBase = s
 	}
+	tr, err := parseTrackedReviewers(opts)
+	if err != nil {
+		return nil, err
+	}
+	p.TrackedReviewers = tr
 	return p, nil
+}
+
+func parseTrackedReviewers(opts map[string]any) ([]prquery.TrackedReviewer, error) {
+	raw, ok := opts["tracked_reviewers"]
+	if !ok {
+		return nil, nil
+	}
+	arr, ok := raw.([]any)
+	if !ok {
+		return nil, fmt.Errorf("github provider: options.tracked_reviewers must be an array")
+	}
+	out := make([]prquery.TrackedReviewer, 0, len(arr))
+	for i, item := range arr {
+		m, ok := item.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("github provider: options.tracked_reviewers[%d] must be an object", i)
+		}
+		login, _ := m["login"].(string)
+		login = strings.TrimSpace(login)
+		if login == "" {
+			return nil, fmt.Errorf("github provider: options.tracked_reviewers[%d].login is required", i)
+		}
+		var enrich []string
+		switch e := m["enrich"].(type) {
+		case nil:
+		case []any:
+			for _, x := range e {
+				s, ok := x.(string)
+				if !ok {
+					return nil, fmt.Errorf("github provider: options.tracked_reviewers[%d].enrich must contain only strings", i)
+				}
+				s = strings.TrimSpace(s)
+				if s == "" {
+					return nil, fmt.Errorf("github provider: options.tracked_reviewers[%d].enrich contains empty string", i)
+				}
+				enrich = append(enrich, s)
+			}
+		default:
+			return nil, fmt.Errorf("github provider: options.tracked_reviewers[%d].enrich must be an array of strings", i)
+		}
+		if err := prquery.ValidateEnrichmentNames(enrich); err != nil {
+			return nil, fmt.Errorf("github provider: options.tracked_reviewers[%d]: %w", i, err)
+		}
+		out = append(out, prquery.TrackedReviewer{Login: login, Enrich: enrich})
+	}
+	return out, nil
 }
 
 // ID implements Provider.
@@ -115,7 +168,7 @@ func (p *GitHubProvider) Collect(ctx context.Context, opts Options) (Fragment, e
 	p.githubCollectIssues(ctx, client, owner, repo, wantFacet("issues"), signals, &diags, &degraded)
 	p.githubCollectPullRequestsAndPRNum(ctx, client, owner, repo, opts.WorkDir, wantFacet, signals, appendWarnings, &diags, &degraded, &prNum, &prLookupOK)
 	p.githubCollectCI(ctx, client, owner, repo, opts.WorkDir, wantFacet("ci"), signals, appendWarnings, &diags, &degraded)
-	p.githubCollectReviews(ctx, client, owner, repo, prNum, wantFacet("reviews"), prLookupOK, signals, &diags, &degraded)
+	p.githubCollectPRGraph(ctx, client, owner, repo, prNum, wantFacet("pull-requests"), wantFacet("reviews"), prLookupOK, signals, &diags, &degraded)
 
 	return Fragment{Signals: signals, Diagnostics: diags, Degraded: degraded}, nil
 }
@@ -168,20 +221,35 @@ func (*GitHubProvider) githubCollectCI(ctx context.Context, client *githubapi.Cl
 	mergeSignals(signals, m)
 }
 
-func (*GitHubProvider) githubCollectReviews(ctx context.Context, client *githubapi.Client, owner, repo string, prNum int, want bool, prLookupOK bool, signals map[string]any, diags *[]Diagnostic, degraded *bool) {
-	if !want {
+func (p *GitHubProvider) githubCollectPRGraph(ctx context.Context, client *githubapi.Client, owner, repo string, prNum int, wantPull, wantRev bool, prLookupOK bool, signals map[string]any, diags *[]Diagnostic, degraded *bool) {
+	if !wantPull && !wantRev {
 		return
 	}
-	if !prLookupOK {
+	if !prLookupOK || prNum <= 0 {
 		return
 	}
-	m, err := reviews.Collect(ctx, client, owner, repo, prNum)
+	pullDetail, revInner, err := prquery.Collect(ctx, client, owner, repo, prNum, p.TrackedReviewers)
 	if err != nil {
 		*degraded = true
-		*diags = append(*diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github.reviews"})
+		*diags = append(*diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github.pr-query"})
 		return
 	}
-	mergeSignals(signals, m)
+	if wantPull && len(pullDetail) > 0 {
+		if existing, ok := signals["pull_requests"].(map[string]any); ok {
+			for k, v := range pullDetail {
+				existing[k] = v
+			}
+		} else {
+			pm := make(map[string]any, len(pullDetail))
+			for k, v := range pullDetail {
+				pm[k] = v
+			}
+			signals["pull_requests"] = pm
+		}
+	}
+	if wantRev {
+		mergeSignals(signals, map[string]any{"reviews": revInner})
+	}
 }
 
 func mergeSignals(dst map[string]any, src map[string]any) {

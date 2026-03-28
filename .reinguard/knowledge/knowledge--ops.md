@@ -42,13 +42,13 @@ when:
 
 ## Authoring rules for new review knowledge
 
-- Keep each file atomic (one concern per file).
+- Keep each file atomic — see [`.reinguard/README.md` § Atomicity](../README.md#atomicity).
 - Use required front matter: `id`, `description`, `triggers` (non-empty, unique case-insensitively), **`when`** (match when this entry should surface — e.g. PR-scoped review docs use `github.pull_requests.pr_exists_for_branch`).
 - Prefer stable guidance over PR-specific details or evidence-only snapshots.
 
 ## Review/update loop
 
-1. Periodically extract PR review comments and refresh recurring patterns into atomic knowledge files.
-2. Update atomic docs as needed.
+1. Periodically extract PR review comments and refresh recurring patterns into atomic knowledge files (one concern per file).
+2. Update knowledge docs as needed.
 3. Run **`rgd knowledge index`** and commit `manifest.json`.
 4. Validate with **`rgd config validate`**.

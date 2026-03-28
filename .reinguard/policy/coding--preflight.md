@@ -52,10 +52,9 @@ For each behavior change, confirm:
 2. **Table-driven applicability** — use table-driven format when the same
    function has two or more test scenarios; a single-scenario test may
    remain standalone (see `testing--strategy.md` § Table-driven tests).
-3. **GWT comments** — add a **function-level** Given / When / Then summary on
-   non-trivial tests; for **table-driven** tests, omit GWT inside the `t.Run`
-   loop (see `testing--given-when-then.md`). Trivial single-assert tests may
-   omit GWT.
+3. **GWT comments** — non-trivial tests **must** have a function-level
+   Given / When / Then summary (see `testing--given-when-then.md` for
+   format and table-driven rules).
 4. **Setup error handling** — never discard errors from test setup calls
    (`_ = f(...)`); use `t.Fatal(err)` to fail fast on unexpected setup
    failures.

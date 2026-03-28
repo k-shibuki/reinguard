@@ -409,6 +409,9 @@ func runConfigValidate(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	if _, perr := observe.NewEngineFromConfig(res.Root.Providers); perr != nil {
+		return fmt.Errorf("config: provider build: %w", perr)
+	}
 	for _, w := range config.DeprecatedWarnings(&res.Root) {
 		_, _ = fmt.Fprintln(c.App.ErrWriter, w)
 	}

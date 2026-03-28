@@ -40,6 +40,29 @@
       }
     },
     {
+      "id": "implementation-concurrency-patterns",
+      "path": ".reinguard/knowledge/implementation--concurrency-patterns.md",
+      "description": "RWMutex re-entrancy trap and lock-splitting patterns in Go",
+      "triggers": [
+        "RWMutex",
+        "re-entrancy",
+        "deadlock",
+        "sync mutex"
+      ],
+      "when": {
+        "or": [
+          {
+            "op": "exists",
+            "path": "git.branch"
+          },
+          {
+            "op": "exists",
+            "path": "github.repository.owner"
+          }
+        ]
+      }
+    },
+    {
       "id": "implementation-defensive-config-validation",
       "path": ".reinguard/knowledge/implementation--defensive-config-validation.md",
       "description": "Defensive coding patterns for config-driven Go code — nil guards, typed option validation, blank/duplicate ID rejection",
@@ -49,8 +72,7 @@
         "silent ignore",
         "blank id",
         "duplicate id",
-        "typed options",
-        "config validation pattern"
+        "typed options"
       ],
       "when": {
         "or": [
@@ -75,6 +97,29 @@
         "review flow",
         "retrieval strategy",
         "rgd knowledge index"
+      ],
+      "when": {
+        "or": [
+          {
+            "op": "exists",
+            "path": "git.branch"
+          },
+          {
+            "op": "exists",
+            "path": "github.repository.owner"
+          }
+        ]
+      }
+    },
+    {
+      "id": "match-walker-separation",
+      "path": ".reinguard/knowledge/match--walker-separation.md",
+      "description": "Keep match-time evaluation and validate-time walkers aligned on optional YAML/JSON keys",
+      "triggers": [
+        "match walker",
+        "validate walker",
+        "eval key",
+        "op key conflict"
       ],
       "when": {
         "or": [
@@ -158,8 +203,30 @@
       "triggers": [
         "test quality",
         "assertion strength",
-        "given when then",
-        "table-driven"
+        "boundary test"
+      ],
+      "when": {
+        "or": [
+          {
+            "op": "exists",
+            "path": "git.branch"
+          },
+          {
+            "op": "exists",
+            "path": "github.repository.owner"
+          }
+        ]
+      }
+    },
+    {
+      "id": "testing-cli-specifics",
+      "path": ".reinguard/knowledge/testing--cli-specifics.md",
+      "description": "urfave/cli v2 test pitfalls — global flag mutation, per-Flags instances, fixtures",
+      "triggers": [
+        "urfave cli",
+        "CLI test",
+        "HelpFlag race",
+        "cli flag mutation"
       ],
       "when": {
         "or": [
@@ -198,17 +265,62 @@
       }
     },
     {
+      "id": "testing-mock-strategy",
+      "path": ".reinguard/knowledge/testing--mock-strategy.md",
+      "description": "Mock and subprocess strategy — httptest for GitHub API, hermetic git, gh stub",
+      "triggers": [
+        "mock",
+        "GitHub API",
+        "httptest",
+        "gh stub",
+        "test subprocess",
+        "hermetic git"
+      ],
+      "when": {
+        "or": [
+          {
+            "op": "exists",
+            "path": "git.branch"
+          },
+          {
+            "op": "exists",
+            "path": "github.repository.owner"
+          }
+        ]
+      }
+    },
+    {
+      "id": "testing-setup-error-handling",
+      "path": ".reinguard/knowledge/testing--setup-error-handling.md",
+      "description": "Fail-fast test setup — never discard errors from helpers or registration calls",
+      "triggers": [
+        "test setup error",
+        "t.Fatal setup",
+        "discard error test",
+        "register error test"
+      ],
+      "when": {
+        "or": [
+          {
+            "op": "exists",
+            "path": "git.branch"
+          },
+          {
+            "op": "exists",
+            "path": "github.repository.owner"
+          }
+        ]
+      }
+    },
+    {
       "id": "testing-strategy",
       "path": ".reinguard/knowledge/testing--strategy.md",
-      "description": "Go test strategy — coverage, perspectives, table-driven tests, CLI tests, mocks",
+      "description": "Go test strategy — coverage, perspectives, table-driven tests, recursive evaluation paths",
       "triggers": [
         "test strategy",
         "coverage target",
         "table-driven",
-        "CLI test",
-        "mock",
-        "httptest",
-        "urfave cli"
+        "test perspectives"
       ],
       "when": {
         "or": [

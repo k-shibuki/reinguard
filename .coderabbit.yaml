@@ -77,7 +77,7 @@ reviews:
       instructions: |
         Non-public implementation for `rgd`. P0: logic bugs, silent failures, resource leaks. Observation
         and GitHub paths: ADR-0005 (no agent-internal files), ADR-0006 (`gh` for auth). Prefer table-driven
-        Go tests; GWT comments per `.reinguard/knowledge/testing--*.md` for non-trivial tests.
+        Go tests; GWT comments required per `.reinguard/knowledge/testing--*.md` on non-trivial tests.
     - path: "pkg/**"
       instructions: |
         Library code toward stable APIs. P0: breaking changes without ADR or migration path; missing

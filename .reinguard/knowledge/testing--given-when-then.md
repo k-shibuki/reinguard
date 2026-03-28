@@ -16,9 +16,9 @@ when:
 
 # Given / When / Then Comment Format (Go)
 
-Use the following comment format on **non-trivial** test cases — those
-with multi-step setup or multiple assertions. Trivial single-assertion
-tests (e.g. one-line error check) may omit GWT comments.
+**Non-trivial** test cases — those with multi-step setup or multiple
+assertions — **must** include the following comment format. Trivial
+single-assertion tests (e.g. one-line error check) may omit GWT.
 
 ```text
 // Given: Preconditions
@@ -61,3 +61,12 @@ When using a `[]struct{ ... }` table with `t.Run(tc.name, ...)`:
 
 Standalone `t.Run` subtests **without** a table (each subtest is a distinct
 scenario) may still use per-subtest GWT when the setup is non-trivial.
+
+## When creating or editing tests
+
+When creating or substantially editing non-trivial tests:
+
+- **must** add a concise **function-level** Given/When/Then summary
+- for **table-driven** tests, do not repeat GWT inside each table row or loop
+  iteration (see Table-driven tests above)
+- keep test intent readable in code review

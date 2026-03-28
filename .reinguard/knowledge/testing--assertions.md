@@ -4,8 +4,7 @@ description: Test assertion quality, failure messages, and boundary coverage
 triggers:
   - test quality
   - assertion strength
-  - given when then
-  - table-driven
+  - boundary test
 when:
   or:
     - op: exists
@@ -30,16 +29,7 @@ Examples:
 For success tests, verify domain outcomes (e.g. `kind`, `state_id`, `route_id`)
 instead of only checking that some JSON exists.
 
-## Rule 3: Keep Given/When/Then in edited tests
-
-When creating or substantially editing non-trivial tests:
-
-- add a concise **function-level** Given/When/Then summary
-- for **table-driven** tests, do not repeat GWT inside each table row or loop
-  iteration (see [`testing--given-when-then.md`](testing--given-when-then.md))
-- keep test intent readable in code review
-
-## Rule 4: Add boundary checks when changing contracts
+## Rule 3: Add boundary checks when changing contracts
 
 If behavior around empty/missing inputs changes:
 
