@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/k-shibuki/reinguard/pkg/schema"
+	"gopkg.in/yaml.v3"
 )
 
 func TestLoad_emptyConfigDir(t *testing.T) {
@@ -853,17 +854,50 @@ func TestLoad_repositoryReinguard(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read %s: %v", catalogPath, err)
 	}
-	catalog := string(data)
-	for _, must := range []string{
-		"id: workflow-states",
-		"path: states/workflow.yaml",
-		"id: workflow-routes",
-		"path: routes/workflow.yaml",
-		"id: merge-readiness-guard",
-		"path: guards/default.yaml",
+	var cat struct {
+		Entries []struct {
+			ID          string `yaml:"id"`
+			Path        string `yaml:"path"`
+			Type        string `yaml:"type"`
+			Description string `yaml:"description"`
+		} `yaml:"entries"`
+	}
+	if err := yaml.Unmarshal(data, &cat); err != nil {
+		t.Fatalf("catalog yaml: %v", err)
+	}
+	byID := make(map[string]struct {
+		Path        string
+		Type        string
+		Description string
+	})
+	for _, e := range cat.Entries {
+		byID[e.ID] = struct {
+			Path        string
+			Type        string
+			Description string
+		}{e.Path, e.Type, e.Description}
+	}
+	for _, w := range []struct {
+		id   string
+		path string
+		typ  string
+	}{
+		{"workflow-states", "states/workflow.yaml", "state"},
+		{"workflow-routes", "routes/workflow.yaml", "route"},
+		{"merge-readiness-guard", "guards/default.yaml", "guard"},
 	} {
-		if !strings.Contains(catalog, must) {
-			t.Fatalf("catalog missing %q", must)
+		e, ok := byID[w.id]
+		if !ok {
+			t.Fatalf("catalog missing entry id %q", w.id)
+		}
+		if e.Path != w.path {
+			t.Fatalf("catalog %q path: got %q want %q", w.id, e.Path, w.path)
+		}
+		if e.Type != w.typ {
+			t.Fatalf("catalog %q type: got %q want %q", w.id, e.Type, w.typ)
+		}
+		if strings.TrimSpace(e.Description) == "" {
+			t.Fatalf("catalog %q missing non-empty description", w.id)
 		}
 	}
 }
