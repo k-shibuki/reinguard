@@ -33,8 +33,9 @@ Without explicit structure:
      matter: `id`, `purpose`, `applies_to`, `reads`, `sense`, `act`, `output`,
      `done_when`, `escalate_when`). SSOT for procedural steps lives here
      (ADR-0013). Cursor: `rgd-next` maps substrate output to these paths
-     (`.cursor/commands/rgd-next.md`); `cursor-plan` handles deep planning and
-     optional Issue creation (`.cursor/commands/cursor-plan.md`).
+     (`.cursor/commands/rgd-next.md`); `cursor-plan` handles deep planning via
+     `CreatePlan` only, embedding Issue-creation steps when issue-first
+     (`.cursor/commands/cursor-plan.md`).
 
 2. **No `.reinguard/rules/`** — Replaced by `control/` subdirectories to
    avoid ambiguous naming.

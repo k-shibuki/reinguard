@@ -71,7 +71,8 @@ Post-review learning: `.reinguard/procedure/internalize.md`.
 **Cursor entries:** `.cursor/commands/rgd-next.md` — run/read `rgd context build`,
 map `state_id` → procedure paths above; no per-procedure Adapter stubs.
 `.cursor/commands/cursor-plan.md` — Plan-mode-style interrogation (`AskQuestion` /
-`CreatePlan`) and optional GitHub Issue creation (Phase 3B); not part of the FSM.
+`CreatePlan` only); GitHub Issue creation is expressed inside the plan when
+issue-first (Phase 3B content); not part of the FSM.
 
 ## Consequences
 

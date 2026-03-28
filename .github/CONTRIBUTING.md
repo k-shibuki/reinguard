@@ -71,7 +71,7 @@ Optional: `pre-commit install --hook-type commit-msg` and `pre-commit install` (
 
 - **Issue-driven**: Prefer one GitHub Issue per implementation PR; the PR body must include `Closes #N` (or `Fixes` / `Resolves`), unless you use an exception label and fill `## Exception` per [`.github/PULL_REQUEST_TEMPLATE.md`](PULL_REQUEST_TEMPLATE.md).
 - **Commits**: Conventional Commits and `Refs: #N` in the message body — see [`.reinguard/policy/commit--format.md`](../.reinguard/policy/commit--format.md).
-- **Commands**: Workflow procedures live under [`.reinguard/procedure/`](../.reinguard/procedure/). Cursor: [`rgd-next`](../.cursor/commands/rgd-next.md) (`rgd context build` → mapped procedure); [`cursor-plan`](../.cursor/commands/cursor-plan.md) (design interrogation + `CreatePlan` or Issue creation via Phase 3B).
+- **Commands**: Workflow procedures live under [`.reinguard/procedure/`](../.reinguard/procedure/). Cursor: [`rgd-next`](../.cursor/commands/rgd-next.md) (`rgd context build` → mapped procedure); [`cursor-plan`](../.cursor/commands/cursor-plan.md) (design interrogation + `CreatePlan` only; Issue-first work embeds Issue steps in the plan).
 
 ## CI and PR policy
 

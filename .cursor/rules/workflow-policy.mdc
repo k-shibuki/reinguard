@@ -20,7 +20,7 @@ Treat **inspect**, **create**, **address**, and **merge** as distinct steps (sup
 
 ## Agent procedure reference
 
-Procedure **bodies** live under [`.reinguard/procedure/`](../../.reinguard/procedure/) (SSOT). **Cursor entries:** [`rgd-next.md`](../commands/rgd-next.md) — `rgd context build` then open the mapped procedure (ADR-0013); [`cursor-plan.md`](../commands/cursor-plan.md) — `AskQuestion` / `CreatePlan` deep planning and optional `gh issue create` (Phase 3B).
+Procedure **bodies** live under [`.reinguard/procedure/`](../../.reinguard/procedure/) (SSOT). **Cursor entries:** [`rgd-next.md`](../commands/rgd-next.md) — `rgd context build` then open the mapped procedure (ADR-0013); [`cursor-plan.md`](../commands/cursor-plan.md) — `AskQuestion` / `CreatePlan` only (`gh issue create` appears as plan todos when issue-first).
 
 Use `gh` CLI for observation (`gh issue view`, `gh pr view`, `gh pr checks`, etc.) until full `rgd observe` coverage.
 
