@@ -70,7 +70,7 @@ confirm:
   meaningful (see `testing--strategy.md` § Perspectives)
 - Table-driven format when two or more scenarios test the same function
   (see `testing--strategy.md` § Table-driven tests)
-- **GWT**: a summary at **test function** level for non-trivial tests; not
+- **GWT**: non-trivial tests **must** have a function-level summary; not
   required inside table-driven loop bodies (see `testing--given-when-then.md`)
 - No `_ = <fallible call>` in test setup (immediate fail-fast with
   `t.Fatal`)

@@ -27,6 +27,9 @@ func TestCollect_zeroPR(t *testing.T) {
 
 func TestCollect_pullRequestNull(t *testing.T) {
 	t.Parallel()
+	// Given: GraphQL returns pullRequest: null for the requested number.
+	// When:  Collect processes the response.
+	// Then:  pull detail is nil and review counters are zero.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := map[string]any{
 			"data": map[string]any{
@@ -54,6 +57,9 @@ func TestCollect_pullRequestNull(t *testing.T) {
 
 func TestCollect_graphqlErrorsPropagates(t *testing.T) {
 	t.Parallel()
+	// Given: GraphQL response contains an errors array with no data.
+	// When:  Collect processes the error response.
+	// Then:  the error is surfaced to the caller.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"errors":[{"message":"upstream failure"}],"data":null}`))
@@ -69,6 +75,9 @@ func TestCollect_graphqlErrorsPropagates(t *testing.T) {
 //nolint:gocyclo // table-style GraphQL stub
 func TestCollect_onePage_threadsAndDetail(t *testing.T) {
 	t.Parallel()
+	// Given: a single GraphQL page containing PR detail, latest reviews, and review threads.
+	// When:  Collect is executed for a valid PR number.
+	// Then:  pull/review fields are normalized and aggregated as expected.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
@@ -86,7 +95,9 @@ func TestCollect_onePage_threadsAndDetail(t *testing.T) {
 		}
 		include, _ := req.Variables["includeDetail"].(bool)
 		if !include {
-			t.Fatal("first page must include detail")
+			t.Errorf("first page must include detail")
+			http.Error(w, "first page must include detail", http.StatusBadRequest)
+			return
 		}
 		resp := map[string]any{
 			"data": map[string]any{
@@ -173,6 +184,9 @@ func TestCollect_onePage_threadsAndDetail(t *testing.T) {
 
 func TestCollect_reviewThreadsPaginationIncomplete(t *testing.T) {
 	t.Parallel()
+	// Given: reviewThreads pagination continuously reports hasNextPage=true.
+	// When:  Collect paginates with maxReviewThreadPages cap.
+	// Then:  pagination_incomplete is true and request count is capped.
 	var calls atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls.Add(1)
@@ -237,6 +251,9 @@ func TestCollect_reviewThreadsPaginationIncomplete(t *testing.T) {
 
 func TestCollect_latestReviewsTruncated(t *testing.T) {
 	t.Parallel()
+	// Given: latestReviews pageInfo reports hasNextPage=true.
+	// When:  Collect processes the single page of review decisions.
+	// Then:  review_decisions_truncated is true.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := map[string]any{
 			"data": map[string]any{
@@ -278,6 +295,9 @@ func TestCollect_latestReviewsTruncated(t *testing.T) {
 
 func TestCollect_trackedReviewer_rateLimitAndEnrich(t *testing.T) {
 	t.Parallel()
+	// Given: tracked reviewer comments contain a CodeRabbit rate-limit message with enrich enabled.
+	// When:  Collect computes tracked_reviewer_status.
+	// Then:  contains_rate_limit=true and rate_limit_remaining_seconds is populated.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := map[string]any{
 			"data": map[string]any{
@@ -336,6 +356,9 @@ func TestCollect_trackedReviewer_rateLimitAndEnrich(t *testing.T) {
 
 func TestCollect_emptyLabelsAndClosingIssuesAreArrays(t *testing.T) {
 	t.Parallel()
+	// Given: a PR with no labels and no closing issue references.
+	// When:  Collect builds pull detail.
+	// Then:  labels and closing_issue_numbers are empty slices (not nil/null).
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := map[string]any{
 			"data": map[string]any{
@@ -376,6 +399,9 @@ func TestCollect_emptyLabelsAndClosingIssuesAreArrays(t *testing.T) {
 
 func TestCollect_trackedReviewer_noEnrichOmitsRateLimitSeconds(t *testing.T) {
 	t.Parallel()
+	// Given: tracked reviewer with no enrich plugins and rate-limit comments present.
+	// When:  Collect computes tracked_reviewer_status.
+	// Then:  rate_limit_remaining_seconds key is absent.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := map[string]any{
 			"data": map[string]any{
