@@ -44,4 +44,4 @@ For multiple labels (if ever needed): repeat `--label` or use `gh issue edit` af
 
 - `.reinguard/scripts/check-issue-policy.sh`
 - `.reinguard/policy/workflow--pr-discipline.md`
-- `.cursor/commands/implement.md` (branch naming uses the same type vocabulary as `labels.yaml`)
+- `.reinguard/procedure/implement.md` (branch naming uses the same type vocabulary as `labels.yaml`)

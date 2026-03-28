@@ -92,7 +92,7 @@ If the branch is updated while CodeRabbit is reviewing, CR may post
 
 Disposition categories, CodeRabbit resolution gate, and when threads may be resolved are **normative** in `.reinguard/policy/review--consensus-protocol.md` — do not duplicate that model here.
 
-**Operational shorthand** (after you post a disposition): check thread resolution state; CodeRabbit may confirm and auto-resolve; Codex follow-up usually needs a PR timeline comment with `@codex review` (see `.cursor/commands/review-address.md`).
+**Operational shorthand** (after you post a disposition): check thread resolution state; CodeRabbit may confirm and auto-resolve; Codex follow-up usually needs a PR timeline comment with `@codex review` (see `.reinguard/procedure/review-address.md`).
 
 ## Re-review
 
@@ -108,4 +108,4 @@ Deduplicate when both reviewers flag the same issue.
 
 - `.reinguard/policy/review--consensus-protocol.md` — disposition, resolve, consensus
 - `.reinguard/policy/safety--agent-invariants.md` § **HS-REVIEW-RESOLVE** (Cursor: `reinguard-bridge.mdc` § Always-active policy)
-- `.cursor/commands/review-address.md`
+- `.reinguard/procedure/review-address.md`

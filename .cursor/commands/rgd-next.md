@@ -1,6 +1,6 @@
-# reinguard-next
+# rgd-next
 
-Thin orchestrator: use **substrate** output to pick Semantics procedures. This command does **not** embed workflow logic that duplicates `rgd` state/route resolution (ADR-0001).
+Single Cursor entry for workflow procedures: use **substrate** output to pick Semantics docs. This command does **not** embed logic that duplicates `rgd` state/route resolution (ADR-0001).
 
 ## Sense
 
@@ -25,7 +25,7 @@ Use ADR-0013 and `.reinguard/control/` as SSOT. Heuristic table (when `state.kin
 | `pr_open` | `.reinguard/procedure/review-address.md` |
 | `changes_requested` | `.reinguard/procedure/review-address.md` |
 | `bot_rate_limited` / `bot_review_paused` | `.reinguard/knowledge/review--bot-operations.md` (and bot-specific docs from `knowledge.entries`) |
-| `ready_to_merge` | `.cursor/commands/pr-merge.md` |
+| `ready_to_merge` | `.reinguard/procedure/pr-merge.md` |
 
 When `state.kind` is not `resolved`, follow ADR-0007 handoff: gather observation diagnostics, fix config or observation, re-run `context build` — do not invent a winning state.
 

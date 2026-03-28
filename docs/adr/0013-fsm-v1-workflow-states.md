@@ -35,8 +35,8 @@ Consensus-style conditions (approved + no changes + threads resolved) are
 Routes in `.reinguard/control/routes/*.yaml` key off flattened `state.state_id`
 after state resolution (same mechanism as `rgd route select` with merged state).
 
-| route_id | Typical state_id | Cursor / procedure hint |
-|----------|------------------|---------------------------|
+| route_id | Typical state_id | Procedure hint (Semantics) |
+|----------|------------------|----------------------------|
 | `cursor-implement` | `working_no_pr` | `implement` |
 | `cursor-pr-create` | `working_no_pr` | `pr-create` (after local work) |
 | `cursor-monitor-pr` | `pr_open` | `review-address` / observe |
@@ -56,24 +56,24 @@ primary `route_id` in `rgd route select` output. Alternatives appear in
 
 ### 4. Adapter mapping (durable)
 
-| state_id (v1) | Primary procedure (Semantics) | Cursor stub |
-|---------------|--------------------------------|-------------|
-| `working_no_pr` | `.reinguard/procedure/implement.md` | `.cursor/commands/implement.md` |
-| `working_no_pr` | `.reinguard/procedure/pr-create.md` | `.cursor/commands/pr-create.md` |
-| `pr_open` | `.reinguard/procedure/review-address.md` | `.cursor/commands/review-address.md` |
-| `changes_requested` | `.reinguard/procedure/review-address.md` | `.cursor/commands/review-address.md` |
-| `bot_rate_limited` / `bot_review_paused` | knowledge + bot ops | optional `reinguard-next` only |
-| `ready_to_merge` | `.cursor/commands/pr-merge.md` (thin) | `.cursor/commands/pr-merge.md` |
+| state_id (v1) | Primary procedure (Semantics) |
+|---------------|------------------------------|
+| `working_no_pr` | `.reinguard/procedure/implement.md` |
+| `working_no_pr` | `.reinguard/procedure/pr-create.md` (when opening a PR) |
+| `pr_open` | `.reinguard/procedure/review-address.md` |
+| `changes_requested` | `.reinguard/procedure/review-address.md` |
+| `bot_rate_limited` / `bot_review_paused` | `.reinguard/knowledge/review--bot-operations.md` (+ `knowledge.entries`) |
+| `ready_to_merge` | `.reinguard/procedure/pr-merge.md` |
 
 Self-inspection before PR creation: `.reinguard/procedure/change-inspect.md`.
 Post-review learning: `.reinguard/procedure/internalize.md`.
 
-Orchestrator: `.cursor/commands/reinguard-next.md` runs `rgd context build` and
-points at Semantics; it does **not** replace substrate resolution.
+**Cursor entry:** `.cursor/commands/rgd-next.md` — run/read `rgd context build`,
+map `state_id` → procedure paths above; no per-procedure Adapter stubs.
 
 ## Consequences
 
-- **Easier**: One YAML-defined FSM; Adapter stays thin and traceable.
+- **Easier**: One YAML-defined FSM; a single Cursor entry (`rgd-next`) routes to procedures.
 - **Harder**: Priority authoring must stay global across states/routes/guards
   (ADR-0004).
 - **Harder**: Observation gaps mean broader states (e.g. `working_no_pr` when PR

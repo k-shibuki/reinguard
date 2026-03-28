@@ -20,7 +20,7 @@ Treat **inspect**, **create**, **address**, and **merge** as distinct steps (sup
 
 ## Agent procedure reference
 
-Procedure **bodies** live under [`.reinguard/procedure/`](../../.reinguard/procedure/) (SSOT). `.cursor/commands/` holds **thin stubs** that link there (`implement`, `change-inspect`, `pr-create`, `review-address`, `internalize`, `pr-merge`). Optional orchestrator: [`reinguard-next.md`](../commands/reinguard-next.md) (`rgd context build` + procedure hints; ADR-0013).
+Procedure **bodies** live under [`.reinguard/procedure/`](../../.reinguard/procedure/) (SSOT). **Cursor entry:** [`rgd-next.md`](../commands/rgd-next.md) — `rgd context build` then open the mapped procedure (ADR-0013). Other `.cursor/commands/` files (e.g. `issue-create`) are exceptions for GitHub-only flows.
 
 Use `gh` CLI for observation (`gh issue view`, `gh pr view`, `gh pr checks`, etc.) until full `rgd observe` coverage.
 

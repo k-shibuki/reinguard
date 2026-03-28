@@ -13,8 +13,8 @@ triggers:
 # Preflight verification
 
 Verification obligations before commit/push and hand-off. Referenced by
-`implement`, `change-inspect`, and `pr-create` commands; details delegated
-to Knowledge documents where noted.
+`.reinguard/procedure/` action cards (`implement`, `change-inspect`, `pr-create`,
+etc.); details delegated to Knowledge documents where noted.
 
 ## HS-LOCAL-VERIFY (conditional)
 

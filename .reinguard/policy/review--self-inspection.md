@@ -124,5 +124,6 @@ When reporting findings, use:
 - `.reinguard/knowledge/testing--strategy.md` — test perspectives,
   table-driven
 - `.reinguard/knowledge/testing--given-when-then.md` — GWT format
-- `.cursor/commands/change-inspect.md` — Adapter command that executes
-  this inspection (pre-PR; dimension 6 is deferred to `pr-create`)
+- `.reinguard/procedure/change-inspect.md` — procedure that executes this
+  inspection (pre-PR; dimension 6 is deferred to `pr-create`; enter via
+  `.cursor/commands/rgd-next.md` + `rgd context build`)

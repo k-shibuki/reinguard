@@ -49,7 +49,7 @@ Use `.github/ISSUE_TEMPLATE/task.yml` (Issue Form) as the starting point.
 - Fill **every** section of `.github/PULL_REQUEST_TEMPLATE.md` (Summary, DoD,
   Test plan, Linked issues, Exception if applicable).
 - Base branch is always **`main`**.
-- Review feedback dispositioned **Acknowledged**: follow `.reinguard/policy/review--consensus-protocol.md` § **Acknowledged — in-PR resolution vs follow-up Issue** (prefer Fixed / By design / False positive in the same PR; open a tracking Issue only for substantial separate work; Adapter procedure: `.cursor/commands/review-address.md`).
+- Review feedback dispositioned **Acknowledged**: follow `.reinguard/policy/review--consensus-protocol.md` § **Acknowledged — in-PR resolution vs follow-up Issue** (prefer Fixed / By design / False positive in the same PR; open a tracking Issue only for substantial separate work; Adapter procedure: `.reinguard/procedure/review-address.md`).
 
 ### PR body updates (`gh api` and multiline text)
 
