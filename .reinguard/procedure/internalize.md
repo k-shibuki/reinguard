@@ -29,7 +29,7 @@ implementations avoid the same class of review comments.
 - [`../policy/catalog.yaml`](../policy/catalog.yaml) / [`../knowledge/manifest.json`](../knowledge/manifest.json) — indexes
 - ADR-0001 § Responsibility layers — Adapter must not duplicate Semantics content
 
-**Already in context**: `reinguard-bridge.mdc` (HS-*, catalogs), `workflow-policy.mdc` (command separation).
+**Already in context** (always-active Adapter rule): HS-* codes, catalogs, workflow & commit policy.
 
 **Review input** (from repo root):
 

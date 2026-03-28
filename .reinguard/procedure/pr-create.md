@@ -24,11 +24,11 @@ escalate_when: gate-policy or branch protection cannot be satisfied without main
 ## Context
 
 - [GitHub PR template](../../.github/PULL_REQUEST_TEMPLATE.md) (body SSOT — **HS-PR-TEMPLATE**)
-- [`../policy/commit--format.md`](../policy/commit--format.md) (branch naming; Cursor: `commit-format.mdc`)
+- [`../policy/commit--format.md`](../policy/commit--format.md) (branch naming)
 - [`../policy/workflow--pr-discipline.md`](../policy/workflow--pr-discipline.md) § **PR body updates** — multiline `gh api` pitfalls (gate-policy)
 - [`check-pr-policy.sh`](../scripts/check-pr-policy.sh) (local pre-flight mirroring `gate-policy` CI)
 
-**Already in context** (do not re-list): `reinguard-bridge.mdc` (HS-*, catalogs), `workflow-policy.mdc` (exceptions, command separation).
+**Already in context** (always-active Adapter rule): HS-* codes, catalogs, workflow & commit policy.
 
 **Pre-requisite:** `change-inspect` completed with no Blocking findings.
 

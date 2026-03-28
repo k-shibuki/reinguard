@@ -39,7 +39,7 @@ Use `knowledge.entries` when a PR exists for the branch (review entries match `g
 
 Optional trigger pass: `rgd observe > /tmp/rgd-observe.json` then `rgd knowledge pack --observation-file /tmp/rgd-observe.json --query "review"`.
 
-**Already in context**: `reinguard-bridge.mdc` (HS-*).
+**Already in context** (always-active Adapter rule): HS-* codes, catalogs, workflow & commit policy.
 
 **Observation (initial):**
 

@@ -28,7 +28,7 @@ Optional: the repo **[`Makefile`](../Makefile)** provides `make test`, `make che
 (fmt, vet, lint, test — lint is `golangci-lint`), `make coverage`, `make build`, etc.
 It is **not** normative — CI and the shell commands below are the source of truth.
 
-Optional commit message template (see [`.reinguard/policy/commit--format.md`](../.reinguard/policy/commit--format.md); Cursor: [`.cursor/rules/commit-format.mdc`](../.cursor/rules/commit-format.mdc)):
+Optional commit message template (see [`.reinguard/policy/commit--format.md`](../.reinguard/policy/commit--format.md)):
 
 ```bash
 git config commit.template .github/gitmessage
@@ -36,7 +36,7 @@ git config commit.template .github/gitmessage
 
 ## Checks before you push
 
-Same gates as CI (see also [`.reinguard/policy/safety--agent-invariants.md`](../.reinguard/policy/safety--agent-invariants.md); Cursor: [`.cursor/rules/reinguard-bridge.mdc`](../.cursor/rules/reinguard-bridge.mdc) § Always-active policy):
+Same gates as CI (see also [`.reinguard/policy/safety--agent-invariants.md`](../.reinguard/policy/safety--agent-invariants.md)):
 
 ```bash
 go test ./... -race -count=1

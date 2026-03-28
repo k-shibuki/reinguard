@@ -28,10 +28,10 @@ escalate_when: Issue spec is ambiguous, blocked upstream, or policy exception is
 
 - [`../policy/coding--preflight.md`](../policy/coding--preflight.md) — **Preflight verification** (HS-LOCAL-VERIFY, defensive checks, test design, self-review)
 - [`../policy/coding--standards.md`](../policy/coding--standards.md) — **Change scope** (same-kind sweep across code, `.reinguard/`, `.cursor/`)
-- [`../policy/commit--format.md`](../policy/commit--format.md) — branch naming; Cursor: `commit-format.mdc`
-- [`.cursor/rules/test-strategy.mdc`](../../.cursor/rules/test-strategy.mdc) — GWT, table tests (points at `.reinguard/knowledge/testing--*.md`)
+- [`../policy/commit--format.md`](../policy/commit--format.md) — branch naming
+- [`../knowledge/testing--strategy.md`](../knowledge/testing--strategy.md) — GWT, table tests; also [`testing--assertions.md`](../knowledge/testing--assertions.md), [`testing--given-when-then.md`](../knowledge/testing--given-when-then.md)
 
-**Already in context**: `reinguard-bridge.mdc` (HS-*, catalogs), `workflow-policy.mdc` (Issue-driven work, command separation).
+**Already in context** (always-active Adapter rule): HS-* codes, catalogs, workflow & commit policy.
 
 **Issue metadata** (from repo root):
 
@@ -93,6 +93,6 @@ rgd observe
 
 ## Guard
 
-- All work traceable to an Issue (`Refs: #N` in commits per `commit-format.md`)
+- All work traceable to an Issue (`Refs: #N` in commits per `commit--format.md`)
 - **HS-LOCAL-VERIFY**, **HS-NO-SKIP** — enforced via `coding--preflight.md` (Act step 6)
 - Prefer **`rgd`** for observation/context/knowledge; use **`gh`** / **`git`** for GitHub/git inspection per `evidence-temporary.mdc`

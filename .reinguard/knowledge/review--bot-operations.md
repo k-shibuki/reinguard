@@ -107,5 +107,5 @@ Deduplicate when both reviewers flag the same issue.
 ## Related
 
 - `.reinguard/policy/review--consensus-protocol.md` — disposition, resolve, consensus
-- `.reinguard/policy/safety--agent-invariants.md` § **HS-REVIEW-RESOLVE** (Cursor: `reinguard-bridge.mdc` § Always-active policy)
+- `.reinguard/policy/safety--agent-invariants.md` § **HS-REVIEW-RESOLVE**
 - `.reinguard/procedure/review-address.md`

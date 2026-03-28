@@ -26,7 +26,7 @@ escalate_when: Checks red, threads unresolved, or policy exception required.
 
 - [`../policy/review--consensus-protocol.md`](../policy/review--consensus-protocol.md) (disposition, thread resolution, CodeRabbit gate)
 
-**Already in context**: `reinguard-bridge.mdc` (HS-*).
+**Already in context** (always-active Adapter rule): HS-* codes, catalogs, workflow & commit policy.
 
 **Merge readiness (substrate):** structured check before merge. From repo root with `rgd` on PATH:
 

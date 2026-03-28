@@ -32,7 +32,7 @@ merge, or restructure commits (commit organization is `implement` step 7).
 - [`../policy/coding--standards.md`](../policy/coding--standards.md) § **Change scope** — same-kind sweep across code, `.reinguard/`, `.cursor/`
 - `AGENTS.md` (severity P0/P1, review guidelines)
 
-**Already in context**: `reinguard-bridge.mdc` (HS-*), `workflow-policy.mdc` (command separation).
+**Already in context** (always-active Adapter rule): HS-* codes, catalogs, workflow & commit policy.
 
 **Knowledge discovery** (substrate):
 

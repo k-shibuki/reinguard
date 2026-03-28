@@ -846,6 +846,26 @@ func TestLoad_repositoryReinguard(t *testing.T) {
 	if _, err := Load(dir); err != nil {
 		t.Fatalf("Load: %v", err)
 	}
+
+	// And: control catalog lists workflow bundle entries expected by adapter/docs
+	catalogPath := filepath.Join(dir, "control", "catalog.yaml")
+	data, err := os.ReadFile(catalogPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", catalogPath, err)
+	}
+	catalog := string(data)
+	for _, must := range []string{
+		"id: workflow-states",
+		"path: states/workflow.yaml",
+		"id: workflow-routes",
+		"path: routes/workflow.yaml",
+		"id: merge-readiness-guard",
+		"path: guards/default.yaml",
+	} {
+		if !strings.Contains(catalog, must) {
+			t.Fatalf("catalog missing %q", must)
+		}
+	}
 }
 
 func writeFile(t *testing.T, path string, data []byte) {

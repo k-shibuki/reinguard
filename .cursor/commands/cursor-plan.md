@@ -8,9 +8,9 @@ Adapter layer: reference Semantics paths only for policy; do not duplicate norma
 
 ## Context (open as needed)
 
-- [`.reinguard/policy/workflow--pr-discipline.md`](../.reinguard/policy/workflow--pr-discipline.md) — Issue sections, PR body constraints
-- [`.reinguard/policy/coding--standards.md`](../.reinguard/policy/coding--standards.md) — change scope, ADR/CLI authority
-- [`.reinguard/policy/safety--agent-invariants.md`](../.reinguard/policy/safety--agent-invariants.md) — HS-*
+- [`.reinguard/policy/workflow--pr-discipline.md`](../../.reinguard/policy/workflow--pr-discipline.md) — Issue sections, PR body constraints
+- [`.reinguard/policy/coding--standards.md`](../../.reinguard/policy/coding--standards.md) — change scope, ADR/CLI authority
+- [`.reinguard/policy/safety--agent-invariants.md`](../../.reinguard/policy/safety--agent-invariants.md) — HS-*
 
 ## Phase 1 — Gather
 
@@ -31,7 +31,7 @@ Adapter layer: reference Semantics paths only for policy; do not duplicate norma
    rgd context build
    ```
 
-   Use `knowledge.entries` paths from stdout JSON; otherwise triage [`.reinguard/knowledge/manifest.json`](../.reinguard/knowledge/manifest.json) by `description` / `triggers` and open only what you need.
+   Use `knowledge.entries` paths from stdout JSON; otherwise triage [`.reinguard/knowledge/manifest.json`](../../.reinguard/knowledge/manifest.json) by `description` / `triggers` and open only what you need.
 
 ## Phase 2 — Interrogate (recursive)
 

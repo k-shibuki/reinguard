@@ -10,7 +10,7 @@ triggers:
 
 # Workflow and PR discipline
 
-Repository-wide workflow rules. The Cursor Adapter rule `workflow-policy.mdc` points here as SSOT.
+Repository-wide workflow rules.
 
 ## Issue-driven work
 
