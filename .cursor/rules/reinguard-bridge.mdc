@@ -13,7 +13,7 @@ and Substrate (`rgd`). Do not duplicate body text from `.reinguard/` here.
 - **Knowledge catalog**: [.reinguard/knowledge/manifest.json](../../.reinguard/knowledge/manifest.json) — `entries[]` with `id`, `path`, `description`, `triggers`, `when` (ADR-0010).
 - **Policy catalog** (normative, not in knowledge manifest): [.reinguard/policy/catalog.yaml](../../.reinguard/policy/catalog.yaml) — `entries[]` with `id`, `path`, `description`; bodies live under [.reinguard/policy/](../../.reinguard/policy/).
 - **Control catalog** (human-maintained index; not read by validate): [.reinguard/control/catalog.yaml](../../.reinguard/control/catalog.yaml) — `entries[]` with `id`, `path`, `type`, `description`. **Rule YAML** under [.reinguard/control/states/](../../.reinguard/control/states/), [routes/](../../.reinguard/control/routes/), [guards/](../../.reinguard/control/guards/) — consumed by `config.Load` / `rgd config validate`.
-- **Procedures** (agent action cards; ADR-0011, ADR-0013): [.reinguard/procedure/](../../.reinguard/procedure/) — Cursor commands link here.
+- **Procedures** (agent action cards; ADR-0011, ADR-0013): [.reinguard/procedure/](../../.reinguard/procedure/) — Cursor: [`rgd-next.md`](../commands/rgd-next.md), [`cursor-plan.md`](../commands/cursor-plan.md).
 
 ## Always-active policy
 

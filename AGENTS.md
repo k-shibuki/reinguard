@@ -2,7 +2,7 @@
 
 Configuration for AI reviewers (e.g. CodeRabbit) and agents using this repository.
 
-- **Semantics (SSOT)**: `.reinguard/` — policy index: [`.reinguard/policy/catalog.yaml`](.reinguard/policy/catalog.yaml); knowledge index: [`.reinguard/knowledge/manifest.json`](.reinguard/knowledge/manifest.json); agent procedures: [`.reinguard/procedure/`](.reinguard/procedure/) (workflow Cursor entry: [`.cursor/commands/rgd-next.md`](.cursor/commands/rgd-next.md); FSM: [ADR-0013](docs/adr/0013-fsm-v1-workflow-states.md)).
+- **Semantics (SSOT)**: `.reinguard/` — policy index: [`.reinguard/policy/catalog.yaml`](.reinguard/policy/catalog.yaml); knowledge index: [`.reinguard/knowledge/manifest.json`](.reinguard/knowledge/manifest.json); agent procedures: [`.reinguard/procedure/`](.reinguard/procedure/) (Cursor: [`.cursor/commands/rgd-next.md`](.cursor/commands/rgd-next.md) for FSM workflow; [`.cursor/commands/cursor-plan.md`](.cursor/commands/cursor-plan.md) for deep planning / Issue creation; FSM: [ADR-0013](docs/adr/0013-fsm-v1-workflow-states.md)).
 - **Adapter (Cursor)**: `.cursor/rules/` and `.cursor/commands/` point at Semantics; see [ADR-0001](docs/adr/0001-system-positioning.md).
 
 ## Project context

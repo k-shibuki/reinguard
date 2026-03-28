@@ -68,12 +68,14 @@ primary `route_id` in `rgd route select` output. Alternatives appear in
 Self-inspection before PR creation: `.reinguard/procedure/change-inspect.md`.
 Post-review learning: `.reinguard/procedure/internalize.md`.
 
-**Cursor entry:** `.cursor/commands/rgd-next.md` — run/read `rgd context build`,
+**Cursor entries:** `.cursor/commands/rgd-next.md` — run/read `rgd context build`,
 map `state_id` → procedure paths above; no per-procedure Adapter stubs.
+`.cursor/commands/cursor-plan.md` — Plan-mode-style interrogation (`AskQuestion` /
+`CreatePlan`) and optional GitHub Issue creation (Phase 3B); not part of the FSM.
 
 ## Consequences
 
-- **Easier**: One YAML-defined FSM; a single Cursor entry (`rgd-next`) routes to procedures.
+- **Easier**: One YAML-defined FSM; `rgd-next` routes substrate output to procedures.
 - **Harder**: Priority authoring must stay global across states/routes/guards
   (ADR-0004).
 - **Harder**: Observation gaps mean broader states (e.g. `working_no_pr` when PR

@@ -32,8 +32,9 @@ Without explicit structure:
    - `procedure/` — agent **action-card** bodies (Markdown with YAML front
      matter: `id`, `purpose`, `applies_to`, `reads`, `sense`, `act`, `output`,
      `done_when`, `escalate_when`). SSOT for procedural steps lives here
-     (ADR-0013). Optional Cursor entry `rgd-next` maps substrate output to these
-     paths (`.cursor/commands/rgd-next.md`).
+     (ADR-0013). Cursor: `rgd-next` maps substrate output to these paths
+     (`.cursor/commands/rgd-next.md`); `cursor-plan` handles deep planning and
+     optional Issue creation (`.cursor/commands/cursor-plan.md`).
 
 2. **No `.reinguard/rules/`** — Replaced by `control/` subdirectories to
    avoid ambiguous naming.
