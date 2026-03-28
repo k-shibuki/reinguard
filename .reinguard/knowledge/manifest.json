@@ -198,6 +198,29 @@
       }
     },
     {
+      "id": "testing-setup-error-handling",
+      "path": ".reinguard/knowledge/testing--setup-error-handling.md",
+      "description": "Fail-fast test setup — never discard errors from helpers or registration calls",
+      "triggers": [
+        "test setup error",
+        "t.Fatal setup",
+        "discard error test",
+        "register error test"
+      ],
+      "when": {
+        "or": [
+          {
+            "op": "exists",
+            "path": "git.branch"
+          },
+          {
+            "op": "exists",
+            "path": "github.repository.owner"
+          }
+        ]
+      }
+    },
+    {
       "id": "testing-strategy",
       "path": ".reinguard/knowledge/testing--strategy.md",
       "description": "Go test strategy — coverage, perspectives, table-driven tests, CLI tests, mocks",

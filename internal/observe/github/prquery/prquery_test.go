@@ -306,6 +306,91 @@ func TestCollect_trackedReviewer_rateLimitAndEnrich(t *testing.T) {
 	}
 }
 
+func TestCollect_emptyLabelsAndClosingIssuesAreArrays(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		resp := map[string]any{
+			"data": map[string]any{
+				"repository": map[string]any{
+					"pullRequest": map[string]any{
+						"state": "OPEN", "isDraft": false, "title": "t",
+						"mergeable": "UNKNOWN", "mergeStateStatus": "UNKNOWN",
+						"baseRefName": "main", "headRefOid": "x",
+						"labels":                  map[string]any{"nodes": []any{}},
+						"closingIssuesReferences": map[string]any{"nodes": []any{}},
+						"latestReviews":           map[string]any{"pageInfo": map[string]any{"hasNextPage": false}, "nodes": []any{}},
+						"comments":                map[string]any{"nodes": []any{}},
+						"reviewThreads":           map[string]any{"pageInfo": map[string]any{"hasNextPage": false}, "nodes": []any{}},
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	pull, _, err := Collect(context.Background(), c, "o", "r", 1, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	labels, ok := pull["labels"].([]any)
+	if !ok || len(labels) != 0 {
+		t.Fatalf("labels: %+v", pull["labels"])
+	}
+	issues, ok := pull["closing_issue_numbers"].([]any)
+	if !ok || len(issues) != 0 {
+		t.Fatalf("issues: %+v", pull["closing_issue_numbers"])
+	}
+}
+
+func TestCollect_trackedReviewer_noEnrichOmitsRateLimitSeconds(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		resp := map[string]any{
+			"data": map[string]any{
+				"repository": map[string]any{
+					"pullRequest": map[string]any{
+						"state": "OPEN", "isDraft": false, "title": "t",
+						"mergeable": "UNKNOWN", "mergeStateStatus": "UNKNOWN",
+						"baseRefName": "main", "headRefOid": "x",
+						"labels":                  map[string]any{"nodes": []any{}},
+						"closingIssuesReferences": map[string]any{"nodes": []any{}},
+						"latestReviews":           map[string]any{"pageInfo": map[string]any{"hasNextPage": false}, "nodes": []any{}},
+						"comments": map[string]any{
+							"nodes": []map[string]any{
+								{
+									"author":    map[string]any{"login": "coderabbitai[bot]"},
+									"body":      "Rate limit exceeded. Please try again in 2 minutes and 5 seconds",
+									"updatedAt": "2026-03-27T12:00:00Z",
+								},
+							},
+						},
+						"reviewThreads": map[string]any{"pageInfo": map[string]any{"hasNextPage": false}, "nodes": []any{}},
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	tracked := []TrackedReviewer{{Login: "coderabbitai[bot]"}}
+	_, rev, err := Collect(context.Background(), c, "o", "r", 1, tracked)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := rev["tracked_reviewer_status"].([]any)
+	if len(st) != 1 {
+		t.Fatalf("status len: %v", st)
+	}
+	m := st[0].(map[string]any)
+	if _, exists := m["rate_limit_remaining_seconds"]; exists {
+		t.Fatalf("unexpected key: %+v", m)
+	}
+}
+
 func assertReviewsZeros(t *testing.T, rev map[string]any, incomplete bool) {
 	t.Helper()
 	if rev["review_threads_total"].(int) != 0 || rev["review_threads_unresolved"].(int) != 0 {

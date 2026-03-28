@@ -250,7 +250,7 @@ func buildPullDetail(pr *prPullRequestNode) map[string]any {
 		m["merge_state_status"] = strings.ToLower(strings.TrimSpace(*pr.MergeStateStatus))
 	}
 	if pr.Labels != nil {
-		var names []any
+		names := make([]any, 0, len(pr.Labels.Nodes))
 		for _, n := range pr.Labels.Nodes {
 			if n.Name != "" {
 				names = append(names, n.Name)
@@ -259,7 +259,7 @@ func buildPullDetail(pr *prPullRequestNode) map[string]any {
 		m["labels"] = names
 	}
 	if pr.ClosingIssuesReferences != nil {
-		var nums []any
+		nums := make([]any, 0, len(pr.ClosingIssuesReferences.Nodes))
 		for _, n := range pr.ClosingIssuesReferences.Nodes {
 			nums = append(nums, n.Number)
 		}
@@ -347,14 +347,13 @@ func buildTrackedReviewerStatus(pr *prPullRequestNode, tracked []TrackedReviewer
 		body, updated := latestCommentForLogin(nodes, login)
 		lower := strings.ToLower(body)
 		status := map[string]any{
-			"login":                        login,
-			"has_review":                   hasRev,
-			"review_state":                 state,
-			"latest_comment_at":            updated,
-			"contains_rate_limit":          strings.Contains(lower, "rate limit"),
-			"contains_review_paused":       strings.Contains(lower, "review paused") || strings.Contains(lower, "review pause"),
-			"contains_review_failed":       strings.Contains(lower, "review failed"),
-			"rate_limit_remaining_seconds": 0,
+			"login":                  login,
+			"has_review":             hasRev,
+			"review_state":           state,
+			"latest_comment_at":      updated,
+			"contains_rate_limit":    strings.Contains(lower, "rate limit"),
+			"contains_review_paused": strings.Contains(lower, "review paused") || strings.Contains(lower, "review pause"),
+			"contains_review_failed": strings.Contains(lower, "review failed"),
 		}
 		if extra := applyEnrichments(body, tr.Enrich); len(extra) > 0 {
 			for k, v := range extra {

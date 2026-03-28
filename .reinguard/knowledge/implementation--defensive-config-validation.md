@@ -91,6 +91,34 @@ Evaluator)`) must reject a **nil** interface value **before** calling interface
 methods such as `Name()` — otherwise callers get a panic instead of a stable
 error.
 
+## RWMutex re-entrancy trap
+
+`sync.RWMutex` is **not re-entrant**. Avoid calling a helper that acquires the
+same lock from a section that already holds `RLock`/`Lock` on that mutex.
+
+Preferred pattern:
+
+- keep a `...Locked` helper that assumes the caller already holds the lock
+- call that helper from both exported lock-taking functions and validation paths
+
+Example shape:
+
+```go
+func Names() []string {
+    mu.RLock()
+    defer mu.RUnlock()
+    return namesLocked()
+}
+
+func Validate(input []string) error {
+    mu.RLock()
+    defer mu.RUnlock()
+    known := namesLocked()
+    // ... validate against known
+    return nil
+}
+```
+
 ## Match-time vs validate-time walkers
 
 When decoded YAML/JSON maps carry optional keys (for example `eval` beside
@@ -124,24 +152,8 @@ for i, spec := range specs {
 }
 ```
 
-## Test setup error handling
-
-Never discard errors from test helper or setup calls:
-
-```go
-// BAD
-_ = r.Register("a", factory)
-
-// GOOD
-if err := r.Register("a", factory); err != nil {
-    t.Fatal(err)
-}
-```
-
-Discarding setup errors masks root causes and makes later assertion
-failures non-diagnostic.
-
 ## Related
 
 - `.reinguard/policy/coding--preflight.md` — verification obligations
 - `.reinguard/knowledge/testing--strategy.md` — test perspectives
+- `.reinguard/knowledge/testing--setup-error-handling.md` — fail-fast setup (`_ =` anti-pattern)

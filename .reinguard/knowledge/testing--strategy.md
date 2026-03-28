@@ -78,19 +78,7 @@ or logical combinators — extend table-driven tests with at least one row per
 **distinct entry path**, not only top-level shapes. Otherwise a regression in
 plumbing inside nested clauses can still pass while top-level cases stay green.
 
-## Test setup error handling
-
-Never discard errors from test setup or helper calls:
-
-```go
-// BAD — masks root cause
-_ = r.Register("a", factory)
-
-// GOOD — fails fast with diagnostic message
-if err := r.Register("a", factory); err != nil {
-    t.Fatal(err)
-}
-```
+Setup error handling (never `_ =` fallible calls): see [`testing--setup-error-handling.md`](testing--setup-error-handling.md).
 
 ## CLI tests (urfave/cli v2)
 
@@ -125,4 +113,5 @@ should be rejected unless the change is documentation-only.
 
 - [`testing--assertions.md`](testing--assertions.md)
 - [`testing--given-when-then.md`](testing--given-when-then.md)
+- [`testing--setup-error-handling.md`](testing--setup-error-handling.md)
 - `.reinguard/knowledge/manifest.json` — index entry for this document

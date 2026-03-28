@@ -88,20 +88,11 @@ If the branch is updated while CodeRabbit is reviewing, CR may post
 3. Sleep, re-trigger same reviewer
 4. Second rate limit → treat as timed out (max 1 recovery)
 
-## Agreement Mechanics
+## Consensus and disposition (policy SSOT)
 
-How each bot expresses agreement after a disposition reply:
+Disposition categories, CodeRabbit resolution gate, and when threads may be resolved are **normative** in `.reinguard/policy/review--consensus-protocol.md` — do not duplicate that model here.
 
-| Behavior | CodeRabbit | Codex |
-|---|---|---|
-| Reads disposition replies | **Yes** — checks referenced commit | **No** |
-| Confirms fix | Replies with confirmation + **auto-resolves thread** | N/A |
-| Objects | Replies with objection, thread stays unresolved | N/A |
-| Agreement via re-review | Also works (no new finding = agreement) | **Only method** (no new finding = implicit agreement) |
-
-**Implication**: After posting a disposition reply, check thread state
-first. If CodeRabbit already confirmed and auto-resolved, no re-review
-is needed. For Codex, re-review is the only path to consensus.
+**Operational shorthand** (after you post a disposition): check thread resolution state; CodeRabbit may confirm and auto-resolve; Codex follow-up usually needs a PR timeline comment with `@codex review` (see `.cursor/commands/review-address.md`).
 
 ## Re-review
 

@@ -42,28 +42,33 @@ func RegisterEnrichment(e Enrichment) error {
 func EnrichmentNames() []string {
 	enrichmentMu.RLock()
 	defer enrichmentMu.RUnlock()
-	out := make([]string, 0, len(enrichmentByName))
-	for n := range enrichmentByName {
-		out = append(out, n)
-	}
-	sort.Strings(out)
-	return out
+	return knownEnrichmentNamesLocked()
 }
 
 // ValidateEnrichmentNames returns an error if any name is unknown.
 func ValidateEnrichmentNames(names []string) error {
 	enrichmentMu.RLock()
 	defer enrichmentMu.RUnlock()
+	knownNames := knownEnrichmentNamesLocked()
 	for _, n := range names {
 		n = strings.TrimSpace(n)
 		if n == "" {
 			return fmt.Errorf("prquery: empty enrich name")
 		}
 		if _, ok := enrichmentByName[n]; !ok {
-			return fmt.Errorf("prquery: unknown enrich %q (known: %s)", n, strings.Join(EnrichmentNames(), ", "))
+			return fmt.Errorf("prquery: unknown enrich %q (known: %s)", n, strings.Join(knownNames, ", "))
 		}
 	}
 	return nil
+}
+
+func knownEnrichmentNamesLocked() []string {
+	out := make([]string, 0, len(enrichmentByName))
+	for n := range enrichmentByName {
+		out = append(out, n)
+	}
+	sort.Strings(out)
+	return out
 }
 
 func applyEnrichments(body string, enrichNames []string) map[string]any {

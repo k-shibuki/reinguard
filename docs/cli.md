@@ -163,7 +163,7 @@ Populated when the `reviews` facet runs (see `rgd observe github reviews`). Data
 | `review_decisions_approved` | number | Count with state `APPROVED`. |
 | `review_decisions_changes_requested` | number | Count with state `CHANGES_REQUESTED`. |
 | `review_decisions_truncated` | boolean | True if `latestReviews` reports `hasNextPage` (more than one page of decisions not fetched). |
-| `tracked_reviewer_status` | array | One object per configured `tracked_reviewers` entry (empty array if unset). Each object includes: `login`, `has_review`, `review_state` (from `latestReviews`, empty if none), `latest_comment_at` (ISO8601 from newest matching PR comment, or empty), generic flags `contains_rate_limit`, `contains_review_paused`, `contains_review_failed` (substring checks on that comment body, case-insensitive), and optional `rate_limit_remaining_seconds` when a matching `enrich` plugin applies (e.g. `coderabbit`). |
+| `tracked_reviewer_status` | array | One object per configured `tracked_reviewers` entry (empty array if unset). Each object includes: `login`, `has_review`, `review_state` (from `latestReviews`, empty if none), `latest_comment_at` (ISO8601 from newest matching PR comment in the fetched `comments(last: 50)` window, or empty), generic flags `contains_rate_limit`, `contains_review_paused`, `contains_review_failed` (substring checks on that comment body, case-insensitive), and optional `rate_limit_remaining_seconds` when a matching `enrich` plugin applies (e.g. `coderabbit`). |
 
 GraphQL failures for this query are reported as diagnostics with provider **`github.pr-query`** (non-fatal to other facets unless the whole provider degrades).
 
