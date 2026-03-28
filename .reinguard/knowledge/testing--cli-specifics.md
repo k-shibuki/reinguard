@@ -26,7 +26,8 @@ when:
 2. **Per-`Flags` slice instances**: The library also mutates flags during
    `Apply`. **Do not register the same `*cli.BoolFlag` / `*cli.StringFlag` on
    more than one command's `Flags` slice.** Use factories (`newSerialFlag`,
-   `observeFlags`, etc.) — **a new instance per slice**.
+   `observeFlags`, etc.) — **a new instance per slice** (implementations in
+   `internal/rgdcli/flag_factories.go`).
 3. **Fixtures**: Shared YAML for CLI tests lives in `internal/rgdcli/fixtures_test.go`.
 
 ## Related

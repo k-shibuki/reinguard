@@ -66,3 +66,12 @@ Implementation/testing pattern:
 
 - optional map fields: set only when source data exists
 - tests should assert key absence for non-derived cases and exact value when present
+
+## Scope: Rule 4 vs stable observation counts
+
+Rule 4 applies to **optional** numerics whose presence means “value was
+derived” (for example enrichment output). It does **not** require omitting
+**documented aggregate counts** that are part of a stable observation
+shape — for example `signals.github.reviews` fields such as
+`review_decisions_total` documented in `docs/cli.md`, where `0` means
+“no matching reviews,” not “field unavailable.”

@@ -3,7 +3,9 @@ id: testing-mock-strategy
 description: "Mock and subprocess strategy — httptest for GitHub API, hermetic git, gh stub"
 triggers:
   - mock
+  - GitHub API
   - httptest
+  - gh stub
   - test subprocess
   - hermetic git
 when:
