@@ -70,8 +70,11 @@ func TestCoderabbitEnrichment_reviewStatusCompleted(t *testing.T) {
 	t.Parallel()
 	e := coderabbitEnrichment{}
 	got := e.Enrich("**Status:** ✅ completed\n")
-	if got["cr_review_processing"].(bool) {
-		t.Fatalf("want processing false/absent, got %v", got)
+	if v, ok := got["cr_review_processing"]; ok {
+		processing, ok := v.(bool)
+		if !ok || processing {
+			t.Fatalf("want processing false/absent, got %v", got)
+		}
 	}
 }
 

@@ -267,8 +267,9 @@ func TestGitHubProviderFactory_botReviewers_ok(t *testing.T) {
 	if br0.ID != "coderabbit" || br0.Login != "coderabbitai[bot]" || !br0.Required || len(br0.Enrich) != 1 || br0.Enrich[0] != "coderabbit" {
 		t.Fatalf("%+v", br0)
 	}
-	if gp.BotReviewers[1].ID != "codex" || gp.BotReviewers[1].Required {
-		t.Fatalf("%+v", gp.BotReviewers[1])
+	br1 := gp.BotReviewers[1]
+	if br1.ID != "codex" || br1.Login != "chatgpt-codex-connector[bot]" || br1.Required || len(br1.Enrich) != 0 {
+		t.Fatalf("%+v", br1)
 	}
 }
 

@@ -97,8 +97,14 @@ rules:
           path: github.reviews.review_threads_unresolved
           value: 0
         - op: eq
+          path: github.reviews.pagination_incomplete
+          value: false
+        - op: eq
           path: github.reviews.review_decisions_changes_requested
           value: 0
+        - op: eq
+          path: github.reviews.review_decisions_truncated
+          value: false
         - op: eq
           path: git.working_tree_clean
           value: true
@@ -123,8 +129,14 @@ rules:
           path: github.reviews.review_threads_unresolved
           value: 0
         - op: eq
+          path: github.reviews.pagination_incomplete
+          value: false
+        - op: eq
           path: github.reviews.review_decisions_changes_requested
           value: 0
+        - op: eq
+          path: github.reviews.review_decisions_truncated
+          value: false
         - op: eq
           path: git.working_tree_clean
           value: true

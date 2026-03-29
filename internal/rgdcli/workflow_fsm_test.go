@@ -64,7 +64,9 @@ var workflowFSMScenarioFixtures = []struct {
       "ci": {"ci_status": "pending"},
       "reviews": {
         "review_threads_unresolved": 0,
+        "pagination_incomplete": false,
         "review_decisions_changes_requested": 0,
+        "review_decisions_truncated": false,
         "bot_reviewer_status": []
       }
     }
@@ -130,7 +132,9 @@ var workflowFSMScenarioFixtures = []struct {
       "ci": {"ci_status": "success"},
       "reviews": {
         "review_threads_unresolved": 0,
+        "pagination_incomplete": false,
         "review_decisions_changes_requested": 0,
+        "review_decisions_truncated": false,
         "bot_reviewer_status": []
       }
     }

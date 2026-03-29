@@ -871,6 +871,12 @@ func TestLoad_repositoryReinguard(t *testing.T) {
 		Description string
 	})
 	for _, e := range cat.Entries {
+		if strings.TrimSpace(e.ID) == "" {
+			t.Fatal("catalog has blank entry id")
+		}
+		if _, exists := byID[e.ID]; exists {
+			t.Fatalf("catalog has duplicate entry id %q", e.ID)
+		}
 		byID[e.ID] = struct {
 			Path        string
 			Type        string

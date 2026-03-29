@@ -49,7 +49,7 @@ When two sources flag the **same** issue:
 
 1. **Formal** `CHANGES_REQUESTED` and **unresolved** review threads (actionable inline work).
 2. **Failing required checks** (fix or document exception per policy).
-3. **Bot run / quota / pause** (see `.reinguard/procedure/wait-bot-review.md` and `review--bot-operations.md`).
+3. **Bot run / quota / pause / failure** (see `.reinguard/procedure/wait-bot-review.md` and `review--bot-operations.md`).
 4. **CI / mergeability pending** with no open review work (`waiting_ci` in control FSM — poll checks, fix red jobs).
 
 ## “Done” for merge handoff (operational)
