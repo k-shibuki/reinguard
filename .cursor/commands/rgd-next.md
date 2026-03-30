@@ -14,7 +14,7 @@ Single Cursor entry for workflow procedures: use **substrate** output to pick Se
 
 2. Parse stdout JSON:
    - `state.state_id`, `state.kind`
-   - `routes[0].route_id` (when `kind` is `resolved`)
+   - `routes[0].kind`, `routes[0].route_id` (when `routes[0].kind` is `resolved`)
    - `knowledge.entries` (filtered aids)
 
 ## Map (v2)

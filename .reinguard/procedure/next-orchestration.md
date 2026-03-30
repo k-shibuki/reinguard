@@ -88,9 +88,9 @@ After approval, the agent **must** drive toward **Per-unit Definition of Done** 
 Repeat until Per-unit Definition of Done is satisfied or an **allowed stop** fires:
 
 1. **Sense** — `rgd context build` (same cwd / `--config-dir` as `rgd-next.md` § Sense).
-2. **Parse** — `state`, `routes[0]`, `guards`, `knowledge.entries`; emit a short summary each iteration for the transcript.
+2. **Parse** — `state`, `routes[0]` (interpret `routes[0].route_id` only when `routes[0].kind` is `resolved`), `guards`, `knowledge.entries`; emit a short summary each iteration for the transcript.
 3. **Map** — Use **Map (v2)** in `rgd-next.md`. If `state.kind` is not `resolved`, follow ADR-0007 handoff; do not invent a winning state.
-4. **Execute** — Open the mapped procedure file(s) and **follow each procedure in full** (Context, Reads, Sense, Act, Output, Guard, front-matter `done_when` / `escalate_when` as applicable). Do not shortcut HS-*.
+4. **Execute** — Open the mapped procedure file(s) and **follow each procedure in full** (Context, Reads, Sense, Act, Output, Guard, front-matter `done_when` / `escalate_when` as applicable). Treat any “confirm” / “verify” language in mapped procedures as **agent self-checks** (evidence-backed), not a new user-approval gate, unless an **allowed stop** applies. Do not shortcut HS-*.
 5. **Refresh** — After any **material** remote or local change (push, merge, thread resolve batch, bot re-review when the procedure says so), run **`rgd context build` again** before the next Map.
 
 **Dirty working tree + `review-address`:** When `rgd-next.md` **Map (v2)** says so, run **Step 0** in `review-address.md` before disposition-heavy work. See `.reinguard/knowledge/review--incremental-fix-flow.md`.

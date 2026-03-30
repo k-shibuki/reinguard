@@ -70,6 +70,7 @@ Control plane states live under `.reinguard/control/states/workflow.yaml`. Human
 
 - `.reinguard/procedure/review-address.md` — execution steps
 - `.reinguard/procedure/wait-bot-review.md` — bot wait / retry / re-trigger
+- `.reinguard/policy/review--consensus-protocol.md` — normative disposition and resolve rules
 - `.reinguard/knowledge/review--bot-operations.md` — CodeRabbit / Codex mechanics
 - `.reinguard/knowledge/review--github-thread-api.md` — REST vs GraphQL for `isResolved`
 - `docs/adr/0013-fsm-v1-workflow-states.md` — state catalog and Adapter mapping
