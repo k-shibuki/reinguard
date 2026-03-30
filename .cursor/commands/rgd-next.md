@@ -63,3 +63,4 @@ Loop (summary): **Sense** (`rgd context build`) → **Route** (ADR-0013 § 4; sa
 
 - FSM and priorities: [`docs/adr/0013-fsm-v1-workflow-states.md`](../../docs/adr/0013-fsm-v1-workflow-states.md)
 - Adapter vs Semantics: [`docs/adr/0001-system-positioning.md`](../../docs/adr/0001-system-positioning.md)
+- Verification / preflight SSOT: [`.reinguard/policy/coding--preflight.md`](../../.reinguard/policy/coding--preflight.md) (local gates before push; aligns with procedure **Reads** such as `change-inspect` / `implement`)
