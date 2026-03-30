@@ -17,6 +17,7 @@ Single Cursor entry for workflow procedures: use **substrate** output to pick Se
    - `routes[0].kind`, `routes[0].route_id` (when `routes[0].kind` is `resolved`)
    - `guards` (e.g. `merge-readiness` for summaries during **Execute**)
    - `knowledge.entries` (filtered aids)
+   - `observation.signals.git.working_tree_clean` (dirty-tree gate for **Route** / `review-address` Step 0)
 
 ## Route
 
