@@ -849,7 +849,14 @@ func TestLoad_repositoryReinguard(t *testing.T) {
 	}
 
 	// And: control catalog lists workflow bundle entries expected by adapter/docs
-	catalogPath := filepath.Join(dir, "control", "catalog.yaml")
+	assertReinguardControlCatalogWorkflowEntries(t, dir)
+}
+
+// assertReinguardControlCatalogWorkflowEntries checks control/catalog.yaml maps the
+// FSM workflow bundle with id/path/type/description per entry and files on disk.
+func assertReinguardControlCatalogWorkflowEntries(t *testing.T, reinguardDir string) {
+	t.Helper()
+	catalogPath := filepath.Join(reinguardDir, "control", "catalog.yaml")
 	data, err := os.ReadFile(catalogPath)
 	if err != nil {
 		t.Fatalf("read %s: %v", catalogPath, err)
@@ -904,6 +911,14 @@ func TestLoad_repositoryReinguard(t *testing.T) {
 		}
 		if strings.TrimSpace(e.Description) == "" {
 			t.Fatalf("catalog %q missing non-empty description", w.id)
+		}
+		target := filepath.Join(reinguardDir, "control", e.Path)
+		st, err := os.Stat(target)
+		if err != nil {
+			t.Fatalf("catalog %q path %q: missing on disk: %v", w.id, e.Path, err)
+		}
+		if st.IsDir() {
+			t.Fatalf("catalog %q path %q: expected file, got directory", w.id, e.Path)
 		}
 	}
 }

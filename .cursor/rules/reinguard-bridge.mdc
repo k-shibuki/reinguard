@@ -6,6 +6,10 @@ alwaysApply: true
 This file is an **adapter**: it points at the Semantics layer (`.reinguard/`)
 and Substrate (`rgd`). Do not duplicate body text from `.reinguard/` here.
 
+## Language
+
+Use **English for everything except replies in the Cursor chat panel to the user**. In practice that means: commit messages, PR titles and bodies, GitHub review comments and thread dispositions, code and tests (identifiers, comments, docstrings you add), command output you author for logs or docs, and any other durable or third-party-facing text — **English only**. The **chat transcript** (what you write back to the user in this Cursor conversation) may follow the user’s language preference when it differs.
+
 ## Entry points
 
 - **Substrate config**: [.reinguard/reinguard.yaml](../../.reinguard/reinguard.yaml) — `schema_version`, `default_branch`, `providers` (ADR-0008, ADR-0009).
@@ -43,6 +47,8 @@ Treat **inspect**, **create**, **address**, and **merge** as distinct steps (sup
 - **After `change-inspect` passes** → **`pr-create`**: push, fill template (dimension 6), create PR, await CI.
 - **External review findings / unresolved threads** → **`review-address`**: classify, fix, disposition reply, resolve threads.
 - **Review done, CI green, policy satisfied** → **`pr-merge`**: execute merge only after checks.
+
+**Orchestration:** When the user requests autonomous execution, `rgd-next` delegates to `.reinguard/procedure/next-orchestration.md` for full-path proposal, single approval, and post-approval execution contract. See `rgd-next.md` § Orchestrate.
 
 ### Evidence targets
 

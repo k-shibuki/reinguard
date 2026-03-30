@@ -38,43 +38,21 @@ Use ADR-0013 and `.reinguard/control/` as SSOT. Heuristic table (when `state.kin
 
 When `state.kind` is not `resolved`, follow ADR-0007 handoff: gather observation diagnostics, fix config or observation, re-run `context build` — do not invent a winning state.
 
-## Autonomy (extended run)
+## Orchestrate
 
-By default, **Sense → Map → Output** is one shot. When the user wants a **single upfront approval** and then continuous progress, use this loop. **Procedure bodies** (`.reinguard/procedure/*.md`) and policy (**HS-***) remain authoritative; this section only defines **how far** to go without asking again.
+By default, **Sense → Map → Output** is one shot (proposal-only). When the user wants **autonomous execution**, follow [`.reinguard/procedure/next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md) (orchestration SSOT):
 
-### 1. Scope checkpoint (once, before `Act`)
+1. **Propose** — After Map, trace forward through the routing table from the current `state_id` to **Per-unit Definition of Done** (defined in `next-orchestration.md`). Present the ordered sequence of procedures, known gaps, and completion condition.
+2. **Approve** — Single explicit user approval for the full path.
+3. **Execute** — Post-approval loop: Sense → Map → follow the mapped procedure → Refresh, per `next-orchestration.md` § Loop semantics. Do not prompt the user between iterations (§ Post-approval execution contract).
 
-Ask the user to pick **one** autonomy scope and record it. Examples:
-
-| Scope | Stop when |
-|-------|-----------|
-| `single_pass` | After one complete **Act** for the current mapped procedure and a **final** `rgd context build` (report new `state_id` / guards). |
-| `to_merge_ready` | Re-observe after each push or batch of thread work; keep mapping procedures until `state_id` is `merge_ready` and `guards` allow merge prep — **do not** run `pr-merge` unless scope includes merge. |
-| `through_merge` | Same as `to_merge_ready`, then execute `.reinguard/procedure/pr-merge.md` only when `merge_ready` **and** the user included merge in this scope (treat merge as opt-in even inside “full” runs if they only asked for review). |
-
-If the user does not choose, default to **`single_pass`**.
-
-Do **not** widen scope (e.g., from `single_pass` to `through_merge`) without a **new** explicit approval.
-
-### 2. Loop (until scope satisfied or hard stop)
-
-Repeat until the chosen scope’s stop condition is met, or a stop trigger fires:
-
-1. **Sense** — `rgd context build` (same cwd / `--config-dir` as above).
-2. **Parse** — `state`, `routes[0]`, `guards`, `knowledge.entries`; emit the short **Output** summary each iteration so the user can follow along in the transcript.
-3. **Map** — Use the table in **Map (v2)**; if `state.kind` is not `resolved`, follow ADR-0007 (fix / handoff); do not assume a resolved route.
-4. **Act** — Open the mapped procedure file(s) and follow their **Act** / **Output** / `done_when` sections only (no shortcutting HS-*).
-5. **Refresh** — After any **material** remote or local change (push, merge, thread resolve batch, bot re-review trigger when procedure says so), run **`rgd context build` again** before the next Map. Prefer refresh over stale `state_id`.
-
-**Stop triggers (always):** degraded observation you cannot fix; scope endpoint reached; an **HS-*** would be violated; procedure **escalate_when** matches; user-only action outside agent capability (e.g., org setting).
-
-**Dirty tree + `review-address`:** Still apply the **Map (v2)** note: Step 0 in `review-address` before disposition-heavy work.
+If the user does not request autonomous execution, produce **Output** only (one-shot report).
 
 ## Output (for agents)
 
 - One short paragraph: current `state_id` / `route_id` / guard summary from JSON.
 - Bullet list: which procedure file(s) to open next (repo-relative paths).
-- Under **Autonomy**, repeat this block **after each** `rgd context build` in the loop (iteration label optional: e.g. “Pass 2”).
+- Under **Orchestrate**, emit the short state summary **after each** `rgd context build` in the loop (iteration label optional: e.g. “Pass 2”). Final output: DoD status or stop reason with evidence.
 - Do **not** replace the **Output** sections inside each procedure; those remain authoritative per procedure front matter.
 
 ## Guard
