@@ -354,6 +354,26 @@ func TestGitHubProviderFactory_botReviewers_blankLogin(t *testing.T) {
 	}
 }
 
+func TestGitHubProviderFactory_botReviewers_blankID(t *testing.T) {
+	t.Parallel()
+	for name, idVal := range map[string]any{
+		"empty":      "",
+		"whitespace": "   ",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			_, err := GitHubProviderFactory(map[string]any{
+				"bot_reviewers": []any{
+					map[string]any{"id": idVal, "login": "somebot[bot]", "required": true},
+				},
+			})
+			if err == nil || !strings.Contains(err.Error(), ".id is required") {
+				t.Fatalf("got %v", err)
+			}
+		})
+	}
+}
+
 func runGitCmd(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)

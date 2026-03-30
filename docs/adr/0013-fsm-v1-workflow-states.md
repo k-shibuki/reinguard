@@ -99,9 +99,9 @@ Self-inspection before PR creation: `.reinguard/procedure/change-inspect.md`.
 Post-review learning: `.reinguard/procedure/internalize.md`.
 
 **Cursor entries:** `.cursor/commands/rgd-next.md` — run/read `rgd context build`,
-map `state_id` → procedure paths above; no per-procedure Adapter stubs.
-Orchestration (mandatory after Sense/Map: single-unit full-path proposal → approval → autonomous execution):
-`.reinguard/procedure/next-orchestration.md` — always used by `rgd-next.md` § Orchestrate;
+Route (`state_id` → procedure) per § 4 above; no per-procedure Adapter stubs.
+Orchestration (mandatory after Sense and Route: single full-path **Propose**, one approval, then **Execute** to DoD):
+`.reinguard/procedure/next-orchestration.md` — contract referenced from `rgd-next.md` § Propose and § Execute;
 not state-mapped.
 `.cursor/commands/cursor-plan.md` — Plan-mode-style interrogation (`AskQuestion` /
 `CreatePlan` only); GitHub Issue creation is expressed inside the plan when

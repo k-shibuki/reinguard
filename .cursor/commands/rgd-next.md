@@ -15,11 +15,14 @@ Single Cursor entry for workflow procedures: use **substrate** output to pick Se
 2. Parse stdout JSON:
    - `state.state_id`, `state.kind`
    - `routes[0].kind`, `routes[0].route_id` (when `routes[0].kind` is `resolved`)
+   - `guards` (e.g. `merge-readiness` for summaries during **Execute**)
    - `knowledge.entries` (filtered aids)
 
-## Map (v2)
+## Route
 
-Use ADR-0013 and `.reinguard/control/` as SSOT. Heuristic table (when `state.kind` is `resolved`):
+**Normative mapping:** [ADR-0013 § 4](../../docs/adr/0013-fsm-v1-workflow-states.md) (*Adapter mapping (durable)*). Use ADR-0013 and `.reinguard/control/` as SSOT for state and route semantics.
+
+The table below is a **Cursor-facing heuristic** (when `state.kind` is `resolved`) with the same procedure targets as ADR-0013 § 4:
 
 | `state_id` | Open procedure |
 |------------|----------------|
@@ -38,20 +41,23 @@ Use ADR-0013 and `.reinguard/control/` as SSOT. Heuristic table (when `state.kin
 
 When `state.kind` is not `resolved`, follow ADR-0007 handoff: gather observation diagnostics, fix config or observation, re-run `context build` — do not invent a winning state.
 
-## Orchestrate
+## Propose
 
-After **Sense** and **Map**, **always** follow [`.reinguard/procedure/next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md) (orchestration SSOT). There is no alternate mode (no proposal-only run and no stopping after a minimal state dump).
+After **Sense** and **Route**, present the full-path proposal **exactly once** per run, then wait for approval. There is no alternate mode (no proposal-only run and no stopping after a minimal state dump).
 
-1. **Propose** — Trace forward through the routing table from the current `state_id` to **Per-unit Definition of Done** (defined in `next-orchestration.md`). Present the **Full-path proposal format** from that document: current position, ordered remainder, gaps, completion condition. **Do not** end the turn after only a short status line; the Propose block must satisfy `next-orchestration.md` § Full-path proposal format before waiting for approval.
-2. **Approve** — Single explicit user approval for the full path and completion condition.
-3. **Execute** — Post-approval loop: Sense → Map → follow the mapped procedure → Refresh, per `next-orchestration.md` § Loop semantics. Do not prompt the user between iterations (§ Post-approval execution contract).
+1. Trace forward from the current `state_id` using [ADR-0013 § 4](../../docs/adr/0013-fsm-v1-workflow-states.md) through **Per-unit Definition of Done** in [`.reinguard/procedure/next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md).
+2. Follow **`next-orchestration.md` § Full-path proposal format** in full: current position, ordered remainder, gaps, completion condition.
+3. Obtain **single explicit user approval** per **`next-orchestration.md` § Approval gate** (unit identity, ordered remainder, completion condition). **No per-procedure re-approval** after this gate.
 
-## Output (for agents)
+**Output (for agents):** User-visible text must be the full-path proposal — including unit identity, ordered procedures through DoD, gaps, and completion condition — not merely `state_id` / `route_id` bullets. **Do not** end the turn after only a short status line. Do **not** replace the **Output** sections inside each procedure file; those remain authoritative per procedure front matter.
 
-- **Propose:** User-visible output is the full-path proposal (see `next-orchestration.md` § Full-path proposal format), including unit identity, ordered procedures through DoD, gaps, and completion condition — not merely `state_id` / `route_id` bullets.
-- **Execute loop:** After each `rgd context build` in the loop, emit a short paragraph: `state_id` / `route_id` / guard summary and which procedure(s) ran or are next (iteration label optional, e.g. “Pass 2”).
-- **Final:** DoD satisfied with evidence, or allowed stop with evidence (`next-orchestration.md` § Post-approval execution contract).
-- Do **not** replace the **Output** sections inside each procedure file; those remain authoritative per procedure front matter.
+## Execute
+
+After approval, **always** follow [`.reinguard/procedure/next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md) § **Post-approval execution contract** and § **Loop semantics**: drive to Per-unit DoD **without** user prompts that gate progress between iterations.
+
+Loop (summary): **Sense** (`rgd context build`) → **Route** (ADR-0013 § 4; same rules as § Route above) → run mapped procedure(s) → **Refresh** context after material changes — per `next-orchestration.md`.
+
+**Output (for agents):** After each `rgd context build` in the loop, emit a short paragraph: `state_id` / `route_id` / guard summary and which procedure(s) ran or are next (iteration label optional, e.g. “Pass 2”). **Final:** DoD satisfied with evidence, or allowed stop with evidence (`next-orchestration.md` § Post-approval execution contract).
 
 ## Guard
 

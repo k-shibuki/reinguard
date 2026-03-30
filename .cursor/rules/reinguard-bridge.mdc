@@ -39,7 +39,7 @@ Follow these policy documents in every interaction:
 
 Follow [.reinguard/policy/workflow--pr-discipline.md](../../.reinguard/policy/workflow--pr-discipline.md) for Issue-driven work, PR discipline, branch naming, and exceptions.
 
-### Command separation (inspect → create → address → merge)
+### Command separation (implement → change-inspect → pr-create → review-address → pr-merge)
 
 Treat **inspect**, **create**, **address**, and **merge** as distinct steps (supports future `rgd` semantics):
 
@@ -48,7 +48,7 @@ Treat **inspect**, **create**, **address**, and **merge** as distinct steps (sup
 - **External review findings / unresolved threads** → **`review-address`**: classify, fix, disposition reply, resolve threads.
 - **Review done, CI green, policy satisfied** → **`pr-merge`**: execute merge only after checks.
 
-**Orchestration:** After Sense and Map, `rgd-next` **always** delegates to `.reinguard/procedure/next-orchestration.md` for full-path proposal, single approval, and post-approval execution contract (no proposal-only or minimal-dump mode). See `rgd-next.md` § Orchestrate.
+**Orchestration:** After Sense and Route, `rgd-next` **always** applies `.reinguard/procedure/next-orchestration.md` (full-path proposal format, single approval gate, post-approval execution contract; no proposal-only or minimal-dump mode). Adapter flow: `rgd-next.md` § **Propose** (once) then § **Execute**.
 
 ### Evidence targets
 
@@ -56,7 +56,7 @@ Treat **inspect**, **create**, **address**, and **merge** as distinct steps (sup
 
 ### Agent procedure reference
 
-Procedure **bodies** live under [`.reinguard/procedure/`](../../.reinguard/procedure/) (SSOT). **Cursor entries:** [`rgd-next.md`](../commands/rgd-next.md) — `rgd context build`, Map, then **always** § Orchestrate → `next-orchestration.md` (Propose → Approve → Execute); [`cursor-plan.md`](../commands/cursor-plan.md) — `AskQuestion` / `CreatePlan` only (`gh issue create` appears as plan todos when issue-first).
+Procedure **bodies** live under [`.reinguard/procedure/`](../../.reinguard/procedure/) (SSOT). **Cursor entries:** [`rgd-next.md`](../commands/rgd-next.md) — `rgd context build`, Route, **Propose** (once), then **Execute** with `next-orchestration.md`; [`cursor-plan.md`](../commands/cursor-plan.md) — `AskQuestion` / `CreatePlan` only (`gh issue create` appears as plan todos when issue-first).
 
 Use `gh` CLI for observation (`gh issue view`, `gh pr view`, `gh pr checks`, etc.) until full `rgd observe` coverage.
 

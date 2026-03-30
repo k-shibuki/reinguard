@@ -18,17 +18,16 @@ escalate_when: "HS-* violation; genuine cannot-proceed with evidence."
 
 # next-orchestration
 
-**SSOT** for workflow after `rgd-next` has **Sense** and **Map**: every invocation uses this contract — what to show the user before acting, **one** approval gate per run, and post-approval work through **Per-unit Definition of Done** (no optional modes).
+**SSOT** for workflow after `rgd-next` has **Sense** and **Route**: every invocation uses this contract — what to show the user before acting, **one** approval gate per run, and post-approval work through **Per-unit Definition of Done** (no optional modes).
 
-**Not a Cursor slash command** — the invocable Adapter entry is [`.cursor/commands/rgd-next.md`](../../.cursor/commands/rgd-next.md) § **Orchestrate**.
+**Not a Cursor slash command** — the invocable Adapter entry is [`.cursor/commands/rgd-next.md`](../../.cursor/commands/rgd-next.md) (Propose → Execute after approval).
 
-**Design alignment**: [ADR-0001](../../docs/adr/0001-system-positioning.md) — routing and state mapping stay in `rgd-next.md` and ADR-0013; this document holds **orchestration** (proposal, approval, execution contract, loop).
+**Design alignment**: [ADR-0001](../../docs/adr/0001-system-positioning.md) — `state_id` → procedure routing is normative in [ADR-0013](../../docs/adr/0013-fsm-v1-workflow-states.md) § 4; this document holds **orchestration** (proposal, approval, execution contract, loop).
 
 ## Context
 
 - [`../policy/safety--agent-invariants.md`](../policy/safety--agent-invariants.md) — **HS-*** hard stops
-- [ADR-0013](../../docs/adr/0013-fsm-v1-workflow-states.md) — FSM states and Adapter procedure mapping
-- [`.cursor/commands/rgd-next.md`](../../.cursor/commands/rgd-next.md) — **Map (v2)** routing table
+- [ADR-0013](../../docs/adr/0013-fsm-v1-workflow-states.md) — FSM states; **§ 4 Adapter mapping (durable)** for `state_id` → procedure routing
 
 **Already in context** (always-active Adapter rule): HS-* codes, catalogs, workflow and commit policy.
 
@@ -51,7 +50,7 @@ Concrete gates: HS-* invariants, `merge-readiness` / `rgd guard eval merge-readi
 Before the approval gate, present:
 
 1. **Current position** — `state_id`, `route_id` (when resolved), and brief evidence basis from `rgd context build` JSON.
-2. **Ordered remainder** — Trace **forward** from the current `state_id` using the **Map (v2)** table in `rgd-next.md` through **Per-unit Definition of Done** above. List the **sequence of procedures** you expect (e.g. `review-address` → `wait-bot-review` → `pr-merge` → branch cleanup). Include `change-inspect` and `pr-create` on the path from `working_no_pr` when applicable.
+2. **Ordered remainder** — Trace **forward** from the current `state_id` using **ADR-0013 § 4** (*Adapter mapping*) through **Per-unit Definition of Done** above. List the **sequence of procedures** you expect (e.g. `review-address` → `wait-bot-review` → `pr-merge` → branch cleanup). Include `change-inspect` and `pr-create` on the path from `working_no_pr` when applicable.
 3. **Gaps** — State honestly what is unknown until the next observation (e.g. “PR not opened yet — review steps are projected”).
 4. **Completion condition** — Reference **Per-unit Definition of Done** (this section).
 
@@ -84,13 +83,13 @@ After approval, the agent **must** drive toward **Per-unit Definition of Done** 
 
 Repeat until Per-unit Definition of Done is satisfied or an **allowed stop** fires:
 
-1. **Sense** — `rgd context build` (same cwd / `--config-dir` as `rgd-next.md` § Sense).
+1. **Sense** — `rgd context build` (same cwd / `--config-dir` as the workflow’s initial context build from repo root).
 2. **Parse** — `state`, `routes[0]` (interpret `routes[0].route_id` only when `routes[0].kind` is `resolved`), `guards`, `knowledge.entries`; emit a short summary each iteration for the transcript.
-3. **Map** — Use **Map (v2)** in `rgd-next.md`. If `state.kind` is not `resolved`, follow ADR-0007 handoff; do not invent a winning state.
-4. **Execute** — Open the mapped procedure file(s) and **follow each procedure in full** (Context, Reads, Sense, Act, Output, Guard, front-matter `done_when` / `escalate_when` as applicable). Treat any “confirm” / “verify” language in mapped procedures as **agent self-checks** (evidence-backed), not a new user-approval gate, unless an **allowed stop** applies. Do not shortcut HS-*.
-5. **Refresh** — After any **material** remote or local change (push, merge, thread resolve batch, bot re-review when the procedure says so), run **`rgd context build` again** before the next Map.
+3. **Route** — Resolve procedure(s) per **ADR-0013 § 4** (*Adapter mapping*). If `state.kind` is not `resolved`, follow ADR-0007 handoff; do not invent a winning state.
+4. **Act (procedure)** — Open the mapped procedure file(s) and **follow each procedure in full** (Context, Reads, Sense, Act, Output, Guard, front-matter `done_when` / `escalate_when` as applicable). Treat any “confirm” / “verify” language in mapped procedures as **agent self-checks** (evidence-backed), not a new user-approval gate, unless an **allowed stop** applies. Do not shortcut HS-*.
+5. **Refresh** — After any **material** remote or local change (push, merge, thread resolve batch, bot re-review when the procedure says so), run **`rgd context build` again** before the next Route.
 
-**Dirty working tree + `review-address`:** When `rgd-next.md` **Map (v2)** says so, run **Step 0** in `review-address.md` before disposition-heavy work. See `.reinguard/knowledge/review--incremental-fix-flow.md`.
+**Dirty working tree + `review-address`:** When `observation.signals.git.working_tree_clean` is `false` and the mapped procedure is `review-address`, run **Step 0** in `review-address.md` before disposition-heavy work. See `.reinguard/knowledge/review--incremental-fix-flow.md`.
 
 **Stop triggers (always):** observation you cannot fix; an **HS-*** would be violated; procedure **escalate_when** matches; user-only action outside agent capability.
 
