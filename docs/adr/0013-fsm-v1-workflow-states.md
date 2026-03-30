@@ -100,8 +100,8 @@ Post-review learning: `.reinguard/procedure/internalize.md`.
 
 **Cursor entries:** `.cursor/commands/rgd-next.md` — run/read `rgd context build`,
 map `state_id` → procedure paths above; no per-procedure Adapter stubs.
-Orchestration (single-unit full-path proposal → approval → autonomous execution):
-`.reinguard/procedure/next-orchestration.md` — referenced by `rgd-next.md` § Orchestrate;
+Orchestration (mandatory after Sense/Map: single-unit full-path proposal → approval → autonomous execution):
+`.reinguard/procedure/next-orchestration.md` — always used by `rgd-next.md` § Orchestrate;
 not state-mapped.
 `.cursor/commands/cursor-plan.md` — Plan-mode-style interrogation (`AskQuestion` /
 `CreatePlan` only); GitHub Issue creation is expressed inside the plan when

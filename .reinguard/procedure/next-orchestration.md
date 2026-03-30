@@ -1,6 +1,6 @@
 ---
 id: procedure-next-orchestration
-purpose: "Single-unit orchestration: full-path proposal, one approval gate, autonomous execution to Per-unit DoD."
+purpose: "Mandatory single-unit orchestration for rgd-next: full-path proposal, one approval gate, autonomous execution to Per-unit DoD."
 applies_to:
   state_ids: []
   route_ids: []
@@ -9,7 +9,7 @@ reads:
 sense:
   - rgd context build
 act:
-  - Present full-path proposal; obtain single approval; execute loop to DoD.
+  - Always present full-path proposal; obtain single approval; execute loop to DoD (no alternate modes).
 output:
   - Per-iteration state summary; final DoD report.
 done_when: "Per-unit Definition of Done satisfied (merge + branch cleanup) or allowed stop."
@@ -18,7 +18,7 @@ escalate_when: "HS-* violation; genuine cannot-proceed with evidence."
 
 # next-orchestration
 
-**SSOT** for autonomous execution after `rgd-next` has **Sense** and **Map**: what to show the user before acting, **one** approval gate per run, and post-approval work through **Per-unit Definition of Done**.
+**SSOT** for workflow after `rgd-next` has **Sense** and **Map**: every invocation uses this contract — what to show the user before acting, **one** approval gate per run, and post-approval work through **Per-unit Definition of Done** (no optional modes).
 
 **Not a Cursor slash command** — the invocable Adapter entry is [`.cursor/commands/rgd-next.md`](../../.cursor/commands/rgd-next.md) § **Orchestrate**.
 
@@ -65,8 +65,6 @@ Present **once**:
 
 Obtain **explicit user approval** to execute through that completion condition. **No per-procedure re-approval** after this gate (except Hard Stops and genuine blocks below).
 
-If the user requests **proposal only**, do not execute; stop after the proposal.
-
 ## Post-approval execution contract
 
 After approval, the agent **must** drive toward **Per-unit Definition of Done** **without** inserting user interaction that **gates** progress.
@@ -80,7 +78,6 @@ After approval, the agent **must** drive toward **Per-unit Definition of Done** 
 
 - **Hard Stops** (**HS-***) in [`../policy/safety--agent-invariants.md`](../policy/safety--agent-invariants.md).
 - **Genuine cannot proceed** — missing credentials, org enforcement, unrecoverable GitHub block — report with **evidence** and stop.
-- **Proposal-only** run — user declared no execution up front.
 - **Tooling / session limits** — chat session ended, tooling unavailable, or context limits make further tool use impossible **in this session**. Long CI or bot duration is **not** an excuse to exit the path; follow the mapped procedure. On tooling/session limits only, **resume the same approved path** on the next turn **without** re-opening the approval gate (unless the user revokes or changes scope).
 
 ## Loop semantics (after approval)

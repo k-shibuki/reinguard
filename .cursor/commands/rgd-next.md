@@ -40,20 +40,18 @@ When `state.kind` is not `resolved`, follow ADR-0007 handoff: gather observation
 
 ## Orchestrate
 
-By default, **Sense → Map → Output** is one shot (proposal-only). When the user wants **autonomous execution**, follow [`.reinguard/procedure/next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md) (orchestration SSOT):
+After **Sense** and **Map**, **always** follow [`.reinguard/procedure/next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md) (orchestration SSOT). There is no alternate mode (no proposal-only run and no stopping after a minimal state dump).
 
-1. **Propose** — After Map, trace forward through the routing table from the current `state_id` to **Per-unit Definition of Done** (defined in `next-orchestration.md`). Present the ordered sequence of procedures, known gaps, and completion condition.
-2. **Approve** — Single explicit user approval for the full path.
+1. **Propose** — Trace forward through the routing table from the current `state_id` to **Per-unit Definition of Done** (defined in `next-orchestration.md`). Present the **Full-path proposal format** from that document: current position, ordered remainder, gaps, completion condition. **Do not** end the turn after only a short status line; the Propose block must satisfy `next-orchestration.md` § Full-path proposal format before waiting for approval.
+2. **Approve** — Single explicit user approval for the full path and completion condition.
 3. **Execute** — Post-approval loop: Sense → Map → follow the mapped procedure → Refresh, per `next-orchestration.md` § Loop semantics. Do not prompt the user between iterations (§ Post-approval execution contract).
-
-If the user does not request autonomous execution, produce **Output** only (one-shot report).
 
 ## Output (for agents)
 
-- One short paragraph: current `state_id` / `route_id` / guard summary from JSON.
-- Bullet list: which procedure file(s) to open next (repo-relative paths).
-- Under **Orchestrate**, emit the short state summary **after each** `rgd context build` in the loop (iteration label optional: e.g. “Pass 2”). Final output: DoD status or stop reason with evidence.
-- Do **not** replace the **Output** sections inside each procedure; those remain authoritative per procedure front matter.
+- **Propose:** User-visible output is the full-path proposal (see `next-orchestration.md` § Full-path proposal format), including unit identity, ordered procedures through DoD, gaps, and completion condition — not merely `state_id` / `route_id` bullets.
+- **Execute loop:** After each `rgd context build` in the loop, emit a short paragraph: `state_id` / `route_id` / guard summary and which procedure(s) ran or are next (iteration label optional, e.g. “Pass 2”).
+- **Final:** DoD satisfied with evidence, or allowed stop with evidence (`next-orchestration.md` § Post-approval execution contract).
+- Do **not** replace the **Output** sections inside each procedure file; those remain authoritative per procedure front matter.
 
 ## Guard
 

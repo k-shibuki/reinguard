@@ -48,7 +48,7 @@ Treat **inspect**, **create**, **address**, and **merge** as distinct steps (sup
 - **External review findings / unresolved threads** → **`review-address`**: classify, fix, disposition reply, resolve threads.
 - **Review done, CI green, policy satisfied** → **`pr-merge`**: execute merge only after checks.
 
-**Orchestration:** When the user requests autonomous execution, `rgd-next` delegates to `.reinguard/procedure/next-orchestration.md` for full-path proposal, single approval, and post-approval execution contract. See `rgd-next.md` § Orchestrate.
+**Orchestration:** After Sense and Map, `rgd-next` **always** delegates to `.reinguard/procedure/next-orchestration.md` for full-path proposal, single approval, and post-approval execution contract (no proposal-only or minimal-dump mode). See `rgd-next.md` § Orchestrate.
 
 ### Evidence targets
 
@@ -56,7 +56,7 @@ Treat **inspect**, **create**, **address**, and **merge** as distinct steps (sup
 
 ### Agent procedure reference
 
-Procedure **bodies** live under [`.reinguard/procedure/`](../../.reinguard/procedure/) (SSOT). **Cursor entries:** [`rgd-next.md`](../commands/rgd-next.md) — `rgd context build` then open the mapped procedure (ADR-0013); [`cursor-plan.md`](../commands/cursor-plan.md) — `AskQuestion` / `CreatePlan` only (`gh issue create` appears as plan todos when issue-first).
+Procedure **bodies** live under [`.reinguard/procedure/`](../../.reinguard/procedure/) (SSOT). **Cursor entries:** [`rgd-next.md`](../commands/rgd-next.md) — `rgd context build`, Map, then **always** § Orchestrate → `next-orchestration.md` (Propose → Approve → Execute); [`cursor-plan.md`](../commands/cursor-plan.md) — `AskQuestion` / `CreatePlan` only (`gh issue create` appears as plan todos when issue-first).
 
 Use `gh` CLI for observation (`gh issue view`, `gh pr view`, `gh pr checks`, etc.) until full `rgd observe` coverage.
 
