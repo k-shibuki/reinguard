@@ -330,6 +330,18 @@ func TestGitHubProviderFactory_botReviewers_missingRequiredField(t *testing.T) {
 	}
 }
 
+func TestGitHubProviderFactory_botReviewers_requiredMustBeBoolean(t *testing.T) {
+	t.Parallel()
+	_, err := GitHubProviderFactory(map[string]any{
+		"bot_reviewers": []any{
+			map[string]any{"id": "x", "login": "y", "required": "true"},
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "required must be a boolean") {
+		t.Fatalf("got %v", err)
+	}
+}
+
 func TestGitHubProviderFactory_botReviewers_blankLogin(t *testing.T) {
 	t.Parallel()
 	_, err := GitHubProviderFactory(map[string]any{

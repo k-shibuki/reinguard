@@ -34,7 +34,7 @@ wins** among matching rules (ADR-0004). `state_id` values:
 | `merge_ready` | Coarse merge gate (clean tree, CI, threads, decisions) | Aligns with `merge-readiness` guard signals |
 | `waiting_ci` | PR open; no thread/decision work; CI or mergeability not satisfied | Threads 0, changes 0, working tree clean; `ci_status` ≠ `success` **or** `merge_state_status` ≠ `clean` |
 | `pr_open` | PR exists; residual (e.g. dirty working tree) | `github.pull_requests.pr_exists_for_branch` true |
-| `working_no_pr` | No PR for branch (or PR facet absent) | `pr_exists_for_branch` false or path missing; not detached HEAD |
+| `working_no_pr` | No PR for branch (or PR facet absent) | `pr_exists_for_branch` false or path missing |
 
 **Bot status tiers** (per-element `status` in `bot_reviewer_status`):
 
