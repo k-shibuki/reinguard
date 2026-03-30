@@ -4,15 +4,15 @@
 # Maintained manually; future `rgd` may auto-generate or validate this catalog.
 schema_version: "0.6.0"
 entries:
-  - id: default-states
-    path: states/default.yaml
+  - id: workflow-states
+    path: states/workflow.yaml
     type: state
-    description: "Dogfood: normal clone detection (branch present)"
-  - id: default-routes
-    path: routes/default.yaml
+    description: "FSM workflow states v2 (ADR-0013)"
+  - id: workflow-routes
+    path: routes/workflow.yaml
     type: route
-    description: "Dogfood: resolve route when state is resolved"
-  - id: default-guards
+    description: "FSM workflow routes v2 keyed on state.state_id (ADR-0013)"
+  - id: merge-readiness-guard
     path: guards/default.yaml
     type: guard
-    description: "Dogfood: gate merge-readiness built-in when branch is attached"
+    description: "Declarative gate for merge-readiness built-in when branch is attached"

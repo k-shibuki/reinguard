@@ -184,5 +184,5 @@ Count `nodes` where `isResolved` is false for unresolved threads.
 
 - `.reinguard/knowledge/review--bot-operations.md` — trigger, detection,
   timing
-- `.reinguard/policy/safety--agent-invariants.md` § **HS-REVIEW-RESOLVE** (Cursor: `reinguard-bridge.mdc` § Always-active policy)
-- `.cursor/commands/review-address.md` — review-address procedure
+- `.reinguard/policy/safety--agent-invariants.md` § **HS-REVIEW-RESOLVE**
+- `.reinguard/procedure/review-address.md` — review-address procedure

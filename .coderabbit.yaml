@@ -61,9 +61,10 @@ reviews:
         edits, maintainers run `rgd knowledge index` and commit `manifest.json`.
     - path: ".cursor/**"
       instructions: |
-        Adapter layer (Cursor) per ADR-0001: bridge to Semantics and Substrate. Commands/rules should
-        point at `.reinguard/` paths and `rgd` CLI — do not duplicate long policy or knowledge checklists
-        (SSOT drift vs `coding--preflight.md` / knowledge docs). P1 when Adapter text copies normative
+        Adapter layer (Cursor) per ADR-0001: single always-active bridge rule
+        (`reinguard-bridge.mdc`) + commands (`rgd-next.md`, `cursor-plan.md`).
+        Must point at `.reinguard/` paths and `rgd` CLI — do not duplicate long
+        policy or knowledge checklists. P1 when Adapter text copies normative
         paragraphs that belong only under `.reinguard/`.
     - path: "AGENTS.md"
       instructions: |

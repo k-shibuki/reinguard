@@ -197,6 +197,42 @@
       }
     },
     {
+      "id": "review-incremental-fix-flow",
+      "path": ".reinguard/knowledge/review--incremental-fix-flow.md",
+      "description": "Review-driven local fixes batched into one push for the next bot incremental review",
+      "triggers": [
+        "incremental fix",
+        "review fix push",
+        "dirty tree review",
+        "uncommitted after review",
+        "CodeRabbit incremental",
+        "batch review fixes"
+      ],
+      "when": {
+        "op": "eq",
+        "path": "github.pull_requests.pr_exists_for_branch",
+        "value": true
+      }
+    },
+    {
+      "id": "review-multi-source-review-signals",
+      "path": ".reinguard/knowledge/review--multi-source-review-signals.md",
+      "description": "Normalize review signals from bots, humans, checks, and timeline into one actionable inbox",
+      "triggers": [
+        "multi source review",
+        "review inbox",
+        "dedupe review",
+        "bot and human review",
+        "checks vs review",
+        "review signal priority"
+      ],
+      "when": {
+        "op": "eq",
+        "path": "github.pull_requests.pr_exists_for_branch",
+        "value": true
+      }
+    },
+    {
       "id": "testing-assertions",
       "path": ".reinguard/knowledge/testing--assertions.md",
       "description": "Test assertion quality, failure messages, and boundary coverage",

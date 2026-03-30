@@ -13,8 +13,7 @@ triggers:
 
 # Agent safety invariants (HS-*)
 
-Non-negotiable rules for agents working on this repository. The Cursor Adapter
-rule `reinguard-bridge.mdc` § Always-active policy points here as SSOT.
+Non-negotiable rules for agents working on this repository.
 
 ## HS-CI-MERGE
 

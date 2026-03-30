@@ -1,0 +1,69 @@
+---
+id: procedure-wait-bot-review
+purpose: Act on required bot reviewer quota, pause, failure, or in-flight states without mixing in thread disposition work.
+applies_to:
+  state_ids:
+    - waiting_bot_rate_limited
+    - waiting_bot_paused
+    - waiting_bot_failed
+    - waiting_bot_run
+  route_ids:
+    - user-wait-bot-quota
+    - user-wait-bot-paused
+    - user-wait-bot-failed
+    - user-wait-bot-run
+reads:
+  - ../knowledge/review--bot-operations.md
+  - ../knowledge/review--multi-source-review-signals.md
+sense:
+  - rgd context build
+  - rgd observe github reviews
+act:
+  - Classify bot tier; backoff or re-trigger; escalate on repeated failure; re-observe.
+output:
+  - Bot state summary; triggers used; next poll time or handoff to review-address.
+done_when: Required bots are terminal success or failure is dispositioned per bot docs; observation matches next FSM state.
+escalate_when: Org policy blocks bot rerun; required bot persistently failed; rate limits repeat beyond recovery policy.
+---
+
+# wait-bot-review
+
+## Context
+
+Open `.reinguard/knowledge/review--bot-operations.md` for **CodeRabbit** and **Codex** specifics (logins, triggers, rate-limit recovery, `@coderabbitai review`, `@codex review`).
+
+If **open review threads** or formal **changes requested** also apply, run `.reinguard/procedure/review-address.md` **in parallel or first** — the workflow FSM prefers human-actionable review states over bot-wait states when both are true.
+
+**Discover aids:**
+
+```bash
+rgd context build
+```
+
+Use `knowledge.entries` (typically includes `review--bot-operations.md`, `review--github-thread-api.md`, `review--multi-source-review-signals.md`).
+
+## Map state → first action
+
+| `state_id` | Intent | First actions |
+|------------|--------|----------------|
+| `waiting_bot_run` | Required bot outcome not terminal | Poll `rgd observe github reviews`; wait typical window in `review--bot-operations.md`; avoid duplicate triggers unless policy allows. |
+| `waiting_bot_rate_limited` | Bot hit quota | Parse wait from bot message; sleep + **one** retry path per `review--bot-operations.md`. |
+| `waiting_bot_paused` | Bot paused (e.g. commit threshold) | Follow vendor resume / `@coderabbitai review` when appropriate. |
+| `waiting_bot_failed` | Bot failed tier (incl. voided review) | Stabilize head; re-trigger per bot docs; if repeated failure, escalate. |
+
+## Act
+
+1. Run `rgd observe github reviews` (or full `rgd observe`) and confirm `github.reviews.bot_reviewer_status` / `bot_review_diagnostics` match the FSM state.
+2. Apply the **row** for your `state_id` above; use **only** PR conversation / documented triggers — do not rely on thread replies for Codex rerun.
+3. Re-run observation after the cool-down in `review--bot-operations.md`.
+4. When bots are terminal and review threads still exist, switch to `review-address.md`.
+
+## Output
+
+- Which bot(s) were waiting and why.
+- Triggers posted (verbatim command or comment body reference).
+- Next observation timestamp or handoff to `review-address` / `pr-merge`.
+
+## Guard
+
+HS-MERGE-CONSENSUS, HS-REVIEW-RESOLVE (do not resolve threads without disposition when addressing findings), HS-NO-SKIP

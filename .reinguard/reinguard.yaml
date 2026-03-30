@@ -6,4 +6,14 @@ providers:
     enabled: true
   - id: github
     enabled: true
-    options: {}
+    options:
+      bot_reviewers:
+        - id: coderabbit
+          login: "coderabbitai[bot]"
+          required: true
+          enrich: [coderabbit]
+        # Optional: no enrich — generic classifier (latestReviews + issue comments).
+        # Verify `login` matches the GitHub user shown on PR activity (org/app may differ).
+        - id: codex
+          login: "chatgpt-codex-connector[bot]"
+          required: false

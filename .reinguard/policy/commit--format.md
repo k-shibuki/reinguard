@@ -10,7 +10,7 @@ triggers:
 
 # Git commit message conventions
 
-Mandatory requirements for commit messages. The Cursor Adapter rule `commit-format.mdc` points here as SSOT.
+Mandatory requirements for commit messages.
 
 ## Positioning
 

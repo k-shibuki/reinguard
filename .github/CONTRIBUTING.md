@@ -28,7 +28,7 @@ Optional: the repo **[`Makefile`](../Makefile)** provides `make test`, `make che
 (fmt, vet, lint, test — lint is `golangci-lint`), `make coverage`, `make build`, etc.
 It is **not** normative — CI and the shell commands below are the source of truth.
 
-Optional commit message template (see [`.reinguard/policy/commit--format.md`](../.reinguard/policy/commit--format.md); Cursor: [`.cursor/rules/commit-format.mdc`](../.cursor/rules/commit-format.mdc)):
+Optional commit message template (see [`.reinguard/policy/commit--format.md`](../.reinguard/policy/commit--format.md)):
 
 ```bash
 git config commit.template .github/gitmessage
@@ -36,7 +36,7 @@ git config commit.template .github/gitmessage
 
 ## Checks before you push
 
-Same gates as CI (see also [`.reinguard/policy/safety--agent-invariants.md`](../.reinguard/policy/safety--agent-invariants.md); Cursor: [`.cursor/rules/reinguard-bridge.mdc`](../.cursor/rules/reinguard-bridge.mdc) § Always-active policy):
+Same gates as CI (see also [`.reinguard/policy/safety--agent-invariants.md`](../.reinguard/policy/safety--agent-invariants.md)):
 
 ```bash
 go test ./... -race -count=1
@@ -71,7 +71,7 @@ Optional: `pre-commit install --hook-type commit-msg` and `pre-commit install` (
 
 - **Issue-driven**: Prefer one GitHub Issue per implementation PR; the PR body must include `Closes #N` (or `Fixes` / `Resolves`), unless you use an exception label and fill `## Exception` per [`.github/PULL_REQUEST_TEMPLATE.md`](PULL_REQUEST_TEMPLATE.md).
 - **Commits**: Conventional Commits and `Refs: #N` in the message body — see [`.reinguard/policy/commit--format.md`](../.reinguard/policy/commit--format.md).
-- **Commands**: Thin procedures live under [`.cursor/commands/`](../.cursor/commands/) (`implement`, `change-inspect`, `issue-create`, `pr-create`, `review-address`, `pr-merge`).
+- **Commands**: Workflow procedures live under [`.reinguard/procedure/`](../.reinguard/procedure/). Cursor: [`rgd-next`](../.cursor/commands/rgd-next.md) (`rgd context build` → mapped procedure); [`cursor-plan`](../.cursor/commands/cursor-plan.md) (design interrogation + `CreatePlan` only; Issue-first work embeds Issue steps in the plan).
 
 ## CI and PR policy
 
@@ -92,7 +92,7 @@ bash .reinguard/scripts/check-pr-policy.sh \
 
 **Scope:** [`.reinguard/scripts/check-pr-policy.sh`](../.reinguard/scripts/check-pr-policy.sh) is **repository tooling for developing reinguard** (this GitHub repo’s PR template and labels). It is **not** part of the shipped **`rgd` CLI** and is not a general product feature. That boundary matches **[ADR-0001](../docs/adr/0001-system-positioning.md)**: reinguard does not become the semantic authority for repository policy; this repo keeps PR discipline in CI plus optional local helpers like this script.
 
-Agents: see also [`.cursor/commands/pr-create.md`](../.cursor/commands/pr-create.md).
+Agents: see also [`.reinguard/procedure/pr-create.md`](../.reinguard/procedure/pr-create.md).
 
 ### Branch protection (maintainers)
 

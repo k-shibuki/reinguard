@@ -1,5 +1,5 @@
 // Package prquery runs a unified GitHub GraphQL query for the current PR: detail, review
-// threads, latest review decisions, linked issues, and PR comments for tracked reviewers
+// threads, latest review decisions, linked issues, and PR comments for configured bot reviewers
 // (ADR-0006, ADR-0012).
 package prquery
 
@@ -11,10 +11,12 @@ import (
 	"github.com/k-shibuki/reinguard/internal/githubapi"
 )
 
-// TrackedReviewer is one github provider option entry for bot / reviewer status observation.
-type TrackedReviewer struct {
-	Login  string
-	Enrich []string
+// BotReviewer is one github provider option entry for bot / AI reviewer observation.
+type BotReviewer struct {
+	ID       string
+	Login    string
+	Enrich   []string
+	Required bool
 }
 
 const prContextQuery = `query PRContext($owner: String!, $name: String!, $number: Int!, $cursor: String, $includeDetail: Boolean!) {
@@ -42,7 +44,11 @@ const prContextQuery = `query PRContext($owner: String!, $name: String!, $number
           hasNextPage
         }
       }
-      comments(last: 50) @include(if: $includeDetail) {
+      comments(last: 100) @include(if: $includeDetail) {
+        pageInfo {
+          hasPreviousPage
+          startCursor
+        }
         nodes {
           author { login }
           body
@@ -64,6 +70,27 @@ const prContextQuery = `query PRContext($owner: String!, $name: String!, $number
 
 // maxReviewThreadPages caps reviewThreads pagination (same contract as former reviews package).
 const maxReviewThreadPages = 500
+
+// maxCommentBackPages caps older PR comment fetches when walking back for configured bot logins.
+const maxCommentBackPages = 30
+
+const prCommentsPageQuery = `query PRCommentPage($owner: String!, $name: String!, $number: Int!, $before: String!) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      comments(last: 100, before: $before) {
+        pageInfo {
+          hasPreviousPage
+          startCursor
+        }
+        nodes {
+          author { login }
+          body
+          updatedAt
+        }
+      }
+    }
+  }
+}`
 
 //nolint:govet // fieldalignment: keep aligned with GraphQL response shape
 type prContextResponse struct {
@@ -113,14 +140,33 @@ type latestReviewsConn struct {
 	} `json:"pageInfo"`
 }
 
+// prCommentNode is one issue comment on the pull request timeline (GraphQL shape).
+//
+//nolint:govet // fieldalignment: GraphQL response shape
+type prCommentNode struct {
+	Author *struct {
+		Login string `json:"login"`
+	} `json:"author"`
+	Body      string `json:"body"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
+//nolint:govet // fieldalignment: keep pageInfo before nodes for padding; matches GraphQL shape
 type commentsConn struct {
-	Nodes []struct {
-		Author *struct {
-			Login string `json:"login"`
-		} `json:"author"`
-		Body      string `json:"body"`
-		UpdatedAt string `json:"updatedAt"`
-	} `json:"nodes"`
+	PageInfo struct {
+		HasPreviousPage bool   `json:"hasPreviousPage"`
+		StartCursor     string `json:"startCursor"`
+	} `json:"pageInfo"`
+	Nodes []prCommentNode `json:"nodes"`
+}
+
+//nolint:govet // fieldalignment: GraphQL response shape
+type prCommentsPageResponse struct {
+	Repository *struct {
+		PullRequest *struct {
+			Comments *commentsConn `json:"comments"`
+		} `json:"pullRequest"`
+	} `json:"repository"`
 }
 
 //nolint:govet // fieldalignment: keep aligned with GraphQL response shape
@@ -137,7 +183,7 @@ type reviewThreadsConn struct {
 // Collect returns pull-request detail fields to merge into signals.github.pull_requests and
 // the inner map for signals.github.reviews. pullDetail is nil when there is nothing to merge.
 // reviewsInner is always non-nil when err is nil (empty maps on PR≤0 or missing PR).
-func Collect(ctx context.Context, c *githubapi.Client, owner, repo string, prNumber int, tracked []TrackedReviewer) (pullDetail map[string]any, reviewsInner map[string]any, err error) {
+func Collect(ctx context.Context, c *githubapi.Client, owner, repo string, prNumber int, bots []BotReviewer) (pullDetail map[string]any, reviewsInner map[string]any, err error) {
 	if c == nil {
 		return nil, nil, fmt.Errorf("nil client")
 	}
@@ -160,7 +206,13 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo string, prNum
 	reviewsInner["review_threads_total"] = total
 	reviewsInner["review_threads_unresolved"] = unresolved
 	reviewsInner["pagination_incomplete"] = incomplete
-	reviewsInner["tracked_reviewer_status"] = buildTrackedReviewerStatus(firstPR, tracked)
+	commentNodes, err := mergeCommentNodesForBots(ctx, c, owner, repo, prNumber, firstPR.Comments, bots)
+	if err != nil {
+		return nil, nil, err
+	}
+	statusList := buildBotReviewerStatus(firstPR, bots, commentNodes)
+	reviewsInner["bot_reviewer_status"] = statusList
+	reviewsInner["bot_review_diagnostics"] = ComputeBotReviewDiagnostics(statusList)
 	return pullDetail, reviewsInner, nil
 }
 
@@ -222,7 +274,13 @@ func emptyReviewsInner() map[string]any {
 		"review_decisions_approved":          0,
 		"review_decisions_changes_requested": 0,
 		"review_decisions_truncated":         false,
-		"tracked_reviewer_status":            []any{},
+		"bot_reviewer_status":                []any{},
+		"bot_review_diagnostics": map[string]any{
+			"bot_review_completed": true,
+			"bot_review_pending":   false,
+			"bot_review_terminal":  true,
+			"bot_review_failed":    false,
+		},
 	}
 }
 
@@ -307,8 +365,114 @@ func buildReviewDecisions(lr *latestReviewsConn) map[string]any {
 	return out
 }
 
-func buildTrackedReviewerStatus(pr *prPullRequestNode, tracked []TrackedReviewer) []any {
-	if len(tracked) == 0 {
+// normalizeGitHubActorLogin maps login variants to one comparison key. GitHub App bots
+// may appear as "name[bot]" in config/REST and as "name" on GraphQL issue comments / reviews.
+func normalizeGitHubActorLogin(login string) string {
+	s := strings.TrimSpace(strings.ToLower(login))
+	s = strings.TrimSuffix(s, "[bot]")
+	return strings.TrimSpace(s)
+}
+
+func mergeCommentNodesForBots(ctx context.Context, c *githubapi.Client, owner, repo string, prNumber int, seed *commentsConn, bots []BotReviewer) ([]prCommentNode, error) {
+	if len(bots) == 0 {
+		if seed == nil {
+			return nil, nil
+		}
+		out := make([]prCommentNode, len(seed.Nodes))
+		copy(out, seed.Nodes)
+		return out, nil
+	}
+	want := make(map[string]struct{})
+	for _, br := range bots {
+		if lg := strings.TrimSpace(br.Login); lg != "" {
+			want[normalizeGitHubActorLogin(lg)] = struct{}{}
+		}
+	}
+	var merged []prCommentNode
+	if seed != nil {
+		merged = append(merged, seed.Nodes...)
+	}
+	seen := botKeysSeenInComments(merged, want)
+	hasPrev := seed != nil && seed.PageInfo.HasPreviousPage
+	before := ""
+	if seed != nil {
+		before = strings.TrimSpace(seed.PageInfo.StartCursor)
+	}
+	for page := 0; page < maxCommentBackPages && hasPrev && !allBotsSeen(seen, want); page++ {
+		if before == "" {
+			break
+		}
+		conn, err := fetchPRCommentsPage(ctx, c, owner, repo, prNumber, before)
+		if err != nil {
+			return nil, err
+		}
+		if conn == nil {
+			break
+		}
+		merged = append(merged, conn.Nodes...)
+		markBotsSeen(conn.Nodes, want, seen)
+		hasPrev = conn.PageInfo.HasPreviousPage
+		before = strings.TrimSpace(conn.PageInfo.StartCursor)
+	}
+	return merged, nil
+}
+
+func fetchPRCommentsPage(ctx context.Context, c *githubapi.Client, owner, repo string, prNumber int, before string) (*commentsConn, error) {
+	vars := map[string]any{"owner": owner, "name": repo, "number": prNumber, "before": before}
+	var data prCommentsPageResponse
+	if err := c.PostGraphQL(ctx, prCommentsPageQuery, vars, &data); err != nil {
+		return nil, err
+	}
+	if data.Repository == nil || data.Repository.PullRequest == nil {
+		return nil, nil
+	}
+	return data.Repository.PullRequest.Comments, nil
+}
+
+func botKeysSeenInComments(nodes []prCommentNode, want map[string]struct{}) map[string]bool {
+	seen := make(map[string]bool)
+	markBotsSeen(nodes, want, seen)
+	return seen
+}
+
+func markBotsSeen(nodes []prCommentNode, want map[string]struct{}, seen map[string]bool) {
+	for _, n := range nodes {
+		if n.Author == nil {
+			continue
+		}
+		k := normalizeGitHubActorLogin(n.Author.Login)
+		if _, ok := want[k]; ok {
+			seen[k] = true
+		}
+	}
+}
+
+func allBotsSeen(seen map[string]bool, want map[string]struct{}) bool {
+	for k := range want {
+		if !seen[k] {
+			return false
+		}
+	}
+	return true
+}
+
+// reviewFailedFromComment detects terminal bot failure cues in PR timeline comments,
+// including head-moved / voided review messages documented in review--bot-operations.md.
+func reviewFailedFromComment(lower string) bool {
+	if strings.Contains(lower, "review failed") {
+		return true
+	}
+	if strings.Contains(lower, "head commit changed during the review") {
+		return true
+	}
+	if strings.Contains(lower, "review was voided") || strings.Contains(lower, "voided review") {
+		return true
+	}
+	return false
+}
+
+func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNodes []prCommentNode) []any {
+	if len(bots) == 0 {
 		return []any{}
 	}
 	reviewByLogin := map[string]string{}
@@ -319,27 +483,18 @@ func buildTrackedReviewerStatus(pr *prPullRequestNode, tracked []TrackedReviewer
 			}
 			login := n.Author.Login
 			if login != "" {
-				reviewByLogin[strings.ToLower(login)] = n.State
+				reviewByLogin[normalizeGitHubActorLogin(login)] = n.State
 			}
 		}
 	}
-	var nodes []struct {
-		Author *struct {
-			Login string `json:"login"`
-		} `json:"author"`
-		Body      string `json:"body"`
-		UpdatedAt string `json:"updatedAt"`
-	}
-	if pr.Comments != nil {
-		nodes = pr.Comments.Nodes
-	}
-	out := make([]any, 0, len(tracked))
-	for _, tr := range tracked {
-		login := strings.TrimSpace(tr.Login)
+	nodes := commentNodes
+	out := make([]any, 0, len(bots))
+	for _, br := range bots {
+		login := strings.TrimSpace(br.Login)
 		if login == "" {
 			continue
 		}
-		key := strings.ToLower(login)
+		key := normalizeGitHubActorLogin(login)
 		state, hasRev := reviewByLogin[key]
 		if !hasRev {
 			state = ""
@@ -347,37 +502,34 @@ func buildTrackedReviewerStatus(pr *prPullRequestNode, tracked []TrackedReviewer
 		body, updated := latestCommentForLogin(nodes, login)
 		lower := strings.ToLower(body)
 		status := map[string]any{
+			"id":                     strings.TrimSpace(br.ID),
 			"login":                  login,
+			"required":               br.Required,
 			"has_review":             hasRev,
 			"review_state":           state,
 			"latest_comment_at":      updated,
 			"contains_rate_limit":    strings.Contains(lower, "rate limit"),
 			"contains_review_paused": strings.Contains(lower, "review paused") || strings.Contains(lower, "review pause"),
-			"contains_review_failed": strings.Contains(lower, "review failed"),
+			"contains_review_failed": reviewFailedFromComment(lower),
 		}
-		if extra := applyEnrichments(body, tr.Enrich); len(extra) > 0 {
+		if extra := applyEnrichments(body, br.Enrich); len(extra) > 0 {
 			for k, v := range extra {
 				status[k] = v
 			}
 		}
+		status["status"] = ClassifyBotStatus(status, br.Enrich)
 		out = append(out, status)
 	}
 	return out
 }
 
-func latestCommentForLogin(nodes []struct {
-	Author *struct {
-		Login string `json:"login"`
-	} `json:"author"`
-	Body      string `json:"body"`
-	UpdatedAt string `json:"updatedAt"`
-}, wantLogin string) (body, updatedAt string) {
+func latestCommentForLogin(nodes []prCommentNode, wantLogin string) (body, updatedAt string) {
 	var best string
 	for _, n := range nodes {
 		if n.Author == nil {
 			continue
 		}
-		if !strings.EqualFold(n.Author.Login, wantLogin) {
+		if normalizeGitHubActorLogin(n.Author.Login) != normalizeGitHubActorLogin(wantLogin) {
 			continue
 		}
 		// Lexicographic compare on RFC3339 works for picking latest.

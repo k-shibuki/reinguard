@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/k-shibuki/reinguard/pkg/schema"
+	"gopkg.in/yaml.v3"
 )
 
 func TestLoad_emptyConfigDir(t *testing.T) {
@@ -825,6 +827,99 @@ func TestLoad_controlKindTypeMismatchRejected(t *testing.T) {
 				t.Fatalf("got err=%v, want substring %q", err, tt.wantSub)
 			}
 		})
+	}
+}
+
+func TestLoad_repositoryReinguard(t *testing.T) {
+	t.Parallel()
+	// Given: this repository's committed .reinguard bundle (control + knowledge)
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller")
+	}
+	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
+	dir := filepath.Join(root, ".reinguard")
+	if _, err := os.Stat(dir); err != nil {
+		t.Fatalf("stat %s: %v", dir, err)
+	}
+	// When: Load runs
+	// Then: no error (schema + when validation for FSM YAML)
+	if _, err := Load(dir); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	// And: control catalog lists workflow bundle entries expected by adapter/docs
+	assertReinguardControlCatalogWorkflowEntries(t, dir)
+}
+
+// assertReinguardControlCatalogWorkflowEntries checks control/catalog.yaml maps the
+// FSM workflow bundle with id/path/type/description per entry and files on disk.
+func assertReinguardControlCatalogWorkflowEntries(t *testing.T, reinguardDir string) {
+	t.Helper()
+	catalogPath := filepath.Join(reinguardDir, "control", "catalog.yaml")
+	data, err := os.ReadFile(catalogPath)
+	if err != nil {
+		t.Fatalf("read %s: %v", catalogPath, err)
+	}
+	var cat struct {
+		Entries []struct {
+			ID          string `yaml:"id"`
+			Path        string `yaml:"path"`
+			Type        string `yaml:"type"`
+			Description string `yaml:"description"`
+		} `yaml:"entries"`
+	}
+	if err := yaml.Unmarshal(data, &cat); err != nil {
+		t.Fatalf("catalog yaml: %v", err)
+	}
+	byID := make(map[string]struct {
+		Path        string
+		Type        string
+		Description string
+	})
+	for _, e := range cat.Entries {
+		if strings.TrimSpace(e.ID) == "" {
+			t.Fatal("catalog has blank entry id")
+		}
+		if _, exists := byID[e.ID]; exists {
+			t.Fatalf("catalog has duplicate entry id %q", e.ID)
+		}
+		byID[e.ID] = struct {
+			Path        string
+			Type        string
+			Description string
+		}{e.Path, e.Type, e.Description}
+	}
+	for _, w := range []struct {
+		id   string
+		path string
+		typ  string
+	}{
+		{"workflow-states", "states/workflow.yaml", "state"},
+		{"workflow-routes", "routes/workflow.yaml", "route"},
+		{"merge-readiness-guard", "guards/default.yaml", "guard"},
+	} {
+		e, ok := byID[w.id]
+		if !ok {
+			t.Fatalf("catalog missing entry id %q", w.id)
+		}
+		if e.Path != w.path {
+			t.Fatalf("catalog %q path: got %q want %q", w.id, e.Path, w.path)
+		}
+		if e.Type != w.typ {
+			t.Fatalf("catalog %q type: got %q want %q", w.id, e.Type, w.typ)
+		}
+		if strings.TrimSpace(e.Description) == "" {
+			t.Fatalf("catalog %q missing non-empty description", w.id)
+		}
+		target := filepath.Join(reinguardDir, "control", e.Path)
+		st, err := os.Stat(target)
+		if err != nil {
+			t.Fatalf("catalog %q path %q: missing on disk: %v", w.id, e.Path, err)
+		}
+		if st.IsDir() {
+			t.Fatalf("catalog %q path %q: expected file, got directory", w.id, e.Path)
+		}
 	}
 }
 

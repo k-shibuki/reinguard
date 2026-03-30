@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -15,13 +16,15 @@ import (
 	"github.com/k-shibuki/reinguard/internal/observe/github/pullrequests"
 )
 
+var botReviewerIDPattern = regexp.MustCompile(`^[a-z0-9_]+$`)
+
 // GitHubProvider aggregates GitHub facets (ADR-0006).
 type GitHubProvider struct {
 	HTTPClient *http.Client
 	// APIBase optionally overrides the GitHub REST root (tests / httptest).
 	APIBase string
-	// TrackedReviewers configures optional PR comment / review status observation per login (P2-1).
-	TrackedReviewers []prquery.TrackedReviewer
+	// BotReviewers configures optional PR comment / review status observation per bot (P2-1).
+	BotReviewers []prquery.BotReviewer
 }
 
 // NewGitHubProvider returns a GitHub aggregate provider.
@@ -30,7 +33,7 @@ func NewGitHubProvider() *GitHubProvider {
 }
 
 // GitHubProviderFactory builds a GitHub provider from config options (ADR-0009).
-// Supported keys: api_base (string); tracked_reviewers (array of { login, enrich? }).
+// Supported keys: api_base (string); bot_reviewers (array of { id, login, required, enrich? }).
 func GitHubProviderFactory(opts map[string]any) (Provider, error) {
 	p := NewGitHubProvider()
 	if len(opts) == 0 {
@@ -54,58 +57,97 @@ func GitHubProviderFactory(opts map[string]any) (Provider, error) {
 		}
 		p.APIBase = s
 	}
-	tr, err := parseTrackedReviewers(opts)
+	tr, err := parseBotReviewers(opts)
 	if err != nil {
 		return nil, err
 	}
-	p.TrackedReviewers = tr
+	p.BotReviewers = tr
 	return p, nil
 }
 
-func parseTrackedReviewers(opts map[string]any) ([]prquery.TrackedReviewer, error) {
-	raw, ok := opts["tracked_reviewers"]
+func parseBotReviewers(opts map[string]any) ([]prquery.BotReviewer, error) {
+	raw, ok := opts["bot_reviewers"]
 	if !ok {
 		return nil, nil
 	}
 	arr, ok := raw.([]any)
 	if !ok {
-		return nil, fmt.Errorf("github provider: options.tracked_reviewers must be an array")
+		return nil, fmt.Errorf("github provider: options.bot_reviewers must be an array")
 	}
-	out := make([]prquery.TrackedReviewer, 0, len(arr))
+	out := make([]prquery.BotReviewer, 0, len(arr))
+	seenID := make(map[string]struct{}, len(arr))
 	for i, item := range arr {
 		m, ok := item.(map[string]any)
 		if !ok {
-			return nil, fmt.Errorf("github provider: options.tracked_reviewers[%d] must be an object", i)
+			return nil, fmt.Errorf("github provider: options.bot_reviewers[%d] must be an object", i)
 		}
+		id, _ := m["id"].(string)
+		id = strings.TrimSpace(id)
+		if id == "" {
+			return nil, fmt.Errorf("github provider: options.bot_reviewers[%d].id is required", i)
+		}
+		if !botReviewerIDPattern.MatchString(id) {
+			return nil, fmt.Errorf("github provider: options.bot_reviewers[%d].id must match ^[a-z0-9_]+$", i)
+		}
+		if _, dup := seenID[id]; dup {
+			return nil, fmt.Errorf("github provider: options.bot_reviewers: duplicate id %q", id)
+		}
+		seenID[id] = struct{}{}
+
 		login, _ := m["login"].(string)
 		login = strings.TrimSpace(login)
 		if login == "" {
-			return nil, fmt.Errorf("github provider: options.tracked_reviewers[%d].login is required", i)
+			return nil, fmt.Errorf("github provider: options.bot_reviewers[%d].login is required", i)
 		}
-		var enrich []string
-		switch e := m["enrich"].(type) {
-		case nil:
-		case []any:
-			for _, x := range e {
-				s, ok := x.(string)
-				if !ok {
-					return nil, fmt.Errorf("github provider: options.tracked_reviewers[%d].enrich must contain only strings", i)
-				}
-				s = strings.TrimSpace(s)
-				if s == "" {
-					return nil, fmt.Errorf("github provider: options.tracked_reviewers[%d].enrich contains empty string", i)
-				}
-				enrich = append(enrich, s)
-			}
-		default:
-			return nil, fmt.Errorf("github provider: options.tracked_reviewers[%d].enrich must be an array of strings", i)
+		required, err := parseBotReviewerRequiredFlag(i, m)
+		if err != nil {
+			return nil, err
+		}
+		enrich, err := parseBotReviewerEnrichList(i, m)
+		if err != nil {
+			return nil, err
 		}
 		if err := prquery.ValidateEnrichmentNames(enrich); err != nil {
-			return nil, fmt.Errorf("github provider: options.tracked_reviewers[%d]: %w", i, err)
+			return nil, fmt.Errorf("github provider: options.bot_reviewers[%d]: %w", i, err)
 		}
-		out = append(out, prquery.TrackedReviewer{Login: login, Enrich: enrich})
+		out = append(out, prquery.BotReviewer{ID: id, Login: login, Enrich: enrich, Required: required})
 	}
 	return out, nil
+}
+
+func parseBotReviewerRequiredFlag(i int, m map[string]any) (bool, error) {
+	reqRaw, ok := m["required"]
+	if !ok {
+		return false, fmt.Errorf("github provider: options.bot_reviewers[%d].required is required", i)
+	}
+	required, ok := reqRaw.(bool)
+	if !ok {
+		return false, fmt.Errorf("github provider: options.bot_reviewers[%d].required must be a boolean", i)
+	}
+	return required, nil
+}
+
+func parseBotReviewerEnrichList(i int, m map[string]any) ([]string, error) {
+	switch e := m["enrich"].(type) {
+	case nil:
+		return nil, nil
+	case []any:
+		var enrich []string
+		for _, x := range e {
+			s, ok := x.(string)
+			if !ok {
+				return nil, fmt.Errorf("github provider: options.bot_reviewers[%d].enrich must contain only strings", i)
+			}
+			s = strings.TrimSpace(s)
+			if s == "" {
+				return nil, fmt.Errorf("github provider: options.bot_reviewers[%d].enrich contains empty string", i)
+			}
+			enrich = append(enrich, s)
+		}
+		return enrich, nil
+	default:
+		return nil, fmt.Errorf("github provider: options.bot_reviewers[%d].enrich must be an array of strings", i)
+	}
 }
 
 // ID implements Provider.
@@ -228,7 +270,7 @@ func (p *GitHubProvider) githubCollectPRGraph(ctx context.Context, client *githu
 	if !prLookupOK || prNum <= 0 {
 		return
 	}
-	pullDetail, revInner, err := prquery.Collect(ctx, client, owner, repo, prNum, p.TrackedReviewers)
+	pullDetail, revInner, err := prquery.Collect(ctx, client, owner, repo, prNum, p.BotReviewers)
 	if err != nil {
 		*degraded = true
 		*diags = append(*diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github.pr-query"})

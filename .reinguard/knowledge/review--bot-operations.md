@@ -92,7 +92,7 @@ If the branch is updated while CodeRabbit is reviewing, CR may post
 
 Disposition categories, CodeRabbit resolution gate, and when threads may be resolved are **normative** in `.reinguard/policy/review--consensus-protocol.md` — do not duplicate that model here.
 
-**Operational shorthand** (after you post a disposition): check thread resolution state; CodeRabbit may confirm and auto-resolve; Codex follow-up usually needs a PR timeline comment with `@codex review` (see `.cursor/commands/review-address.md`).
+**Operational shorthand** (after you post a disposition): check thread resolution state; CodeRabbit may confirm and auto-resolve; Codex follow-up usually needs a PR timeline comment with `@codex review` (see `.reinguard/procedure/review-address.md`).
 
 ## Re-review
 
@@ -107,5 +107,7 @@ Deduplicate when both reviewers flag the same issue.
 ## Related
 
 - `.reinguard/policy/review--consensus-protocol.md` — disposition, resolve, consensus
-- `.reinguard/policy/safety--agent-invariants.md` § **HS-REVIEW-RESOLVE** (Cursor: `reinguard-bridge.mdc` § Always-active policy)
-- `.cursor/commands/review-address.md`
+- `.reinguard/policy/safety--agent-invariants.md` § **HS-REVIEW-RESOLVE**
+- `.reinguard/procedure/wait-bot-review.md` — FSM routes `user-wait-bot-*` (quota, pause, failed, run)
+- `.reinguard/procedure/review-address.md` — thread disposition and multi-source triage
+- `.reinguard/knowledge/review--multi-source-review-signals.md` — inbox model across sources

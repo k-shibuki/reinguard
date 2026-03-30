@@ -6,6 +6,10 @@ alwaysApply: true
 This file is an **adapter**: it points at the Semantics layer (`.reinguard/`)
 and Substrate (`rgd`). Do not duplicate body text from `.reinguard/` here.
 
+## Language
+
+Use **English for everything except replies in the Cursor chat panel to the user**. In practice that means: commit messages, PR titles and bodies, GitHub review comments and thread dispositions, code and tests (identifiers, comments, docstrings you add), command output you author for logs or docs, and any other durable or third-party-facing text — **English only**. The **chat transcript** (what you write back to the user in this Cursor conversation) may follow the user’s language preference when it differs.
+
 ## Entry points
 
 - **Substrate config**: [.reinguard/reinguard.yaml](../../.reinguard/reinguard.yaml) — `schema_version`, `default_branch`, `providers` (ADR-0008, ADR-0009).
@@ -13,6 +17,7 @@ and Substrate (`rgd`). Do not duplicate body text from `.reinguard/` here.
 - **Knowledge catalog**: [.reinguard/knowledge/manifest.json](../../.reinguard/knowledge/manifest.json) — `entries[]` with `id`, `path`, `description`, `triggers`, `when` (ADR-0010).
 - **Policy catalog** (normative, not in knowledge manifest): [.reinguard/policy/catalog.yaml](../../.reinguard/policy/catalog.yaml) — `entries[]` with `id`, `path`, `description`; bodies live under [.reinguard/policy/](../../.reinguard/policy/).
 - **Control catalog** (human-maintained index; not read by validate): [.reinguard/control/catalog.yaml](../../.reinguard/control/catalog.yaml) — `entries[]` with `id`, `path`, `type`, `description`. **Rule YAML** under [.reinguard/control/states/](../../.reinguard/control/states/), [routes/](../../.reinguard/control/routes/), [guards/](../../.reinguard/control/guards/) — consumed by `config.Load` / `rgd config validate`.
+- **Procedures** (agent action cards; ADR-0011, ADR-0013): [.reinguard/procedure/](../../.reinguard/procedure/) — Cursor: [`rgd-next.md`](../commands/rgd-next.md), [`cursor-plan.md`](../commands/cursor-plan.md).
 
 ## Always-active policy
 
@@ -27,12 +32,44 @@ Follow these policy documents in every interaction:
   - **HS-REVIEW-RESOLVE** — disposition reply before resolving threads
   - **HS-MERGE-CONSENSUS** — no auto-merge while review pending
 - [coding--standards.md](../../.reinguard/policy/coding--standards.md) — English artifacts, `gofmt`, `go vet`, **Change scope** (same-kind sweep), ADR/CLI authority
+- [workflow--pr-discipline.md](../../.reinguard/policy/workflow--pr-discipline.md) — Issue-driven work, PR discipline, branch naming, exceptions
+- [commit--format.md](../../.reinguard/policy/commit--format.md) — Conventional Commits, `Refs` in message body, atomic commits, branch naming
+
+## Workflow
+
+Follow [.reinguard/policy/workflow--pr-discipline.md](../../.reinguard/policy/workflow--pr-discipline.md) for Issue-driven work, PR discipline, branch naming, and exceptions.
+
+### Command separation (implement → change-inspect → pr-create → review-address → pr-merge)
+
+Treat **inspect**, **create**, **address**, and **merge** as distinct steps (supports future `rgd` semantics):
+
+- **After `implement`** → **`change-inspect`** (self-inspection gate, always run): whole-change review against inspection dimensions before PR creation.
+- **After `change-inspect` passes** → **`pr-create`**: push, fill template (dimension 6), create PR, await CI.
+- **External review findings / unresolved threads** → **`review-address`**: classify, fix, disposition reply, resolve threads.
+- **Review done, CI green, policy satisfied** → **`pr-merge`**: execute merge only after checks.
+
+**Orchestration:** After Sense and Route, `rgd-next` **always** applies `.reinguard/procedure/next-orchestration.md` (full-path proposal format, single approval gate, post-approval execution contract; no proposal-only or minimal-dump mode). Adapter flow: `rgd-next.md` § **Propose** (once) then § **Execute**.
+
+### Evidence targets
+
+- Until `rgd observe` ships, see [`evidence-temporary.mdc`](evidence-temporary.mdc) for GitHub observation (`gh` / `git` read-only).
+
+### Agent procedure reference
+
+Procedure **bodies** live under [`.reinguard/procedure/`](../../.reinguard/procedure/) (SSOT). **Cursor entries:** [`rgd-next.md`](../commands/rgd-next.md) — `rgd context build`, Route, **Propose** (once), then **Execute** with `next-orchestration.md`; [`cursor-plan.md`](../commands/cursor-plan.md) — `AskQuestion` / `CreatePlan` only (`gh issue create` appears as plan todos when issue-first).
+
+Use `gh` CLI for observation (`gh issue view`, `gh pr view`, `gh pr checks`, etc.) until full `rgd observe` coverage.
+
+### Maintainer reference
+
+Branch protection, labels, and CI gates: [.github/CONTRIBUTING.md](../../.github/CONTRIBUTING.md).
 
 ## Knowledge retrieval
 
 - **Primary:** `rgd context build` — use `knowledge.entries` in stdout JSON (each entry’s required `when` is evaluated against observation + merged `state.*` signals to filter inclusion; see `docs/cli.md`).
 - **Catalog only:** triage with `entries` in `manifest.json` when you are not running `rgd` (paths and metadata; `when` shows relevance conditions).
 - Read only the Markdown paths you need.
+- **Tests (when writing or reviewing Go tests):** [.reinguard/knowledge/testing--strategy.md](../../.reinguard/knowledge/testing--strategy.md), [.reinguard/knowledge/testing--assertions.md](../../.reinguard/knowledge/testing--assertions.md), [.reinguard/knowledge/testing--given-when-then.md](../../.reinguard/knowledge/testing--given-when-then.md).
 - **Optional** trigger substring filter (OR-union with observation signals): save observation JSON (`rgd observe > /tmp/rgd-observe.json`), then:
 
 ```bash
@@ -50,4 +87,5 @@ Run `rgd knowledge index` and commit `manifest.json`; then `rgd config validate`
 - ADR-0001: `docs/adr/0001-system-positioning.md` (Adapter / Semantics / Substrate)
 - ADR-0010: `docs/adr/0010-knowledge-management.md`
 - ADR-0011: `docs/adr/0011-semantic-control-plane-structure.md`
+- ADR-0013: `docs/adr/0013-fsm-v1-workflow-states.md` (FSM states, routes, Adapter mapping)
 - CLI: `docs/cli.md`

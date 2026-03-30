@@ -1,3 +1,24 @@
+---
+id: procedure-change-inspect
+purpose: Pre-PR self-inspection against policy dimensions before PR creation.
+applies_to:
+  state_ids: []
+  route_ids: []
+reads:
+  - ../policy/review--self-inspection.md
+  - ../policy/coding--preflight.md
+  - ../policy/coding--standards.md
+sense:
+  - rgd context build
+  - git diff
+act:
+  - Gather diff and commits; inspect every dimension; classify findings; loop on blocking items.
+output:
+  - Pass/fail per dimension, commit-structure note, readiness declaration.
+done_when: No blocking findings; ready for `pr-create` or documented otherwise.
+escalate_when: Policy interpretation conflicts or inspection scope unclear.
+---
+
 # change-inspect
 
 Pre-PR self-inspection: evaluate the whole change against policy dimensions
@@ -6,12 +27,12 @@ merge, or restructure commits (commit organization is `implement` step 7).
 
 ## Context
 
-- `.reinguard/policy/review--self-inspection.md` — SSOT for inspection dimensions (open the file; do not duplicate its criteria here)
-- `.reinguard/policy/coding--preflight.md` — prerequisite; meta-verify its obligations were met
-- `.reinguard/policy/coding--standards.md` § **Change scope** — same-kind sweep across code, `.reinguard/`, `.cursor/`
+- [`../policy/review--self-inspection.md`](../policy/review--self-inspection.md) — SSOT for inspection dimensions (open the file; do not duplicate its criteria here)
+- [`../policy/coding--preflight.md`](../policy/coding--preflight.md) — prerequisite; meta-verify its obligations were met
+- [`../policy/coding--standards.md`](../policy/coding--standards.md) § **Change scope** — same-kind sweep across code, `.reinguard/`, `.cursor/`
 - `AGENTS.md` (severity P0/P1, review guidelines)
 
-**Already in context**: `reinguard-bridge.mdc` (HS-*), `workflow-policy.mdc` (command separation).
+**Already in context** (always-active Adapter rule): HS-* codes, catalogs, workflow & commit policy.
 
 **Knowledge discovery** (substrate):
 
@@ -45,7 +66,7 @@ gh issue view <ISSUE> --json title,body,labels
 
 ### 2. Inspect each dimension
 
-Open [`.reinguard/policy/review--self-inspection.md`](../../.reinguard/policy/review--self-inspection.md) and evaluate the change against **every** dimension and subsection defined there (dimensions 1–5 and 7). Do **not** restate normative criteria in this command file — that policy is SSOT (ADR-0001: Adapter points at Semantics, no duplicate body text).
+Open [`../policy/review--self-inspection.md`](../policy/review--self-inspection.md) and evaluate the change against **every** dimension and subsection defined there (dimensions 1–5 and 7). Do **not** restate normative criteria in this procedure — that policy is SSOT (ADR-0001: Adapter points at Semantics, no duplicate body text).
 
 Dimension 6 (PR template substance) is deferred to `pr-create`, which fills and verifies the template.
 
@@ -81,4 +102,4 @@ When inspection is clean (no Blocking findings): declare **ready for PR creation
 
 ## Guard
 
-HS-LOCAL-VERIFY, HS-NO-SKIP — this command reads, judges, and recommends; it does **not** merge or create PRs. Merge is `pr-merge` after `review-address`.
+HS-LOCAL-VERIFY, HS-NO-SKIP — this procedure reads, judges, and recommends; it does **not** merge or create PRs. Merge is `pr-merge` after `review-address`.

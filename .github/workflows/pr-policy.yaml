@@ -1,6 +1,6 @@
 # Reusable PR policy gate: Issue linkage, required sections, labels, base branch.
 # Logic lives in `.github/scripts/pr-policy-check.js` (also run from `gate-policy` in ci.yaml).
-# Exception contract: workflow-policy.mdc.
+# Exception contract: .reinguard/policy/workflow--pr-discipline.md.
 on:
   workflow_call:
 

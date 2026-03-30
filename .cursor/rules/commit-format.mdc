@@ -1,8 +1,0 @@
----
-description: "Creating git commits: Conventional Commits format, message structure, branch naming"
-alwaysApply: false
----
-
-# Git commit message conventions (Adapter)
-
-Follow [.reinguard/policy/commit--format.md](../../.reinguard/policy/commit--format.md) for commit message policy, branch naming, and atomic commits.

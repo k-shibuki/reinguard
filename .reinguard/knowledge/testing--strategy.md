@@ -16,7 +16,7 @@ when:
 
 # Test strategy (reinguard / Go)
 
-Judgment aids for writing and reviewing tests. The Cursor Adapter rule `test-strategy.mdc` points here.
+Judgment aids for writing and reviewing tests.
 
 For assertion style and GWT comments, see [`testing--assertions.md`](testing--assertions.md) and [`testing--given-when-then.md`](testing--given-when-then.md).
 

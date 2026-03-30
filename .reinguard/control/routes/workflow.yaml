@@ -1,0 +1,87 @@
+# Routes keyed off flattened state.state_id (ADR-0013). One primary route per state for v1.
+# route_id uses the user-* prefix (Adapter-agnostic; not tied to a specific IDE).
+rules:
+  - type: route
+    id: route_implement
+    priority: 20
+    route_id: user-implement
+    when:
+      op: eq
+      path: state.state_id
+      value: working_no_pr
+
+  - type: route
+    id: route_monitor
+    priority: 21
+    route_id: user-monitor-pr
+    when:
+      op: eq
+      path: state.state_id
+      value: pr_open
+
+  - type: route
+    id: route_wait_ci
+    priority: 22
+    route_id: user-wait-ci
+    when:
+      op: eq
+      path: state.state_id
+      value: waiting_ci
+
+  - type: route
+    id: route_address_review
+    priority: 23
+    route_id: user-address-review
+    when:
+      or:
+        - op: eq
+          path: state.state_id
+          value: unresolved_threads
+        - op: eq
+          path: state.state_id
+          value: changes_requested
+
+  - type: route
+    id: route_wait_bot_failed
+    priority: 24
+    route_id: user-wait-bot-failed
+    when:
+      op: eq
+      path: state.state_id
+      value: waiting_bot_failed
+
+  - type: route
+    id: route_wait_bot_run
+    priority: 25
+    route_id: user-wait-bot-run
+    when:
+      op: eq
+      path: state.state_id
+      value: waiting_bot_run
+
+  - type: route
+    id: route_wait_bot_quota
+    priority: 26
+    route_id: user-wait-bot-quota
+    when:
+      op: eq
+      path: state.state_id
+      value: waiting_bot_rate_limited
+
+  - type: route
+    id: route_wait_bot_paused
+    priority: 27
+    route_id: user-wait-bot-paused
+    when:
+      op: eq
+      path: state.state_id
+      value: waiting_bot_paused
+
+  - type: route
+    id: route_merge
+    priority: 28
+    route_id: user-merge
+    when:
+      op: eq
+      path: state.state_id
+      value: merge_ready

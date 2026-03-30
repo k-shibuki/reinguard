@@ -11,7 +11,7 @@ triggers:
 
 # Coding standards
 
-Repository-wide coding and documentation rules. The Cursor Adapter rule `reinguard-bridge.mdc` § Always-active policy points here as SSOT.
+Repository-wide coding and documentation rules.
 
 ## Language
 

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -293,11 +294,11 @@ func TestCollect_latestReviewsTruncated(t *testing.T) {
 	}
 }
 
-func TestCollect_trackedReviewer_rateLimitAndEnrich(t *testing.T) {
+func TestCollect_botReviewer_rateLimitAndEnrich(t *testing.T) {
 	t.Parallel()
-	// Given: tracked reviewer comments contain a CodeRabbit rate-limit message with enrich enabled.
-	// When:  Collect computes tracked_reviewer_status.
-	// Then:  contains_rate_limit=true and rate_limit_remaining_seconds is populated.
+	// Given: bot reviewer comments contain a CodeRabbit rate-limit message with enrich enabled.
+	// When:  Collect computes bot_reviewer_status.
+	// Then:  contains_rate_limit=true, rate_limit_remaining_seconds is populated, status=rate_limited.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := map[string]any{
 			"data": map[string]any{
@@ -336,12 +337,12 @@ func TestCollect_trackedReviewer_rateLimitAndEnrich(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
-	tracked := []TrackedReviewer{{Login: "coderabbitai[bot]", Enrich: []string{"coderabbit"}}}
-	_, rev, err := Collect(context.Background(), c, "o", "r", 1, tracked)
+	bots := []BotReviewer{{ID: "coderabbit", Login: "coderabbitai[bot]", Required: true, Enrich: []string{"coderabbit"}}}
+	_, rev, err := Collect(context.Background(), c, "o", "r", 1, bots)
 	if err != nil {
 		t.Fatal(err)
 	}
-	st := rev["tracked_reviewer_status"].([]any)
+	st := rev["bot_reviewer_status"].([]any)
 	if len(st) != 1 {
 		t.Fatalf("status len: %v", st)
 	}
@@ -351,6 +352,13 @@ func TestCollect_trackedReviewer_rateLimitAndEnrich(t *testing.T) {
 	}
 	if m["rate_limit_remaining_seconds"].(int) != 125 {
 		t.Fatalf("seconds: %+v", m)
+	}
+	if m["status"].(string) != BotStatusRateLimited {
+		t.Fatalf("status: %+v", m)
+	}
+	diag := rev["bot_review_diagnostics"].(map[string]any)
+	if diag["bot_review_failed"].(bool) != true || diag["bot_review_pending"].(bool) != false {
+		t.Fatalf("diag: %+v", diag)
 	}
 }
 
@@ -397,11 +405,11 @@ func TestCollect_emptyLabelsAndClosingIssuesAreArrays(t *testing.T) {
 	}
 }
 
-func TestCollect_trackedReviewer_noEnrichOmitsRateLimitSeconds(t *testing.T) {
+func TestCollect_botReviewer_noEnrichOmitsRateLimitSeconds(t *testing.T) {
 	t.Parallel()
-	// Given: tracked reviewer with no enrich plugins and rate-limit comments present.
-	// When:  Collect computes tracked_reviewer_status.
-	// Then:  rate_limit_remaining_seconds key is absent.
+	// Given: bot reviewer with no enrich plugins and rate-limit comments present.
+	// When:  Collect computes bot_reviewer_status.
+	// Then:  rate_limit_remaining_seconds key is absent; generic classifier still sets rate_limited.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := map[string]any{
 			"data": map[string]any{
@@ -434,18 +442,194 @@ func TestCollect_trackedReviewer_noEnrichOmitsRateLimitSeconds(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
-	tracked := []TrackedReviewer{{Login: "coderabbitai[bot]"}}
-	_, rev, err := Collect(context.Background(), c, "o", "r", 1, tracked)
+	bots := []BotReviewer{{ID: "cr", Login: "coderabbitai[bot]", Required: true}}
+	_, rev, err := Collect(context.Background(), c, "o", "r", 1, bots)
 	if err != nil {
 		t.Fatal(err)
 	}
-	st := rev["tracked_reviewer_status"].([]any)
+	st := rev["bot_reviewer_status"].([]any)
 	if len(st) != 1 {
 		t.Fatalf("status len: %v", st)
 	}
 	m := st[0].(map[string]any)
 	if _, exists := m["rate_limit_remaining_seconds"]; exists {
 		t.Fatalf("unexpected key: %+v", m)
+	}
+	if m["status"].(string) != BotStatusRateLimited {
+		t.Fatalf("status: %+v", m)
+	}
+}
+
+func TestCollect_commentPagination_fetchesOlderBotHeadMovedMessage(t *testing.T) {
+	t.Parallel()
+	// Given: newest comment page has no bot; older page has CodeRabbit head-moved notice.
+	// When:  Collect merges comment pages for configured bots.
+	// Then:  contains_review_failed is true and status is review_failed (second GraphQL round-trip).
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("read body: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(string(body), "PRCommentPage") {
+			resp := map[string]any{
+				"data": map[string]any{
+					"repository": map[string]any{
+						"pullRequest": map[string]any{
+							"comments": map[string]any{
+								"pageInfo": map[string]any{"hasPreviousPage": false, "startCursor": ""},
+								"nodes": []map[string]any{
+									{
+										"author":    map[string]any{"login": "coderabbitai[bot]"},
+										"body":      "The head commit changed during the review.",
+										"updatedAt": "2026-03-28T11:00:00Z",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			if err := json.NewEncoder(w).Encode(resp); err != nil {
+				t.Errorf("encode: %v", err)
+			}
+			return
+		}
+		var req struct {
+			Variables map[string]any `json:"variables"`
+		}
+		if err := json.Unmarshal(body, &req); err != nil {
+			t.Errorf("unmarshal: %v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		include, _ := req.Variables["includeDetail"].(bool)
+		if !include {
+			t.Errorf("this test expects a single detail page only")
+		}
+		resp := map[string]any{
+			"data": map[string]any{
+				"repository": map[string]any{
+					"pullRequest": map[string]any{
+						"state": "OPEN", "isDraft": false, "title": "t",
+						"mergeable": "UNKNOWN", "mergeStateStatus": "UNKNOWN",
+						"baseRefName": "main", "headRefOid": "x",
+						"labels":                  map[string]any{"nodes": []any{}},
+						"closingIssuesReferences": map[string]any{"nodes": []any{}},
+						"latestReviews":           map[string]any{"pageInfo": map[string]any{"hasNextPage": false}, "nodes": []any{}},
+						"comments": map[string]any{
+							"pageInfo": map[string]any{"hasPreviousPage": true, "startCursor": "cur-old"},
+							"nodes": []map[string]any{
+								{
+									"author":    map[string]any{"login": "someone"},
+									"body":      "thread noise",
+									"updatedAt": "2026-03-28T12:00:00Z",
+								},
+							},
+						},
+						"reviewThreads": map[string]any{"pageInfo": map[string]any{"hasNextPage": false}, "nodes": []any{}},
+					},
+				},
+			},
+		}
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode: %v", err)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	bots := []BotReviewer{{ID: "coderabbit", Login: "coderabbitai[bot]", Required: true, Enrich: []string{"coderabbit"}}}
+	_, rev, err := Collect(context.Background(), c, "o", "r", 1, bots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := int(calls.Load()); got != 2 {
+		t.Fatalf("want 2 graphql calls, got %d", got)
+	}
+	st := rev["bot_reviewer_status"].([]any)
+	if len(st) != 1 {
+		t.Fatalf("status len: %v", st)
+	}
+	m := st[0].(map[string]any)
+	if !m["contains_review_failed"].(bool) {
+		t.Fatalf("contains_review_failed: %+v", m)
+	}
+	if m["status"].(string) != BotStatusReviewFailed {
+		t.Fatalf("status: %+v", m)
+	}
+}
+
+func TestNormalizeGitHubActorLogin(t *testing.T) {
+	t.Parallel()
+	for _, tt := range []struct {
+		a, b  string
+		equal bool
+	}{
+		{"coderabbitai[bot]", "coderabbitai", true},
+		{"CoderabbitAI", "coderabbitai[bot]", true},
+		{"foo", "bar", false},
+	} {
+		if got := normalizeGitHubActorLogin(tt.a) == normalizeGitHubActorLogin(tt.b); got != tt.equal {
+			t.Fatalf("%q vs %q: got %v want %v", tt.a, tt.b, got, tt.equal)
+		}
+	}
+}
+
+func TestCollect_configLoginBotSuffix_graphQLLoginPlain(t *testing.T) {
+	t.Parallel()
+	// Given: GraphQL uses plain app login on comments/reviews; config uses "[bot]" suffix.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		resp := map[string]any{
+			"data": map[string]any{
+				"repository": map[string]any{
+					"pullRequest": map[string]any{
+						"state": "OPEN", "isDraft": false, "title": "t",
+						"mergeable": "UNKNOWN", "mergeStateStatus": "UNKNOWN",
+						"baseRefName": "main", "headRefOid": "x",
+						"labels":                  map[string]any{"nodes": []any{}},
+						"closingIssuesReferences": map[string]any{"nodes": []any{}},
+						"latestReviews": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false},
+							"nodes": []any{
+								map[string]any{"state": "COMMENTED", "author": map[string]any{"login": "coderabbitai"}},
+							},
+						},
+						"comments": map[string]any{
+							"nodes": []map[string]any{
+								{
+									"author":    map[string]any{"login": "coderabbitai"},
+									"body":      "hello",
+									"updatedAt": "2026-03-28T12:00:00Z",
+								},
+							},
+						},
+						"reviewThreads": map[string]any{"pageInfo": map[string]any{"hasNextPage": false}, "nodes": []any{}},
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	bots := []BotReviewer{{ID: "cr", Login: "coderabbitai[bot]", Required: true, Enrich: []string{"coderabbit"}}}
+	_, rev, err := Collect(context.Background(), c, "o", "r", 1, bots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := rev["bot_reviewer_status"].([]any)[0].(map[string]any)
+	if !m["has_review"].(bool) || m["review_state"].(string) != "COMMENTED" {
+		t.Fatalf("review: %+v", m)
+	}
+	if m["latest_comment_at"].(string) != "2026-03-28T12:00:00Z" {
+		t.Fatalf("comment: %+v", m)
 	}
 }
 

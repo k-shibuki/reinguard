@@ -1,7 +1,7 @@
 // PR policy gate: Issue linkage, required sections, labels, base branch.
 // Used by gate-policy in ci.yaml and by reusable pr-policy.yaml (workflow_call).
 // Label lists are read from /tmp/labels.json (yq output of .reinguard/labels.yaml in CI).
-// Exception contract: workflow-policy.mdc.
+// Exception contract: .reinguard/policy/workflow--pr-discipline.md.
 
 const fs = require("fs");
 

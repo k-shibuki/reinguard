@@ -248,31 +248,36 @@ func TestGitHubProviderFactory_apiBase_notAbsoluteHTTPURL(t *testing.T) {
 	}
 }
 
-func TestGitHubProviderFactory_trackedReviewers_ok(t *testing.T) {
+func TestGitHubProviderFactory_botReviewers_ok(t *testing.T) {
 	t.Parallel()
 	p, err := GitHubProviderFactory(map[string]any{
-		"tracked_reviewers": []any{
-			map[string]any{"login": "coderabbitai[bot]", "enrich": []any{"coderabbit"}},
-			map[string]any{"login": "chatgpt-codex-connector[bot]"},
+		"bot_reviewers": []any{
+			map[string]any{"id": "coderabbit", "login": "coderabbitai[bot]", "required": true, "enrich": []any{"coderabbit"}},
+			map[string]any{"id": "codex", "login": "chatgpt-codex-connector[bot]", "required": false},
 		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	gp, ok := p.(*GitHubProvider)
-	if !ok || len(gp.TrackedReviewers) != 2 {
+	if !ok || len(gp.BotReviewers) != 2 {
 		t.Fatalf("got %T %+v", p, gp)
 	}
-	if gp.TrackedReviewers[0].Login != "coderabbitai[bot]" || len(gp.TrackedReviewers[0].Enrich) != 1 || gp.TrackedReviewers[0].Enrich[0] != "coderabbit" {
-		t.Fatalf("%+v", gp.TrackedReviewers[0])
+	br0 := gp.BotReviewers[0]
+	if br0.ID != "coderabbit" || br0.Login != "coderabbitai[bot]" || !br0.Required || len(br0.Enrich) != 1 || br0.Enrich[0] != "coderabbit" {
+		t.Fatalf("%+v", br0)
+	}
+	br1 := gp.BotReviewers[1]
+	if br1.ID != "codex" || br1.Login != "chatgpt-codex-connector[bot]" || br1.Required || len(br1.Enrich) != 0 {
+		t.Fatalf("%+v", br1)
 	}
 }
 
-func TestGitHubProviderFactory_trackedReviewers_unknownEnrich(t *testing.T) {
+func TestGitHubProviderFactory_botReviewers_unknownEnrich(t *testing.T) {
 	t.Parallel()
 	_, err := GitHubProviderFactory(map[string]any{
-		"tracked_reviewers": []any{
-			map[string]any{"login": "x", "enrich": []any{"no-such-plugin"}},
+		"bot_reviewers": []any{
+			map[string]any{"id": "x", "login": "x", "required": true, "enrich": []any{"no-such-plugin"}},
 		},
 	})
 	if err == nil || !strings.Contains(err.Error(), "unknown enrich") {
@@ -280,11 +285,92 @@ func TestGitHubProviderFactory_trackedReviewers_unknownEnrich(t *testing.T) {
 	}
 }
 
-func TestGitHubProviderFactory_trackedReviewers_badShape(t *testing.T) {
+func TestGitHubProviderFactory_botReviewers_badShape(t *testing.T) {
 	t.Parallel()
-	_, err := GitHubProviderFactory(map[string]any{"tracked_reviewers": "nope"})
+	_, err := GitHubProviderFactory(map[string]any{"bot_reviewers": "nope"})
 	if err == nil || !strings.Contains(err.Error(), "must be an array") {
 		t.Fatalf("got %v", err)
+	}
+}
+
+func TestGitHubProviderFactory_botReviewers_duplicateID(t *testing.T) {
+	t.Parallel()
+	_, err := GitHubProviderFactory(map[string]any{
+		"bot_reviewers": []any{
+			map[string]any{"id": "same", "login": "a", "required": true},
+			map[string]any{"id": "same", "login": "b", "required": false},
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "duplicate id") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestGitHubProviderFactory_botReviewers_invalidIDPattern(t *testing.T) {
+	t.Parallel()
+	_, err := GitHubProviderFactory(map[string]any{
+		"bot_reviewers": []any{
+			map[string]any{"id": "Bad-ID", "login": "x", "required": true},
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "id must match") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestGitHubProviderFactory_botReviewers_missingRequiredField(t *testing.T) {
+	t.Parallel()
+	_, err := GitHubProviderFactory(map[string]any{
+		"bot_reviewers": []any{
+			map[string]any{"id": "x", "login": "y"},
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "required is required") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestGitHubProviderFactory_botReviewers_requiredMustBeBoolean(t *testing.T) {
+	t.Parallel()
+	_, err := GitHubProviderFactory(map[string]any{
+		"bot_reviewers": []any{
+			map[string]any{"id": "x", "login": "y", "required": "true"},
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "required must be a boolean") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestGitHubProviderFactory_botReviewers_blankLogin(t *testing.T) {
+	t.Parallel()
+	_, err := GitHubProviderFactory(map[string]any{
+		"bot_reviewers": []any{
+			map[string]any{"id": "x", "login": "   ", "required": true},
+		},
+	})
+	if err == nil || !strings.Contains(err.Error(), "login is required") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestGitHubProviderFactory_botReviewers_blankID(t *testing.T) {
+	t.Parallel()
+	for name, idVal := range map[string]any{
+		"empty":      "",
+		"whitespace": "   ",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			_, err := GitHubProviderFactory(map[string]any{
+				"bot_reviewers": []any{
+					map[string]any{"id": idVal, "login": "somebot[bot]", "required": true},
+				},
+			})
+			if err == nil || !strings.Contains(err.Error(), ".id is required") {
+				t.Fatalf("got %v", err)
+			}
+		})
 	}
 }
 

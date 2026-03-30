@@ -1,13 +1,37 @@
+---
+id: procedure-implement
+purpose: Execute Issue-scoped implementation with substrate context, knowledge discovery, and preflight.
+applies_to:
+  state_ids:
+    - working_no_pr
+  route_ids:
+    - user-implement
+reads:
+  - ../policy/coding--preflight.md
+  - ../policy/coding--standards.md
+  - ../policy/commit--format.md
+sense:
+  - rgd context build
+  - rgd observe
+  - gh issue view
+act:
+  - Branch, search, implement, test, same-kind sweep, commits, preflight.
+output:
+  - Issue, scope, files, DoD, doc impact, preflight, commit status.
+done_when: Local verification passes; commits carry Refs #N.
+escalate_when: Issue spec is ambiguous, blocked upstream, or policy exception is required.
+---
+
 # implement
 
 ## Context
 
-- `.reinguard/policy/coding--preflight.md` — **Preflight verification** (HS-LOCAL-VERIFY, defensive checks, test design, self-review)
-- `.reinguard/policy/coding--standards.md` — **Change scope** (same-kind sweep across code, `.reinguard/`, `.cursor/`)
-- `.reinguard/policy/commit--format.md` — branch naming; Cursor: `commit-format.mdc`
-- `.cursor/rules/test-strategy.mdc` — GWT, table tests (points at `.reinguard/knowledge/testing--*.md`)
+- [`../policy/coding--preflight.md`](../policy/coding--preflight.md) — **Preflight verification** (HS-LOCAL-VERIFY, defensive checks, test design, self-review)
+- [`../policy/coding--standards.md`](../policy/coding--standards.md) — **Change scope** (same-kind sweep across code, `.reinguard/`, `.cursor/`)
+- [`../policy/commit--format.md`](../policy/commit--format.md) — branch naming
+- [`../knowledge/testing--strategy.md`](../knowledge/testing--strategy.md) — GWT, table tests; also [`testing--assertions.md`](../knowledge/testing--assertions.md), [`testing--given-when-then.md`](../knowledge/testing--given-when-then.md)
 
-**Already in context**: `reinguard-bridge.mdc` (HS-*, catalogs), `workflow-policy.mdc` (Issue-driven work, command separation).
+**Already in context** (always-active Adapter rule): HS-* codes, catalogs, workflow & commit policy.
 
 **Issue metadata** (from repo root):
 
@@ -49,7 +73,7 @@ rgd observe
 
 ## Act
 
-1. Create feature branch per `.reinguard/policy/commit--format.md` § Branch naming: `<prefix>/<issue-number>-<short-description>` (type prefixes: `.reinguard/labels.yaml` `categories.type` with `commit_prefix: true`).
+1. Create feature branch per [`../policy/commit--format.md`](../policy/commit--format.md) § Branch naming: `<prefix>/<issue-number>-<short-description>` (type prefixes: `.reinguard/labels.yaml` `categories.type` with `commit_prefix: true`).
 2. Search the codebase for existing paths, patterns, and dependencies; prioritize Issue **Touches** / **Go checks** sections.
 3. **Doc impact**: list candidate updates (`docs/adr/`, `docs/cli.md`, `.reinguard/`). Carry this list forward to commit/PR; align finalized diffs before merge.
 4. Implement per Issue **Definition of Done** and **Test plan** (the Issue Test plan states **intent**, not an exhaustive case-ID list — derive concrete Normal / Abnormal / Boundary cases from the diff; include tests in the same deliverable unless the Issue explicitly defers them).
