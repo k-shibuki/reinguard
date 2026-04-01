@@ -95,7 +95,7 @@ Apply code or doc changes for every comment you will close with **Fixed**. Do no
 
 For each **pull review comment** (file/line thread), post a disposition reply (**Fixed** / **By design** / **False positive** / **Acknowledged**) as a **threaded reply** (`gh api POST repos/{owner}/{repo}/pulls/<N>/comments` with `in_reply_to=<root_comment_database_id>`).
 A generic PR body or issue-style comment **does not** substitute for a thread reply.
-For **outside-diff / summary-only** findings (see Context) with no anchor id, a **targeted PR conversation comment** (quote + disposition) is the correct substitute — not silence.
+For **outside-diff / summary-only** findings (see Context) with no anchor id, a **targeted PR conversation comment** (quote + disposition) is the correct substitute — not silence. Outside-diff-range findings from the current review cycle MUST be dispositioned even if the code predates this PR (`HS-NO-DISMISS`). See `review--consensus-protocol.md` § **Non-thread findings**.
 
 ### 4. CodeRabbit threads
 

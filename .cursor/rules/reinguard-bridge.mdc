@@ -29,8 +29,9 @@ Follow these policy documents in every interaction:
   - **HS-PR-BASE** — PRs target `main` only
   - **HS-LOCAL-VERIFY** — `go test` / `go vet` / `golangci-lint` before push
   - **HS-NO-SKIP** — no skipping verification without documented exception
-  - **HS-REVIEW-RESOLVE** — disposition reply before resolving threads
-  - **HS-MERGE-CONSENSUS** — no auto-merge while review pending
+  - **HS-NO-DISMISS** — never dismiss findings as "pre-existing" or "outside diff range"
+  - **HS-REVIEW-RESOLVE** — disposition reply for all findings (threads and non-thread)
+  - **HS-MERGE-CONSENSUS** — no merge (any method) while required bot review is not terminal, threads are unresolved, or consensus is not reached
 - [coding--standards.md](../../.reinguard/policy/coding--standards.md) — English artifacts, `gofmt`, `go vet`, **Change scope** (same-kind sweep), ADR/CLI authority
 - [workflow--pr-discipline.md](../../.reinguard/policy/workflow--pr-discipline.md) — Issue-driven work, PR discipline, branch naming, exceptions
 - [commit--format.md](../../.reinguard/policy/commit--format.md) — Conventional Commits, `Refs` in message body, atomic commits, branch naming

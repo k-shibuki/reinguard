@@ -28,11 +28,19 @@ until the reviewer's final response confirms the disposition.
 ## Completeness Invariant
 
 ```text
-unresolved threads == 0  ⟺  all review findings have consensus
+unresolved threads == 0  ⟹  all thread-based findings have consensus
 ```
 
 GitHub Branch Protection (`required_conversation_resolution`) blocks
 merge until every thread is resolved. This is a deterministic guard.
+
+**Non-thread findings** (outside-diff-range comments, PR summary
+findings, conversation-level comments) are NOT tracked by GitHub's
+thread resolution mechanism. `unresolved threads == 0` is therefore
+**necessary but not sufficient** for full consensus. The agent must
+additionally verify that all non-thread findings have been dispositioned
+via PR conversation comments (see § Non-thread findings below).
+`HS-NO-DISMISS` prohibits skipping these findings as "pre-existing."
 
 ## Disposition Categories (4, exhaustive)
 
@@ -168,6 +176,30 @@ query($owner:String!, $name:String!, $number:Int!) {
 ```
 
 Count `nodes` where `isResolved` is false for unresolved threads.
+
+## Non-thread findings
+
+Review bots may report findings that do not create GitHub review threads:
+
+- **Outside-diff-range comments** — findings on lines not modified by the PR
+- **PR summary findings** — items listed in the review summary but not anchored to a specific line
+- **Conversation-level comments** — bot comments posted as PR conversation, not as part of a pull review
+
+These findings are invisible to `required_conversation_resolution` and
+to the `review_threads_unresolved` signal in the observation engine.
+
+**Disposition obligation** (per `HS-REVIEW-RESOLVE` and `HS-NO-DISMISS`):
+the agent must disposition every non-thread finding using a **PR
+conversation comment** that quotes the finding and states the disposition
+category (Fixed / By design / False positive / Acknowledged). The same
+consensus model applies: prefer Fixed / By design / False positive over
+Acknowledged; use Acknowledged only per § **Acknowledged — in-PR resolution
+vs follow-up Issue**.
+
+**Completeness check**: before proceeding to merge, the agent must
+confirm that all non-thread findings from the current review cycle have
+been dispositioned. This is a Steering obligation (agent self-policing);
+no deterministic guard currently tracks it.
 
 ## Edge Cases
 

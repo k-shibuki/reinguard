@@ -154,9 +154,9 @@ The command shells out to `gh api` to update PR bodies and labels. This is inten
 
 ## Review threads and merge
 
-Before merge: CI green (`ci-pass`), PR policy green, and **all review conversations resolved**. For each thread, leave a short **disposition** (e.g. Fixed / By design / False positive / Acknowledged) before resolving — see [`AGENTS.md`](../AGENTS.md) and [`.reinguard/policy/review--consensus-protocol.md`](../.reinguard/policy/review--consensus-protocol.md).
+Before merge: CI green (`ci-pass`), PR policy green, and **all review conversations resolved**. For each thread, leave a short **disposition** (e.g. Fixed / By design / False positive / Acknowledged) before resolving — see [`AGENTS.md`](../AGENTS.md) and [`.reinguard/policy/review--consensus-protocol.md`](../.reinguard/policy/review--consensus-protocol.md). Non-thread findings (outside-diff-range, PR summary) require a PR conversation comment with the same disposition (**HS-REVIEW-RESOLVE**). Do not dismiss findings as "pre-existing" (**HS-NO-DISMISS**).
 
-Do **not** enable **auto-merge** while a bot review is still pending or threads are unresolved.
+Do **not** merge (any method) while required bot review is not terminal, threads are unresolved, or consensus has not been reached.
 
 ## Continuous integration (job reference)
 
