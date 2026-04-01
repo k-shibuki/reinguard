@@ -76,7 +76,7 @@ when:
 ---
 `))
 	writeFile(t, filepath.Join(kdir, "manifest.json"), []byte(`{
-  "schema_version": "0.6.0",
+  "schema_version": "0.6.1",
   "entries": [{
     "id": "doc1",
     "path": "knowledge/doc.md",

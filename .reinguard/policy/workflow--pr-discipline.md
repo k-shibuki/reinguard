@@ -55,7 +55,9 @@ Use `.github/ISSUE_TEMPLATE/task.yml` (Issue Form) as the starting point.
 
 Programmatic create/edit must preserve **real newlines** in the PR body. If GitHub stores the body as one physical line containing the two-character sequence `\` + `n` instead of line breaks, **Gate — PR policy** fails (required sections such as `Summary` are not detected).
 
-- **Preferred**: `gh pr create --body-file …` / `gh pr edit <N> --body-file …`, after `.reinguard/scripts/check-pr-policy.sh` passes for create.
+- **Preferred create path**: `gh pr create --body-file …`, after `.reinguard/scripts/check-pr-policy.sh` passes.
+- **Preferred update path**: `gh api repos/<owner>/<repo>/pulls/<N> -X PATCH --input <json>` with a multiline-safe JSON body payload (`{ "body": "..." }`), then adjust labels via `gh api repos/<owner>/<repo>/issues/<N>/labels`.
+- **Avoid `gh pr edit` for body updates**: some `gh` versions still query deprecated Projects Classic GraphQL fields and can fail unexpectedly on affected repositories.
 - **If using `gh api`**: send JSON with `--input` and a `body` value that is an actual multiline string — for example `jq -n --rawfile b path/to/body.md '{body: $b}' > patch.json` then `gh api repos/<owner>/<repo>/pulls/<N> -X PATCH --input patch.json`. Do **not** rely on `-f body=…` with multiline shell values or on piping `jq -Rs` into form-style fields; form encoding can turn newlines into literal `\n` and break section checks.
 
 ## Exceptions

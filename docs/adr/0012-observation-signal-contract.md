@@ -34,7 +34,7 @@ boundaries** so extensions stay consistent.
 
 | Facet | Primary transport | Notes |
 |-------|-------------------|--------|
-| `issues` | REST (e.g. Search) | Open counts, etc. |
+| `issues` | REST (Search + per-issue `GET` when `--issue` is set) | `open_count`; optional `selected_issues` (see `docs/cli.md`) |
 | `pull_requests` | REST + local git | Branch ↔ PR linkage |
 | `ci` | REST | Combined status for `HEAD` |
 | `reviews` | **GraphQL** for thread resolution | REST cannot express `isResolved` per thread |
@@ -84,6 +84,10 @@ reflect unresolved **threads**, not raw comment row counts.
   `signals.github.reviews` per `docs/cli.md` (unified GraphQL PR context,
   `latestReviews` aggregates, optional `bot_reviewer_status` / `bot_review_diagnostics` with pluggable
   `enrich` names validated at provider build / `rgd config validate`).
+- **P2-2 (#71)** — Extends the **`issues`** facet (REST only) with
+  `signals.github.issues.selected_issues` when agents pass `--issue` to `rgd context build` or
+  `rgd observe` (see `docs/cli.md` for field names, error behavior, and CLI contract). Normative
+  field tables are not duplicated in this ADR.
 
 ## Consequences
 

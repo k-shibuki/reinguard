@@ -28,7 +28,7 @@ Repository-wide coding and documentation rules.
 
 ## Markdown
 
-- Lint with `npx --yes markdownlint-cli2@latest '**/*.md'` before commit (config: `.markdownlint-cli2.yaml`; no local Node package install required).
+- Lint Markdown with `pre-commit run markdownlint-cli2 --all-files` before commit (pinned by `.pre-commit-config.yaml`, no ad-hoc package install).
 - Pre-commit hook and CI job `lint-markdown` enforce the same rules.
 
 ## Change scope

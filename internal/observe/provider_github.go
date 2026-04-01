@@ -2,6 +2,7 @@ package observe
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -207,7 +208,9 @@ func (p *GitHubProvider) Collect(ctx context.Context, opts Options) (Fragment, e
 
 	var prNum int
 	prLookupOK := true
-	p.githubCollectIssues(ctx, client, owner, repo, wantFacet("issues"), signals, &diags, &degraded)
+	if err := p.githubCollectIssues(ctx, client, owner, repo, wantFacet("issues"), opts, signals, &diags, &degraded); err != nil {
+		return Fragment{}, err
+	}
 	p.githubCollectPullRequestsAndPRNum(ctx, client, owner, repo, opts.WorkDir, wantFacet, signals, appendWarnings, &diags, &degraded, &prNum, &prLookupOK)
 	p.githubCollectCI(ctx, client, owner, repo, opts.WorkDir, wantFacet("ci"), signals, appendWarnings, &diags, &degraded)
 	p.githubCollectPRGraph(ctx, client, owner, repo, prNum, wantFacet("pull-requests"), wantFacet("reviews"), prLookupOK, signals, &diags, &degraded)
@@ -215,17 +218,21 @@ func (p *GitHubProvider) Collect(ctx context.Context, opts Options) (Fragment, e
 	return Fragment{Signals: signals, Diagnostics: diags, Degraded: degraded}, nil
 }
 
-func (*GitHubProvider) githubCollectIssues(ctx context.Context, client *githubapi.Client, owner, repo string, want bool, signals map[string]any, diags *[]Diagnostic, degraded *bool) {
+func (*GitHubProvider) githubCollectIssues(ctx context.Context, client *githubapi.Client, owner, repo string, want bool, opts Options, signals map[string]any, diags *[]Diagnostic, degraded *bool) error {
 	if !want {
-		return
+		return nil
 	}
-	m, err := issues.Collect(ctx, client, owner, repo)
+	m, err := issues.Collect(ctx, client, owner, repo, opts.IssueNumbers)
 	if err != nil {
+		if errors.Is(err, issues.ErrFatalObservation) {
+			return err
+		}
 		*degraded = true
 		*diags = append(*diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github.issues"})
-		return
+		return nil
 	}
 	mergeSignals(signals, m)
+	return nil
 }
 
 func (*GitHubProvider) githubCollectPullRequestsAndPRNum(ctx context.Context, client *githubapi.Client, owner, repo, workDir string, wantFacet func(string) bool, signals map[string]any, appendWarnings func(string, []string), diags *[]Diagnostic, degraded *bool, prNum *int, prLookupOK *bool) {

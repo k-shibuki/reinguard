@@ -102,10 +102,11 @@ func RunObserve(c *cli.Context, gitHubFacet string, providerOverride []string) e
 		return err
 	}
 	opts := observe.Options{
-		WorkDir:     wd,
-		Serial:      c.Bool("serial"),
-		ProviderIDs: providerOverride,
-		GitHubFacet: gitHubFacet,
+		WorkDir:      wd,
+		Serial:       c.Bool("serial"),
+		ProviderIDs:  providerOverride,
+		GitHubFacet:  gitHubFacet,
+		IssueNumbers: c.IntSlice("issue"),
 	}
 	signals, diags, deg, err := engine.Collect(context.Background(), &root, opts)
 	if err != nil {
@@ -238,7 +239,9 @@ func RunContextBuild(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	sig, diags, deg, err := observe.LoadSignalsFileOrCollect(context.Background(), &loaded.Root, loadSignalsOpts(c, wd))
+	lsOpts := loadSignalsOpts(c, wd)
+	lsOpts.IssueNumbers = c.IntSlice("issue")
+	sig, diags, deg, err := observe.LoadSignalsFileOrCollect(context.Background(), &loaded.Root, lsOpts)
 	if err != nil {
 		return err
 	}
@@ -622,6 +625,7 @@ func NewApp(version string) *cli.App {
 						newCwdFlag(),
 						newConfigDirFlag(),
 						newObservationFileFlag(),
+						newIssueFlag(),
 					},
 					Action: RunContextBuild,
 				},

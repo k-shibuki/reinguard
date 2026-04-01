@@ -2,10 +2,12 @@ package observe
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
 	"github.com/k-shibuki/reinguard/internal/config"
+	"github.com/k-shibuki/reinguard/internal/observe/github/issues"
 )
 
 // Engine runs configured providers concurrently or serially and merges fragments into a
@@ -97,6 +99,9 @@ func (e *Engine) Collect(ctx context.Context, root *config.Root, opts Options) (
 
 	for _, r := range results {
 		if r.err != nil {
+			if errors.Is(r.err, issues.ErrFatalObservation) {
+				return nil, diags, degraded, r.err
+			}
 			degraded = true
 			diags = append(diags, Diagnostic{
 				Severity: "error",
