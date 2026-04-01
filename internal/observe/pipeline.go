@@ -10,14 +10,12 @@ import (
 )
 
 // LoadSignalsOptions configures LoadSignalsFileOrCollect (file vs live collect).
-type LoadSignalsOptions struct { //nolint:govet // fieldalignment: keep field grouping readable
+type LoadSignalsOptions struct {
 	// ObservationPath is a resolved filesystem path to observation JSON.
 	// When empty, Collect runs against the repository.
 	ObservationPath string
 	WorkDir         string
 	Serial          bool
-	// IssueNumbers is passed to the observation engine when collecting live (same as observe.Options).
-	IssueNumbers []int
 }
 
 // LoadSignalsFileOrCollect reads observation JSON from ObservationPath when set (signals,
@@ -40,11 +38,7 @@ func LoadSignalsFileOrCollect(ctx context.Context, root *config.Root, opts LoadS
 	if err != nil {
 		return nil, nil, false, err
 	}
-	return engine.Collect(ctx, root, Options{
-		WorkDir:      opts.WorkDir,
-		Serial:       opts.Serial,
-		IssueNumbers: opts.IssueNumbers,
-	})
+	return engine.Collect(ctx, root, Options{WorkDir: opts.WorkDir, Serial: opts.Serial})
 }
 
 // ParseObservationJSON decodes a saved observation document (signals, diagnostics, degraded).

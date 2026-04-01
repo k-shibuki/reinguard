@@ -30,7 +30,7 @@ Follow these policy documents in every interaction:
   - **HS-LOCAL-VERIFY** — `go test` / `go vet` / `golangci-lint` before push
   - **HS-NO-SKIP** — no skipping verification without documented exception
   - **HS-REVIEW-RESOLVE** — disposition reply before resolving threads
-  - **HS-MERGE-CONSENSUS** — no auto-merge while review pending
+  - **HS-MERGE-CONSENSUS** — no merge (any method) while required bot review is not terminal, review threads are unresolved, or consensus is not reached
 - [coding--standards.md](../../.reinguard/policy/coding--standards.md) — English artifacts, `gofmt`, `go vet`, **Change scope** (same-kind sweep), ADR/CLI authority
 - [workflow--pr-discipline.md](../../.reinguard/policy/workflow--pr-discipline.md) — Issue-driven work, PR discipline, branch naming, exceptions
 - [commit--format.md](../../.reinguard/policy/commit--format.md) — Conventional Commits, `Refs` in message body, atomic commits, branch naming
@@ -56,7 +56,7 @@ Treat **inspect**, **create**, **address**, and **merge** as distinct steps (sup
 
 ### Agent procedure reference
 
-Procedure **bodies** live under [`.reinguard/procedure/`](../../.reinguard/procedure/) (SSOT). **Cursor entries:** [`rgd-next.md`](../commands/rgd-next.md) — `rgd context build`, Route, **Propose** (once), then **Execute** with `next-orchestration.md`; [`cursor-plan.md`](../commands/cursor-plan.md) — `AskQuestion` / `CreatePlan` only (`gh issue create` appears as plan todos when issue-first).
+Procedure **bodies** live under [`.reinguard/procedure/`](../../.reinguard/procedure/) (SSOT). **Cursor entries:** [`rgd-next.md`](../commands/rgd-next.md) — `rgd context build`, Route, **Propose** (once), then **Execute** with `next-orchestration.md`; [`cursor-plan.md`](../commands/cursor-plan.md) — `AskQuestion` / `CreatePlan` only (`gh issue create` appears as plan todos when issue-first). **After `cursor-plan` acceptance, execution must use `rgd-next` loop semantics** (`next-orchestration.md` § Loop semantics) — `cursor-plan` does not define execution; it produces the plan that `rgd-next` Execute consumes.
 
 Use `gh` CLI for observation (`gh issue view`, `gh pr view`, `gh pr checks`, etc.) until full `rgd observe` coverage.
 

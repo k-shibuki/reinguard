@@ -1,5 +1,5 @@
 # Minimal repo-local config (ADR-0008). See pkg/schema/reinguard-config.json.
-schema_version: "0.6.1"
+schema_version: "0.6.0"
 default_branch: main
 providers:
   - id: git

@@ -16,8 +16,8 @@ type searchResponse struct {
 	TotalCount int `json:"total_count"`
 }
 
-// Collect returns GitHub Issues signals (open_count; optional selected_issues when issueNumbers is non-empty).
-func Collect(ctx context.Context, c *githubapi.Client, owner, repo string, issueNumbers []int) (map[string]any, error) {
+// Collect returns GitHub Issues signals (open count).
+func Collect(ctx context.Context, c *githubapi.Client, owner, repo string) (map[string]any, error) {
 	if c == nil {
 		return nil, fmt.Errorf("nil client")
 	}
@@ -32,34 +32,9 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo string, issue
 	if err := c.GetJSON(ctx, u, &out); err != nil {
 		return nil, fmt.Errorf("fetch open issues for %s/%s: %w", owner, repo, err)
 	}
-	inner := map[string]any{
-		"open_count": out.TotalCount,
-	}
-	nums := dedupeIssueNumbers(issueNumbers)
-	if len(nums) > 0 {
-		selected, err := CollectSelected(ctx, c, owner, repo, nums)
-		if err != nil {
-			return nil, err
-		}
-		inner["selected_issues"] = selected
-	}
 	return map[string]any{
-		"issues": inner,
+		"issues": map[string]any{
+			"open_count": out.TotalCount,
+		},
 	}, nil
-}
-
-func dedupeIssueNumbers(in []int) []int {
-	if len(in) == 0 {
-		return nil
-	}
-	seen := make(map[int]struct{}, len(in))
-	out := make([]int, 0, len(in))
-	for _, n := range in {
-		if _, ok := seen[n]; ok {
-			continue
-		}
-		seen[n] = struct{}{}
-		out = append(out, n)
-	}
-	return out
 }

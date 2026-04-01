@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.6.1",
+  "schema_version": "0.6.0",
   "signals": {
     "git": {
       "branch": "main",
@@ -16,7 +16,14 @@
       "ci": { "ci_status": "success", "head_sha": "deadbeef" },
       "reviews": {
         "review_threads_unresolved": 0,
-        "pagination_incomplete": false
+        "review_decisions_changes_requested": 0,
+        "pagination_incomplete": false,
+        "review_decisions_truncated": false,
+        "bot_review_diagnostics": {
+          "bot_review_pending": false,
+          "bot_review_terminal": true,
+          "bot_review_failed": false
+        }
       }
     }
   },

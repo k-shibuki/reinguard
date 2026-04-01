@@ -14,7 +14,7 @@ jobs:
   # Always runs: on PR runs policy script; on push/workflow_dispatch no-op (avoids skipped needs).
   gate-policy:
     name: Gate — PR policy
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: read
@@ -51,7 +51,7 @@ jobs:
 
   lint-markdown:
     name: Lint — Markdown
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
 
@@ -60,7 +60,7 @@ jobs:
   lint-go:
     name: Lint — Go
     needs: [gate-policy]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
 
@@ -89,7 +89,7 @@ jobs:
   test-go:
     name: Test — Go
     needs: [lint-go]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
 
@@ -130,7 +130,7 @@ jobs:
   dogfood-rgd-cli:
     name: Dogfood — rgd (CLI)
     needs: [test-go]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6.0.2
 
@@ -157,7 +157,7 @@ jobs:
     name: Dogfood — rgd (GitHub)
     needs: [test-go]
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       issues: read
@@ -198,7 +198,7 @@ jobs:
       - test-go
       - dogfood-rgd-cli
       - dogfood-rgd-github
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - name: Verify aggregate gate
         env:

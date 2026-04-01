@@ -41,12 +41,6 @@ func TestFlatten(t *testing.T) {
 			wantKey: "foo",
 			nilVal:  true,
 		},
-		{
-			name:    "array index paths",
-			input:   map[string]any{"github": map[string]any{"issues": map[string]any{"selected_issues": []any{map[string]any{"state": "closed"}}}}},
-			wantKey: "github.issues.selected_issues.0.state",
-			wantVal: "closed",
-		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

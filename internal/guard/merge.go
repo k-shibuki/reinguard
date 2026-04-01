@@ -44,12 +44,18 @@ func (mergeReadinessGuard) Eval(sigs map[string]any) MergeReadinessResult {
 	return evalMergeReadiness(sigs)
 }
 
-// EvalMergeReadiness checks Phase 1 merge signals: git working_tree_clean must be true,
-// github.ci.ci_status must be "success" (case-insensitive), and
+// EvalMergeReadiness checks merge signals: git working_tree_clean must be true,
+// github.ci.ci_status must be "success" (case-insensitive),
 // github.reviews.review_threads_unresolved must be present, parseable as an integer
-// (int, int64, or JSON float64 per signals.GetInt), and zero. Missing or invalid values
-// for that path fail closed. Missing top-level keys still yield empty nested maps for other
-// paths, so absent git / CI fields fail the clean/CI checks as before.
+// (int, int64, or JSON float64 per signals.GetInt), and zero,
+// github.reviews.bot_review_diagnostics.bot_review_pending must be false (fail closed when missing),
+// github.reviews.bot_review_diagnostics.bot_review_terminal must be true (fail closed when missing),
+// github.reviews.bot_review_diagnostics.bot_review_failed must be false (fail closed when missing),
+// github.reviews.review_decisions_changes_requested must be zero (fail closed when missing),
+// github.reviews.pagination_incomplete must be false (fail closed when missing), and
+// github.reviews.review_decisions_truncated must be false (fail closed when missing).
+// Missing or invalid values fail closed. Missing top-level keys still yield empty nested maps
+// for other paths, so absent git / CI fields fail the clean/CI checks as before.
 func EvalMergeReadiness(sigs map[string]any) MergeReadinessResult {
 	return evalMergeReadiness(sigs)
 }
@@ -57,27 +63,89 @@ func EvalMergeReadiness(sigs map[string]any) MergeReadinessResult {
 func evalMergeReadiness(sigs map[string]any) MergeReadinessResult {
 	const id = "merge-readiness"
 
+	if reason := checkGitAndCI(sigs); reason != "" {
+		return MergeReadinessResult{GuardID: id, OK: false, Reason: reason}
+	}
+	if reason := checkReviewSignals(sigs); reason != "" {
+		return MergeReadinessResult{GuardID: id, OK: false, Reason: reason}
+	}
+	return MergeReadinessResult{GuardID: id, OK: true}
+}
+
+func checkGitAndCI(sigs map[string]any) string {
 	clean, _ := signals.GetBool(sigs, "git.working_tree_clean")
 	if !clean {
-		return MergeReadinessResult{GuardID: id, OK: false, Reason: "git working tree not clean"}
+		return "git working tree not clean"
 	}
-
 	status, _ := signals.GetString(sigs, "github.ci.ci_status")
 	if strings.ToLower(status) != "success" {
-		return MergeReadinessResult{GuardID: id, OK: false, Reason: fmt.Sprintf("ci status is %q, want success", status)}
+		return fmt.Sprintf("ci status is %q, want success", status)
 	}
+	return ""
+}
 
+func checkReviewSignals(sigs map[string]any) string {
 	unres, ok := signals.GetInt(sigs, "github.reviews.review_threads_unresolved")
 	if !ok {
-		return MergeReadinessResult{
-			GuardID: id,
-			OK:      false,
-			Reason:  "missing or invalid github.reviews.review_threads_unresolved",
-		}
+		return "missing or invalid github.reviews.review_threads_unresolved"
 	}
 	if unres != 0 {
-		return MergeReadinessResult{GuardID: id, OK: false, Reason: fmt.Sprintf("unresolved review threads: %d", unres)}
+		return fmt.Sprintf("unresolved review threads: %d", unres)
 	}
 
-	return MergeReadinessResult{GuardID: id, OK: true}
+	botPending, hasBotPending := signals.GetBool(sigs, "github.reviews.bot_review_diagnostics.bot_review_pending")
+	if !hasBotPending {
+		return "missing github.reviews.bot_review_diagnostics.bot_review_pending (fail closed)"
+	}
+	if botPending {
+		return "required bot review still pending"
+	}
+
+	botTerminal, hasBotTerminal := signals.GetBool(sigs, "github.reviews.bot_review_diagnostics.bot_review_terminal")
+	if !hasBotTerminal {
+		return "missing github.reviews.bot_review_diagnostics.bot_review_terminal (fail closed)"
+	}
+	if !botTerminal {
+		return "required bot review not terminal"
+	}
+
+	botFailed, hasBotFailed := signals.GetBool(sigs, "github.reviews.bot_review_diagnostics.bot_review_failed")
+	if !hasBotFailed {
+		return "missing github.reviews.bot_review_diagnostics.bot_review_failed (fail closed)"
+	}
+	if botFailed {
+		return "required bot review failed"
+	}
+
+	changesReq, hasChangesReq := signals.GetInt(sigs, "github.reviews.review_decisions_changes_requested")
+	if !hasChangesReq {
+		return "missing or invalid github.reviews.review_decisions_changes_requested"
+	}
+	if changesReq != 0 {
+		return fmt.Sprintf("changes requested: %d", changesReq)
+	}
+
+	if reason := checkReviewDataCompleteness(sigs); reason != "" {
+		return reason
+	}
+	return ""
+}
+
+func checkReviewDataCompleteness(sigs map[string]any) string {
+	pagIncomplete, hasPagIncomplete := signals.GetBool(sigs, "github.reviews.pagination_incomplete")
+	if !hasPagIncomplete {
+		return "missing github.reviews.pagination_incomplete (fail closed)"
+	}
+	if pagIncomplete {
+		return "review thread pagination incomplete"
+	}
+
+	decTruncated, hasDecTruncated := signals.GetBool(sigs, "github.reviews.review_decisions_truncated")
+	if !hasDecTruncated {
+		return "missing github.reviews.review_decisions_truncated (fail closed)"
+	}
+	if decTruncated {
+		return "review decisions truncated"
+	}
+	return ""
 }
