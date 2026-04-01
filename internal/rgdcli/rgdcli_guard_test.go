@@ -64,7 +64,13 @@ func TestRunGuardEval_relativeObservationFileWithCwd(t *testing.T) {
 	    "git": {"working_tree_clean": true, "detached_head": false},
 	    "github": {
 	      "ci": {"ci_status": "success"},
-	      "reviews": {"review_threads_unresolved": 0}
+	      "reviews": {
+	        "review_threads_unresolved": 0,
+	        "review_decisions_changes_requested": 0,
+	        "pagination_incomplete": false,
+	        "review_decisions_truncated": false,
+	        "bot_review_diagnostics": {"bot_review_pending": false}
+	      }
 	    }
 	  }
 	}`))
@@ -105,7 +111,13 @@ func TestRunGuardEval_ok(t *testing.T) {
 	    "git": {"working_tree_clean": true, "detached_head": false},
 	    "github": {
 	      "ci": {"ci_status": "success"},
-	      "reviews": {"review_threads_unresolved": 0}
+	      "reviews": {
+	        "review_threads_unresolved": 0,
+	        "review_decisions_changes_requested": 0,
+	        "pagination_incomplete": false,
+	        "review_decisions_truncated": false,
+	        "bot_review_diagnostics": {"bot_review_pending": false}
+	      }
 	    }
 	  }
 	}`))

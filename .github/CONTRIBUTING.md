@@ -154,7 +154,7 @@ The command shells out to `gh api` to update PR bodies and labels (some `gh` ver
 
 Before merge: CI green (`ci-pass`), PR policy green, and **all review conversations resolved**. For each thread, leave a short **disposition** (e.g. Fixed / By design / False positive / Acknowledged) before resolving — see [`AGENTS.md`](../AGENTS.md) and [`.reinguard/policy/review--consensus-protocol.md`](../.reinguard/policy/review--consensus-protocol.md).
 
-Do **not** enable **auto-merge** while a bot review is still pending or threads are unresolved.
+Do **not** merge (any method) while required bot review is still pending, threads are unresolved, or consensus has not been reached.
 
 ## Continuous integration (job reference)
 

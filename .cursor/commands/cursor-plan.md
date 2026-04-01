@@ -25,13 +25,13 @@ Adapter layer: reference Semantics paths only for policy; do not duplicate norma
 
 3. **Codebase** — Use **SemanticSearch**, **Grep**, and **Glob** to locate relevant packages, tests, and config. Prefer evidence over assumptions.
 
-4. **Knowledge (optional)** — If `rgd` is available:
+4. **Knowledge** — If `rgd` is available (required when building an implementation plan):
 
    ```bash
    rgd context build
    ```
 
-   Use `knowledge.entries` paths from stdout JSON; otherwise triage [`.reinguard/knowledge/manifest.json`](../../.reinguard/knowledge/manifest.json) by `description` / `triggers` and open only what you need.
+   Use `knowledge.entries` paths from stdout JSON to ensure observation-relevant knowledge (review policy, bot operations, consensus protocol, etc.) is foregrounded during planning. Otherwise triage [`.reinguard/knowledge/manifest.json`](../../.reinguard/knowledge/manifest.json) by `description` / `triggers` and open only what you need.
 
 ## Phase 2 — Interrogate (recursive)
 
@@ -93,6 +93,7 @@ When the plan shape is **Issue-first**, include these steps **inside** the `Crea
 ## Guard
 
 - **Plan mode:** Do not modify the workspace until the user accepts **`CreatePlan`**; use read-only exploration tools only while planning.
+- **Execution handoff:** `cursor-plan` is **planning only**. After the user accepts the plan, execution **must** use [`rgd-next`](rgd-next.md) loop semantics ([`.reinguard/procedure/next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md) § Loop semantics: Sense → Route → Act → Refresh). Do not execute a plan as a linear checklist without FSM-driven state transitions.
 - **`CreatePlan` is mandatory** for this command; Issue creation is **never** the standalone output—only steps **inside** the accepted plan.
 - Prefer **`AskQuestion`** over open-ended “what do you want?” when discrete choices exist.
 - Do not claim design decisions are “complete” while any ledger row is still `open` without user acknowledgment.

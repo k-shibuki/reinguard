@@ -44,7 +44,12 @@
           "head_sha": "deadbeef"
         },
         "reviews": {
+          "bot_review_diagnostics": {
+            "bot_review_pending": false
+          },
           "pagination_incomplete": false,
+          "review_decisions_changes_requested": 0,
+          "review_decisions_truncated": false,
           "review_threads_unresolved": 0
         }
       }

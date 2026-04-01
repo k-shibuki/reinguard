@@ -52,4 +52,4 @@ short **disposition**: **Fixed** / **By design** / **False positive** / **Acknow
 [`.reinguard/policy/review--consensus-protocol.md`](.reinguard/policy/review--consensus-protocol.md)
 for the full consensus model and resolution rules.
 
-Do **not** enable **auto-merge** while bot review is still pending or threads are unresolved ([**HS-MERGE-CONSENSUS**](.reinguard/policy/safety--agent-invariants.md)).
+Do **not** merge (any method) while required bot review is still pending, threads are unresolved, or consensus has not been reached ([**HS-MERGE-CONSENSUS**](.reinguard/policy/safety--agent-invariants.md)).

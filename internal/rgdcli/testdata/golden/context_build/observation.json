@@ -16,7 +16,12 @@
       "ci": { "ci_status": "success", "head_sha": "deadbeef" },
       "reviews": {
         "review_threads_unresolved": 0,
-        "pagination_incomplete": false
+        "review_decisions_changes_requested": 0,
+        "pagination_incomplete": false,
+        "review_decisions_truncated": false,
+        "bot_review_diagnostics": {
+          "bot_review_pending": false
+        }
       }
     }
   },

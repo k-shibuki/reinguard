@@ -232,8 +232,17 @@ step (backward compatible).
 |------|----------|-------------|
 | `--observation-file` | yes | Observation JSON path |
 
-Evaluates coarse signals: `github.ci.ci_status == success`,
-`github.reviews.review_threads_unresolved == 0`, and `git.working_tree_clean == true`.
+Evaluates merge signals (fail-closed on missing values):
+
+| Signal path | Condition |
+|-------------|-----------|
+| `git.working_tree_clean` | `== true` |
+| `github.ci.ci_status` | `== "success"` (case-insensitive) |
+| `github.reviews.review_threads_unresolved` | `== 0` |
+| `github.reviews.bot_review_diagnostics.bot_review_pending` | `== false` |
+| `github.reviews.review_decisions_changes_requested` | `== 0` |
+| `github.reviews.pagination_incomplete` | `== false` |
+| `github.reviews.review_decisions_truncated` | `== false` |
 
 ### Output
 

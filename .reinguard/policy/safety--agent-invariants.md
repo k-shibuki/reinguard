@@ -51,7 +51,12 @@ Never resolve a review thread without a **disposition reply** (Fixed / By design
 
 ## HS-MERGE-CONSENSUS
 
-Do **not** enable **auto-merge** while bot review is pending or review threads are unresolved. Confirm CI green and merge policy (`ci-pass`) before merge.
+Do **not** merge a PR (any method — direct `gh pr merge`, `gh pr merge --auto`, or manual merge) while required bot review is pending, review threads are unresolved, or review consensus has not been reached per `review--consensus-protocol.md`. Before merge, confirm **all** of:
+
+- CI green (`ci-pass`)
+- Required bot review is **terminal** (not pending, rate-limited, paused, or failed)
+- Unresolved review threads == 0
+- Consensus reached on all findings (per `.reinguard/policy/review--consensus-protocol.md`)
 
 ## Related
 
