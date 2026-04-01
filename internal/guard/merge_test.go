@@ -55,7 +55,21 @@ func TestEvalMergeReadiness_missingGitKey(t *testing.T) {
 		},
 	}
 	r := EvalMergeReadiness(s)
-	if r.OK || !strings.Contains(r.Reason, "working tree not clean") {
+	if r.OK || !strings.Contains(r.Reason, "missing or invalid git.working_tree_clean") {
+		t.Fatalf("%+v", r)
+	}
+}
+
+func TestEvalMergeReadiness_missingCIStatus(t *testing.T) {
+	t.Parallel()
+	s := map[string]any{
+		"git": map[string]any{"working_tree_clean": true},
+		"github": map[string]any{
+			"reviews": map[string]any{"review_threads_unresolved": 0},
+		},
+	}
+	r := EvalMergeReadiness(s)
+	if r.OK || !strings.Contains(r.Reason, "missing or invalid github.ci.ci_status") {
 		t.Fatalf("%+v", r)
 	}
 }

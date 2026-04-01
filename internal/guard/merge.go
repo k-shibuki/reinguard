@@ -1,7 +1,9 @@
 // Package guard evaluates coarse guard predicates over flattened observation signals for the
 // semantic control plane (ADR-0011). Built-ins implement [Guard] and register on [DefaultRegistry];
 // declarative rules in control/guards/*.yaml gate when a built-in runs ([EvalWithRules]).
-// Phase 1 merge-readiness inspects git cleanliness, CI status, and unresolved review thread counts.
+// The merge-readiness built-in checks git cleanliness, CI success, unresolved thread count,
+// bot review diagnostics (pending, terminal, failed, stale), formal changes-requested count,
+// and review data completeness flags (pagination, decisions truncation).
 //
 // # Inputs and outputs
 //
@@ -72,11 +74,17 @@ func evalMergeReadiness(sigs map[string]any) MergeReadinessResult {
 }
 
 func checkGitAndCI(sigs map[string]any) string {
-	clean, _ := signals.GetBool(sigs, "git.working_tree_clean")
+	clean, hasClean := signals.GetBool(sigs, "git.working_tree_clean")
+	if !hasClean {
+		return "missing or invalid git.working_tree_clean"
+	}
 	if !clean {
 		return "git working tree not clean"
 	}
-	status, _ := signals.GetString(sigs, "github.ci.ci_status")
+	status, hasStatus := signals.GetString(sigs, "github.ci.ci_status")
+	if !hasStatus {
+		return "missing or invalid github.ci.ci_status"
+	}
 	if strings.ToLower(status) != "success" {
 		return fmt.Sprintf("ci status is %q, want success", status)
 	}
