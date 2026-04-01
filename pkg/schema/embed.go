@@ -17,7 +17,7 @@ const (
 	ObservationDocument  = "observation-document.json"
 	OperationalContext   = "operational-context.json"
 	LabelsConfig         = "labels-config.json"
-	CurrentSchemaVersion = "0.6.0"
+	CurrentSchemaVersion = "0.6.1"
 )
 
 // Files returns the embedded JSON Schema filesystem (read-only).

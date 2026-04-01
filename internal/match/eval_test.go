@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/k-shibuki/reinguard/internal/evaluator"
+	"github.com/k-shibuki/reinguard/internal/signals"
 )
 
 func requireMatchErr(t *testing.T, err error) {
@@ -530,6 +531,28 @@ func TestEval_namedEvaluator_table(t *testing.T) {
 				t.Fatalf("got ok=%v want %v", ok, tc.wantOK)
 			}
 		})
+	}
+}
+
+func TestEval_githubSelectedIssueState_flattenedPath(t *testing.T) {
+	t.Parallel()
+	// Given: flattened github.issues.selected_issues.0.* paths (Issue P2-2)
+	sig := signals.Flatten(map[string]any{
+		"github": map[string]any{
+			"issues": map[string]any{
+				"selected_issues": []any{
+					map[string]any{"state": "open"},
+				},
+			},
+		},
+	})
+	when := map[string]any{"op": "eq", "path": "github.issues.selected_issues.0.state", "value": "open"}
+	ok, err := Eval(when, sig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("expected match")
 	}
 }
 

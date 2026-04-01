@@ -62,6 +62,25 @@ func TestGetPath(t *testing.T) {
 			path:   "a.b",
 			wantOK: false,
 		},
+		{
+			name:    "slice index into map",
+			root:    map[string]any{"items": []any{map[string]any{"state": "open"}}},
+			path:    "items.0.state",
+			wantVal: "open",
+			wantOK:  true,
+		},
+		{
+			name:   "slice index out of range",
+			root:   map[string]any{"items": []any{1}},
+			path:   "items.1",
+			wantOK: false,
+		},
+		{
+			name:   "non-numeric segment on slice",
+			root:   map[string]any{"items": []any{1}},
+			path:   "items.x",
+			wantOK: false,
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
