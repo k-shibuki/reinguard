@@ -21,7 +21,7 @@ etc.); details delegated to Knowledge documents where noted.
 Run the applicable subset before each push:
 
 - **Go code changed**: `go test ./... -race`, `go vet ./...`, `golangci-lint run`
-- **Markdown changed**: `npx --yes markdownlint-cli2@latest '**/*.md'` (no local Node package install required)
+- **Markdown changed**: `pre-commit run markdownlint-cli2 --all-files` (pinned hook version from `.pre-commit-config.yaml`; no ad-hoc `npx @latest` installs)
 - **Config / schemas / knowledge changed**: `rgd config validate` from repo root
 
 **HS-NO-SKIP** applies: do not omit any applicable step without a

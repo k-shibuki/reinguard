@@ -42,7 +42,7 @@ Same gates as CI (see also [`.reinguard/policy/safety--agent-invariants.md`](../
 go test ./... -race -count=1
 go vet ./...
 golangci-lint run --timeout=5m ./...
-npx --yes markdownlint-cli2@latest '**/*.md'
+pre-commit run markdownlint-cli2 --all-files
 ```
 
 **Coverage** (module-wide threshold **80%**, same as CI):

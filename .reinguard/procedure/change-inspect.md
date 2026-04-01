@@ -83,7 +83,7 @@ Classify each finding as **Blocking** or **Non-blocking** per `review--self-insp
 If **Blocking** findings exist:
 
 1. Return to `implement` for fixes (and commit restructuring if recommended)
-2. Re-run applicable preflight steps (`go test`, `go vet`, `golangci-lint`, `npx --yes markdownlint-cli2@latest '**/*.md'`)
+2. Re-run applicable preflight steps (`go test`, `go vet`, `golangci-lint`, `pre-commit run markdownlint-cli2 --all-files`)
 3. Commit with `Refs: #<issue>`
 4. Re-run inspection (go to step 2) until no Blocking findings remain
 
