@@ -2,7 +2,6 @@ package observe
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -11,8 +10,6 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-
-	"github.com/k-shibuki/reinguard/internal/observe/github/issues"
 )
 
 func TestGitHubProvider_Collect_fakeGH(t *testing.T) {
@@ -77,120 +74,6 @@ exit 1
 	// Then: issues facet is present under signals
 	if frag.Signals["issues"] == nil {
 		t.Fatalf("%v", frag.Signals)
-	}
-}
-
-func TestGitHubProvider_Collect_issueNumbers(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("fake gh executable is a Unix #!/bin/sh script")
-	}
-	tmp := t.TempDir()
-	ghBin := filepath.Join(tmp, "gh")
-	script := `#!/bin/sh
-if [ "$1" = "auth" ] && [ "$2" = "token" ]; then
-  echo testtoken
-  exit 0
-fi
-if [ "$1" = "repo" ] && [ "$2" = "view" ]; then
-  echo "octocat/hello-world"
-  exit 0
-fi
-exit 1
-`
-	if err := os.WriteFile(ghBin, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", tmp+string(os.PathListSeparator)+os.Getenv("PATH"))
-
-	repoDir := t.TempDir()
-	runGitCmd(t, repoDir, "init")
-	runGitCmd(t, repoDir, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "init")
-	shaBytes, err := exec.Command("git", "-C", repoDir, "rev-parse", "HEAD").Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	sha := strings.TrimSpace(string(shaBytes))
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.URL.Path == "/search/issues":
-			_, _ = w.Write([]byte(`{"total_count": 0}`))
-		case r.URL.Path == "/repos/octocat/hello-world/issues/7":
-			_, _ = w.Write([]byte(`{"number":7,"state":"open","title":"T","labels":[],"body":""}`))
-		case r.URL.Path == "/repos/octocat/hello-world/pulls":
-			_, _ = w.Write([]byte(`[]`))
-		case r.URL.Path == "/repos/octocat/hello-world/commits/"+sha+"/status":
-			_, _ = w.Write([]byte(`{"state":"success"}`))
-		case strings.HasSuffix(r.URL.Path, "/comments"):
-			_, _ = w.Write([]byte(`[]`))
-		default:
-			http.NotFound(w, r)
-		}
-	}))
-	t.Cleanup(srv.Close)
-
-	p := NewGitHubProvider()
-	p.APIBase = srv.URL
-
-	frag, err := p.Collect(context.Background(), Options{WorkDir: repoDir, GitHubFacet: "issues", IssueNumbers: []int{7}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	inner := frag.Signals["issues"].(map[string]any)
-	sel := inner["selected_issues"].([]any)
-	if len(sel) != 1 {
-		t.Fatalf("selected_issues %v", sel)
-	}
-	row := sel[0].(map[string]any)
-	if row["number"].(int) != 7 {
-		t.Fatalf("%+v", row)
-	}
-}
-
-func TestGitHubProvider_Collect_singleIssueNotFound_fatal(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("fake gh executable is a Unix #!/bin/sh script")
-	}
-	tmp := t.TempDir()
-	ghBin := filepath.Join(tmp, "gh")
-	script := `#!/bin/sh
-if [ "$1" = "auth" ] && [ "$2" = "token" ]; then
-  echo testtoken
-  exit 0
-fi
-if [ "$1" = "repo" ] && [ "$2" = "view" ]; then
-  echo "octocat/hello-world"
-  exit 0
-fi
-exit 1
-`
-	if err := os.WriteFile(ghBin, []byte(script), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("PATH", tmp+string(os.PathListSeparator)+os.Getenv("PATH"))
-
-	repoDir := t.TempDir()
-	runGitCmd(t, repoDir, "init")
-	runGitCmd(t, repoDir, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "init")
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.URL.Path == "/search/issues":
-			_, _ = w.Write([]byte(`{"total_count": 0}`))
-		case strings.HasPrefix(r.URL.Path, "/repos/octocat/hello-world/issues/"):
-			http.NotFound(w, r)
-		default:
-			http.NotFound(w, r)
-		}
-	}))
-	t.Cleanup(srv.Close)
-
-	p := NewGitHubProvider()
-	p.APIBase = srv.URL
-
-	_, err := p.Collect(context.Background(), Options{WorkDir: repoDir, GitHubFacet: "issues", IssueNumbers: []int{999}})
-	if err == nil || !errors.Is(err, issues.ErrFatalObservation) {
-		t.Fatalf("got %v", err)
 	}
 }
 

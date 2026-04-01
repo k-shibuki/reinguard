@@ -2,13 +2,10 @@ package observe
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/k-shibuki/reinguard/internal/config"
-	"github.com/k-shibuki/reinguard/internal/observe/github/issues"
 )
 
 type stubProv struct {
@@ -164,17 +161,5 @@ func TestEngine_unknownProvider(t *testing.T) {
 	}
 	if len(diags) != 1 || diags[0].Code != "provider_failed" || diags[0].Provider != "nope" {
 		t.Fatalf("%+v", diags)
-	}
-}
-
-func TestEngine_Collect_fatalObservation(t *testing.T) {
-	t.Parallel()
-	e := &Engine{Providers: map[string]Provider{
-		"x": &stubProv{id: "x", err: fmt.Errorf("wrap: %w", issues.ErrFatalObservation), frag: Fragment{}},
-	}}
-	root := config.Root{Providers: []config.ProviderSpec{{ID: "x", Enabled: true}}}
-	_, _, _, err := e.Collect(context.Background(), &root, Options{Serial: true})
-	if err == nil || !errors.Is(err, issues.ErrFatalObservation) {
-		t.Fatalf("got %v", err)
 	}
 }

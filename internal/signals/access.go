@@ -1,14 +1,10 @@
 // Package signals reads typed values from nested map[string]any trees using dot-separated paths.
 package signals
 
-import (
-	"strconv"
-	"strings"
-)
+import "strings"
 
 // GetPath traverses a nested map[string]any along a dot-separated path.
 // Empty segments are skipped so "a..b" resolves identically to "a.b".
-// Numeric segments index into []any slices (e.g. selected_issues.0.state).
 func GetPath(root map[string]any, path string) (any, bool) {
 	parts := strings.Split(path, ".")
 	var cur any = root
@@ -16,21 +12,15 @@ func GetPath(root map[string]any, path string) (any, bool) {
 		if p == "" {
 			continue
 		}
-		if mm, ok := cur.(map[string]any); ok {
-			v, ok := mm[p]
-			if !ok {
-				return nil, false
-			}
-			cur = v
-			continue
+		mm, ok := cur.(map[string]any)
+		if !ok {
+			return nil, false
 		}
-		if idx, err := strconv.Atoi(p); err == nil && idx >= 0 {
-			if arr, ok := cur.([]any); ok && idx < len(arr) {
-				cur = arr[idx]
-				continue
-			}
+		v, ok := mm[p]
+		if !ok {
+			return nil, false
 		}
-		return nil, false
+		cur = v
 	}
 	return cur, true
 }

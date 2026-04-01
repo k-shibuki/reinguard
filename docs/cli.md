@@ -14,7 +14,6 @@ body or README.
 | `-o`, `--output` | — | Reserved for future file output (optional) |
 | `--serial` | — | Run observation providers sequentially (default: parallel) |
 | `--fail-on-non-resolved` | — | Exit non-zero when state/route outcome is `ambiguous`, `degraded`, or `unsupported` |
-| `--issue` | — | Repeatable on `rgd observe` (and subcommands that use observe flags) and on `rgd context build`: GitHub issue numbers to fetch into `signals.github.issues.selected_issues` when the **issues** facet runs |
 
 With **urfave/cli v2**, place flags that must apply to a **nested** subcommand
 **after** the subcommand name (e.g. `rgd state eval --config-dir DIR`), not only
@@ -30,7 +29,7 @@ before `state`.
 | Code | Meaning |
 |------|---------|
 | 0 | Success; default even for ambiguous/degraded/unsupported evaluation unless `--fail-on-non-resolved` |
-| 1 | Usage error, validation failure, missing required flag, or **fatal observation** (e.g. exactly one `--issue` given and that issue is not found — HTTP 404) |
+| 1 | Usage error, validation failure, or missing required flag |
 | 2 | Unexpected internal error |
 
 ## Command tree
@@ -42,7 +41,7 @@ rgd schema export [--dir DIR]
 rgd observe [workflow-position]
 rgd observe git
 rgd observe github
-rgd observe github issues [--issue N]...
+rgd observe github issues
 rgd observe github pull-requests
 rgd observe github ci
 rgd observe github reviews
@@ -51,7 +50,7 @@ rgd route select [--observation-file FILE] [--state-file FILE]
 rgd guard eval <guard-id> [flags...]
 rgd knowledge index
 rgd knowledge pack [--query STRING] [--observation-file FILE]
-rgd context build [--observation-file FILE] [--issue N]...
+rgd context build [--observation-file FILE]
 rgd ensure-labels
 rgd labels list [--category TYPE]
 rgd labels sync [--dry-run]
@@ -91,11 +90,6 @@ The `git` provider accepts `options` for forward compatibility; keys are current
 
 Subcommands filter which facets run inside the GitHub provider for faster targeted runs.
 
-### Agent bootstrap (observation)
-
-- **Canonical path for agents** that know the current GitHub issue number: `rgd context build --issue <N>` (repeatable for multiple issues). This runs live observation (including the issues facet when the configured provider list includes `github`) and merges `selected_issues` into `signals.github.issues`.
-- **`--observation-file`**: use for **tests**, **CI fixtures**, and **decomposed debugging** when a saved observation document should drive `state` / `route` / `knowledge` / `guards` without calling GitHub.
-
 ## `rgd observe`
 
 Runs configured providers (from `reinguard.yaml`) unless a subcommand
@@ -121,33 +115,6 @@ is applied at a higher-level command that interprets evaluation.
 ### Rate limiting (GitHub)
 
 The GitHub client retries **429** responses with limited exponential backoff.
-
-Observe-shaped commands (`rgd observe`, `rgd observe git`, `rgd observe github`, facet subcommands, `rgd observe workflow-position`) accept **`--issue`** as documented under [Global flags](#global-flags). The flag is ignored for facets that do not run the issues collector (e.g. `rgd observe github ci` alone).
-
-### `signals.github.issues` (GitHub provider, issues facet)
-
-Populated when the **issues** facet runs (`rgd observe github issues`, full `rgd observe`, or `rgd context build` with `github` enabled). Open count uses REST Search; selected issues use REST `GET /repos/{owner}/{repo}/issues/{number}` (ADR-0012, ADR-0006).
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `open_count` | number | Open issue count for the repo (REST search). |
-| `selected_issues` | array | Present only when at least one `--issue` was passed. Each element is either a **success object** (fields below) or **`{"number": N, "error": "..."}`** when that issue could not be fetched. With **exactly one** `--issue`, a **404** for that issue aborts the whole observation with **exit code 1** (fatal). |
-
-Success object fields (snake_case):
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `number` | number | Issue number. |
-| `state` | string | Issue state (lowercased, e.g. `open`, `closed`). |
-| `title` | string | Issue title. |
-| `labels` | string array | Label names. |
-| `has_blockers` | boolean | `true` when the body matches `Blocked by #<digits>` (regex). |
-| `is_epic` | boolean | `true` when any label name equals `epic` (case-insensitive). |
-| `milestone` | string \| null | Milestone title, or `null`. |
-| `assignees` | string array | Login names. |
-| `body_sections` | string array | Titles of `## …` headings in the body (H2 only; `###` is not a section root). |
-
-**Flattened paths:** `signals.Flatten` exposes numeric indices (e.g. `github.issues.selected_issues.0.state`) for `when` clauses that use dot paths (ADR-0002).
 
 ### `signals.git` (git provider)
 
@@ -320,7 +287,6 @@ After state resolution, `state.kind`, `state.state_id`, and `state.rule_id` are 
 - **`--observation-file FILE`**: if set, skips live `observe` and uses the
   given observation document JSON as input (same shape as `rgd observe` stdout).
   Useful for tests and golden fixtures.
-- **`--issue N`**: same semantics as under [`rgd observe`](#rgd-observe); applies only when live observation runs (ignored when `--observation-file` is set).
 
 The `knowledge` object in the output has **`entries`** (same shape as
 `rgd knowledge pack` stdout), not `paths` (ADR-0010).

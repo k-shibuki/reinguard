@@ -48,18 +48,9 @@ func newSchemaExportDirFlag() *cli.StringFlag {
 	return &cli.StringFlag{Name: "dir", Aliases: []string{"d"}, Value: "schema-export"}
 }
 
-// newIssueFlag returns a fresh --issue flag (repeatable; GitHub issue numbers for issues facet).
-func newIssueFlag() *cli.IntSliceFlag {
-	return &cli.IntSliceFlag{
-		Name:     "issue",
-		Usage:    "GitHub issue number (repeatable); fetches into signals.github.issues.selected_issues when the issues facet runs",
-		Category: "OBSERVATION",
-	}
-}
-
 // observeFlags returns flags for any observe-shaped command.
 func observeFlags() []cli.Flag {
-	return []cli.Flag{newSerialFlag(), newCwdFlag(), newConfigDirFlag(), newFailOnNonResolvedFlag(), newIssueFlag()}
+	return []cli.Flag{newSerialFlag(), newCwdFlag(), newConfigDirFlag(), newFailOnNonResolvedFlag()}
 }
 
 // Root-only clones of urfave's default HelpFlag / VersionFlag. The library keeps

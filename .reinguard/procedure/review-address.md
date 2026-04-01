@@ -118,7 +118,7 @@ When Go code changed:
 
 When Markdown changed:
 
-- `pre-commit run markdownlint-cli2 --all-files`
+- `npx --yes markdownlint-cli2@latest '**/*.md'`
 
 New commit with `Refs: #<issue>` (no amend+force-push on the PR head).
 

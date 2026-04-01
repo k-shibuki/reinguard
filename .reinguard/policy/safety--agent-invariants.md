@@ -39,7 +39,7 @@ Before pushing Go changes:
 
 Before pushing Markdown changes:
 
-- `pre-commit run markdownlint-cli2 --all-files` (pinned hook version from `.pre-commit-config.yaml`)
+- `npx --yes markdownlint-cli2@latest '**/*.md'` (or `pre-commit run markdownlint-cli2 --all-files`)
 
 ## HS-NO-SKIP
 
