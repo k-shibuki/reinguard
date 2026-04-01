@@ -20,7 +20,9 @@
         "pagination_incomplete": false,
         "review_decisions_truncated": false,
         "bot_review_diagnostics": {
-          "bot_review_pending": false
+          "bot_review_pending": false,
+          "bot_review_terminal": true,
+          "bot_review_failed": false
         }
       }
     }

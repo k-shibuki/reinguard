@@ -17,7 +17,9 @@ func fullReadySignals() map[string]any {
 				"pagination_incomplete":              false,
 				"review_decisions_truncated":         false,
 				"bot_review_diagnostics": map[string]any{
-					"bot_review_pending": false,
+					"bot_review_pending":  false,
+					"bot_review_terminal": true,
+					"bot_review_failed":   false,
 				},
 			},
 		},
@@ -174,12 +176,80 @@ func TestEvalMergeReadiness_botReviewPending(t *testing.T) {
 	// Given: bot review is still pending
 	s := fullReadySignals()
 	s["github"].(map[string]any)["reviews"].(map[string]any)["bot_review_diagnostics"] = map[string]any{
-		"bot_review_pending": true,
+		"bot_review_pending":  true,
+		"bot_review_terminal": false,
+		"bot_review_failed":   false,
 	}
 	// When: EvalMergeReadiness runs
 	r := EvalMergeReadiness(s)
 	// Then: not OK
 	if r.OK || !strings.Contains(r.Reason, "required bot review still pending") {
+		t.Fatalf("%+v", r)
+	}
+}
+
+func TestEvalMergeReadiness_botReviewNotTerminal(t *testing.T) {
+	t.Parallel()
+	// Given: bot review is not pending but not terminal (rate-limited/paused)
+	s := fullReadySignals()
+	s["github"].(map[string]any)["reviews"].(map[string]any)["bot_review_diagnostics"] = map[string]any{
+		"bot_review_pending":  false,
+		"bot_review_terminal": false,
+		"bot_review_failed":   false,
+	}
+	// When: EvalMergeReadiness runs
+	r := EvalMergeReadiness(s)
+	// Then: not OK
+	if r.OK || !strings.Contains(r.Reason, "required bot review not terminal") {
+		t.Fatalf("%+v", r)
+	}
+}
+
+func TestEvalMergeReadiness_botReviewTerminalMissing(t *testing.T) {
+	t.Parallel()
+	// Given: bot_review_terminal is absent
+	s := fullReadySignals()
+	s["github"].(map[string]any)["reviews"].(map[string]any)["bot_review_diagnostics"] = map[string]any{
+		"bot_review_pending": false,
+		"bot_review_failed":  false,
+	}
+	// When: EvalMergeReadiness runs
+	r := EvalMergeReadiness(s)
+	// Then: not OK; fail closed
+	if r.OK || !strings.Contains(r.Reason, "missing github.reviews.bot_review_diagnostics.bot_review_terminal (fail closed)") {
+		t.Fatalf("%+v", r)
+	}
+}
+
+func TestEvalMergeReadiness_botReviewFailed(t *testing.T) {
+	t.Parallel()
+	// Given: bot review failed
+	s := fullReadySignals()
+	s["github"].(map[string]any)["reviews"].(map[string]any)["bot_review_diagnostics"] = map[string]any{
+		"bot_review_pending":  false,
+		"bot_review_terminal": true,
+		"bot_review_failed":   true,
+	}
+	// When: EvalMergeReadiness runs
+	r := EvalMergeReadiness(s)
+	// Then: not OK
+	if r.OK || !strings.Contains(r.Reason, "required bot review failed") {
+		t.Fatalf("%+v", r)
+	}
+}
+
+func TestEvalMergeReadiness_botReviewFailedMissing(t *testing.T) {
+	t.Parallel()
+	// Given: bot_review_failed is absent
+	s := fullReadySignals()
+	s["github"].(map[string]any)["reviews"].(map[string]any)["bot_review_diagnostics"] = map[string]any{
+		"bot_review_pending":  false,
+		"bot_review_terminal": true,
+	}
+	// When: EvalMergeReadiness runs
+	r := EvalMergeReadiness(s)
+	// Then: not OK; fail closed
+	if r.OK || !strings.Contains(r.Reason, "missing github.reviews.bot_review_diagnostics.bot_review_failed (fail closed)") {
 		t.Fatalf("%+v", r)
 	}
 }

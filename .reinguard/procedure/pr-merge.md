@@ -47,11 +47,11 @@ Optional full pipeline: `rgd context build` (observe → state → route → gua
 rgd context build | jq '.observation.signals.github.reviews.bot_review_diagnostics'
 ```
 
-`bot_review_pending` must be **false**. If true, the FSM state should be `waiting_bot_*` — follow `wait-bot-review.md` instead.
+`bot_review_pending` must be **false**, `bot_review_terminal` must be **true**, and `bot_review_failed` must be **false**. If pending is true, the FSM state should be `waiting_bot_*` — follow `wait-bot-review.md` instead. If terminal is false or failed is true, do **not** merge.
 
 ## Act
 
-1. Confirm **all** of: guard `merge-readiness` is `"ok": true`; `gh pr checks` shows CI green; required bot review is **terminal** (not pending — HS-MERGE-CONSENSUS); threads resolved; consensus reached per `review--consensus-protocol.md`.
+1. Confirm **all** of: guard `merge-readiness` is `"ok": true`; `gh pr checks` shows CI green; required bot review is **terminal** (`bot_review_pending == false`, `bot_review_terminal == true`, `bot_review_failed == false` — HS-MERGE-CONSENSUS); threads resolved; consensus reached per `review--consensus-protocol.md`.
 2. Merge: `gh pr merge <N> --squash` or `--merge` per [`.github/CONTRIBUTING.md`](../../.github/CONTRIBUTING.md) and maintainer convention for this repo.
    Do **not** use `--admin`. Do **not** merge with failing checks.
 

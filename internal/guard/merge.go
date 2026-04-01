@@ -49,6 +49,8 @@ func (mergeReadinessGuard) Eval(sigs map[string]any) MergeReadinessResult {
 // github.reviews.review_threads_unresolved must be present, parseable as an integer
 // (int, int64, or JSON float64 per signals.GetInt), and zero,
 // github.reviews.bot_review_diagnostics.bot_review_pending must be false (fail closed when missing),
+// github.reviews.bot_review_diagnostics.bot_review_terminal must be true (fail closed when missing),
+// github.reviews.bot_review_diagnostics.bot_review_failed must be false (fail closed when missing),
 // github.reviews.review_decisions_changes_requested must be zero (fail closed when missing),
 // github.reviews.pagination_incomplete must be false (fail closed when missing), and
 // github.reviews.review_decisions_truncated must be false (fail closed when missing).
@@ -97,6 +99,22 @@ func checkReviewSignals(sigs map[string]any) string {
 	}
 	if botPending {
 		return "required bot review still pending"
+	}
+
+	botTerminal, hasBotTerminal := signals.GetBool(sigs, "github.reviews.bot_review_diagnostics.bot_review_terminal")
+	if !hasBotTerminal {
+		return "missing github.reviews.bot_review_diagnostics.bot_review_terminal (fail closed)"
+	}
+	if !botTerminal {
+		return "required bot review not terminal"
+	}
+
+	botFailed, hasBotFailed := signals.GetBool(sigs, "github.reviews.bot_review_diagnostics.bot_review_failed")
+	if !hasBotFailed {
+		return "missing github.reviews.bot_review_diagnostics.bot_review_failed (fail closed)"
+	}
+	if botFailed {
+		return "required bot review failed"
 	}
 
 	changesReq, hasChangesReq := signals.GetInt(sigs, "github.reviews.review_decisions_changes_requested")

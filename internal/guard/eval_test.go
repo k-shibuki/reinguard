@@ -18,34 +18,38 @@ func TestEvalWithRules(t *testing.T) {
 			When:     map[string]any{"op": "eq", "path": "git.detached_head", "value": false},
 		},
 	}
-	readyReviews := map[string]any{
-		"review_threads_unresolved":          0,
-		"review_decisions_changes_requested": 0,
-		"pagination_incomplete":              false,
-		"review_decisions_truncated":         false,
-		"bot_review_diagnostics": map[string]any{
-			"bot_review_pending": false,
-		},
+	readyReviews := func() map[string]any {
+		return map[string]any{
+			"review_threads_unresolved":          0,
+			"review_decisions_changes_requested": 0,
+			"pagination_incomplete":              false,
+			"review_decisions_truncated":         false,
+			"bot_review_diagnostics": map[string]any{
+				"bot_review_pending":  false,
+				"bot_review_terminal": true,
+				"bot_review_failed":   false,
+			},
+		}
 	}
 	baseSignals := map[string]any{
 		"git": map[string]any{"working_tree_clean": true},
 		"github": map[string]any{
 			"ci":      map[string]any{"ci_status": "success"},
-			"reviews": readyReviews,
+			"reviews": readyReviews(),
 		},
 	}
 	detachedSignals := map[string]any{
 		"git": map[string]any{"working_tree_clean": true, "detached_head": true},
 		"github": map[string]any{
 			"ci":      map[string]any{"ci_status": "success"},
-			"reviews": readyReviews,
+			"reviews": readyReviews(),
 		},
 	}
 	attachedSignals := map[string]any{
 		"git": map[string]any{"working_tree_clean": true, "detached_head": false},
 		"github": map[string]any{
 			"ci":      map[string]any{"ci_status": "success"},
-			"reviews": readyReviews,
+			"reviews": readyReviews(),
 		},
 	}
 	// Given: merge-readiness guard, optional declarative rules, signal variants

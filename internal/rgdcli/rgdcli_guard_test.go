@@ -69,7 +69,7 @@ func TestRunGuardEval_relativeObservationFileWithCwd(t *testing.T) {
 	        "review_decisions_changes_requested": 0,
 	        "pagination_incomplete": false,
 	        "review_decisions_truncated": false,
-	        "bot_review_diagnostics": {"bot_review_pending": false}
+	        "bot_review_diagnostics": {"bot_review_pending": false, "bot_review_terminal": true, "bot_review_failed": false}
 	      }
 	    }
 	  }
@@ -116,7 +116,7 @@ func TestRunGuardEval_ok(t *testing.T) {
 	        "review_decisions_changes_requested": 0,
 	        "pagination_incomplete": false,
 	        "review_decisions_truncated": false,
-	        "bot_review_diagnostics": {"bot_review_pending": false}
+	        "bot_review_diagnostics": {"bot_review_pending": false, "bot_review_terminal": true, "bot_review_failed": false}
 	      }
 	    }
 	  }
