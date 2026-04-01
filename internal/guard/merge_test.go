@@ -319,7 +319,7 @@ func TestEvalMergeReadiness_paginationIncompleteMissing(t *testing.T) {
 	}
 }
 
-func TestEvalMergeReadiness_decisionsTriaged(t *testing.T) {
+func TestEvalMergeReadiness_decisionsTruncated(t *testing.T) {
 	t.Parallel()
 	// Given: review decisions were truncated
 	s := fullReadySignals()
