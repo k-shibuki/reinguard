@@ -14,8 +14,6 @@ Review routing for touched areas is defined in **[`CODEOWNERS`](CODEOWNERS)**.
 - **`gh`**: required only when using commands that call the GitHub API (e.g.
   `rgd observe github`, or live observation in `rgd state eval` / `rgd context build`
   without `--observation-file`). See ADR-0006.
-- **Node.js**: not required for this repository workflow. Use pinned markdown lint
-  execution via `pre-commit` hooks; avoid ad-hoc `npx ...@latest` installation paths.
 
 ## Quick setup
 
@@ -150,13 +148,13 @@ After merging workflow updates to `main`, feature branches should **merge or reb
 go run ./cmd/rgd backfill-pr-policy
 ```
 
-The command shells out to `gh api` to update PR bodies and labels. This is intentional: some `gh` versions fail on `gh pr edit` due to deprecated Projects Classic GraphQL fields (`projectCards`) in affected repositories. With `rgd` on your `PATH` (for example `go install ./cmd/rgd`), run `rgd backfill-pr-policy` instead.
+The command shells out to `gh api` to update PR bodies and labels (some `gh` versions fail on `gh pr edit` due to deprecated Classic Projects GraphQL). With `rgd` on your `PATH` (for example `go install ./cmd/rgd`), run `rgd backfill-pr-policy` instead.
 
 ## Review threads and merge
 
 Before merge: CI green (`ci-pass`), PR policy green, and **all review conversations resolved**. For each thread, leave a short **disposition** (e.g. Fixed / By design / False positive / Acknowledged) before resolving — see [`AGENTS.md`](../AGENTS.md) and [`.reinguard/policy/review--consensus-protocol.md`](../.reinguard/policy/review--consensus-protocol.md). Non-thread findings (outside-diff-range, PR summary) require a PR conversation comment with the same disposition (**HS-REVIEW-RESOLVE**). Do not dismiss findings as "pre-existing" (**HS-NO-DISMISS**).
 
-Do **not** merge (any method) while required bot review is not terminal, threads are unresolved, or consensus has not been reached.
+Do **not** merge (any method) while required bot review is not terminal, threads are unresolved, stale review evidence exists, or consensus has not been reached.
 
 ## Continuous integration (job reference)
 

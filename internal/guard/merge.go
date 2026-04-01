@@ -48,15 +48,16 @@ func (mergeReadinessGuard) Eval(sigs map[string]any) MergeReadinessResult {
 
 // EvalMergeReadiness checks merge signals: git working_tree_clean must be true,
 // github.ci.ci_status must be "success" (case-insensitive),
-// github.reviews.review_threads_unresolved must be present and zero,
-// github.reviews.bot_review_diagnostics.bot_review_pending must be false,
-// github.reviews.bot_review_diagnostics.bot_review_terminal must be true,
-// github.reviews.bot_review_diagnostics.bot_review_failed must be false,
-// github.reviews.bot_review_diagnostics.bot_review_stale must be false,
-// github.reviews.review_decisions_changes_requested must be zero,
-// github.reviews.pagination_incomplete must be false, and
-// github.reviews.review_decisions_truncated must be false.
-// All fail closed on missing values.
+// github.reviews.review_threads_unresolved must be present, parseable as an integer
+// (int, int64, or JSON float64 per signals.GetInt), and zero,
+// github.reviews.bot_review_diagnostics.bot_review_pending must be false (fail closed when missing),
+// github.reviews.bot_review_diagnostics.bot_review_terminal must be true (fail closed when missing),
+// github.reviews.bot_review_diagnostics.bot_review_failed must be false (fail closed when missing),
+// github.reviews.bot_review_diagnostics.bot_review_stale must be false (fail closed when missing),
+// github.reviews.review_decisions_changes_requested must be zero (fail closed when missing),
+// github.reviews.pagination_incomplete must be false (fail closed when missing), and
+// github.reviews.review_decisions_truncated must be false (fail closed when missing).
+// Missing or invalid values fail closed.
 func EvalMergeReadiness(sigs map[string]any) MergeReadinessResult {
 	return evalMergeReadiness(sigs)
 }

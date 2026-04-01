@@ -55,4 +55,4 @@ require a PR conversation comment with the same disposition ([**HS-REVIEW-RESOLV
 
 Do **not** dismiss any finding as "pre-existing" or "outside diff range" ([**HS-NO-DISMISS**](.reinguard/policy/safety--agent-invariants.md)).
 
-Do **not** merge (any method) while required bot review is not terminal, threads are unresolved, or consensus has not been reached ([**HS-MERGE-CONSENSUS**](.reinguard/policy/safety--agent-invariants.md)).
+Do **not** merge (any method) while required bot review is not terminal, threads are unresolved, stale review evidence exists, or consensus has not been reached ([**HS-MERGE-CONSENSUS**](.reinguard/policy/safety--agent-invariants.md)).

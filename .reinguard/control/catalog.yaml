@@ -2,7 +2,7 @@
 # Not read by config.Load or `rgd config validate` today (those load
 # reinguard.yaml and control/{states,routes,guards}/*.yaml only).
 # Maintained manually; future `rgd` may auto-generate or validate this catalog.
-schema_version: "0.6.1"
+schema_version: "0.6.0"
 entries:
   - id: workflow-states
     path: states/workflow.yaml

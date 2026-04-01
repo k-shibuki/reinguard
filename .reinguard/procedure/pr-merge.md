@@ -35,15 +35,23 @@ rgd observe > /tmp/obs.json
 rgd guard eval --observation-file /tmp/obs.json merge-readiness
 ```
 
-Interpret JSON: `"ok": true` only when CI success, zero unresolved review threads (aggregate signal), and clean working tree — see [`docs/cli.md`](../../docs/cli.md) § `merge-readiness`.
+Interpret JSON: `"ok": true` only when CI success, zero unresolved review threads, required bot review terminal (not pending), no formal `CHANGES_REQUESTED`, and clean working tree — see [`docs/cli.md`](../../docs/cli.md) § `merge-readiness`.
 
 Optional full pipeline: `rgd context build` (observe → state → route → guard → knowledge entries).
 
 **Cross-check:** `gh pr checks <N>` (especially **`ci-pass`**) and `gh pr view <N>` for mergeable state and branch protection (guard may not mirror every GitHub rule).
 
+**Bot review status:** Verify required bots are terminal before merge:
+
+```bash
+rgd context build | jq '.observation.signals.github.reviews.bot_review_diagnostics'
+```
+
+`bot_review_pending` must be **false**, `bot_review_terminal` must be **true**, and `bot_review_failed` must be **false**. If pending is true, the FSM state should be `waiting_bot_*` — follow `wait-bot-review.md` instead. If terminal is false or failed is true, do **not** merge.
+
 ## Act
 
-1. Confirm: guard / `gh` agree CI is green, PR policy satisfied, threads resolved if required.
+1. Confirm **all** of: guard `merge-readiness` is `"ok": true`; `gh pr checks` shows CI green; required bot review is **terminal** (`bot_review_pending == false`, `bot_review_terminal == true`, `bot_review_failed == false` — HS-MERGE-CONSENSUS); threads resolved; consensus reached per `review--consensus-protocol.md`.
 2. Merge: `gh pr merge <N> --squash` or `--merge` per [`.github/CONTRIBUTING.md`](../../.github/CONTRIBUTING.md) and maintainer convention for this repo.
    Do **not** use `--admin`. Do **not** merge with failing checks.
 

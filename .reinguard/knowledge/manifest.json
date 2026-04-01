@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.6.1",
+  "schema_version": "0.6.0",
   "entries": [
     {
       "id": "ci-permissions-and-gates",
@@ -10,23 +10,6 @@
         "least privilege",
         "ci-pass",
         "required checks"
-      ],
-      "when": {
-        "op": "exists",
-        "path": "github.ci.ci_status"
-      }
-    },
-    {
-      "id": "ci-supply-chain-hardening",
-      "path": ".reinguard/knowledge/ci--supply-chain-hardening.md",
-      "description": "CI supply-chain hardening for runner pinning and deterministic tool execution",
-      "triggers": [
-        "ubuntu-latest",
-        "runs-on latest",
-        "npx latest",
-        "supply chain",
-        "ci hardening",
-        "deterministic ci"
       ],
       "when": {
         "op": "exists",
@@ -54,22 +37,6 @@
             "path": "github.repository.owner"
           }
         ]
-      }
-    },
-    {
-      "id": "git-gh-cli-projects-classic-migration",
-      "path": ".reinguard/knowledge/git--gh-cli-projects-classic-migration.md",
-      "description": "Workaround for gh CLI PR edit failures caused by Projects Classic field deprecation",
-      "triggers": [
-        "gh pr edit",
-        "Projects Classic",
-        "projectCards",
-        "GraphQL deprecation",
-        "pr body update"
-      ],
-      "when": {
-        "op": "exists",
-        "path": "github.pull_requests.pr_exists_for_branch"
       }
     },
     {

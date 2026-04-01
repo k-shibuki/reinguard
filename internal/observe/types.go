@@ -26,15 +26,11 @@ type Provider interface {
 }
 
 // Options configure a collect run: working directory, optional GitHub facet filter, default
-// branch from config, optional provider ID restriction, serial vs parallel execution, and
-// optional GitHub issue numbers for the issues facet (ADR-0009, Issue P2-2).
-type Options struct { //nolint:govet // fieldalignment: keep field grouping readable for provider wiring
+// branch from config, optional provider ID restriction, and serial vs parallel execution.
+type Options struct {
 	WorkDir       string
 	GitHubFacet   string
 	DefaultBranch string
 	ProviderIDs   []string
 	Serial        bool
-	// IssueNumbers lists GitHub issue numbers to fetch into signals.github.issues.selected_issues
-	// when the issues facet runs. Empty means omit selected_issues collection.
-	IssueNumbers []int
 }

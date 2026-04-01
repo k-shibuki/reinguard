@@ -28,7 +28,7 @@ Repository-wide coding and documentation rules.
 
 ## Markdown
 
-- Lint Markdown with `pre-commit run markdownlint-cli2 --all-files` before commit (pinned by `.pre-commit-config.yaml`, no ad-hoc package install).
+- Lint with `pre-commit run markdownlint-cli2 --all-files` before commit (config: `.markdownlint-cli2.yaml`; pinned hook version from `.pre-commit-config.yaml`).
 - Pre-commit hook and CI job `lint-markdown` enforce the same rules.
 
 ## Change scope
