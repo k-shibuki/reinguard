@@ -32,11 +32,14 @@ func IsFailedTier(s string) bool {
 }
 
 // ComputeBotReviewDiagnostics aggregates per-bot status for required reviewers.
-// When no required bots are configured, all flags reflect vacuous completion (nothing to wait on).
-func ComputeBotReviewDiagnostics(statusList []any) map[string]any {
+// headSHA is the PR HEAD commit; when a required bot's review targets a different
+// commit, bot_review_stale is true. When no required bots are configured, all
+// flags reflect vacuous completion (nothing to wait on).
+func ComputeBotReviewDiagnostics(statusList []any, headSHA string) map[string]any {
 	var sawRequired bool
 	anyFailed := false
 	allReviewed := true
+	anyStale := false
 
 	for _, elt := range statusList {
 		m, ok := elt.(map[string]any)
@@ -57,6 +60,12 @@ func ComputeBotReviewDiagnostics(statusList []any) map[string]any {
 		if !IsReviewedTier(st) {
 			allReviewed = false
 		}
+		if IsReviewedTier(st) {
+			reviewSHA, _ := m["review_commit_sha"].(string)
+			if headSHA != "" && (reviewSHA == "" || reviewSHA != headSHA) {
+				anyStale = true
+			}
+		}
 	}
 
 	if !sawRequired {
@@ -65,6 +74,7 @@ func ComputeBotReviewDiagnostics(statusList []any) map[string]any {
 			"bot_review_pending":   false,
 			"bot_review_terminal":  true,
 			"bot_review_failed":    false,
+			"bot_review_stale":     false,
 		}
 	}
 
@@ -77,5 +87,6 @@ func ComputeBotReviewDiagnostics(statusList []any) map[string]any {
 		"bot_review_pending":   pending,
 		"bot_review_terminal":  terminal,
 		"bot_review_failed":    anyFailed,
+		"bot_review_stale":     anyStale,
 	}
 }

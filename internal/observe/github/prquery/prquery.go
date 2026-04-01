@@ -39,6 +39,7 @@ const prContextQuery = `query PRContext($owner: String!, $name: String!, $number
         nodes {
           state
           author { login }
+          commit { oid }
         }
         pageInfo {
           hasNextPage
@@ -134,6 +135,9 @@ type latestReviewsConn struct {
 		Author *struct {
 			Login string `json:"login"`
 		} `json:"author"`
+		Commit *struct {
+			Oid string `json:"oid"`
+		} `json:"commit"`
 	} `json:"nodes"`
 	PageInfo struct {
 		HasNextPage bool `json:"hasNextPage"`
@@ -212,7 +216,11 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo string, prNum
 	}
 	statusList := buildBotReviewerStatus(firstPR, bots, commentNodes)
 	reviewsInner["bot_reviewer_status"] = statusList
-	reviewsInner["bot_review_diagnostics"] = ComputeBotReviewDiagnostics(statusList)
+	var headSHA string
+	if firstPR.HeadRefOid != nil {
+		headSHA = *firstPR.HeadRefOid
+	}
+	reviewsInner["bot_review_diagnostics"] = ComputeBotReviewDiagnostics(statusList, headSHA)
 	return pullDetail, reviewsInner, nil
 }
 
@@ -475,16 +483,25 @@ func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNo
 	if len(bots) == 0 {
 		return []any{}
 	}
-	reviewByLogin := map[string]string{}
+	type reviewInfo struct {
+		State     string
+		CommitOid string
+	}
+	reviewByLogin := map[string]reviewInfo{}
 	if pr.LatestReviews != nil {
 		for _, n := range pr.LatestReviews.Nodes {
 			if n.Author == nil {
 				continue
 			}
 			login := n.Author.Login
-			if login != "" {
-				reviewByLogin[normalizeGitHubActorLogin(login)] = n.State
+			if login == "" {
+				continue
 			}
+			ri := reviewInfo{State: n.State}
+			if n.Commit != nil {
+				ri.CommitOid = n.Commit.Oid
+			}
+			reviewByLogin[normalizeGitHubActorLogin(login)] = ri
 		}
 	}
 	nodes := commentNodes
@@ -495,7 +512,8 @@ func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNo
 			continue
 		}
 		key := normalizeGitHubActorLogin(login)
-		state, hasRev := reviewByLogin[key]
+		ri, hasRev := reviewByLogin[key]
+		state := ri.State
 		if !hasRev {
 			state = ""
 		}
@@ -507,6 +525,7 @@ func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNo
 			"required":               br.Required,
 			"has_review":             hasRev,
 			"review_state":           state,
+			"review_commit_sha":      ri.CommitOid,
 			"latest_comment_at":      updated,
 			"contains_rate_limit":    strings.Contains(lower, "rate limit"),
 			"contains_review_paused": strings.Contains(lower, "review paused") || strings.Contains(lower, "review pause"),
