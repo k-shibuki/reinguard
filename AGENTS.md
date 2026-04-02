@@ -50,6 +50,9 @@ CI: `golangci-lint`, `go vet`, `go test -race`; PRs must pass job **`ci-pass`** 
 Before resolving a review thread (required when **Require conversation resolution** is on), leave a
 short **disposition**: **Fixed** / **By design** / **False positive** / **Acknowledged** — see
 [`.reinguard/policy/review--consensus-protocol.md`](.reinguard/policy/review--consensus-protocol.md)
-for the full consensus model and resolution rules.
+for the full consensus model and resolution rules. Non-thread findings (outside-diff-range, PR summary)
+require a PR conversation comment with the same disposition ([**HS-REVIEW-RESOLVE**](.reinguard/policy/safety--agent-invariants.md)).
 
-Do **not** merge (any method) while required bot review is still pending, threads are unresolved, or consensus has not been reached ([**HS-MERGE-CONSENSUS**](.reinguard/policy/safety--agent-invariants.md)).
+Do **not** dismiss any finding as "pre-existing" or "outside diff range" ([**HS-NO-DISMISS**](.reinguard/policy/safety--agent-invariants.md)).
+
+Do **not** merge (any method) while required bot review is not terminal, has failed, is stale, threads are unresolved, or consensus has not been reached ([**HS-MERGE-CONSENSUS**](.reinguard/policy/safety--agent-invariants.md)).

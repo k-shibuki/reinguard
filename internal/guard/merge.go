@@ -1,7 +1,9 @@
 // Package guard evaluates coarse guard predicates over flattened observation signals for the
 // semantic control plane (ADR-0011). Built-ins implement [Guard] and register on [DefaultRegistry];
 // declarative rules in control/guards/*.yaml gate when a built-in runs ([EvalWithRules]).
-// Phase 1 merge-readiness inspects git cleanliness, CI status, and unresolved review thread counts.
+// The merge-readiness built-in checks git cleanliness, CI success, unresolved thread count,
+// bot review diagnostics (pending, terminal, failed, stale), formal changes-requested count,
+// and review data completeness flags (pagination, decisions truncation).
 //
 // # Inputs and outputs
 //
@@ -51,11 +53,11 @@ func (mergeReadinessGuard) Eval(sigs map[string]any) MergeReadinessResult {
 // github.reviews.bot_review_diagnostics.bot_review_pending must be false (fail closed when missing),
 // github.reviews.bot_review_diagnostics.bot_review_terminal must be true (fail closed when missing),
 // github.reviews.bot_review_diagnostics.bot_review_failed must be false (fail closed when missing),
+// github.reviews.bot_review_diagnostics.bot_review_stale must be false (fail closed when missing),
 // github.reviews.review_decisions_changes_requested must be zero (fail closed when missing),
 // github.reviews.pagination_incomplete must be false (fail closed when missing), and
 // github.reviews.review_decisions_truncated must be false (fail closed when missing).
-// Missing or invalid values fail closed. Missing top-level keys still yield empty nested maps
-// for other paths, so absent git / CI fields fail the clean/CI checks as before.
+// Missing or invalid values fail closed.
 func EvalMergeReadiness(sigs map[string]any) MergeReadinessResult {
 	return evalMergeReadiness(sigs)
 }
@@ -73,11 +75,17 @@ func evalMergeReadiness(sigs map[string]any) MergeReadinessResult {
 }
 
 func checkGitAndCI(sigs map[string]any) string {
-	clean, _ := signals.GetBool(sigs, "git.working_tree_clean")
+	clean, hasClean := signals.GetBool(sigs, "git.working_tree_clean")
+	if !hasClean {
+		return "missing or invalid git.working_tree_clean"
+	}
 	if !clean {
 		return "git working tree not clean"
 	}
-	status, _ := signals.GetString(sigs, "github.ci.ci_status")
+	status, hasStatus := signals.GetString(sigs, "github.ci.ci_status")
+	if !hasStatus {
+		return "missing or invalid github.ci.ci_status"
+	}
 	if strings.ToLower(status) != "success" {
 		return fmt.Sprintf("ci status is %q, want success", status)
 	}
@@ -93,6 +101,25 @@ func checkReviewSignals(sigs map[string]any) string {
 		return fmt.Sprintf("unresolved review threads: %d", unres)
 	}
 
+	if reason := checkBotReviewDiagnostics(sigs); reason != "" {
+		return reason
+	}
+
+	changesReq, hasChangesReq := signals.GetInt(sigs, "github.reviews.review_decisions_changes_requested")
+	if !hasChangesReq {
+		return "missing or invalid github.reviews.review_decisions_changes_requested"
+	}
+	if changesReq != 0 {
+		return fmt.Sprintf("changes requested: %d", changesReq)
+	}
+
+	if reason := checkReviewDataCompleteness(sigs); reason != "" {
+		return reason
+	}
+	return ""
+}
+
+func checkBotReviewDiagnostics(sigs map[string]any) string {
 	botPending, hasBotPending := signals.GetBool(sigs, "github.reviews.bot_review_diagnostics.bot_review_pending")
 	if !hasBotPending {
 		return "missing github.reviews.bot_review_diagnostics.bot_review_pending (fail closed)"
@@ -117,16 +144,12 @@ func checkReviewSignals(sigs map[string]any) string {
 		return "required bot review failed"
 	}
 
-	changesReq, hasChangesReq := signals.GetInt(sigs, "github.reviews.review_decisions_changes_requested")
-	if !hasChangesReq {
-		return "missing or invalid github.reviews.review_decisions_changes_requested"
+	botStale, hasBotStale := signals.GetBool(sigs, "github.reviews.bot_review_diagnostics.bot_review_stale")
+	if !hasBotStale {
+		return "missing github.reviews.bot_review_diagnostics.bot_review_stale (fail closed)"
 	}
-	if changesReq != 0 {
-		return fmt.Sprintf("changes requested: %d", changesReq)
-	}
-
-	if reason := checkReviewDataCompleteness(sigs); reason != "" {
-		return reason
+	if botStale {
+		return "required bot review is stale or missing review commit SHA"
 	}
 	return ""
 }

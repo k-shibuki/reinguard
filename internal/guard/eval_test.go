@@ -28,6 +28,7 @@ func TestEvalWithRules(t *testing.T) {
 				"bot_review_pending":  false,
 				"bot_review_terminal": true,
 				"bot_review_failed":   false,
+				"bot_review_stale":    false,
 			},
 		}
 	}
