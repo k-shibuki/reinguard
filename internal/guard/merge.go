@@ -149,7 +149,7 @@ func checkBotReviewDiagnostics(sigs map[string]any) string {
 		return "missing github.reviews.bot_review_diagnostics.bot_review_stale (fail closed)"
 	}
 	if botStale {
-		return "required bot review is stale (reviewed on older commit)"
+		return "required bot review is stale or missing review commit SHA"
 	}
 	return ""
 }

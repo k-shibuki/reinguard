@@ -58,7 +58,7 @@ Never resolve a review thread — and never treat a **non-thread review finding*
 
 ## HS-MERGE-CONSENSUS
 
-Do **not** merge a PR (any method — direct `gh pr merge`, `gh pr merge --auto`, or manual merge) while required bot review is not terminal, review threads are unresolved, stale review evidence exists, or review consensus has not been reached per `review--consensus-protocol.md`. Before merge, confirm **all** of:
+Do **not** merge a PR (any method — direct `gh pr merge`, `gh pr merge --auto`, or manual merge) while required bot review is not terminal, has failed, is stale, review threads are unresolved, or review consensus has not been reached per `review--consensus-protocol.md`. Before merge, confirm **all** of:
 
 - CI green (`ci-pass`)
 - Required bot review is **terminal** (not pending, rate-limited, paused, failed, or stale)
