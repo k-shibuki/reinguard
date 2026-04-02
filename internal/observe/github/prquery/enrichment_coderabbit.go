@@ -43,6 +43,9 @@ func (coderabbitEnrichment) ClassifyStatus(m map[string]any) string {
 	if v, ok := m["cr_review_processing"].(bool); ok && v {
 		return BotStatusPending
 	}
+	if signalBool(m, "has_review") && signalBool(m, "cr_review_completed_clean") {
+		return BotStatusCompletedClean
+	}
 	if signalBool(m, "has_review") {
 		return BotStatusCompleted
 	}
@@ -57,7 +60,8 @@ func (coderabbitEnrichment) ClassifyStatus(m map[string]any) string {
 
 // Heuristic markers for CodeRabbit "Review Status" / walkthrough issue comments (best-effort).
 var (
-	reCRReviewCompleted  = regexp.MustCompile(`(?i)(review\s+completed|✅\s*completed|status[:\s\*]*\s*✅|\*\*status\*\*[^\n]*(complete|finished|done)|no\s+issues\s+found)`)
+	reCRReviewCompleted  = regexp.MustCompile(`(?i)(review\s+completed|✅\s*completed|status[:\s\*]*\s*✅|\*\*status\*\*[^\n]*(complete|finished|done))`)
+	reCRReviewClean      = regexp.MustCompile(`(?i)(no\s+issues\s+found|no\s+additional\s+issues\s+found)`)
 	reCRReviewProcessing = regexp.MustCompile(`(?i)(processing\s+new\s+changes|review\s+in\s+progress|\bin\s+progress\b|\*\*status\*\*[^\n]*(in\s+progress|pending|processing)|⏳\s*processing)`)
 	reCRWalkthrough      = regexp.MustCompile(`(?i)(^|\n)#{1,3}\s*[^\n]*(walkthrough|review\s+walkthrough)|\*\*walkthrough\*\*`)
 )
@@ -66,6 +70,11 @@ func parseCoderabbitReviewStatusMarkers(body string) map[string]any {
 	out := make(map[string]any)
 	if reCRWalkthrough.MatchString(body) {
 		out["cr_walkthrough_present"] = true
+	}
+	if reCRReviewClean.MatchString(body) {
+		out["cr_review_processing"] = false
+		out["cr_review_completed_clean"] = true
+		return out
 	}
 	if reCRReviewCompleted.MatchString(body) {
 		out["cr_review_processing"] = false

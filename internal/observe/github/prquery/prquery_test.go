@@ -460,6 +460,67 @@ func TestCollect_botReviewer_noEnrichOmitsRateLimitSeconds(t *testing.T) {
 	}
 }
 
+func TestCollect_botReviewer_completedClean(t *testing.T) {
+	t.Parallel()
+	// Given: CodeRabbit leaves a matching review and a clean completion comment.
+	// When:  Collect computes bot_reviewer_status with coderabbit enrichment.
+	// Then:  status is completed_clean and aggregate diagnostics are terminal success.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		resp := map[string]any{
+			"data": map[string]any{
+				"repository": map[string]any{
+					"pullRequest": map[string]any{
+						"state": "OPEN", "isDraft": false, "title": "t",
+						"mergeable": "UNKNOWN", "mergeStateStatus": "UNKNOWN",
+						"baseRefName": "main", "headRefOid": "head-sha",
+						"labels":                  map[string]any{"nodes": []any{}},
+						"closingIssuesReferences": map[string]any{"nodes": []any{}},
+						"latestReviews": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false},
+							"nodes": []any{
+								map[string]any{
+									"state":  "COMMENTED",
+									"author": map[string]any{"login": "coderabbitai"},
+									"commit": map[string]any{"oid": "head-sha"},
+								},
+							},
+						},
+						"comments": map[string]any{
+							"nodes": []map[string]any{
+								{
+									"author":    map[string]any{"login": "coderabbitai"},
+									"body":      "No issues found.",
+									"updatedAt": "2026-03-28T12:00:00Z",
+								},
+							},
+						},
+						"reviewThreads": map[string]any{"pageInfo": map[string]any{"hasNextPage": false}, "nodes": []any{}},
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	bots := []BotReviewer{{ID: "cr", Login: "coderabbitai[bot]", Required: true, Enrich: []string{"coderabbit"}}}
+	_, rev, err := Collect(context.Background(), c, "o", "r", 1, bots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := rev["bot_reviewer_status"].([]any)[0].(map[string]any)
+	if m["status"].(string) != BotStatusCompletedClean {
+		t.Fatalf("status: %+v", m)
+	}
+	diag := rev["bot_review_diagnostics"].(map[string]any)
+	if !diag["bot_review_completed"].(bool) || diag["bot_review_pending"].(bool) || !diag["bot_review_terminal"].(bool) || diag["bot_review_failed"].(bool) || diag["bot_review_stale"].(bool) {
+		t.Fatalf("diag: %+v", diag)
+	}
+}
+
 func TestCollect_commentPagination_fetchesOlderBotHeadMovedMessage(t *testing.T) {
 	t.Parallel()
 	// Given: newest comment page has no bot; older page has CodeRabbit head-moved notice.

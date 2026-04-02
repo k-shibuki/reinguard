@@ -78,6 +78,15 @@ func TestCoderabbitEnrichment_reviewStatusCompleted(t *testing.T) {
 	}
 }
 
+func TestCoderabbitEnrichment_reviewStatusCompletedClean(t *testing.T) {
+	t.Parallel()
+	e := coderabbitEnrichment{}
+	got := e.Enrich("No issues found.\n")
+	if !got["cr_review_completed_clean"].(bool) {
+		t.Fatalf("got %v", got)
+	}
+}
+
 func TestCoderabbitEnrichment_walkthroughMarker(t *testing.T) {
 	t.Parallel()
 	e := coderabbitEnrichment{}
@@ -94,6 +103,9 @@ func TestCoderabbitEnrichment_ClassifyStatus_order(t *testing.T) {
 		t.Fatalf("got %q", g)
 	}
 	if g := e.ClassifyStatus(map[string]any{"cr_review_processing": true}); g != BotStatusPending {
+		t.Fatalf("got %q", g)
+	}
+	if g := e.ClassifyStatus(map[string]any{"has_review": true, "cr_review_completed_clean": true}); g != BotStatusCompletedClean {
 		t.Fatalf("got %q", g)
 	}
 	if g := e.ClassifyStatus(map[string]any{"has_review": true}); g != BotStatusCompleted {
