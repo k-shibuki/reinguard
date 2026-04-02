@@ -12,7 +12,7 @@ sense:
   - rgd context build
   - git diff
 act:
-  - Gather diff and commits; inspect every dimension; classify findings; loop on blocking items.
+  - Gather diff and commits; run local CodeRabbit review; inspect every dimension; classify findings; loop on blocking items.
 output:
   - Pass/fail per dimension, commit-structure note, readiness declaration.
 done_when: No blocking findings; ready for `pr-create` or documented otherwise.
@@ -70,32 +70,48 @@ Open [`../policy/review--self-inspection.md`](../policy/review--self-inspection.
 
 Dimension 6 (PR template substance) is deferred to `pr-create`, which fills and verifies the template.
 
-### 3. Evaluate commit structure
+### 3. Run required local CodeRabbit review
+
+Run the repository-local CodeRabbit gate from the repo root:
+
+```bash
+bash .reinguard/scripts/check-local-review.sh --base main
+```
+
+Treat installation/authentication/execution failures as **Blocking**.
+Review the output and classify findings using the same severity guidance as
+the other self-inspection dimensions; do not auto-dismiss them because they
+were surfaced locally instead of on the PR.
+
+### 4. Evaluate commit structure
 
 Review the commit log for logical coherence. If commits are disorganized (mixed concerns, WIP commits, fixups not squashed), report as **Non-blocking** recommendation: "restructure commits before PR creation (return to `implement` step 7)."
 
-### 4. Report findings
+### 5. Report findings
 
 Classify each finding as **Blocking** or **Non-blocking** per `review--self-inspection.md` § Severity guidance.
 
-### 5. Fix-and-re-inspect loop
+### 6. Fix-and-re-inspect loop
 
 If **Blocking** findings exist:
 
 1. Return to `implement` for fixes (and commit restructuring if recommended)
 2. Re-run applicable preflight steps (`go test`, `go vet`, `golangci-lint`, `pre-commit run markdownlint-cli2 --all-files`)
-3. Commit with `Refs: #<issue>`
-4. Re-run inspection (go to step 2) until no Blocking findings remain
+3. Re-run `bash .reinguard/scripts/check-local-review.sh --base main`
+4. Commit with `Refs: #<issue>`
+5. Re-run inspection (go to step 2) until no Blocking findings remain
 
 If only **Non-blocking** findings exist, fix where practical, note remaining items for the PR body, and proceed to `pr-create`.
 
-### 6. Declare readiness
+### 7. Declare readiness
 
-When inspection is clean (no Blocking findings): declare **ready for PR creation**. Proceed to `pr-create`.
+When inspection is clean (no Blocking findings, including local CodeRabbit
+findings): declare **ready for PR creation**. Proceed to `pr-create`.
 
 ## Output
 
 - Dimension-by-dimension Pass/Fail with findings list and severity
+- Local CodeRabbit review status: completed / blocking failure, plus finding summary
 - Commit structure assessment: clean / restructuring recommended
 - Fix commits (if any): SHA + what changed
 - Final status: **Ready for PR creation** or **Blocking findings remain** (with list)

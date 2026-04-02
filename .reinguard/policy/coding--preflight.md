@@ -27,6 +27,27 @@ Run the applicable subset before each push:
 **HS-NO-SKIP** applies: do not omit any applicable step without a
 documented exception (PR body or review disposition).
 
+## Required local AI review (before PR creation)
+
+After applicable HS-LOCAL-VERIFY steps pass and before `change-inspect`
+declares the change ready for `pr-create`, run the repository-local
+CodeRabbit gate from the repo root:
+
+```bash
+bash .reinguard/scripts/check-local-review.sh --base main
+```
+
+- This is a **required pre-PR gate** for this repository; it does **not**
+  replace PR-based CodeRabbit review or merge consensus.
+- The script standardizes installation/authentication checks and executes
+  the CLI review against the repository's `.coderabbit.yaml`. If the
+  script cannot run (CLI missing, auth missing,
+  rate limit, execution error), treat that as **Blocking** and do not
+  proceed to `pr-create`.
+- Review findings are evaluated in `change-inspect` using existing
+  **Blocking / Non-blocking** severity guidance; do not auto-dismiss them
+  just because they came from the local CLI instead of the PR bot.
+
 ## Defensive implementation checks
 
 Before committing new or changed logic, verify:

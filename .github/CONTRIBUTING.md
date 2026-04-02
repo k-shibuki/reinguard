@@ -14,6 +14,9 @@ Review routing for touched areas is defined in **[`CODEOWNERS`](CODEOWNERS)**.
 - **`gh`**: required only when using commands that call the GitHub API (e.g.
   `rgd observe github`, or live observation in `rgd state eval` / `rgd context build`
   without `--observation-file`). See ADR-0006.
+- **CodeRabbit CLI**: required locally before PR creation in this repository.
+  Install with `curl -fsSL https://cli.coderabbit.ai/install.sh | sh` or
+  `brew install coderabbit`, then authenticate with `cr auth login`.
 
 ## Quick setup
 
@@ -25,7 +28,8 @@ go build -o rgd ./cmd/rgd
 ```
 
 Optional: the repo **[`Makefile`](../Makefile)** provides `make test`, `make check`
-(fmt, vet, lint, test — lint is `golangci-lint`), `make coverage`, `make build`, etc.
+(fmt, vet, lint, test — lint is `golangci-lint`), `make coverage`, `make build`,
+etc. Use `make local-review` from the required pre-PR gate section below.
 It is **not** normative — CI and the shell commands below are the source of truth.
 
 Optional commit message template (see [`.reinguard/policy/commit--format.md`](../.reinguard/policy/commit--format.md)):
@@ -51,6 +55,27 @@ pre-commit run markdownlint-cli2 --all-files
 go test ./... -race -coverpkg=./... -coverprofile=coverage.out -count=1
 bash .reinguard/scripts/check-coverage-threshold.sh 80 coverage.out
 ```
+
+## Required local CodeRabbit review before PR creation
+
+After local verification passes and before `pr-create`, run the repository
+CodeRabbit gate from the repo root:
+
+```bash
+make local-review
+# or:
+bash .reinguard/scripts/check-local-review.sh --base main
+```
+
+- This repository treats the local CodeRabbit CLI pass as a **required pre-PR gate**.
+- The script checks installation and authentication (`cr auth login`) before
+  invoking `coderabbit review -c .coderabbit.yaml`.
+- Execution failures (CLI missing, auth missing, rate limit, command error)
+  block PR creation.
+- Review findings are triaged during `change-inspect`; the local CLI does
+  **not** replace the PR bot review from `.coderabbit.yaml`.
+- For automation, the script also supports `--mode agent`; the default remains
+  `plain` for contributor-facing output.
 
 Optional: `pre-commit install --hook-type commit-msg` and `pre-commit install` (see [`.pre-commit-config.yaml`](../.pre-commit-config.yaml)).
 

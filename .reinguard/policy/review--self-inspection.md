@@ -19,7 +19,7 @@ Whole-change inspection criteria applied **after** `coding--preflight.md`
 ## Relationship to preflight
 
 `coding--preflight.md` covers mechanical, line-level checks (nil guards,
-silent ignores, setup error handling, `go vet`, `pre-commit run markdownlint-cli2 --all-files`).
+silent ignores, setup error handling, `go vet`, `pre-commit run markdownlint-cli2 --all-files`, and the required local CodeRabbit CLI run before PR creation).
 Self-inspection operates at the **whole-change** level: coherence,
 alignment, and coverage that only become visible when reviewing the
 complete diff against the Issue and architecture.
@@ -60,6 +60,10 @@ applied across the diff:
 
 This is a **diff-level scan**, not re-running tools — verify the
 patterns are present in changed code.
+
+- The required local CodeRabbit CLI run completed successfully.
+- Material findings from the local CLI have been classified using the same
+  **Blocking / Non-blocking** guidance as other self-inspection findings.
 
 ### 4. Test adequacy
 

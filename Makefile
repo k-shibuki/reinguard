@@ -1,8 +1,8 @@
-# reinguard — optional dev shortcuts for the Go toolchain only.
+# reinguard — optional local dev shortcuts for Go checks and review helpers.
 # CI remains authoritative; rgd commands should be invoked directly.
 # Run `make help` for targets.
 
-.PHONY: help fmt vet test lint coverage build check
+.PHONY: help fmt vet test lint coverage build check local-review
 
 help: ## Show targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -32,3 +32,6 @@ build: ## Build rgd binary to ./rgd
 	go build -o rgd ./cmd/rgd
 
 check: fmt vet lint test ## fmt, vet, golangci-lint, test (local gate)
+
+local-review: ## required local CodeRabbit CLI review before PR creation
+	bash .reinguard/scripts/check-local-review.sh --base main

@@ -30,13 +30,13 @@ escalate_when: gate-policy or branch protection cannot be satisfied without main
 
 **Already in context** (always-active Adapter rule): HS-* codes, catalogs, workflow & commit policy.
 
-**Pre-requisite:** `change-inspect` completed with no Blocking findings.
+**Pre-requisite:** `change-inspect` completed with no Blocking findings and the required local CodeRabbit CLI review completed.
 
 **Pre-flight:** on feature branch, `git status` clean; push latest commits.
 
 ## Act
 
-1. Confirm `change-inspect` output: no Blocking findings, commit structure clean (or restructured per **Commit organization** in [`.reinguard/procedure/implement.md`](implement.md)).
+1. Confirm `change-inspect` output: no Blocking findings, required local CodeRabbit CLI review completed, commit structure clean (or restructured per **Commit organization** in [`.reinguard/procedure/implement.md`](implement.md)).
 2. Push: `git push -u origin HEAD` (after **HS-LOCAL-VERIFY**).
 3. **Pre-flight PR policy** (before `gh pr create`): fill the template into a file, then run from repo root:
 
