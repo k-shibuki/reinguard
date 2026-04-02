@@ -516,8 +516,20 @@ func TestCollect_botReviewer_completedClean(t *testing.T) {
 		t.Fatalf("status: %+v", m)
 	}
 	diag := rev["bot_review_diagnostics"].(map[string]any)
-	if !diag["bot_review_completed"].(bool) || diag["bot_review_pending"].(bool) || !diag["bot_review_terminal"].(bool) || diag["bot_review_failed"].(bool) || diag["bot_review_stale"].(bool) {
-		t.Fatalf("diag: %+v", diag)
+	if !diag["bot_review_completed"].(bool) {
+		t.Fatalf("want bot_review_completed=true, got %+v", diag)
+	}
+	if diag["bot_review_pending"].(bool) {
+		t.Fatalf("want bot_review_pending=false, got %+v", diag)
+	}
+	if !diag["bot_review_terminal"].(bool) {
+		t.Fatalf("want bot_review_terminal=true, got %+v", diag)
+	}
+	if diag["bot_review_failed"].(bool) {
+		t.Fatalf("want bot_review_failed=false, got %+v", diag)
+	}
+	if diag["bot_review_stale"].(bool) {
+		t.Fatalf("want bot_review_stale=false, got %+v", diag)
 	}
 }
 

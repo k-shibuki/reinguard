@@ -82,8 +82,29 @@ func TestCoderabbitEnrichment_reviewStatusCompletedClean(t *testing.T) {
 	t.Parallel()
 	e := coderabbitEnrichment{}
 	got := e.Enrich("No issues found.\n")
-	if !got["cr_review_completed_clean"].(bool) {
-		t.Fatalf("got %v", got)
+	if got == nil {
+		t.Fatal("got nil")
+	}
+	clean, ok := got["cr_review_completed_clean"].(bool)
+	if !ok || !clean {
+		t.Fatalf("want cr_review_completed_clean=true, got %v", got)
+	}
+}
+
+func TestCoderabbitEnrichment_walkthroughAndCleanMarker(t *testing.T) {
+	t.Parallel()
+	e := coderabbitEnrichment{}
+	got := e.Enrich("### Walkthrough\nNo additional issues found.\n")
+	if got == nil {
+		t.Fatal("got nil")
+	}
+	walkthrough, ok := got["cr_walkthrough_present"].(bool)
+	if !ok || !walkthrough {
+		t.Fatalf("want cr_walkthrough_present=true, got %v", got)
+	}
+	clean, ok := got["cr_review_completed_clean"].(bool)
+	if !ok || !clean {
+		t.Fatalf("want cr_review_completed_clean=true, got %v", got)
 	}
 }
 
