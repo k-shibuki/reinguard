@@ -242,12 +242,12 @@ Evaluates merge signals. All conditions must be true for `ok == true`:
 | 4 | `github.reviews.bot_review_diagnostics.bot_review_pending` | `== false` | required bot review still pending |
 | 5 | `github.reviews.bot_review_diagnostics.bot_review_terminal` | `== true` | required bot review not terminal |
 | 6 | `github.reviews.bot_review_diagnostics.bot_review_failed` | `== false` | required bot review failed |
-| 7 | `github.reviews.bot_review_diagnostics.bot_review_stale` | `== false` | required bot review is stale (reviewed on older commit) |
+| 7 | `github.reviews.bot_review_diagnostics.bot_review_stale` | `== false` | required bot review is stale or missing review commit SHA |
 | 8 | `github.reviews.review_decisions_changes_requested` | `== 0` | changes requested: N |
 | 9 | `github.reviews.pagination_incomplete` | `== false` | review thread pagination incomplete |
 | 10 | `github.reviews.review_decisions_truncated` | `== false` | review decisions truncated |
 
-All signals fail closed on missing values (guard returns `ok: false`).
+All signals fail closed on missing or invalid values (guard returns `ok: false`).
 
 ### Output
 

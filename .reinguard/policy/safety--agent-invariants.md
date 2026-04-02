@@ -61,7 +61,9 @@ Never resolve a review thread — and never treat a **non-thread review finding*
 Do **not** merge a PR (any method — direct `gh pr merge`, `gh pr merge --auto`, or manual merge) while required bot review is not terminal, has failed, is stale, review threads are unresolved, or review consensus has not been reached per `review--consensus-protocol.md`. Before merge, confirm **all** of:
 
 - CI green (`ci-pass`)
-- Required bot review is **terminal** (not pending, rate-limited, paused, failed, or stale)
+- Required bot review is **terminal** (not pending, rate-limited, or paused)
+- Required bot review has **not failed**
+- Required bot review is **not stale**
 - Unresolved review threads == 0
 - Consensus reached on all findings (per `.reinguard/policy/review--consensus-protocol.md`)
 
