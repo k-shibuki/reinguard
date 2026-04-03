@@ -27,23 +27,36 @@ escalate_when: gate-policy or branch protection cannot be satisfied without main
 - [`../policy/commit--format.md`](../policy/commit--format.md) (branch naming)
 - [`../policy/workflow--pr-discipline.md`](../policy/workflow--pr-discipline.md) § **PR body updates** — multiline `gh api` pitfalls (gate-policy)
 - [`check-pr-policy.sh`](../scripts/check-pr-policy.sh) (local pre-flight mirroring `gate-policy` CI)
+- [`../knowledge/review--classification-map.md`](../knowledge/review--classification-map.md) — pre-PR disposition vocabulary used by `change-inspect`
 
 **Already in context** (always-active Adapter rule): HS-* codes, catalogs, workflow & commit policy.
 
-**Pre-requisite:** `change-inspect` completed with no Blocking findings and the required local CodeRabbit CLI review completed. This local CLI gate is a **pre-PR** check and is separate from the PR bot review that runs after PR creation.
+**Pre-requisite:** `change-inspect` completed with all material findings in
+gate-clearing dispositions and the required local CodeRabbit CLI review
+completed. This local CLI gate is a **pre-PR** check and is separate from
+the PR bot review that runs after PR creation.
 
 **Pre-flight:** on feature branch, `git status` clean; push latest commits.
 
 ## Act
 
-1. Confirm `change-inspect` output: no Blocking findings, required local CodeRabbit CLI review completed, commit structure clean (or restructured per **Commit organization** in [`.reinguard/procedure/implement.md`](implement.md)).
+1. Confirm `change-inspect` output: every material finding is
+   dispositioned **Fixed**, **By design**, **False positive**, or
+   exceptionally **Acknowledged** per
+   `review--classification-map.md`; required local CodeRabbit CLI review
+   completed; commit structure clean (or already restructured per
+   **Commit organization** in [`.reinguard/procedure/implement.md`](implement.md)).
 2. If `change-inspect` evidence is missing or stale, run the required local gate from the repo root:
 
    ```bash
    bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
    ```
 
-   On rate limit, the script parses the cooldown from the **latest** rate-limit line in that CLI run, applies a **safety buffer**, and retries **once**. Treat installation/authentication/execution failures, unparsed cooldown, or a second consecutive rate limit, as blocking before PR creation.
+   On rate limit, the script parses the cooldown from the **latest**
+   rate-limit line in that CLI run, applies a **safety buffer**, and
+   retries **once**. Treat installation/authentication/execution failures,
+   unparsed cooldown, or a second consecutive rate limit, as a failed gate
+   before PR creation.
 3. Push: `git push -u origin HEAD` (after **HS-LOCAL-VERIFY**).
 4. **Pre-flight PR policy** (before `gh pr create`): fill the template into a file, then run from repo root:
 

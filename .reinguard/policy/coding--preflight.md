@@ -48,11 +48,13 @@ bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
   automatically. If the cooldown cannot be parsed from that line, or a
   second consecutive rate limit occurs, treat the gate as failed.
 - If the script cannot run (CLI missing, auth missing, second consecutive
-  rate limit after retry, execution error), treat that as **Blocking** and do not
-  proceed to `pr-create`.
-- Review findings are evaluated in `change-inspect` using existing
-  **Blocking / Non-blocking** severity guidance; do not auto-dismiss them
-  just because they came from the local CLI instead of the PR bot.
+  rate limit after retry, execution error), treat that as a failed gate and
+  do not proceed to `pr-create`.
+- Review findings are dispositioned in `change-inspect` using the shared
+  four-category model from
+  `.reinguard/knowledge/review--classification-map.md`; do not
+  auto-dismiss them just because they came from the local CLI instead of
+  the PR bot.
 
 ## Defensive implementation checks
 
@@ -101,6 +103,8 @@ Before hand-off (commit or PR creation), scan the diff for:
 
 - `.reinguard/policy/safety--agent-invariants.md` — HS-LOCAL-VERIFY, HS-NO-SKIP
 - `.reinguard/policy/coding--standards.md` — Change scope
+- `.reinguard/knowledge/review--classification-map.md` — shared
+  disposition vocabulary for review findings
 - `.reinguard/knowledge/testing--strategy.md` — Perspectives, Table-driven
 - `.reinguard/knowledge/testing--given-when-then.md` — GWT format
 - `.reinguard/knowledge/implementation--defensive-config-validation.md` — defensive patterns

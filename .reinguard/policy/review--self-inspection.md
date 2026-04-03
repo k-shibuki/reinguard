@@ -65,12 +65,14 @@ patterns are present in changed code.
 ### 4. Local AI review gate
 
 Confirm the required local CodeRabbit CLI gate completed per
-`coding--preflight.md` and `change-inspect.md`, and that its
-findings were handled coherently:
+`coding--preflight.md` and `change-inspect.md`, and that its findings were
+handled coherently:
 
-- Review output confirms no unresolved blocking findings remain.
-- Material findings from the local CodeRabbit CLI gate have been classified using the same
-  **Blocking / Non-blocking** guidance as other self-inspection findings.
+- Review output confirms the local gate completed and its findings were
+  dispositioned before PR creation.
+- Material findings from the local CodeRabbit CLI gate use the same
+  four disposition categories as the rest of `change-inspect` (see
+  `.reinguard/knowledge/review--classification-map.md`).
 
 ### 5. Test adequacy
 
@@ -116,15 +118,24 @@ Verify the doc impact list from `implement` (Act step 3) is reflected:
   changed
 - Intentional deferrals documented in the PR body
 
-## Severity guidance
+## Disposition guidance
 
-When reporting findings, use:
+When `change-inspect` reports findings, use the shared disposition model
+from `.reinguard/knowledge/review--classification-map.md`:
 
-- **Blocking** — must fix before external review (Issue misalignment,
-  ADR violation, missing tests for new behavior, broken defensive
-  pattern)
-- **Non-blocking** — should fix but may proceed (template wording,
-  minor doc gap, sweep miss with low risk)
+- **Fixed** — the finding required a change and that change is now present
+  before PR creation.
+- **By design** — the reported concern is intentional and supported by an
+  ADR, policy, or Issue-scope rationale.
+- **False positive** — the finding premise is incorrect for the actual
+  diff or repository rules.
+- **Acknowledged** — the finding is valid but deferred. Before PR
+  creation, this is allowed only with a separate follow-up Issue or an
+  equally explicit deferred-work contract.
+
+`change-inspect` may declare the branch ready for `pr-create` only when
+every material finding has one of those dispositions and any
+`Acknowledged` item satisfies the stricter pre-PR rule above.
 
 ## Related
 
@@ -132,6 +143,8 @@ When reporting findings, use:
   (prerequisite)
 - `.reinguard/policy/coding--standards.md` — Change scope, language
   policy
+- `.reinguard/knowledge/review--classification-map.md` — shared
+  disposition vocabulary across local and PR review
 - `.reinguard/knowledge/testing--strategy.md` — test perspectives,
   table-driven
 - `.reinguard/knowledge/testing--given-when-then.md` — GWT format

@@ -17,6 +17,11 @@ Bidirectional agreement model for review threads. All commands that
 interact with review threads (`review-address`, `pr-merge`) reference this
 document as the SSOT for disposition and resolution.
 
+The shared disposition vocabulary across local review, self-inspection, and
+PR review is explained in
+`.reinguard/knowledge/review--classification-map.md`. This policy defines
+the PR-side consensus and resolution mechanics for those same categories.
+
 ## Principle
 
 > Reach agreement with bot reviewers on ALL findings before proceeding
@@ -216,5 +221,7 @@ no deterministic guard currently tracks it.
 
 - `.reinguard/knowledge/review--bot-operations.md` — trigger, detection,
   timing
+- `.reinguard/knowledge/review--classification-map.md` — shared
+  disposition vocabulary across local and PR review
 - `.reinguard/policy/safety--agent-invariants.md` § **HS-REVIEW-RESOLVE**
 - `.reinguard/procedure/review-address.md` — review-address procedure

@@ -205,6 +205,7 @@ done
 cat <<'EOF'
 
 CodeRabbit local review completed.
-Address Blocking findings before PR creation and disposition any remaining
-non-blocking findings during change-inspect.
+Disposition findings in change-inspect using Fixed / By design / False
+positive / Acknowledged. Before PR creation, Acknowledged requires a
+follow-up Issue or another explicit deferred-work contract.
 EOF

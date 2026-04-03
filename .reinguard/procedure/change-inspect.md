@@ -8,14 +8,15 @@ reads:
   - ../policy/review--self-inspection.md
   - ../policy/coding--preflight.md
   - ../policy/coding--standards.md
+  - ../knowledge/review--classification-map.md
 sense:
   - rgd context build
   - git diff
 act:
-  - Gather diff and commits; run local CodeRabbit review; inspect every dimension; classify findings; loop on blocking items.
+  - Gather diff and commits; run local CodeRabbit review; inspect every dimension; disposition findings; loop until PR-ready.
 output:
-  - Pass/fail per dimension, commit-structure note, readiness declaration.
-done_when: No blocking findings; ready for `pr-create` or documented otherwise.
+  - Pass/fail per dimension, disposition summary, commit-structure note, readiness declaration.
+done_when: All material findings have gate-clearing dispositions; ready for `pr-create` or documented otherwise.
 escalate_when: Policy interpretation conflicts or inspection scope unclear.
 ---
 
@@ -30,7 +31,8 @@ merge, or restructure commits (commit organization is `implement` step 7).
 - [`../policy/review--self-inspection.md`](../policy/review--self-inspection.md) — SSOT for inspection dimensions (open the file; do not duplicate its criteria here)
 - [`../policy/coding--preflight.md`](../policy/coding--preflight.md) — prerequisite; meta-verify its obligations were met
 - [`../policy/coding--standards.md`](../policy/coding--standards.md) § **Change scope** — same-kind sweep across code, `.reinguard/`, `.cursor/`
-- `AGENTS.md` (severity P0/P1, review guidelines)
+- [`../knowledge/review--classification-map.md`](../knowledge/review--classification-map.md) — shared disposition vocabulary across local and PR review
+- `AGENTS.md` (review guidelines)
 
 **Already in context** (always-active Adapter rule): HS-* codes, catalogs, workflow & commit policy.
 
@@ -82,43 +84,55 @@ If the CLI reports a rate limit, the script uses the **latest** rate-limit
 line in that run to parse the cooldown, adds a **safety buffer**, then
 retries the review **once** (`--retry-on-rate-limit`). Treat
 installation/authentication/execution failures, unparsed cooldown, or a
-second consecutive rate limit, as **Blocking**.
-Review the output and classify findings using the same severity guidance as
-the other self-inspection dimensions; do not auto-dismiss them because they
-were surfaced locally instead of on the PR.
+second consecutive rate limit, as a failed gate and do not proceed.
+Review the output and disposition findings with the same four categories
+used everywhere else (**Fixed / By design / False positive /
+Acknowledged**). Do not auto-dismiss them because they were surfaced
+locally instead of on the PR. Before PR creation, use `Acknowledged` only
+when the deferred work has a separate follow-up Issue or another equally
+explicit deferred-work contract.
 
 ### 4. Evaluate commit structure
 
-Review the commit log for logical coherence. If commits are disorganized (mixed concerns, WIP commits, fixups not squashed), report as **Non-blocking** recommendation: "restructure commits before PR creation (return to `implement` step 7)."
+Review the commit log for logical coherence. If commits are disorganized
+(mixed concerns, WIP commits, fixups not squashed), do not proceed until
+the history is restructured or an explicit `Acknowledged` contract is
+recorded for that deferment, which should be rare before PR creation.
 
 ### 5. Report findings
 
-Classify each finding as **Blocking** or **Non-blocking** per `review--self-inspection.md` § Severity guidance.
+Disposition each finding as **Fixed**, **By design**, **False positive**,
+or **Acknowledged** per
+[`../knowledge/review--classification-map.md`](../knowledge/review--classification-map.md)
+and `review--self-inspection.md` § **Disposition guidance**.
 
 ### 6. Fix-and-re-inspect loop
 
-If **Blocking** findings exist:
+If any material finding still lacks a gate-clearing disposition:
 
 1. Return to `implement` for fixes (and commit restructuring if recommended)
 2. Re-run applicable preflight steps (`go test`, `go vet`, `golangci-lint`, `pre-commit run markdownlint-cli2 --all-files`)
 3. Re-run `bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit`
 4. Commit with `Refs: #<issue>`
-5. Re-run inspection (go to step 2) until no Blocking findings remain
+5. Re-run inspection (go to step 2) until every material finding is dispositioned **Fixed**, **By design**, **False positive**, or exceptionally **Acknowledged** per the shared map
 
-If only **Non-blocking** findings exist, fix where practical, note remaining items for the PR body, and proceed to `pr-create`.
+If a finding is dispositioned **Acknowledged**, record the follow-up Issue
+or equally explicit deferred-work contract in the inspection output so the
+PR handoff is auditable.
 
 ### 7. Declare readiness
 
-When inspection is clean (no Blocking findings, including local CodeRabbit
-findings): declare **ready for PR creation**. Proceed to `pr-create`.
+When inspection is clean (no material finding remains without a
+gate-clearing disposition, including local CodeRabbit findings): declare
+**ready for PR creation**. Proceed to `pr-create`.
 
 ## Output
 
-- Dimension-by-dimension Pass/Fail with findings list and severity
-- Local CodeRabbit review status: completed / blocking failure, plus finding summary
-- Commit structure assessment: clean / restructuring recommended
+- Dimension-by-dimension Pass/Fail with findings list and disposition
+- Local CodeRabbit review status: completed / gate failed, plus finding summary
+- Commit structure assessment: clean / restructured / deferred with explicit `Acknowledged` contract
 - Fix commits (if any): SHA + what changed
-- Final status: **Ready for PR creation** or **Blocking findings remain** (with list)
+- Final status: **Ready for PR creation** or **Findings remain** (with list)
 
 ## Guard
 

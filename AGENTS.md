@@ -25,12 +25,12 @@ CI: `golangci-lint`, `go vet`, `go test -race`; PRs must pass job **`ci-pass`** 
 
 ## Review guidelines
 
-### Severity (flag P0 / P1 only)
+### Finding scope
 
-- **P0 (blocking)**: logic bugs, incorrect control flow, security (auth, secrets, unsafe boundaries),
+- Flag logic bugs, incorrect control flow, security (auth, secrets, unsafe boundaries),
   missing or broken tests for changed non-trivial code.
-- **P1 (significant)**: ADR drift, missing traceability (`Closes #N` in PR body, `Refs: #N` in commits),
-  weak error handling, incomplete boundary tests for new APIs.
+- Flag ADR drift, missing traceability (`Closes #N` in PR body, `Refs: #N` in commits),
+  weak error handling, and incomplete boundary tests for new APIs.
 - Do **not** duplicate **gofmt** / **golangci-lint** / style nits already enforced in CI.
 
 ### Go and tests
@@ -40,7 +40,7 @@ CI: `golangci-lint`, `go vet`, `go test -race`; PRs must pass job **`ci-pass`** 
 - Exported functions and CLI behavior changes should have tests unless trivial wiring.
 - Observation and guards must respect **ADR-0005** (no agent-internal files) and **ADR-0006** (`gh` for GitHub auth).
 
-### Traceability (P1)
+### Traceability
 
 - PR body: `Closes #<issue>` (or exception label + `## Exception` per template).
 - PR title: Conventional Commits (`<type>(<scope>): …`; types exclude `hotfix` in titles — see `.reinguard/labels.yaml` (`categories.type`, `commit_prefix`).
@@ -52,6 +52,9 @@ short **disposition**: **Fixed** / **By design** / **False positive** / **Acknow
 [`.reinguard/policy/review--consensus-protocol.md`](.reinguard/policy/review--consensus-protocol.md)
 for the full consensus model and resolution rules. Non-thread findings (outside-diff-range, PR summary)
 require a PR conversation comment with the same disposition ([**HS-REVIEW-RESOLVE**](.reinguard/policy/safety--agent-invariants.md)).
+
+Use the same disposition vocabulary for local review and self-inspection; see
+[`.reinguard/knowledge/review--classification-map.md`](.reinguard/knowledge/review--classification-map.md).
 
 Do **not** dismiss any finding as "pre-existing" or "outside diff range" ([**HS-NO-DISMISS**](.reinguard/policy/safety--agent-invariants.md)).
 
