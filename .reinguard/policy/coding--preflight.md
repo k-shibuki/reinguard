@@ -34,14 +34,17 @@ declares the change ready for `pr-create`, run the repository-local
 CodeRabbit gate from the repo root:
 
 ```bash
-bash .reinguard/scripts/check-local-review.sh --base main
+bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
 ```
 
 - This is a **required pre-PR gate** for this repository; it does **not**
   replace PR-based CodeRabbit review or merge consensus.
 - The script standardizes installation/authentication checks and executes
   the CLI review against the repository's `.coderabbit.yaml`. If the
-  script cannot run (CLI missing, auth missing,
+  script hits a CodeRabbit rate limit and the cooldown is included in the
+  CLI output, sleep for that reported duration and retry the same command
+  automatically once before treating the gate as failed.
+- If the script cannot run (CLI missing, auth missing, second consecutive
   rate limit, execution error), treat that as **Blocking** and do not
   proceed to `pr-create`.
 - Review findings are evaluated in `change-inspect` using existing

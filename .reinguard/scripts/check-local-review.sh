@@ -4,12 +4,13 @@
 # review invocation. Finding triage remains part of change-inspect.
 #
 # Usage:
-#   bash .reinguard/scripts/check-local-review.sh [--base main] [--mode plain|prompt-only|agent] [--type all|committed|uncommitted]
+#   bash .reinguard/scripts/check-local-review.sh [--base main] [--mode plain|prompt-only|agent] [--type all|committed|uncommitted] [--retry-on-rate-limit]
 set -euo pipefail
 
 BASE="main"
 MODE="plain"
 REVIEW_TYPE="all"
+RETRY_ON_RATE_LIMIT=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -36,6 +37,10 @@ while [[ $# -gt 0 ]]; do
       }
       REVIEW_TYPE="$2"
       shift 2
+      ;;
+    --retry-on-rate-limit)
+      RETRY_ON_RATE_LIMIT=1
+      shift
       ;;
     *)
       echo "Unknown arg: $1" >&2
@@ -111,18 +116,60 @@ echo "  Output mode: $MODE"
 echo "  Config file: $CONFIG_FILE"
 echo
 
-REVIEW_RC=0
-REVIEW_OUTPUT="$("$CR_BIN" review "--$MODE" --type "$REVIEW_TYPE" --base "$BASE" -c "$CONFIG_FILE" --no-color 2>&1)" || REVIEW_RC=$?
-printf '%s\n' "$REVIEW_OUTPUT"
-if [[ $REVIEW_RC -ne 0 ]]; then
+extract_rate_limit_seconds() {
+  local text="$1"
+  local lower hours minutes seconds total
+
+  lower="$(printf '%s\n' "$text" | tr '[:upper:]' '[:lower:]')"
+  hours=0
+  minutes=0
+  seconds=0
+
+  if [[ $lower =~ ([0-9]+)[[:space:]]*hours? ]]; then
+    hours="${BASH_REMATCH[1]}"
+  fi
+  if [[ $lower =~ ([0-9]+)[[:space:]]*minutes? ]]; then
+    minutes="${BASH_REMATCH[1]}"
+  fi
+  if [[ $lower =~ ([0-9]+)[[:space:]]*seconds? ]]; then
+    seconds="${BASH_REMATCH[1]}"
+  fi
+
+  total=$((hours * 3600 + minutes * 60 + seconds))
+  printf '%s\n' "$total"
+}
+
+attempt=1
+max_attempts=1
+if [[ $RETRY_ON_RATE_LIMIT -eq 1 ]]; then
+  max_attempts=2
+fi
+
+while true; do
+  REVIEW_RC=0
+  REVIEW_OUTPUT="$("$CR_BIN" review "--$MODE" --type "$REVIEW_TYPE" --base "$BASE" -c "$CONFIG_FILE" --no-color 2>&1)" || REVIEW_RC=$?
+  printf '%s\n' "$REVIEW_OUTPUT"
+  if [[ $REVIEW_RC -eq 0 ]]; then
+    break
+  fi
+
   REVIEW_OUTPUT_CLEAN="$(printf '%s\n' "$REVIEW_OUTPUT" | sed -E 's/\x1B\[[0-9;?]*[[:alpha:]]//g' | tr -d '\r')"
   if grep -qi "rate limit exceeded" <<< "$REVIEW_OUTPUT_CLEAN"; then
+    if [[ $RETRY_ON_RATE_LIMIT -eq 1 && $attempt -lt $max_attempts ]]; then
+      wait_seconds="$(extract_rate_limit_seconds "$REVIEW_OUTPUT_CLEAN")"
+      if [[ "$wait_seconds" =~ ^[0-9]+$ ]] && [[ "$wait_seconds" -gt 0 ]]; then
+        echo "Rate limit detected. Sleeping ${wait_seconds}s before one automatic retry..."
+        sleep "$wait_seconds"
+        attempt=$((attempt + 1))
+        continue
+      fi
+    fi
     echo "ERROR: CodeRabbit CLI is rate limited. Wait for the reported cooldown and retry before PR creation." >&2
   else
     echo "ERROR: CodeRabbit local review failed. Resolve the CLI error and rerun before PR creation." >&2
   fi
   exit 2
-fi
+done
 
 cat <<'EOF'
 

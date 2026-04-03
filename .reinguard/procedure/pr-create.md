@@ -40,10 +40,10 @@ escalate_when: gate-policy or branch protection cannot be satisfied without main
 2. If `change-inspect` evidence is missing or stale, run the required local gate from the repo root:
 
    ```bash
-   bash .reinguard/scripts/check-local-review.sh --base main
+   bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
    ```
 
-   Treat installation/authentication/rate-limit/execution failures as blocking before PR creation.
+   If the CLI reports a rate limit with a cooldown, sleep for that reported duration and retry the same command automatically once. Treat installation/authentication/execution failures, or a second consecutive rate limit, as blocking before PR creation.
 3. Push: `git push -u origin HEAD` (after **HS-LOCAL-VERIFY**).
 4. **Pre-flight PR policy** (before `gh pr create`): fill the template into a file, then run from repo root:
 

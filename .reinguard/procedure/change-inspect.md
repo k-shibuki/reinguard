@@ -75,10 +75,13 @@ Dimension 7 (PR template substance) is deferred to `pr-create`, which fills and 
 Run the repository-local CodeRabbit gate from the repo root:
 
 ```bash
-bash .reinguard/scripts/check-local-review.sh --base main
+bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
 ```
 
-Treat installation/authentication/execution failures as **Blocking**.
+If the CLI reports a rate limit with a cooldown, sleep for that reported
+duration and retry the same command automatically once. Treat
+installation/authentication/execution failures, or a second consecutive
+rate limit, as **Blocking**.
 Review the output and classify findings using the same severity guidance as
 the other self-inspection dimensions; do not auto-dismiss them because they
 were surfaced locally instead of on the PR.
@@ -97,7 +100,7 @@ If **Blocking** findings exist:
 
 1. Return to `implement` for fixes (and commit restructuring if recommended)
 2. Re-run applicable preflight steps (`go test`, `go vet`, `golangci-lint`, `pre-commit run markdownlint-cli2 --all-files`)
-3. Re-run `bash .reinguard/scripts/check-local-review.sh --base main`
+3. Re-run `bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit`
 4. Commit with `Refs: #<issue>`
 5. Re-run inspection (go to step 2) until no Blocking findings remain
 
