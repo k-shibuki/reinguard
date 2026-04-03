@@ -237,6 +237,13 @@ func TestLoadSignals_injectsDerivedStatuses(t *testing.T) {
 	}
 }
 
+func TestValidateGateID_rejectsSurroundingWhitespace(t *testing.T) {
+	t.Parallel()
+	if err := ValidateGateID(" local-verification "); err == nil {
+		t.Fatal("expected error for whitespace-padded gate id")
+	}
+}
+
 func initGitRepo(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()

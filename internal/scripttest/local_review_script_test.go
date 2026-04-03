@@ -170,3 +170,54 @@ printf '%s\n' "$1" >>"${TEST_SLEEP_FILE:?}"
 		t.Fatalf("unexpected error checking sleep file: %v", err)
 	}
 }
+
+func TestCheckLocalReviewScript_RetryZeroSecondsUsesBufferOnly(t *testing.T) {
+	t.Parallel()
+
+	script := scriptPath(t, "check-local-review.sh")
+	repo := setupLocalReviewRepo(t)
+
+	stubDir := t.TempDir()
+	sleepFile := filepath.Join(stubDir, "sleep.log")
+	countFile := filepath.Join(stubDir, "coderabbit-count.txt")
+
+	writeExecutable(t, stubDir, "coderabbit", `#!/usr/bin/env bash
+set -euo pipefail
+subcmd="$1"; shift
+case "$subcmd" in
+  auth) echo "logged in" ;;
+  review)
+    count=0; [[ -f "${TEST_COUNT_FILE:?}" ]] && count=$(cat "${TEST_COUNT_FILE:?}")
+    count=$((count + 1)); printf '%s\n' "$count" >"${TEST_COUNT_FILE:?}"
+    if [[ $count -eq 1 ]]; then
+      echo "[ts] ERROR: Rate limit exceeded, retry in 0 seconds"
+      exit 1
+    fi
+    echo "Review completed: 0 findings"
+    ;;
+  *) exit 1 ;;
+esac
+`)
+	writeExecutable(t, stubDir, "sleep", `#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$1" >>"${TEST_SLEEP_FILE:?}"
+`)
+
+	env := []string{
+		"PATH=" + stubDir + string(os.PathListSeparator) + os.Getenv("PATH"),
+		"TEST_SLEEP_FILE=" + sleepFile,
+		"TEST_COUNT_FILE=" + countFile,
+		"RATE_LIMIT_RETRY_BUFFER_SEC=30",
+	}
+	out, err := runBashScript(t, repo, script, env, "--base", "main", "--retry-on-rate-limit")
+	if err != nil {
+		t.Fatalf("check-local-review: %v\n%s", err, out)
+	}
+	sleepLog, err := os.ReadFile(sleepFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(string(sleepLog)); got != "30" {
+		t.Fatalf("sleep seconds = %q, want 30", got)
+	}
+}

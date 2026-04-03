@@ -105,6 +105,14 @@ func TestCheckPRPolicyScript(t *testing.T) {
 			wantSubstr: []string{"PR must target main. Got: master"},
 		},
 		{
+			name:       "testPlanAllCapsHeading",
+			title:      "fix(workflow): add script integration checks",
+			body:       strings.Replace(validPRBody, "## Test plan\n", "## TEST PLAN\n", 1),
+			labels:     []string{"fix"},
+			base:       "main",
+			wantSubstr: []string{"PR policy pre-flight OK."},
+		},
+		{
 			name:       "emptyTestPlanBody",
 			title:      "fix(workflow): add script integration checks",
 			body:       strings.Replace(validPRBody, "## Test plan\n\n1. Run `go test ./...`\n2. Run `go vet ./...`\n\n", "## Test plan\n\n## Risk / Impact\n\n", 1),

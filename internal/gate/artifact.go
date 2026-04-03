@@ -80,11 +80,11 @@ func GatesDir(cfgDir string) string {
 
 // ValidateGateID rejects blank or unsafe gate identifiers.
 func ValidateGateID(gateID string) error {
-	gateID = strings.TrimSpace(gateID)
-	if gateID == "" {
+	trimmed := strings.TrimSpace(gateID)
+	if trimmed == "" {
 		return fmt.Errorf("gate: empty gate id")
 	}
-	if !gateIDPattern.MatchString(gateID) {
+	if gateID != trimmed || !gateIDPattern.MatchString(trimmed) {
 		return fmt.Errorf("gate: invalid gate id %q", gateID)
 	}
 	return nil

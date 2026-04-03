@@ -107,8 +107,16 @@ if grep -qiE '^## Test [Pp]lan([[:space:]]*)$' <<< "$BODY"; then
 fi
 TEST_PLAN=$(awk '
   BEGIN { on = 0 }
-  /^##[[:space:]]+Test[[:space:]]+[Pp]lan([[:space:]]*)$/ { on = 1; next }
-  /^##[[:space:]]+/ { if (on) exit }
+  /^##[[:space:]]+/ {
+    rest = $0
+    sub(/^##[[:space:]]+/, "", rest)
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", rest)
+    rl = tolower(rest)
+    gsub(/[[:space:]]+/, " ", rl)
+    if (rl == "test plan") { on = 1; next }
+    if (on) exit
+    next
+  }
   on { print }
 ' <<< "$BODY")
 TEST_PLAN_CLEAN=$(strip_html_comments_and_blank_lines "$TEST_PLAN")
