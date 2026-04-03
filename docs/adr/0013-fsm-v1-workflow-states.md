@@ -38,7 +38,16 @@ wins** among matching rules (ADR-0004). `state_id` values:
 
 **Bot status tiers** (per-element `status` in `bot_reviewer_status`):
 
-- **Reviewed (success path):** `completed` (bot finished review; issues may or may not have been found), `completed_clean` (bot finished review, emitted an explicit clean marker recognized by the observation/provider implementation for that bot, and has a corresponding GitHub review entry for the same bot; if the clean marker appears before the GitHub review entry is observable, classify as `completed` on that pass and upgrade to `completed_clean` on a later observation pass once the review entry is visible)
+- **Reviewed (success path):**
+  - `completed` — bot finished review; issues may or may not have been found.
+  - `completed_clean` — all of the following are true:
+    1. The bot finished review.
+    2. The bot emitted an explicit clean marker recognized by the observation/provider implementation for that bot.
+    3. A corresponding GitHub review entry for the same bot is observable.
+  - Timing rule: if the clean marker is observed before the matching
+    GitHub review entry becomes observable, classify as `completed` on
+    that observation pass and upgrade to `completed_clean` on a later
+    pass once the review entry is visible.
 - **Failed:** `rate_limited`, `review_paused`, `review_failed`
 - **In progress:** `pending`, `not_triggered`
 

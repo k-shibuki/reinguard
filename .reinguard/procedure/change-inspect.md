@@ -32,7 +32,7 @@ merge, or restructure commits (commit organization is `implement` step 7).
 - [`../policy/coding--preflight.md`](../policy/coding--preflight.md) — prerequisite; meta-verify its obligations were met
 - [`../policy/coding--standards.md`](../policy/coding--standards.md) § **Change scope** — same-kind sweep across code, `.reinguard/`, `.cursor/`
 - [`../knowledge/review--classification-map.md`](../knowledge/review--classification-map.md) — shared disposition vocabulary across local and PR review
-- `AGENTS.md` (review guidelines)
+- [`../../AGENTS.md`](../../AGENTS.md) — review guidelines
 
 **Already in context** (always-active Adapter rule): HS-* codes, catalogs, workflow & commit policy.
 

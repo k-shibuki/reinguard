@@ -12,9 +12,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=.reinguard/scripts/lib/common.sh
+# shellcheck source=lib/common.sh
 source "$SCRIPT_DIR/lib/common.sh"
-# shellcheck source=.reinguard/scripts/lib/labels.sh
+# shellcheck source=lib/labels.sh
 source "$SCRIPT_DIR/lib/labels.sh"
 
 LABELS_YAML="$(require_labels_yaml "$SCRIPT_DIR")"

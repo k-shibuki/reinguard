@@ -2,7 +2,7 @@ package scripttest
 
 import (
 	"os/exec"
-	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -38,7 +38,7 @@ func TestSyncIssueTemplatesScript_UpdatesTaskDropdown(t *testing.T) {
 	}
 	gotOptions := strings.Fields(string(optionsOut))
 	wantOptions := []string{"feat", "fix", "docs"}
-	if !reflect.DeepEqual(gotOptions, wantOptions) {
+	if !slices.Equal(gotOptions, wantOptions) {
 		t.Fatalf("synced options = %v, want %v", gotOptions, wantOptions)
 	}
 }

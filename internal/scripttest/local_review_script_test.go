@@ -119,6 +119,7 @@ func TestCheckLocalReviewScript_UnparseableLatestRateLimitFailsClosed(t *testing
 	repo := setupLocalReviewRepo(t)
 
 	stubDir := t.TempDir()
+	sleepFile := filepath.Join(stubDir, "sleep.log")
 	writeExecutable(t, stubDir, "coderabbit", `#!/usr/bin/env bash
 set -euo pipefail
 subcmd="$1"
@@ -138,11 +139,15 @@ EOF
     ;;
 esac
 `)
-	writeExecutable(t, stubDir, "sleep", "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n")
+	writeExecutable(t, stubDir, "sleep", `#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$1" >>"${TEST_SLEEP_FILE:?}"
+`)
 
 	env := []string{
 		"PATH=" + stubDir + string(os.PathListSeparator) + os.Getenv("PATH"),
 		"RATE_LIMIT_RETRY_BUFFER_SEC=30",
+		"TEST_SLEEP_FILE=" + sleepFile,
 	}
 
 	// When: the local review script runs with automatic retry enabled.
@@ -154,5 +159,12 @@ esac
 	}
 	if !strings.Contains(out, "could not be parsed from the latest rate-limit line") {
 		t.Fatalf("expected parse failure message, got:\n%s", out)
+	}
+	if _, err := os.Stat(sleepFile); err == nil {
+		sleepLog, readErr := os.ReadFile(sleepFile)
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		t.Fatalf("expected fail-closed behavior without sleep, got sleep log:\n%s", sleepLog)
 	}
 }
