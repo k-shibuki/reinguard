@@ -39,7 +39,7 @@ wins** among matching rules (ADR-0004). `state_id` values:
 **Bot status tiers** (per-element `status` in `bot_reviewer_status`):
 
 - **Reviewed (success path):**
-  - `completed` — bot finished review; issues may or may not have been found.
+  - `completed` — bot finished review; review findings may or may not have been reported.
   - `completed_clean` — all of the following are true:
     1. The bot finished review.
     2. The bot emitted an explicit clean marker recognized by the observation/provider implementation for that bot.
@@ -121,6 +121,9 @@ issue-first (Phase 3B content); not part of the FSM.
 - **Easier**: One YAML-defined FSM; `rgd-next` routes substrate output to procedures.
 - **Harder**: Priority authoring must stay global across states/routes/guards
   (ADR-0004).
+- **Harder**: Observation providers and tests must cover the timing gap where a
+  clean marker appears before the matching GitHub review entry, because
+  `completed` may need to upgrade to `completed_clean` on a later pass.
 - **Harder**: Observation gaps mean broader states (e.g. `working_no_pr` when PR
   facet is missing) — agents must not over-interpret.
 

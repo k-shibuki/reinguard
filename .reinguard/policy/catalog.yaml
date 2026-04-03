@@ -3,6 +3,9 @@
 # (manual index only). Maintained manually.
 schema_version: "0.6.0"
 entries:
+  - id: review-disposition-categories
+    path: review--disposition-categories.md
+    description: "Normative disposition categories for local review, self-inspection, and PR review"
   - id: review-consensus-protocol
     path: review--consensus-protocol.md
     description: "Disposition categories, consensus flow, thread resolution rules"

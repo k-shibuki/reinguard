@@ -15,23 +15,20 @@ when:
       path: github.repository.owner
 ---
 
-# Review classification map
+# Review classification lifecycle
 
-Use one vocabulary for review findings across local review, pre-PR
-inspection, and PR review: **Fixed / By design / False positive /
-Acknowledged**.
+Explanatory map for how the shared review disposition vocabulary flows
+through local review, pre-PR inspection, and PR review.
+
+The **normative** definition of the four categories lives in
+`.reinguard/policy/review--disposition-categories.md`. This knowledge file
+is a retrieval aid and lifecycle explainer, not the policy source of
+truth.
 
 ## Terms
 
 - **Disposition categories** or **finding dispositions** are the umbrella
   terms for review classification in this repository.
-- **Fixed** is the correct label for the "addressed" outcome. Do **not**
-  rename it to **Fix**: `Fix` is an action verb, while `Fixed` is the
-  disposition state recorded for a finding.
-- Retire legacy reviewer severity labels such as **P0 / P1** and pre-PR
-  gate severity labels such as **Blocking / Non-blocking** as standing
-  classification axes. Historical comments may still contain them, but new
-  repository guidance should not introduce them.
 - Retrospective or root-cause buckets (for example in `internalize`) are a
   separate explanatory axis. They explain **why** a finding happened; they
   do not replace the four dispositions.
@@ -41,10 +38,13 @@ Acknowledged**.
 ### Local review before PR creation
 
 - `change-inspect` and the local CodeRabbit CLI gate use the same four
-  dispositions as PR review.
+  categories defined in
+  `.reinguard/policy/review--disposition-categories.md`.
 - Local findings have no GitHub thread yet, so the agent records the
   disposition in inspection output and applies fixes or rationale locally.
-- Before `pr-create`, prefer `Fixed`, `By design`, or `False positive`.
+- Before `pr-create`, batch one local CR pass's actionable findings,
+  apply same-kind sweep where the fix pattern extends beyond the exact
+  comment, and then rerun the local gate on the stabilized head.
 
 ### PR review after creation
 
@@ -56,32 +56,17 @@ Acknowledged**.
 - Do not switch to a different label set just because the finding came from
   CodeRabbit, another bot, a human review, or check output.
 
-## Disposition guide
+## Why this file still exists
 
-| Category | Meaning | Typical evidence |
-|---|---|---|
-| **Fixed** | The branch now includes a change that addresses the finding. | Commit or working tree diff that removes the issue. |
-| **By design** | The reported behavior is intentional for this repository. | ADR, policy, Issue scope, or explicit design rationale. |
-| **False positive** | The finding premise is incorrect. | Code path, test, or repo rule showing the report is mistaken. |
-| **Acknowledged** | The finding is valid but intentionally deferred. | Explicit deferred-work contract, plus rationale. |
-
-## Pre-PR rule for `Acknowledged`
-
-`Acknowledged` is **not** a default escape hatch before PR creation.
-
-- Use it only when deferred work has an explicit contract outside the
-  current PR, such as a separate follow-up Issue or another equally clear
-  deferred-work record.
-- Do **not** use it for a small, in-scope change that should be fixed on
-  the current branch.
-- If no such contract exists, keep working until the finding is
-  dispositioned **Fixed**, **By design**, or **False positive**.
-
-This stricter pre-PR rule keeps local review and self-inspection aligned
-with the post-PR consensus model without creating a second vocabulary.
+- It helps retrieval through `rgd context build` / knowledge packing when
+  agents need orientation about the lifecycle of local vs PR review.
+- It points readers to the normative policy files without duplicating their
+  body text as a competing source of truth.
 
 ## Related
 
+- `.reinguard/policy/review--disposition-categories.md` — normative
+  category definitions
 - `.reinguard/procedure/change-inspect.md` — pre-PR inspection flow
 - `.reinguard/procedure/review-address.md` — PR review handling flow
 - `.reinguard/policy/review--self-inspection.md` — whole-change

@@ -2,6 +2,11 @@
 # Shared helpers for scripts that read label metadata from labels.yaml.
 # Requires: source lib/common.sh before sourcing this file.
 
+if ! declare -F require_file >/dev/null || ! declare -F fail_with >/dev/null; then
+  printf 'labels.sh: lib/common.sh must be sourced first\n' >&2
+  return 1 2>/dev/null || exit 1
+fi
+
 labels_yaml_path() {
   local script_dir="$1"
   printf '%s\n' "${REINGUARD_LABELS_YAML:-$script_dir/../labels.yaml}"

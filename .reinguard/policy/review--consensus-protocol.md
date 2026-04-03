@@ -18,8 +18,8 @@ interact with review threads (`review-address`, `pr-merge`) reference this
 document as the SSOT for disposition and resolution.
 
 The shared disposition vocabulary across local review, self-inspection, and
-PR review is explained in
-`.reinguard/knowledge/review--classification-map.md`. This policy defines
+PR review is defined in
+`.reinguard/policy/review--disposition-categories.md`. This policy defines
 the PR-side consensus and resolution mechanics for those same categories.
 
 ## Principle
@@ -47,18 +47,20 @@ additionally verify that all non-thread findings have been dispositioned
 via PR conversation comments (see § Non-thread findings below).
 `HS-NO-DISMISS` prohibits skipping these findings as "pre-existing."
 
-## Disposition Categories (4, exhaustive)
+## PR-side application of disposition categories
 
 Every thread receives a disposition reply before being resolved (per
-`HS-REVIEW-RESOLVE`). If the bot objects after the initial reply, the
-agent posts a new disposition reply per round until consensus is reached.
+`HS-REVIEW-RESOLVE`). Use the four categories defined in
+`.reinguard/policy/review--disposition-categories.md`. If the bot objects
+after the initial reply, the agent posts a new disposition reply per round
+until consensus is reached.
 
-| Category | When | Consensus requirement | Template |
-|---|---|---|---|
-| **Fixed** | Code change addresses the finding | Re-review confirms fix (no new finding on same lines) | `Fixed in \`<sha7>\`. <what changed>.` |
-| **By design** | Intentional design decision | Bot reply does not object (acceptance or no further comment after re-review) | `By design. <rationale> (ref: <source>).` |
-| **False positive** | Bot misidentified an issue | Bot reply does not object | `False positive. <why detection was wrong>.` |
-| **Acknowledged** | Valid but deferred (see below) | Follow-up Issue **only** when work is a substantial separate deliverable; otherwise rationale without `Tracked in` | `Acknowledged. <brief assessment>. Tracked in #<issue>.` *or* rationale if no Issue |
+| Category | Consensus requirement | Template |
+|---|---|---|
+| **Fixed** | Re-review confirms fix (no new finding on same lines) | `Fixed in \`<sha7>\`. <what changed>.` |
+| **By design** | Bot reply does not object (acceptance or no further comment after re-review) | `By design. <rationale> (ref: <source>).` |
+| **False positive** | Bot reply does not object | `False positive. <why detection was wrong>.` |
+| **Acknowledged** | Follow-up Issue **only** when work is a substantial separate deliverable; otherwise rationale without `Tracked in` | `Acknowledged. <brief assessment>. Tracked in #<issue>.` *or* rationale if no Issue |
 
 ### Acknowledged — in-PR resolution vs follow-up Issue
 
@@ -221,7 +223,7 @@ no deterministic guard currently tracks it.
 
 - `.reinguard/knowledge/review--bot-operations.md` — trigger, detection,
   timing
-- `.reinguard/knowledge/review--classification-map.md` — shared
+- `.reinguard/policy/review--disposition-categories.md` — shared
   disposition vocabulary across local and PR review
 - `.reinguard/policy/safety--agent-invariants.md` § **HS-REVIEW-RESOLVE**
 - `.reinguard/procedure/review-address.md` — review-address procedure

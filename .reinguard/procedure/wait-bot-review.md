@@ -34,7 +34,7 @@ Open `.reinguard/knowledge/review--bot-operations.md` for **CodeRabbit** and **C
 
 This procedure governs **PR-side bot waiting** after PR creation. It does
 not replace the repository-local CodeRabbit CLI gate; that local gate
-remains a single blocking command in `change-inspect` / `pr-create`.
+remains a single blocking command in `change-inspect.md` / `pr-create.md`.
 
 If **open review threads** or formal **changes requested** also apply, run `.reinguard/procedure/review-address.md` **in parallel or first** — the workflow FSM prefers human-actionable review states over bot-wait states when both are true.
 

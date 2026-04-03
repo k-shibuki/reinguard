@@ -6,9 +6,9 @@ applies_to:
   route_ids: []
 reads:
   - ../policy/review--self-inspection.md
+  - ../policy/review--disposition-categories.md
   - ../policy/coding--preflight.md
   - ../policy/coding--standards.md
-  - ../knowledge/review--classification-map.md
 sense:
   - rgd context build
   - git diff
@@ -29,9 +29,9 @@ merge, or restructure commits (commit organization is `implement` step 7).
 ## Context
 
 - [`../policy/review--self-inspection.md`](../policy/review--self-inspection.md) — SSOT for inspection dimensions (open the file; do not duplicate its criteria here)
+- [`../policy/review--disposition-categories.md`](../policy/review--disposition-categories.md) — shared disposition vocabulary across local and PR review
 - [`../policy/coding--preflight.md`](../policy/coding--preflight.md) — prerequisite; meta-verify its obligations were met
 - [`../policy/coding--standards.md`](../policy/coding--standards.md) § **Change scope** — same-kind sweep across code, `.reinguard/`, `.cursor/`
-- [`../knowledge/review--classification-map.md`](../knowledge/review--classification-map.md) — shared disposition vocabulary across local and PR review
 - [`../../AGENTS.md`](../../AGENTS.md) — review guidelines
 
 **Already in context** (always-active Adapter rule): HS-* codes, catalogs, workflow & commit policy.
@@ -86,11 +86,10 @@ retries the review **once** (`--retry-on-rate-limit`). Treat
 installation/authentication/execution failures, unparsed cooldown, or a
 second consecutive rate limit, as a failed gate and do not proceed.
 Review the output and disposition findings with the same four categories
-used everywhere else (**Fixed / By design / False positive /
-Acknowledged**). Do not auto-dismiss them because they were surfaced
-locally instead of on the PR. Before PR creation, use `Acknowledged` only
-when the deferred work has a separate follow-up Issue or another equally
-explicit deferred-work contract.
+defined in
+[`../policy/review--disposition-categories.md`](../policy/review--disposition-categories.md).
+Do not auto-dismiss them because they were surfaced locally instead of on
+the PR.
 
 ### 4. Evaluate commit structure
 
@@ -103,7 +102,7 @@ recorded for that deferment, which should be rare before PR creation.
 
 Disposition each finding as **Fixed**, **By design**, **False positive**,
 or **Acknowledged** per
-[`../knowledge/review--classification-map.md`](../knowledge/review--classification-map.md)
+[`../policy/review--disposition-categories.md`](../policy/review--disposition-categories.md)
 and `review--self-inspection.md` § **Disposition guidance**.
 
 ### 6. Fix-and-re-inspect loop
@@ -111,10 +110,13 @@ and `review--self-inspection.md` § **Disposition guidance**.
 If any material finding still lacks a gate-clearing disposition:
 
 1. Return to `implement` for fixes (and commit restructuring if recommended)
-2. Re-run applicable preflight steps (`go test`, `go vet`, `golangci-lint`, `pre-commit run markdownlint-cli2 --all-files`)
-3. Re-run `bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit`
-4. Commit with `Refs: #<issue>`
-5. Re-run inspection (go to step 2) until every material finding is dispositioned **Fixed**, **By design**, **False positive**, or exceptionally **Acknowledged** per the shared map
+2. Treat one local CR output as a **single batch**: fix all in-scope
+   material findings from that pass, and apply same-kind sweep for any fix
+   pattern that extends beyond the exact commented line or file.
+3. Re-run applicable preflight steps (`go test`, `go vet`, `golangci-lint`, `pre-commit run markdownlint-cli2 --all-files`)
+4. Re-run `bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit`
+5. Commit with `Refs: #<issue>`
+6. Re-run inspection (go to step 2) until every material finding is dispositioned **Fixed**, **By design**, **False positive**, or exceptionally **Acknowledged** per the shared policy
 
 If a finding is dispositioned **Acknowledged**, record the follow-up Issue
 or equally explicit deferred-work contract in the inspection output so the

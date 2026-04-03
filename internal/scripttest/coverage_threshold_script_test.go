@@ -39,6 +39,7 @@ func TestCheckCoverageThresholdScript(t *testing.T) {
 			wantErr   bool
 		}{
 			{name: "passesAt40", threshold: "40", wantOut: "total coverage:"},
+			{name: "passesAtExact50", threshold: "50", wantOut: "total coverage:"},
 			{name: "failsAt60", threshold: "60", wantErr: true, wantOut: "below required 60.0%"},
 		}
 

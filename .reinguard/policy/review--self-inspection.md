@@ -72,7 +72,10 @@ handled coherently:
   dispositioned before PR creation.
 - Material findings from the local CodeRabbit CLI gate use the same
   four disposition categories as the rest of `change-inspect` (see
-  `.reinguard/knowledge/review--classification-map.md`).
+  `.reinguard/policy/review--disposition-categories.md`).
+- Any local CodeRabbit finding dispositioned **Fixed** must also satisfy
+  Dimension 6 when the fix pattern extends beyond the exact commented line,
+  file, or wording instance.
 
 ### 5. Test adequacy
 
@@ -121,7 +124,7 @@ Verify the doc impact list from `implement` (Act step 3) is reflected:
 ## Disposition guidance
 
 When `change-inspect` reports findings, use the shared disposition model
-from `.reinguard/knowledge/review--classification-map.md`:
+from `.reinguard/policy/review--disposition-categories.md`:
 
 - **Fixed** — the finding required a change and that change is now present
   before PR creation.
@@ -143,7 +146,7 @@ every material finding has one of those dispositions and any
   (prerequisite)
 - `.reinguard/policy/coding--standards.md` — Change scope, language
   policy
-- `.reinguard/knowledge/review--classification-map.md` — shared
+- `.reinguard/policy/review--disposition-categories.md` — shared
   disposition vocabulary across local and PR review
 - `.reinguard/knowledge/testing--strategy.md` — test perspectives,
   table-driven

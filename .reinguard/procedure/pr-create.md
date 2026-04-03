@@ -27,7 +27,7 @@ escalate_when: gate-policy or branch protection cannot be satisfied without main
 - [`../policy/commit--format.md`](../policy/commit--format.md) (branch naming)
 - [`../policy/workflow--pr-discipline.md`](../policy/workflow--pr-discipline.md) § **PR body updates** — multiline `gh api` pitfalls (gate-policy)
 - [`check-pr-policy.sh`](../scripts/check-pr-policy.sh) (local pre-flight mirroring `gate-policy` CI)
-- [`../knowledge/review--classification-map.md`](../knowledge/review--classification-map.md) — pre-PR disposition vocabulary used by `change-inspect`
+- [`../policy/review--disposition-categories.md`](../policy/review--disposition-categories.md) — pre-PR disposition vocabulary used by `change-inspect`
 
 **Already in context** (always-active Adapter rule): HS-* codes, catalogs, workflow & commit policy.
 
@@ -44,7 +44,7 @@ review that runs after PR creation.
 1. Confirm `change-inspect` output: every material finding is
    dispositioned **Fixed**, **By design**, **False positive**, or
    exceptionally **Acknowledged** per
-   `review--classification-map.md`; required local CodeRabbit CLI review
+   `review--disposition-categories.md`; required local CodeRabbit CLI review
    completed; commit structure clean (or already restructured per
    **Commit organization** in [`.reinguard/procedure/implement.md`](implement.md)).
 2. If `change-inspect` evidence is missing or was produced before the

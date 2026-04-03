@@ -54,7 +54,7 @@ for the full consensus model and resolution rules. Non-thread findings (outside-
 require a PR conversation comment with the same disposition ([**HS-REVIEW-RESOLVE**](.reinguard/policy/safety--agent-invariants.md)).
 
 Use the same disposition vocabulary for local review and self-inspection; see
-[`.reinguard/knowledge/review--classification-map.md`](.reinguard/knowledge/review--classification-map.md).
+[`.reinguard/policy/review--disposition-categories.md`](.reinguard/policy/review--disposition-categories.md).
 
 Do **not** dismiss any finding as "pre-existing" or "outside diff range" ([**HS-NO-DISMISS**](.reinguard/policy/safety--agent-invariants.md)).
 

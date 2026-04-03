@@ -12,9 +12,9 @@ applies_to:
     - user-wait-ci
     - user-address-review
 reads:
+  - ../policy/review--disposition-categories.md
   - ../policy/review--consensus-protocol.md
   - ../policy/coding--standards.md
-  - ../knowledge/review--classification-map.md
   - ../knowledge/review--multi-source-review-signals.md
   - ../knowledge/review--incremental-fix-flow.md
 sense:
@@ -32,9 +32,9 @@ escalate_when: Cannot reach consensus with bot reviewers per policy.
 
 ## Context
 
+- [`../policy/review--disposition-categories.md`](../policy/review--disposition-categories.md) — shared disposition vocabulary across local and PR review
 - [`../policy/review--consensus-protocol.md`](../policy/review--consensus-protocol.md) — disposition categories, CodeRabbit resolution gate, no unilateral resolve
 - [`../policy/coding--standards.md`](../policy/coding--standards.md) § **Change scope** — same-kind drift across code, `.reinguard/`, and `.cursor/` before hand-off
-- [`../knowledge/review--classification-map.md`](../knowledge/review--classification-map.md) — shared disposition vocabulary across local and PR review
 - [`../knowledge/review--multi-source-review-signals.md`](../knowledge/review--multi-source-review-signals.md) — dedupe and priority across bots, humans, checks, and timeline (single inbox)
 - **Bot quota / pause / in-flight only** (no open thread work): prefer [`wait-bot-review.md`](wait-bot-review.md) when FSM routes to `user-wait-bot-*`.
 
@@ -89,11 +89,11 @@ exempt a comment from evaluation or reply.
 
 Map each finding to **exactly one** of the four disposition categories
 defined in
-[`../knowledge/review--classification-map.md`](../knowledge/review--classification-map.md)
+[`../policy/review--disposition-categories.md`](../policy/review--disposition-categories.md)
 (**Fixed** / **By design** / **False positive** / **Acknowledged**),
 following the PR-side consensus and thread-resolution mechanics in
 [`../policy/review--consensus-protocol.md`](../policy/review--consensus-protocol.md)
-§ **Disposition Categories (4, exhaustive)**. Keep the same vocabulary
+§ **PR-side application of disposition categories**. Keep the same vocabulary
 that `change-inspect` uses for local review; only the PR-side consensus
 and thread-resolution mechanics change here.
 
@@ -140,7 +140,7 @@ After bot re-review: re-check threads and `gh pr checks <N>` until **`ci-pass`**
 
 ## Output
 
-- Classification: every comment mapped to the four disposition categories in `review--consensus-protocol.md`.
+- Classification: every comment mapped to the four disposition categories in `review--disposition-categories.md`.
 - Disposition posted per thread: Fixed / By design / False positive / Acknowledged.
 - Fixes applied; which threads got threaded replies; whether `@coderabbitai review` / `@codex review` was posted; remaining blockers.
 
