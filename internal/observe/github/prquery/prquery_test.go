@@ -511,7 +511,11 @@ func TestCollect_botReviewer_completedClean(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := rev["bot_reviewer_status"].([]any)[0].(map[string]any)
+	st := rev["bot_reviewer_status"].([]any)
+	if len(st) != 1 {
+		t.Fatalf("status len: %v", st)
+	}
+	m := st[0].(map[string]any)
 	if m["status"].(string) != BotStatusCompletedClean {
 		t.Fatalf("status: %+v", m)
 	}

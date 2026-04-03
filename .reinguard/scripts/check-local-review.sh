@@ -90,10 +90,16 @@ EOF
   exit 2
 fi
 
+# CodeRabbit CLI currently exposes human-readable auth status. Keep the parsing
+# conservative and fail closed until a documented machine-readable mode exists.
 AUTH_STATUS_RC=0
 AUTH_STATUS_OUTPUT="$("$CR_BIN" auth status 2>&1)" || AUTH_STATUS_RC=$?
 AUTH_STATUS_CLEAN="$(printf '%s\n' "$AUTH_STATUS_OUTPUT" | sed -E 's/\x1B\[[0-9;?]*[[:alpha:]]//g' | tr -d '\r')"
-if [[ $AUTH_STATUS_RC -ne 0 ]] || grep -Eqi "not logged in|unauthenticated" <<< "$AUTH_STATUS_CLEAN" || ! grep -qi "logged in" <<< "$AUTH_STATUS_CLEAN"; then
+if [[ $AUTH_STATUS_RC -ne 0 ]]; then
+  echo "ERROR: CodeRabbit CLI is not authenticated. Run: $CR_BIN auth login" >&2
+  exit 2
+fi
+if grep -Eqi "not logged in|unauthenticated" <<< "$AUTH_STATUS_CLEAN"; then
   echo "ERROR: CodeRabbit CLI is not authenticated. Run: $CR_BIN auth login" >&2
   exit 2
 fi

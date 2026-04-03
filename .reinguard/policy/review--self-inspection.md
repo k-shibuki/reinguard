@@ -28,7 +28,7 @@ Preflight is a prerequisite; self-inspection is not a re-run of
 preflight but a meta-verification that preflight obligations were met
 plus higher-order checks.
 
-## Dimensions (7)
+## Dimensions (8)
 
 ### 1. Issue alignment
 
@@ -61,11 +61,16 @@ applied across the diff:
 This is a **diff-level scan**, not re-running tools — verify the
 patterns are present in changed code.
 
-- The required local CodeRabbit CLI run completed successfully.
-- Material findings from the local CLI have been classified using the same
+### 4. Local AI review gate
+
+Confirm the required local CodeRabbit CLI gate completed and its
+findings were handled coherently:
+
+- CLI review output confirms no unresolved blocking findings remain.
+- Material findings from the local CodeRabbit CLI gate have been classified using the same
   **Blocking / Non-blocking** guidance as other self-inspection findings.
 
-### 4. Test adequacy
+### 5. Test adequacy
 
 For each **behavior change in the diff** (not the Issue checklist alone),
 confirm:
@@ -79,7 +84,7 @@ confirm:
 - No `_ = <fallible call>` in test setup (immediate fail-fast with
   `t.Fatal`)
 
-### 5. Same-kind sweep
+### 6. Same-kind sweep
 
 Verify `coding--standards.md` § Change scope was completed:
 
@@ -88,7 +93,7 @@ Verify `coding--standards.md` § Change scope was completed:
 - Any intentional gap has an explicit rationale (PR body or inline
   comment), not silent omission
 
-### 6. PR template substance
+### 7. PR template substance
 
 Check each section of `.github/PULL_REQUEST_TEMPLATE.md`:
 
@@ -99,7 +104,7 @@ Check each section of `.github/PULL_REQUEST_TEMPLATE.md`:
 - **Risk / Impact** — non-placeholder content
 - **Rollback Plan** — non-placeholder or justified "N/A"
 
-### 7. Documentation impact
+### 8. Documentation impact
 
 Verify the doc impact list from `implement` (Act step 3) is reflected:
 

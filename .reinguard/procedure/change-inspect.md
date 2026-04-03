@@ -66,9 +66,9 @@ gh issue view <ISSUE> --json title,body,labels
 
 ### 2. Inspect each dimension
 
-Open [`../policy/review--self-inspection.md`](../policy/review--self-inspection.md) and evaluate the change against **every** dimension and subsection defined there (dimensions 1–5 and 7). Do **not** restate normative criteria in this procedure — that policy is SSOT (ADR-0001: Adapter points at Semantics, no duplicate body text).
+Open [`../policy/review--self-inspection.md`](../policy/review--self-inspection.md) and evaluate the change against **every** dimension and subsection defined there (dimensions 1–6 and 8). Do **not** restate normative criteria in this procedure — that policy is SSOT (ADR-0001: Adapter points at Semantics, no duplicate body text).
 
-Dimension 6 (PR template substance) is deferred to `pr-create`, which fills and verifies the template.
+Dimension 7 (PR template substance) is deferred to `pr-create`, which fills and verifies the template.
 
 ### 3. Run required local CodeRabbit review
 

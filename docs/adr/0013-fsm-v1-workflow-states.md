@@ -38,7 +38,7 @@ wins** among matching rules (ADR-0004). `state_id` values:
 
 **Bot status tiers** (per-element `status` in `bot_reviewer_status`):
 
-- **Reviewed (success path):** `completed`, `completed_clean` (`completed_clean` is for explicit clean-completion evidence such as a bot "No issues found" marker plus a matching review)
+- **Reviewed (success path):** `completed` (bot finished review; issues may or may not have been found), `completed_clean` (bot finished review, explicitly reported a clean result such as "No issues found", and has a corresponding review entry)
 - **Failed:** `rate_limited`, `review_paused`, `review_failed`
 - **In progress:** `pending`, `not_triggered`
 
