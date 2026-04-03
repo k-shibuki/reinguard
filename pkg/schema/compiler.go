@@ -17,6 +17,7 @@ const (
 	URIObservationDocument = "https://github.com/k-shibuki/reinguard/schemas/observation-document.json"
 	URIOperationalContext  = "https://github.com/k-shibuki/reinguard/schemas/operational-context.json"
 	URILabelsConfig        = "https://github.com/k-shibuki/reinguard/schemas/labels-config.json"
+	URIGateArtifact        = "https://github.com/k-shibuki/reinguard/schemas/gate-artifact.json"
 )
 
 // NewCompiler loads all embedded schemas into a jsonschema Compiler.
@@ -38,6 +39,9 @@ func NewCompiler() (*jsonschema.Compiler, error) {
 		return nil, err
 	}
 	if err := addEmbedded(c, LabelsConfig); err != nil {
+		return nil, err
+	}
+	if err := addEmbedded(c, GateArtifact); err != nil {
 		return nil, err
 	}
 	return c, nil
@@ -81,6 +85,8 @@ func resourceURI(name string) (string, error) {
 		return URIOperationalContext, nil
 	case LabelsConfig:
 		return URILabelsConfig, nil
+	case GateArtifact:
+		return URIGateArtifact, nil
 	default:
 		return "", fmt.Errorf("unknown embedded schema: %s", name)
 	}

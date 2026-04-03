@@ -21,9 +21,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/k-shibuki/reinguard/internal/config"
 	"github.com/k-shibuki/reinguard/internal/configdir"
+	"github.com/k-shibuki/reinguard/internal/gate"
 	"github.com/k-shibuki/reinguard/internal/guard"
 	"github.com/k-shibuki/reinguard/internal/knowledge"
 	"github.com/k-shibuki/reinguard/internal/observation"
@@ -130,8 +132,12 @@ func RunStateEval(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	flat := signals.Flatten(sig)
+	if mergeErr := mergeGateSignalsIntoFlat(context.Background(), cfgDir, wd, flat); mergeErr != nil {
+		return mergeErr
+	}
 	degSet := observation.DegradedSet(diags, deg)
-	res, err := resolve.ResolveState(loaded.Rules(), signals.Flatten(sig), degSet)
+	res, err := resolve.ResolveState(loaded.Rules(), flat, degSet)
 	if err != nil {
 		return err
 	}
@@ -158,18 +164,11 @@ func RunRouteSelect(c *cli.Context) error {
 		return err
 	}
 	flat := signals.Flatten(sig)
-	if p := c.String("state-file"); p != "" {
-		sf, rerr := os.ReadFile(resolveInputPath(wd, p))
-		if rerr != nil {
-			return rerr
-		}
-		var st map[string]any
-		if jerr := json.Unmarshal(sf, &st); jerr != nil {
-			return jerr
-		}
-		for k, v := range signals.Flatten(map[string]any{"state": st}) {
-			flat[k] = v
-		}
+	if mergeErr := mergeGateSignalsIntoFlat(context.Background(), cfgDir, wd, flat); mergeErr != nil {
+		return mergeErr
+	}
+	if mergeErr := mergeStateFileIntoFlat(wd, flat, c.String("state-file")); mergeErr != nil {
+		return mergeErr
 	}
 	degSet := observation.DegradedSet(diags, deg)
 	res, err := resolve.ResolveRoute(loaded.Rules(), flat, degSet)
@@ -244,6 +243,9 @@ func RunContextBuild(c *cli.Context) error {
 	}
 	obsDoc := observation.Document(sig, diags, deg)
 	flat := signals.Flatten(sig)
+	if mergeErr := mergeGateSignalsIntoFlat(context.Background(), cfgDir, wd, flat); mergeErr != nil {
+		return mergeErr
+	}
 	degSet := observation.DegradedSet(diags, deg)
 	stateRes, err := resolve.ResolveState(loaded.Rules(), flat, degSet)
 	if err != nil {
@@ -324,9 +326,55 @@ func RunGuardEval(c *cli.Context, guardID string) error {
 		return err
 	}
 	flat := signals.Flatten(sig)
+	if err := mergeGateSignalsIntoFlat(context.Background(), cfgDir, wd, flat); err != nil {
+		return err
+	}
 	degSet := observation.DegradedSet(diags, deg)
 	res := guard.EvalWithRules(loaded.Rules(), guard.DefaultRegistry(), guardID, flat, degSet)
 	return writeJSON(c.App.Writer, res)
+}
+
+// RunGateRecord records one runtime gate artifact for the current branch HEAD.
+func RunGateRecord(c *cli.Context, gateID string) error {
+	wd, cfgDir, err := resolvePaths(c)
+	if err != nil {
+		return err
+	}
+	checks, err := loadChecksFile(wd, c.String("checks-file"))
+	if err != nil {
+		return err
+	}
+	art, err := gate.Record(context.Background(), cfgDir, wd, gateID, c.String("status"), checks, time.Time{})
+	if err != nil {
+		return err
+	}
+	return writeJSON(c.App.Writer, art)
+}
+
+// RunGateStatus prints the derived gate status for the current branch HEAD.
+func RunGateStatus(c *cli.Context, gateID string) error {
+	wd, cfgDir, err := resolvePaths(c)
+	if err != nil {
+		return err
+	}
+	res, err := gate.Status(context.Background(), cfgDir, wd, gateID)
+	if err != nil {
+		return err
+	}
+	return writeJSON(c.App.Writer, res)
+}
+
+// RunGateShow prints the validated stored gate artifact.
+func RunGateShow(c *cli.Context, gateID string) error {
+	_, cfgDir, err := resolvePaths(c)
+	if err != nil {
+		return err
+	}
+	art, err := gate.Show(cfgDir, gateID)
+	if err != nil {
+		return err
+	}
+	return writeJSON(c.App.Writer, art)
 }
 
 // RunSchemaExport exports embedded schemas.
@@ -361,6 +409,53 @@ func resolveInputPath(baseDir, p string) string {
 		return p
 	}
 	return filepath.Join(baseDir, p)
+}
+
+func mergeStateFileIntoFlat(wd string, flat map[string]any, path string) error {
+	if path == "" {
+		return nil
+	}
+	sf, err := os.ReadFile(resolveInputPath(wd, path))
+	if err != nil {
+		return err
+	}
+	var st map[string]any
+	if err := json.Unmarshal(sf, &st); err != nil {
+		return err
+	}
+	for k, v := range signals.Flatten(map[string]any{"state": st}) {
+		flat[k] = v
+	}
+	return nil
+}
+
+func mergeGateSignalsIntoFlat(ctx context.Context, cfgDir, wd string, flat map[string]any) error {
+	gs, err := gate.LoadSignals(ctx, cfgDir, wd)
+	if err != nil {
+		return err
+	}
+	for k, v := range signals.Flatten(gs) {
+		flat[k] = v
+	}
+	return nil
+}
+
+func loadChecksFile(wd, path string) ([]gate.Check, error) {
+	if path == "" {
+		return []gate.Check{}, nil
+	}
+	data, err := os.ReadFile(resolveInputPath(wd, path))
+	if err != nil {
+		return nil, err
+	}
+	var checks []gate.Check
+	if err := json.Unmarshal(data, &checks); err != nil {
+		return nil, err
+	}
+	if checks == nil {
+		return []gate.Check{}, nil
+	}
+	return checks, nil
 }
 
 func loadSignalsOpts(c *cli.Context, wd string) observe.LoadSignalsOptions {
@@ -624,6 +719,59 @@ func NewApp(version string) *cli.App {
 						newObservationFileFlag(),
 					},
 					Action: RunContextBuild,
+				},
+			},
+		},
+		{
+			Name:  "gate",
+			Usage: "runtime gate artifacts",
+			Subcommands: []*cli.Command{
+				{
+					Name:      "record",
+					Usage:     "record a gate artifact for the current HEAD",
+					ArgsUsage: "<gate-id>",
+					Flags: []cli.Flag{
+						newGateStatusFlag(),
+						newGateChecksFileFlag(),
+						newCwdFlag(),
+						newConfigDirFlag(),
+					},
+					Action: func(c *cli.Context) error {
+						if c.NArg() < 1 {
+							return fmt.Errorf("gate id required")
+						}
+						return RunGateRecord(c, c.Args().First())
+					},
+				},
+				{
+					Name:      "status",
+					Usage:     "derive gate freshness and status for the current HEAD",
+					ArgsUsage: "<gate-id>",
+					Flags: []cli.Flag{
+						newCwdFlag(),
+						newConfigDirFlag(),
+					},
+					Action: func(c *cli.Context) error {
+						if c.NArg() < 1 {
+							return fmt.Errorf("gate id required")
+						}
+						return RunGateStatus(c, c.Args().First())
+					},
+				},
+				{
+					Name:      "show",
+					Usage:     "print a stored gate artifact",
+					ArgsUsage: "<gate-id>",
+					Flags: []cli.Flag{
+						newCwdFlag(),
+						newConfigDirFlag(),
+					},
+					Action: func(c *cli.Context) error {
+						if c.NArg() < 1 {
+							return fmt.Errorf("gate id required")
+						}
+						return RunGateShow(c, c.Args().First())
+					},
 				},
 			},
 		},

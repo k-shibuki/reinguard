@@ -37,6 +37,7 @@ Representative commands:
 
 ```text
 rgd observe workflow-position
+rgd gate status local-verification
 rgd state eval
 rgd route select
 rgd guard eval merge-readiness
@@ -80,6 +81,7 @@ Smoke check:
 ```bash
 go run ./cmd/rgd version
 go run ./cmd/rgd config validate
+go run ./cmd/rgd gate status local-verification
 go run ./cmd/rgd schema export --dir /tmp/rgd-schemas
 ```
 

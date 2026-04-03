@@ -43,3 +43,6 @@ vendor/
 
 # Cached mikefarah yq (sync-issue-templates.sh)
 .reinguard/scripts/.bin/
+
+# Runtime gate artifacts (substrate-owned operational state)
+.reinguard/runtime/

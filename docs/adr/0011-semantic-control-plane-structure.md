@@ -36,6 +36,11 @@ Without explicit structure:
      (`.cursor/commands/rgd-next.md`); `cursor-plan` handles deep planning via
      `CreatePlan` only, embedding Issue-creation steps when issue-first
      (`.cursor/commands/cursor-plan.md`).
+   - `runtime/` — **gitignored operational state** written by the Substrate
+     when a bounded runtime contract explicitly allows it (for example runtime
+     gate artifacts; see ADR-0014). This directory is **not** Semantics
+     content, is not indexed as knowledge, and is not part of control-rule
+     validation.
 
 2. **No `.reinguard/rules/`** — Replaced by `control/` subdirectories to
    avoid ambiguous naming.
@@ -67,10 +72,13 @@ Without explicit structure:
   review
 - **Harder**: Downstream repos that used `.reinguard/rules/` must migrate
   paths (breaking layout change for configuration discovery)
+- **Harder**: `.reinguard/` now contains both Semantics content and an explicit
+  gitignored runtime enclave; tooling and docs must keep that boundary clear
 
 ## Refs
 
 - ADR-0001 (Adapter / Semantics / Substrate layers)
 - ADR-0004 (unified priority resolution)
 - ADR-0010 (knowledge format and manifest)
-- ADR-0013 (FSM v1 states and Adapter mapping)
+- ADR-0013 (FSM workflow states and Adapter mapping)
+- ADR-0014 (runtime gate artifacts)

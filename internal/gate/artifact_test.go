@@ -1,0 +1,285 @@
+package gate
+
+import (
+	"context"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestRecordAndShow_roundTrip(t *testing.T) {
+	t.Parallel()
+	// Given: a git repo on main and one passing gate payload
+	repo := initGitRepo(t)
+	cfgDir := t.TempDir()
+	now := time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC)
+
+	// When: Record writes the artifact and Show reads it back
+	art, err := Record(context.Background(), cfgDir, repo, "local-verification", StatusPass, []Check{
+		{ID: "go-test", Status: StatusPass, Summary: "go test ./... -race"},
+	}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := Show(cfgDir, "local-verification")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Then: the persisted artifact keeps stable metadata and checks
+	if got.GateID != "local-verification" || got.Status != StatusPass {
+		t.Fatalf("unexpected artifact: %+v", got)
+	}
+	if got.RecordedAt != now.Format(time.RFC3339) {
+		t.Fatalf("recorded_at=%q want %q", got.RecordedAt, now.Format(time.RFC3339))
+	}
+	if len(got.Checks) != 1 || got.Checks[0].ID != "go-test" {
+		t.Fatalf("checks=%+v", got.Checks)
+	}
+	if art.HeadSHA != got.HeadSHA || art.Branch != got.Branch {
+		t.Fatalf("record/show mismatch: wrote=%+v got=%+v", art, got)
+	}
+}
+
+func TestStatus_classifiesArtifacts(t *testing.T) {
+	t.Parallel()
+	// Given/When/Then: gate status derives missing, invalid, stale, pass, and fail outcomes
+	repo := initGitRepo(t)
+	branch := currentBranchForTest(t, repo)
+	head := currentHeadForTest(t, repo)
+
+	tests := []struct {
+		name       string
+		gateID     string
+		prepare    func(t *testing.T, cfgDir string)
+		wantStatus string
+		wantReason string
+	}{
+		{
+			name:       "missing",
+			gateID:     "local-verification",
+			prepare:    func(t *testing.T, cfgDir string) {},
+			wantStatus: StatusMissing,
+			wantReason: "artifact missing",
+		},
+		{
+			name:   "invalid",
+			gateID: "local-verification",
+			prepare: func(t *testing.T, cfgDir string) {
+				path, err := ArtifactPath(cfgDir, "local-verification")
+				if err != nil {
+					t.Fatal(err)
+				}
+				writeFile(t, path, []byte(`{`))
+			},
+			wantStatus: StatusInvalid,
+			wantReason: "parse",
+		},
+		{
+			name:   "stale branch mismatch",
+			gateID: "local-verification",
+			prepare: func(t *testing.T, cfgDir string) {
+				writeArtifactForTest(t, cfgDir, Artifact{
+					SchemaVersion: "0.6.0",
+					GateID:        "local-verification",
+					Status:        StatusPass,
+					HeadSHA:       head,
+					Branch:        "other-branch",
+					RecordedAt:    time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),
+					Checks:        []Check{},
+				})
+			},
+			wantStatus: StatusStale,
+			wantReason: "artifact branch",
+		},
+		{
+			name:   "stale head mismatch",
+			gateID: "local-verification",
+			prepare: func(t *testing.T, cfgDir string) {
+				writeArtifactForTest(t, cfgDir, Artifact{
+					SchemaVersion: "0.6.0",
+					GateID:        "local-verification",
+					Status:        StatusPass,
+					HeadSHA:       "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+					Branch:        branch,
+					RecordedAt:    time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),
+					Checks:        []Check{},
+				})
+			},
+			wantStatus: StatusStale,
+			wantReason: "artifact head_sha",
+		},
+		{
+			name:   "pass",
+			gateID: "local-verification",
+			prepare: func(t *testing.T, cfgDir string) {
+				writeArtifactForTest(t, cfgDir, Artifact{
+					SchemaVersion: "0.6.0",
+					GateID:        "local-verification",
+					Status:        StatusPass,
+					HeadSHA:       head,
+					Branch:        branch,
+					RecordedAt:    time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),
+					Checks:        []Check{},
+				})
+			},
+			wantStatus: StatusPass,
+		},
+		{
+			name:   "fail",
+			gateID: "local-verification",
+			prepare: func(t *testing.T, cfgDir string) {
+				writeArtifactForTest(t, cfgDir, Artifact{
+					SchemaVersion: "0.6.0",
+					GateID:        "local-verification",
+					Status:        StatusFail,
+					HeadSHA:       head,
+					Branch:        branch,
+					RecordedAt:    time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),
+					Checks:        []Check{{ID: "go-vet", Status: StatusFail, Summary: "go vet ./..."}},
+				})
+			},
+			wantStatus: StatusFail,
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			cfgDir := t.TempDir()
+			tc.prepare(t, cfgDir)
+
+			res, err := Status(context.Background(), cfgDir, repo, tc.gateID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if res.Status != tc.wantStatus {
+				t.Fatalf("status=%q want %q (%+v)", res.Status, tc.wantStatus, res)
+			}
+			if tc.wantReason != "" && !contains(res.Reason, tc.wantReason) {
+				t.Fatalf("reason=%q want substring %q", res.Reason, tc.wantReason)
+			}
+		})
+	}
+}
+
+func TestLoadSignals_injectsDerivedStatuses(t *testing.T) {
+	t.Parallel()
+	// Given: one valid artifact and one invalid artifact on disk
+	repo := initGitRepo(t)
+	cfgDir := t.TempDir()
+	branch := currentBranchForTest(t, repo)
+	head := currentHeadForTest(t, repo)
+	writeArtifactForTest(t, cfgDir, Artifact{
+		SchemaVersion: "0.6.0",
+		GateID:        "local-verification",
+		Status:        StatusPass,
+		HeadSHA:       head,
+		Branch:        branch,
+		RecordedAt:    time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),
+		Checks:        []Check{},
+	})
+	path, err := ArtifactPath(cfgDir, "pr-readiness")
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, path, []byte(`{"bad":true}`))
+
+	// When: LoadSignals scans runtime gate artifacts
+	got, err := LoadSignals(context.Background(), cfgDir, repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Then: gate statuses are exposed under gates.<id>.status
+	gates, ok := got["gates"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected gates map, got %T", got["gates"])
+	}
+	local, ok := gates["local-verification"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected local-verification map, got %T", gates["local-verification"])
+	}
+	if local["status"] != StatusPass {
+		t.Fatalf("local-verification status=%v", local["status"])
+	}
+	pr, ok := gates["pr-readiness"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected pr-readiness map, got %T", gates["pr-readiness"])
+	}
+	if pr["status"] != StatusInvalid {
+		t.Fatalf("pr-readiness status=%v", pr["status"])
+	}
+}
+
+func initGitRepo(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	runGit(t, dir, "init")
+	runGit(t, dir, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "init")
+	runGit(t, dir, "branch", "-M", "main")
+	return dir
+}
+
+func runGit(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git %v: %v\n%s", args, err, out)
+	}
+}
+
+func currentHeadForTest(t *testing.T, dir string) string {
+	t.Helper()
+	out, err := exec.Command("git", "-C", dir, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return stringsTrimSpace(string(out))
+}
+
+func currentBranchForTest(t *testing.T, dir string) string {
+	t.Helper()
+	out, err := exec.Command("git", "-C", dir, "symbolic-ref", "-q", "--short", "HEAD").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return stringsTrimSpace(string(out))
+}
+
+func writeArtifactForTest(t *testing.T, cfgDir string, art Artifact) {
+	t.Helper()
+	path, err := ArtifactPath(cfgDir, art.GateID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeArtifactFile(path, art); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func writeFile(t *testing.T, path string, data []byte) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func contains(s, want string) bool {
+	return strings.TrimSpace(s) != "" && strings.Contains(s, want)
+}
+
+func stringsTrimSpace(s string) string {
+	return strings.TrimSpace(s)
+}

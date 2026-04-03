@@ -13,7 +13,8 @@ var knownWhenOps = map[string]struct{}{
 }
 
 // ValidateWhen checks when-clauses for config load: registered evaluators, eval/op shape,
-// known operators, required operands per op, and allowed signal path prefixes (git., github., state., $).
+// known operators, required operands per op, and allowed signal path prefixes
+// (git., github., state., gates., $).
 func ValidateWhen(when any, reg *Registry) error {
 	if reg == nil {
 		reg = DefaultRegistry()
@@ -206,17 +207,17 @@ func requirePathString(m map[string]any) (string, error) {
 }
 
 // validateSignalPathPrefix enforces dot-path roots used by observation (git, github),
-// merged state (state), and quantifier element scope ($).
+// merged state (state), runtime gate signals (gates), and quantifier element scope ($).
 func validateSignalPathPrefix(path string) error {
 	if path == "$" || strings.HasPrefix(path, "$.") {
 		return nil
 	}
-	for _, prefix := range []string{"git.", "github.", "state."} {
+	for _, prefix := range []string{"git.", "github.", "state.", "gates."} {
 		if strings.HasPrefix(path, prefix) {
 			return nil
 		}
 	}
-	return fmt.Errorf("when clause path %q must start with git., github., state., or $", path)
+	return fmt.Errorf("when clause path %q must start with git., github., state., gates., or $", path)
 }
 
 // rejectMultipleLogicalRoots rejects maps that list more than one of and / or / not at the same level,

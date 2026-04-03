@@ -76,6 +76,12 @@ func TestValidateWhen_table(t *testing.T) {
 			},
 		},
 		{
+			name: "gate_path_ok",
+			when: map[string]any{
+				"op": "eq", "path": "gates.local-verification.status", "value": "pass",
+			},
+		},
+		{
 			name:    "unknown_op",
 			when:    map[string]any{"op": "bogus", "path": "git.branch", "value": 1},
 			wantErr: "unknown op",

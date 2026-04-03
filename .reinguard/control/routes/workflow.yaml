@@ -1,4 +1,4 @@
-# Routes keyed off flattened state.state_id (ADR-0013). One primary route per state for v1.
+# Routes keyed off flattened state.state_id (ADR-0013). One primary route per state.
 # route_id uses the user-* prefix (Adapter-agnostic; not tied to a specific IDE).
 rules:
   - type: route

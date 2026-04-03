@@ -21,6 +21,7 @@ func TestNewCompiler(t *testing.T) {
 		{name: "observation document", uri: URIObservationDocument},
 		{name: "operational context", uri: URIOperationalContext},
 		{name: "labels config", uri: URILabelsConfig},
+		{name: "gate artifact", uri: URIGateArtifact},
 	}
 	for _, tc := range tests {
 		tc := tc

@@ -38,6 +38,9 @@ before `state`.
 rgd version
 rgd config validate
 rgd schema export [--dir DIR]
+rgd gate record <gate-id> --status pass|fail [--checks-file FILE]
+rgd gate status <gate-id>
+rgd gate show <gate-id>
 rgd observe [workflow-position]
 rgd observe git
 rgd observe github
@@ -181,6 +184,8 @@ Committed workflow `state_id` priorities for this repository are documented in *
 - **Default:** runs observation inline (same as `rgd observe`) unless:
 - `--observation-file FILE` points to a JSON observation document, or
 - **stdin** JSON when `-` is passed as file (optional convention).
+- Runtime gate statuses from `.reinguard/runtime/gates/*.json` are merged into
+  the evaluation signal map as `gates.<gate-id>.*` before state resolution.
 
 ### Output
 
@@ -204,6 +209,8 @@ Evaluates `type: route` rules using:
 
 - `--observation-file` (required unless default live observe)
 - `--state-file` optional prior `state eval` JSON (merged into signals as `state` key)
+- Runtime gate statuses from `.reinguard/runtime/gates/*.json` (merged as
+  `gates.<gate-id>.*` before route evaluation)
 
 ### Output
 
@@ -226,7 +233,48 @@ Like `state` / `route` commands, this loads `reinguard.yaml` and `control/**/*.y
 `--config-dir` (or the repo’s `.reinguard`). Built-in guards (for example `merge-readiness`)
 run only after declarative resolution succeeds when `control/guards/*.yaml` contains rules with
 matching `guard_id`; if there are no rules for that id, the built-in runs without a resolution
-step (backward compatible).
+step (backward compatible). Runtime gate statuses are also merged into the flat
+signal map as `gates.<gate-id>.*`.
+
+## `rgd gate`
+
+Runtime gate artifacts live under `.reinguard/runtime/gates/` and are validated
+against the embedded `gate-artifact.json` schema. These artifacts are
+**gitignored operational state**, not Semantics content.
+
+### `rgd gate record <gate-id>`
+
+Records one validated gate artifact for the current branch HEAD.
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `--status` | yes | Top-level gate outcome: `pass` or `fail` |
+| `--checks-file` | no | JSON array of check objects with fields `id`, `status`, and optional `summary`; check `status` may be `pass`, `fail`, or `skipped` |
+
+The command attaches:
+
+- current `head_sha`
+- current branch name
+- `recorded_at` (RFC3339 UTC)
+- `schema_version`
+
+It refuses to record on a detached HEAD.
+
+### `rgd gate status <gate-id>`
+
+Derives the effective status for the current checkout:
+
+| Status | Meaning |
+|--------|---------|
+| `missing` | No artifact file exists for the gate |
+| `invalid` | The artifact is unreadable or schema-invalid |
+| `stale` | The artifact branch / `head_sha` does not match the current checkout, or current git identity cannot be determined |
+| `fail` | The artifact is fresh and its recorded top-level status is `fail` |
+| `pass` | The artifact is fresh and its recorded top-level status is `pass` |
+
+### `rgd gate show <gate-id>`
+
+Prints the validated raw artifact JSON.
 
 ### `merge-readiness` (built-in)
 
@@ -272,7 +320,7 @@ copied into the manifest as-is. **`rgd knowledge index`** does not walk `when` b
 YAML parse; **`rgd config validate`** applies the same static checks as for control rules’
 `when`: registered `eval:` names, known `op` values (see `internal/match`), required operands per
 `op`, `eval: constant` requires `params.value` as boolean, and every `path` must start with
-`git.`, `github.`, `state.`, or `$` / `$.` (quantifier scope). `knowledge index` rejects **duplicate triggers** (case-insensitive) and missing `when`.
+`git.`, `github.`, `state.`, `gates.`, or `$` / `$.` (quantifier scope). `knowledge index` rejects **duplicate triggers** (case-insensitive) and missing `when`.
 
 After editing knowledge metadata in front matter, run this command and commit the
 updated manifest so `rgd config validate` freshness checks pass.
@@ -303,7 +351,12 @@ If evaluating `when` fails (e.g. malformed clause), the entry is **still include
 Runs the default pipeline: **observe → state eval → knowledge filter → route select → guard eval
 (merge-readiness) → operational context JSON**.
 
-After state resolution, `state.kind`, `state.state_id`, and `state.rule_id` are merged into the flat signal map; **knowledge `entries`** are then filtered with `match.Eval` per entry `when`. Route and guard steps use the same flat map as before; they do not see route/guard outcomes inside `when` (avoids circularity).
+Runtime gate statuses are merged into the flat signal map first as
+`gates.<gate-id>.*`. After state resolution, `state.kind`, `state.state_id`,
+and `state.rule_id` are merged into the same flat signal map; **knowledge
+`entries`** are then filtered with `match.Eval` per entry `when`. Route and
+guard steps use that flat map; they do not see route/guard outcomes inside
+`when` (avoids circularity).
 
 - **`--observation-file FILE`**: if set, skips live `observe` and uses the
   given observation document JSON as input (same shape as `rgd observe` stdout).
@@ -326,7 +379,10 @@ present, against embedded JSON Schemas. Also **builds enabled observation provid
 errors. **Deprecated** configuration keys (marked in JSON Schema) emit **warnings
 on stderr** but still exit **0** when validation succeeds.
 
-**`when` clauses (ADR-0002):** Control rules and knowledge manifest entries are checked with the same static validator: unknown `eval:` names, unknown `op` strings, missing required keys per `op` (e.g. `eq` needs `path` and `value`), `eval: constant` requires `params.value` (boolean), and `path` strings must use allowed roots (`git.`, `github.`, `state.`, or `$` / `$.` for nested quantifier clauses). Named evaluators: `rgd config validate` rejects unknown `eval:` names against the built-in registry. To list built-ins, call `evaluator.DefaultRegistry().ListRegistered()` from Go (sorted names), or see `internal/evaluator/`.
+`config validate` does **not** validate `.reinguard/runtime/`; runtime gate
+artifacts use the dedicated `rgd gate` schema and commands instead.
+
+**`when` clauses (ADR-0002):** Control rules and knowledge manifest entries are checked with the same static validator: unknown `eval:` names, unknown `op` strings, missing required keys per `op` (e.g. `eq` needs `path` and `value`), `eval: constant` requires `params.value` (boolean), and `path` strings must use allowed roots (`git.`, `github.`, `state.`, `gates.`, or `$` / `$.` for nested quantifier clauses). Named evaluators: `rgd config validate` rejects unknown `eval:` names against the built-in registry. To list built-ins, call `evaluator.DefaultRegistry().ListRegistered()` from Go (sorted names), or see `internal/evaluator/`.
 
 **`schema_version` vs this binary (ADR-0008):** `reinguard.yaml` declares a
 semver `schema_version` synchronized with embedded JSON Schemas. This `rgd`

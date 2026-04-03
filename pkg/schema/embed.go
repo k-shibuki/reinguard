@@ -17,6 +17,7 @@ const (
 	ObservationDocument  = "observation-document.json"
 	OperationalContext   = "operational-context.json"
 	LabelsConfig         = "labels-config.json"
+	GateArtifact         = "gate-artifact.json"
 	CurrentSchemaVersion = "0.6.0"
 )
 
