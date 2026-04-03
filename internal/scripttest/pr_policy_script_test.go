@@ -34,14 +34,16 @@ func TestCheckPRPolicyScript(t *testing.T) {
 
 	// Given/When/Then: PR body/title/label fixtures are validated against repository PR policy.
 	tests := []struct {
-		name       string
-		title      string
-		body       string
-		base       string
-		labels     []string
-		bodyFile   string
-		wantSubstr []string
-		wantErr    bool
+		name          string
+		title         string
+		body          string
+		base          string
+		labels        []string
+		bodyFile      string
+		wantSubstr    []string
+		wantErr       bool
+		skipTitle     bool
+		emptyBodyFile bool
 	}{
 		{
 			name:       "validPRBody",
@@ -148,17 +150,78 @@ func TestCheckPRPolicyScript(t *testing.T) {
 			wantErr:    true,
 			wantSubstr: []string{"body file not found"},
 		},
+		{
+			name:       "emptyTitleFlag",
+			title:      "",
+			body:       validPRBody,
+			labels:     []string{"fix"},
+			base:       "main",
+			wantErr:    true,
+			wantSubstr: []string{"--title requires a non-empty value"},
+		},
+		{
+			name:          "emptyBodyFileFlag",
+			title:         "fix(workflow): add script integration checks",
+			body:          validPRBody,
+			labels:        []string{"fix"},
+			base:          "main",
+			wantErr:       true,
+			wantSubstr:    []string{"--body-file requires a non-empty path"},
+			emptyBodyFile: true,
+		},
+		{
+			name:       "emptyBaseFlag",
+			title:      "fix(workflow): add script integration checks",
+			body:       validPRBody,
+			labels:     []string{"fix"},
+			base:       "",
+			wantErr:    true,
+			wantSubstr: []string{"--base requires a non-empty branch name"},
+		},
+		{
+			name:       "missingTitleShowsUsage",
+			title:      "fix(workflow): add script integration checks",
+			body:       validPRBody,
+			labels:     []string{"fix"},
+			base:       "main",
+			wantErr:    true,
+			wantSubstr: []string{"Usage: check-pr-policy.sh"},
+			skipTitle:  true,
+		},
+		{
+			name:       "commentOnlyTestPlanAfterStrip",
+			title:      "fix(workflow): add script integration checks",
+			body:       strings.Replace(validPRBody, "## Test plan\n\n1. Run `go test ./...`\n2. Run `go vet ./...`\n\n", "## Test plan\n\n<!-- no substantive test plan -->\n\n", 1),
+			labels:     []string{"fix"},
+			base:       "main",
+			wantErr:    true,
+			wantSubstr: []string{"Test plan: section exists but appears empty."},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			bodyFile := tt.bodyFile
-			if bodyFile == "" {
+			if bodyFile == "" && !tt.emptyBodyFile {
 				bodyFile = writeTempFile(t, t.TempDir(), "pr-body-*.md", tt.body)
 			}
-			args := []string{"--title", tt.title, "--body-file", bodyFile, "--base", tt.base}
-			for _, label := range tt.labels {
-				args = append(args, "--label", label)
+			var args []string
+			switch {
+			case tt.skipTitle:
+				args = []string{"--body-file", bodyFile, "--base", tt.base}
+				for _, label := range tt.labels {
+					args = append(args, "--label", label)
+				}
+			case tt.emptyBodyFile:
+				args = []string{"--title", tt.title, "--body-file", "", "--base", tt.base}
+				for _, label := range tt.labels {
+					args = append(args, "--label", label)
+				}
+			default:
+				args = []string{"--title", tt.title, "--body-file", bodyFile, "--base", tt.base}
+				for _, label := range tt.labels {
+					args = append(args, "--label", label)
+				}
 			}
 
 			out, err := runBashScript(t, root, script, nil, args...)

@@ -105,11 +105,13 @@ if [[ $AUTH_STATUS_RC -ne 0 ]]; then
   printf '%s\n' "$AUTH_STATUS_CLEAN" >&2
   exit 2
 fi
-if grep -Eqi "not logged in|unauthenticated" <<< "$AUTH_STATUS_CLEAN"; then
+# Reject explicit unauthenticated / negated phrasing before any positive match.
+if grep -Eqi "unauthenticated|not[[:space:]]+logged[[:space:]]+in|not[[:space:]]+currently[[:space:]]+logged[[:space:]]+in" <<< "$AUTH_STATUS_CLEAN"; then
   echo "ERROR: CodeRabbit CLI is not authenticated. Run: $CR_BIN auth login" >&2
   exit 2
 fi
-if ! grep -Eqi "authentication:[[:space:]]*logged in|logged in" <<< "$AUTH_STATUS_CLEAN"; then
+# Do not treat bare "logged in" as success — it matches negated phrases (e.g. "not currently logged in").
+if ! grep -Eqi "authentication:[[:space:]]*logged in" <<< "$AUTH_STATUS_CLEAN"; then
   echo "ERROR: CodeRabbit CLI auth status output was not recognized as authenticated." >&2
   printf '%s\n' "$AUTH_STATUS_CLEAN" >&2
   exit 2

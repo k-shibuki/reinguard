@@ -43,7 +43,7 @@ subcmd="$1"
 shift
 case "$subcmd" in
   auth)
-    echo "logged in"
+    echo "Authentication: logged in"
     ;;
   review)
     count=0
@@ -126,7 +126,7 @@ subcmd="$1"
 shift
 case "$subcmd" in
   auth)
-    echo "logged in"
+    echo "Authentication: logged in"
     ;;
   review)
     cat <<'EOF'
@@ -185,7 +185,7 @@ func TestCheckLocalReviewScript_RetryZeroSecondsUsesBufferOnly(t *testing.T) {
 set -euo pipefail
 subcmd="$1"; shift
 case "$subcmd" in
-  auth) echo "logged in" ;;
+  auth) echo "Authentication: logged in" ;;
   review)
     count=0; [[ -f "${TEST_COUNT_FILE:?}" ]] && count=$(cat "${TEST_COUNT_FILE:?}")
     count=$((count + 1)); printf '%s\n' "$count" >"${TEST_COUNT_FILE:?}"
@@ -219,5 +219,37 @@ printf '%s\n' "$1" >>"${TEST_SLEEP_FILE:?}"
 	}
 	if got := strings.TrimSpace(string(sleepLog)); got != "30" {
 		t.Fatalf("sleep seconds = %q, want 30", got)
+	}
+}
+
+func TestCheckLocalReviewScript_AuthStatusNotCurrentlyLoggedInFailsClosed(t *testing.T) {
+	t.Parallel()
+
+	script := scriptPath(t, "check-local-review.sh")
+	repo := setupLocalReviewRepo(t)
+
+	stubDir := t.TempDir()
+	writeExecutable(t, stubDir, "coderabbit", `#!/usr/bin/env bash
+set -euo pipefail
+subcmd="$1"; shift
+case "$subcmd" in
+  auth)
+    echo "You are not currently logged in."
+    ;;
+  *)
+    exit 1
+    ;;
+esac
+`)
+
+	env := []string{
+		"PATH=" + stubDir + string(os.PathListSeparator) + os.Getenv("PATH"),
+	}
+	out, err := runBashScript(t, repo, script, env, "--base", "main")
+	if err == nil {
+		t.Fatalf("expected failure, got success:\n%s", out)
+	}
+	if !strings.Contains(out, "CodeRabbit CLI is not authenticated") {
+		t.Fatalf("expected unauthenticated error, got:\n%s", out)
 	}
 }
