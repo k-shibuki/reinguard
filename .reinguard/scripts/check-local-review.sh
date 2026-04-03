@@ -94,17 +94,24 @@ EOF
   exit 2
 fi
 
-# CodeRabbit CLI currently exposes human-readable auth status. Keep the parsing
-# conservative and fail closed until a documented machine-readable mode exists.
+# CodeRabbit CLI currently exposes human-readable auth status. Treat only known
+# "logged in" output as success and fail closed on unrecognized text until a
+# documented machine-readable mode exists.
 AUTH_STATUS_RC=0
 AUTH_STATUS_OUTPUT="$("$CR_BIN" auth status 2>&1)" || AUTH_STATUS_RC=$?
 AUTH_STATUS_CLEAN="$(strip_ansi_cr "$AUTH_STATUS_OUTPUT")"
 if [[ $AUTH_STATUS_RC -ne 0 ]]; then
-  echo "ERROR: CodeRabbit CLI is not authenticated. Run: $CR_BIN auth login" >&2
+  echo "ERROR: CodeRabbit CLI auth status failed:" >&2
+  printf '%s\n' "$AUTH_STATUS_CLEAN" >&2
   exit 2
 fi
 if grep -Eqi "not logged in|unauthenticated" <<< "$AUTH_STATUS_CLEAN"; then
   echo "ERROR: CodeRabbit CLI is not authenticated. Run: $CR_BIN auth login" >&2
+  exit 2
+fi
+if ! grep -Eqi "authentication:[[:space:]]*logged in|logged in" <<< "$AUTH_STATUS_CLEAN"; then
+  echo "ERROR: CodeRabbit CLI auth status output was not recognized as authenticated." >&2
+  printf '%s\n' "$AUTH_STATUS_CLEAN" >&2
   exit 2
 fi
 
@@ -139,7 +146,7 @@ tail_from_last_rate_limit_line() {
 # Parse hours/minutes/seconds from a single rate-limit snippet (one CLI message block).
 extract_rate_limit_seconds() {
   local text="$1"
-  local lower parse_target hours minutes seconds total
+  local lower parse_target hours minutes seconds total matched_any
 
   lower="$(printf '%s\n' "$text" | tr '[:upper:]' '[:lower:]')"
   parse_target="$lower"
@@ -153,15 +160,23 @@ extract_rate_limit_seconds() {
   hours=0
   minutes=0
   seconds=0
+  matched_any=0
 
   if [[ $parse_target =~ ([0-9]+)[[:space:]]*hours? ]]; then
     hours="${BASH_REMATCH[1]}"
+    matched_any=1
   fi
   if [[ $parse_target =~ ([0-9]+)[[:space:]]*minutes? ]]; then
     minutes="${BASH_REMATCH[1]}"
+    matched_any=1
   fi
   if [[ $parse_target =~ ([0-9]+)[[:space:]]*seconds? ]]; then
     seconds="${BASH_REMATCH[1]}"
+    matched_any=1
+  fi
+
+  if [[ $matched_any -eq 0 ]]; then
+    return 1
   fi
 
   total=$((hours * 3600 + minutes * 60 + seconds))
@@ -187,8 +202,8 @@ while true; do
     if [[ $RETRY_ON_RATE_LIMIT -eq 1 && $attempt -lt $max_attempts ]]; then
       LATEST_RL_BLOCK=""
       if LATEST_RL_BLOCK="$(tail_from_last_rate_limit_line "$REVIEW_OUTPUT_CLEAN")"; then
-        wait_seconds="$(extract_rate_limit_seconds "$LATEST_RL_BLOCK")"
-        if [[ "$wait_seconds" =~ ^[0-9]+$ ]] && [[ "$wait_seconds" -gt 0 ]]; then
+        wait_seconds=""
+        if wait_seconds="$(extract_rate_limit_seconds "$LATEST_RL_BLOCK")" && [[ "$wait_seconds" =~ ^[0-9]+$ ]]; then
           total_sleep=$((wait_seconds + RATE_LIMIT_RETRY_BUFFER_SEC))
           echo "" >&2
           echo "Rate limit detected on attempt ${attempt}/${max_attempts} (using latest rate-limit line from this CLI run only; ignoring earlier text)." >&2

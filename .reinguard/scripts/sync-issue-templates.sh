@@ -12,7 +12,14 @@ source "$SCRIPT_DIR/lib/common.sh"
 source "$SCRIPT_DIR/lib/yq.sh"
 
 REPO_ROOT="${REINGUARD_REPO_ROOT:-$(repo_root_from_script_dir "$SCRIPT_DIR")}"
-TASK="${REINGUARD_TASK_TEMPLATE_PATH:-$REPO_ROOT/.github/ISSUE_TEMPLATE/task.yml}"
+if [[ -n "${REINGUARD_TASK_TEMPLATE_PATH:-}" ]]; then
+  case "$REINGUARD_TASK_TEMPLATE_PATH" in
+    /*) TASK="$REINGUARD_TASK_TEMPLATE_PATH" ;;
+    *) TASK="$REPO_ROOT/$REINGUARD_TASK_TEMPLATE_PATH" ;;
+  esac
+else
+  TASK="$REPO_ROOT/.github/ISSUE_TEMPLATE/task.yml"
+fi
 YQ_CACHE_DIR="$SCRIPT_DIR/.bin"
 
 require_file "$TASK" "$TASK not found." 1

@@ -130,7 +130,7 @@ case "$subcmd" in
     ;;
   review)
     cat <<'EOF'
-[2026-04-03T00:00:00Z] ERROR: Rate limit exceeded, please try again later
+[2026-04-03T00:00:00Z] ERROR: Rate limit exceeded, please wait for cooldown reset
 EOF
     exit 1
     ;;

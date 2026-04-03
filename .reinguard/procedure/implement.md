@@ -79,7 +79,7 @@ rgd observe
 4. Implement per Issue **Definition of Done** and **Test plan** (the Issue Test plan states **intent**, not an exhaustive case-ID list — derive concrete Normal / Abnormal / Boundary cases from the diff; include tests in the same deliverable unless the Issue explicitly defers them).
 5. Same-kind sweep per coding--standards § Change scope before hand-off.
 6. **Preflight** per `coding--preflight.md` before commit/push.
-7. When the branch passes local verification and the repository defines a runtime gate for it, record the result with `rgd gate record <gate-id>` (for example `local-verification`) so future state rules can observe the verified handoff.
+7. When the branch passes local verification and the repository defines a runtime gate for it, record the result with `rgd gate record <gate-id> --status <pass|fail>` (for example `rgd gate record local-verification --status pass`) so future state rules can observe the verified handoff.
 8. **Commit organization**: review the commit history (`git log origin/main..HEAD`) and organize into logical, self-contained commits where needed (interactive rebase, amend, or squash). Each commit should represent one coherent change. This step is the primary location for commit restructuring — `change-inspect` may *recommend* restructuring but does not execute it.
 
 ## Output

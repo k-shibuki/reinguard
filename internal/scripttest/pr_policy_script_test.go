@@ -39,6 +39,7 @@ func TestCheckPRPolicyScript(t *testing.T) {
 		body       string
 		base       string
 		labels     []string
+		bodyFile   string
 		wantSubstr []string
 		wantErr    bool
 	}{
@@ -76,11 +77,77 @@ func TestCheckPRPolicyScript(t *testing.T) {
 			wantErr:    true,
 			wantSubstr: []string{"--label <type>"},
 		},
+		{
+			name:       "emptyTypeLabelValue",
+			title:      "fix(workflow): add script integration checks",
+			body:       validPRBody,
+			base:       "main",
+			labels:     []string{""},
+			wantErr:    true,
+			wantSubstr: []string{"--label requires a non-empty value"},
+		},
+		{
+			name:       "labelsPresentButNoTypeLabel",
+			title:      "fix(workflow): add script integration checks",
+			body:       validPRBody,
+			base:       "main",
+			labels:     []string{"meta"},
+			wantErr:    true,
+			wantSubstr: []string{"Type label: must have exactly one type label. Got none."},
+		},
+		{
+			name:       "masterBaseRejected",
+			title:      "fix(workflow): add script integration checks",
+			body:       validPRBody,
+			labels:     []string{"fix"},
+			base:       "master",
+			wantErr:    true,
+			wantSubstr: []string{"PR must target main. Got: master"},
+		},
+		{
+			name:       "emptyTestPlanBody",
+			title:      "fix(workflow): add script integration checks",
+			body:       strings.Replace(validPRBody, "## Test plan\n\n1. Run `go test ./...`\n2. Run `go vet ./...`\n\n", "## Test plan\n\n## Risk / Impact\n\n", 1),
+			labels:     []string{"fix"},
+			base:       "main",
+			wantErr:    true,
+			wantSubstr: []string{"Test plan: section exists but appears empty."},
+		},
+		{
+			name:       "commentOnlyRiskImpact",
+			title:      "fix(workflow): add script integration checks",
+			body:       strings.Replace(validPRBody, "- Affects repository-local workflow docs and checks.\n\n", "<!-- placeholder -->\n\n", 1),
+			labels:     []string{"fix"},
+			base:       "main",
+			wantErr:    true,
+			wantSubstr: []string{"Risk / Impact: section exists but appears empty."},
+		},
+		{
+			name:       "commentOnlyRollbackPlan",
+			title:      "fix(workflow): add script integration checks",
+			body:       strings.Replace(validPRBody, "- Revert the workflow commit if the local gate blocks PR creation incorrectly.\n\n", "<!-- placeholder -->\n\n", 1),
+			labels:     []string{"fix"},
+			base:       "main",
+			wantErr:    true,
+			wantSubstr: []string{"Rollback Plan: section exists but appears empty."},
+		},
+		{
+			name:       "missingBodyFile",
+			title:      "fix(workflow): add script integration checks",
+			base:       "main",
+			labels:     []string{"fix"},
+			bodyFile:   "does-not-exist.md",
+			wantErr:    true,
+			wantSubstr: []string{"body file not found"},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			bodyFile := writeTempFile(t, t.TempDir(), "pr-body-*.md", tt.body)
+			bodyFile := tt.bodyFile
+			if bodyFile == "" {
+				bodyFile = writeTempFile(t, t.TempDir(), "pr-body-*.md", tt.body)
+			}
 			args := []string{"--title", tt.title, "--body-file", bodyFile, "--base", tt.base}
 			for _, label := range tt.labels {
 				args = append(args, "--label", label)

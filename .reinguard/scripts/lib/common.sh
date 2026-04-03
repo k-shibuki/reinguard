@@ -41,7 +41,7 @@ require_flag_value() {
   local value="${2:-}"
   local message="$3"
   if [[ -z "$value" || "${value:0:1}" == "-" ]]; then
-    fail_with "$message" 2
+    fail_with "${message:-missing value for $flag}" 2
   fi
 }
 
@@ -54,8 +54,8 @@ strip_html_comments_and_blank_lines() {
   if command -v perl >/dev/null 2>&1; then
     perl -0777 -pe 's/<!--.*?-->//gs' <<< "$text" | sed '/^[[:space:]]*$/d'
   else
-    # Fallback handles simple single-line comments only; perl path is preferred.
-    sed 's/<!--[^>]*-->//g' <<< "$text" | sed '/^[[:space:]]*$/d'
+    # Fallback handles single-line comments, including embedded '>'; perl path is preferred.
+    sed 's/<!--[^>]*\(>[^>]*\)*-->//g' <<< "$text" | sed '/^[[:space:]]*$/d'
   fi
 }
 

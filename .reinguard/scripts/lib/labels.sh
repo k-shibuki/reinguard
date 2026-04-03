@@ -27,7 +27,7 @@ load_label_names() {
   # Requires bash 4.3+ for nameref support.
   local -n out="$out_name"
   local data
-  data="$(yq -r "$query" "$labels_yaml")" || fail_with "failed to load labels from $labels_yaml" 1
+  data="$(yq -r "$query" "$labels_yaml")" || fail_with "failed to load labels from $labels_yaml (query: $query)" 1
   if [[ -z "$data" || "$data" == "null" ]]; then
     out=()
     return 0

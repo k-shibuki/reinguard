@@ -2,6 +2,7 @@ package gate
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -77,6 +78,27 @@ func TestStatus_classifiesArtifacts(t *testing.T) {
 			},
 			wantStatus: StatusInvalid,
 			wantReason: "parse",
+		},
+		{
+			name:   "invalid gate id mismatch",
+			gateID: "local-verification",
+			prepare: func(t *testing.T, cfgDir string) {
+				path, err := ArtifactPath(cfgDir, "local-verification")
+				if err != nil {
+					t.Fatal(err)
+				}
+				writeFile(t, path, marshalArtifactForTest(t, Artifact{
+					SchemaVersion: "0.6.0",
+					GateID:        "other-gate",
+					Status:        StatusPass,
+					HeadSHA:       head,
+					Branch:        branch,
+					RecordedAt:    time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),
+					Checks:        []Check{{ID: "go-test", Status: StatusPass}},
+				}))
+			},
+			wantStatus: StatusInvalid,
+			wantReason: `declares gate_id "other-gate"; want "local-verification"`,
 		},
 		{
 			name:   "stale branch mismatch",
@@ -273,6 +295,15 @@ func writeFile(t *testing.T, path string, data []byte) {
 	if err := os.WriteFile(path, data, 0o644); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func marshalArtifactForTest(t *testing.T, art Artifact) []byte {
+	t.Helper()
+	data, err := json.MarshalIndent(art, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return append(data, '\n')
 }
 
 func contains(s, want string) bool {

@@ -137,7 +137,7 @@ func Show(cfgDir, gateID string) (Artifact, error) {
 	if err != nil {
 		return Artifact{}, err
 	}
-	return readArtifactFile(path)
+	return readArtifactFile(path, gateID)
 }
 
 // Status evaluates one gate artifact into pass/fail/missing/invalid/stale.
@@ -149,7 +149,7 @@ func Status(ctx context.Context, cfgDir, wd, gateID string) (StatusResult, error
 	if err != nil {
 		return StatusResult{}, err
 	}
-	art, err := readArtifactFile(path)
+	art, err := readArtifactFile(path, gateID)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return StatusResult{GateID: gateID, Status: StatusMissing, Reason: "artifact missing"}, nil
@@ -263,7 +263,7 @@ func writeArtifactFile(path string, art Artifact) error {
 	return nil
 }
 
-func readArtifactFile(path string) (Artifact, error) {
+func readArtifactFile(path, expectedGateID string) (Artifact, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return Artifact{}, err
@@ -278,6 +278,9 @@ func readArtifactFile(path string) (Artifact, error) {
 	var art Artifact
 	if err := json.Unmarshal(data, &art); err != nil {
 		return Artifact{}, fmt.Errorf("gate: decode %s: %w", path, err)
+	}
+	if art.GateID != expectedGateID {
+		return Artifact{}, fmt.Errorf("gate: artifact %s declares gate_id %q; want %q", path, art.GateID, expectedGateID)
 	}
 	if art.Checks == nil {
 		art.Checks = []Check{}

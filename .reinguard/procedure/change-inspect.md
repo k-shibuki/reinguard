@@ -87,6 +87,14 @@ line in that run to parse the cooldown, adds a **safety buffer**, then
 retries the review **once** (`--retry-on-rate-limit`). Treat
 installation/authentication/execution failures, unparsed cooldown, or a
 second consecutive rate limit, as a failed gate and do not proceed.
+If the branch uses a runtime verification gate such as `local-verification`,
+record or refresh it on the reviewed head after the required local checks
+pass, for example:
+
+```bash
+rgd gate record local-verification --status pass
+```
+
 Review the output and disposition findings with the same four categories
 defined in
 [`../policy/review--disposition-categories.md`](../policy/review--disposition-categories.md).
@@ -122,7 +130,8 @@ If review closure is not yet complete for the current local review cycle:
 3. Re-run applicable preflight steps (`go test`, `go vet`, `golangci-lint`, `pre-commit run markdownlint-cli2 --all-files`)
 4. Commit the stabilized batch with `Refs: #<issue>`
 5. Re-run `bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit` on the stabilized head
-6. Re-run inspection (go to step 2) until every finding in the current local review cycle is classified and closed per the shared policy
+6. Re-record the runtime gate for the stabilized head when this branch uses one (for example `rgd gate record local-verification --status pass`)
+7. Re-run inspection (go to step 2) until every finding in the current local review cycle is classified and closed per the shared policy
 
 If a finding is dispositioned **Acknowledged**, record the follow-up Issue
 or equally explicit deferred-work contract in the inspection output so the

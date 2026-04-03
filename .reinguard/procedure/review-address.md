@@ -132,7 +132,7 @@ When Go code changed:
 
 - `go test ./...`
 - `go vet ./...`
-- `golangci-lint run` (or document in the PR why relying on CI-only is acceptable)
+- `golangci-lint run`
 
 When Markdown changed:
 

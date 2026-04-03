@@ -8,7 +8,7 @@
 #       --body-file /tmp/pr-body.md --label chore [--base main]
 #
 # --title, --body-file, and at least one --label are required.
-# --base defaults to main (must be main or master to match gate-policy CI).
+# --base defaults to main (must be main to match gate-policy CI).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -101,9 +101,18 @@ if ! grep -qiE '## (Acceptance Criteria|Definition of Done)' <<< "$BODY"; then
 fi
 
 # 5. Test plan section (non-empty)
-TEST_PLAN=$(sed -n '/## Test [Pp]lan/,/^## /p' <<< "$BODY" | tail -n +2)
+HAS_TEST_PLAN_SECTION=false
+if grep -qiE '^## Test [Pp]lan([[:space:]]*)$' <<< "$BODY"; then
+  HAS_TEST_PLAN_SECTION=true
+fi
+TEST_PLAN=$(awk '
+  BEGIN { on = 0 }
+  /^##[[:space:]]+Test[[:space:]]+[Pp]lan([[:space:]]*)$/ { on = 1; next }
+  /^##[[:space:]]+/ { if (on) exit }
+  on { print }
+' <<< "$BODY")
 TEST_PLAN_CLEAN=$(strip_html_comments_and_blank_lines "$TEST_PLAN")
-if [[ -z "$TEST_PLAN" ]]; then
+if [[ "$HAS_TEST_PLAN_SECTION" != true ]]; then
   ERRORS+=("Test plan: section missing from body.")
 elif [[ ${#TEST_PLAN_CLEAN} -lt 5 ]]; then
   ERRORS+=("Test plan: section exists but appears empty.")
@@ -171,8 +180,8 @@ elif [[ ${#HITS[@]} -gt 1 ]]; then
 fi
 
 # 10. Base branch (HS-PR-BASE; mirrors pr-policy.yaml)
-if [[ "$BASE" != "main" && "$BASE" != "master" ]]; then
-  ERRORS+=("Base branch: PR must target main (or master). Got: $BASE. Document stack deps in the PR body instead of using --base feat/...")
+if [[ "$BASE" != "main" ]]; then
+  ERRORS+=("Base branch: PR must target main. Got: $BASE. Document stack deps in the PR body instead of using --base feat/...")
 fi
 
 # Report

@@ -32,10 +32,10 @@ escalate_when: gate-policy or branch protection cannot be satisfied without main
 **Already in context** (always-active Adapter rule): HS-* codes, catalogs, workflow & commit policy.
 
 **Normal starting point:** enter this procedure immediately after a clean
-`change-inspect`. If that inspection evidence is missing or predates the
-latest commit on the branch, refresh it in step 2 before continuing. This
-local CLI gate is a **pre-PR** check and is separate from the PR bot
-review that runs after PR creation.
+`change-inspect` on the current branch head. If that inspection evidence
+is missing or predates the latest commit, return to `change-inspect`
+before continuing. This local CLI gate is a **pre-PR** check and is
+separate from the PR bot review that runs after PR creation.
 
 **Pre-flight:** on feature branch, `git status` clean; push latest commits.
 
@@ -50,18 +50,10 @@ review that runs after PR creation.
    completed; commit structure clean (or already restructured per
    **Commit organization** in [`.reinguard/procedure/implement.md`](implement.md)).
 2. If `change-inspect` evidence is missing or was produced before the
-   latest commit on the feature branch, re-run the required local gate
-   from the repo root:
-
-   ```bash
-   bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
-   ```
-
-   On rate limit, the script parses the cooldown from the **latest**
-   rate-limit line in that CLI run, applies a **safety buffer**, and
-   retries **once**. If the script still exits after retry exhaustion,
-   installation/authentication/execution failure, or an unparsed
-   cooldown, treat that result as a failed gate before PR creation.
+   latest commit on the feature branch, return to `change-inspect` on the
+   latest head. Refresh the local gate there as required; do not treat a
+   standalone `check-local-review.sh` rerun as sufficient
+   self-inspection evidence.
 3. Push: `git push -u origin HEAD` (after **HS-LOCAL-VERIFY**).
 4. **Pre-flight PR policy** (before `gh pr create`): fill the template into a file, then run from repo root:
 
