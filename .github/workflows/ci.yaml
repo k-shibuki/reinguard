@@ -100,7 +100,7 @@ jobs:
       - name: Download modules
         run: go mod download
 
-      - name: Install mikefarah yq (for check-issue-policy.sh integration tests)
+      - name: Install mikefarah yq (for shell script integration tests)
         uses: ./.github/actions/install-yq
 
       - name: go test

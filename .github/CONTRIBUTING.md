@@ -10,7 +10,8 @@ Review routing for touched areas is defined in **[`CODEOWNERS`](CODEOWNERS)**.
 
 - **Go**: match `go.mod` / CI (toolchain **1.26.1** as of this writing).
 - **golangci-lint**: optional locally; CI runs it on every PR.
-- **`yq`**: **[mikefarah/yq](https://github.com/mikefarah/yq) v4** — required for local runs of `.reinguard/scripts/check-commit-msg.sh`, `check-pr-policy.sh`, `check-issue-policy.sh`, and for `.reinguard/scripts/sync-issue-templates.sh` (CI installs a pinned binary in workflows).
+- **`yq`**: **[mikefarah/yq](https://github.com/mikefarah/yq) v4** — required for local runs of `.reinguard/scripts/check-commit-msg.sh`, `check-pr-policy.sh`, `check-issue-policy.sh`, and for `.reinguard/scripts/sync-issue-templates.sh` (CI installs a pinned binary in workflows for the script integration suite).
+- **`jq`**: required for `.reinguard/scripts/sync-issue-templates.sh` when not using test-only overrides.
 - **`gh`**: required only when using commands that call the GitHub API (e.g.
   `rgd observe github`, or live observation in `rgd state eval` / `rgd context build`
   without `--observation-file`). See ADR-0006.
@@ -49,6 +50,10 @@ go vet ./...
 golangci-lint run --timeout=5m ./...
 pre-commit run markdownlint-cli2 --all-files
 ```
+
+`go test ./...` includes Go integration tests for repository-local shell scripts
+under `internal/scripttest/` and `internal/labels/`. Tool-sensitive cases skip
+cleanly when dependencies such as mikefarah `yq` are unavailable.
 
 **Coverage** (module-wide threshold **80%**, same as CI):
 

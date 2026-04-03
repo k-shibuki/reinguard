@@ -8,6 +8,10 @@
 # Optional env: RATE_LIMIT_RETRY_BUFFER_SEC (default 30) — seconds after parsed cooldown before automatic retry.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=.reinguard/scripts/lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+
 # Seconds added after the CLI-reported cooldown so the retry does not land on the boundary.
 RATE_LIMIT_RETRY_BUFFER_SEC="${RATE_LIMIT_RETRY_BUFFER_SEC:-30}"
 
@@ -19,26 +23,17 @@ RETRY_ON_RATE_LIMIT=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --base)
-      [[ $# -ge 2 && -n "${2:-}" && "${2:0:1}" != "-" ]] || {
-        echo "ERROR: --base requires a non-empty branch name" >&2
-        exit 2
-      }
+      require_flag_value "--base" "${2:-}" "--base requires a non-empty branch name"
       BASE="$2"
       shift 2
       ;;
     --mode)
-      [[ $# -ge 2 && -n "${2:-}" && "${2:0:1}" != "-" ]] || {
-        echo "ERROR: --mode requires one of: plain, prompt-only, agent" >&2
-        exit 2
-      }
+      require_flag_value "--mode" "${2:-}" "--mode requires one of: plain, prompt-only, agent"
       MODE="$2"
       shift 2
       ;;
     --type)
-      [[ $# -ge 2 && -n "${2:-}" && "${2:0:1}" != "-" ]] || {
-        echo "ERROR: --type requires one of: all, committed, uncommitted" >&2
-        exit 2
-      }
+      require_flag_value "--type" "${2:-}" "--type requires one of: all, committed, uncommitted"
       REVIEW_TYPE="$2"
       shift 2
       ;;
@@ -70,18 +65,14 @@ case "$REVIEW_TYPE" in
 esac
 
 if ! git rev-parse --show-toplevel >/dev/null 2>&1; then
-  echo "ERROR: check-local-review.sh must run inside a Git repository." >&2
-  exit 2
+  fail_with "check-local-review.sh must run inside a Git repository." 2
 fi
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
 CONFIG_FILE=".coderabbit.yaml"
-if [[ ! -f "$CONFIG_FILE" ]]; then
-  echo "ERROR: $CONFIG_FILE is required for the repository-local CodeRabbit gate." >&2
-  exit 2
-fi
+require_file "$CONFIG_FILE" "$CONFIG_FILE is required for the repository-local CodeRabbit gate." 2
 
 if command -v coderabbit >/dev/null 2>&1; then
   CR_BIN="coderabbit"
@@ -103,7 +94,7 @@ fi
 # conservative and fail closed until a documented machine-readable mode exists.
 AUTH_STATUS_RC=0
 AUTH_STATUS_OUTPUT="$("$CR_BIN" auth status 2>&1)" || AUTH_STATUS_RC=$?
-AUTH_STATUS_CLEAN="$(printf '%s\n' "$AUTH_STATUS_OUTPUT" | sed -E 's/\x1B\[[0-9;?]*[[:alpha:]]//g' | tr -d '\r')"
+AUTH_STATUS_CLEAN="$(strip_ansi_cr "$AUTH_STATUS_OUTPUT")"
 if [[ $AUTH_STATUS_RC -ne 0 ]]; then
   echo "ERROR: CodeRabbit CLI is not authenticated. Run: $CR_BIN auth login" >&2
   exit 2
@@ -119,11 +110,6 @@ echo "  Review type: $REVIEW_TYPE"
 echo "  Output mode: $MODE"
 echo "  Config file: $CONFIG_FILE"
 echo
-
-# Strip ANSI and CR from one CLI run; used only for parsing this attempt's output.
-strip_ansi_cr() {
-  printf '%s\n' "$1" | sed -E 's/\x1B\[[0-9;?]*[[:alpha:]]//g' | tr -d '\r'
-}
 
 # Text from the last line containing "rate limit exceeded" through EOF (latest evidence only).
 tail_from_last_rate_limit_line() {

@@ -1,0 +1,96 @@
+package scripttest
+
+import (
+	"strings"
+	"testing"
+)
+
+const validPRBody = "## Summary\n\n" +
+	"- Explain why the change exists.\n\n" +
+	"## Traceability\n\n" +
+	"Closes #97\n\n" +
+	"Refs: #59\n\n" +
+	"## Definition of Done\n\n" +
+	"- [x] Tests added or updated (`go test ./...`)\n" +
+	"- [x] `go vet ./...` clean\n" +
+	"- [x] Lint clean (golangci-lint / CI)\n" +
+	"- [x] Documentation updated if behavior or public CLI surface changed\n\n" +
+	"## Test plan\n\n" +
+	"1. Run `go test ./...`\n" +
+	"2. Run `go vet ./...`\n\n" +
+	"## Risk / Impact\n\n" +
+	"- Affects repository-local workflow docs and checks.\n\n" +
+	"## Rollback Plan\n\n" +
+	"- Revert the workflow commit if the local gate blocks PR creation incorrectly.\n\n" +
+	"## Exception\n\n" +
+	"- Type:\n" +
+	"- Justification:\n"
+
+func TestCheckPRPolicyScript(t *testing.T) {
+	root := repoRoot(t)
+	mustMikefarahYq(t, root)
+	script := scriptPath(t, "check-pr-policy.sh")
+
+	// Given/When/Then: PR body/title/label fixtures are validated against repository PR policy.
+	tests := []struct {
+		name       string
+		title      string
+		body       string
+		base       string
+		labels     []string
+		wantSubstr []string
+		wantErr    bool
+	}{
+		{
+			name:       "validPRBody",
+			title:      "fix(workflow): add script integration checks",
+			body:       validPRBody,
+			labels:     []string{"fix"},
+			base:       "main",
+			wantSubstr: []string{"PR policy pre-flight OK."},
+		},
+		{
+			name:       "missingIssueLink",
+			title:      "fix(workflow): add script integration checks",
+			body:       strings.Replace(validPRBody, "Closes #97", "", 1),
+			labels:     []string{"fix"},
+			base:       "main",
+			wantErr:    true,
+			wantSubstr: []string{"body must contain 'Closes #N'"},
+		},
+		{
+			name:       "wrongBaseBranch",
+			title:      "fix(workflow): add script integration checks",
+			body:       validPRBody,
+			labels:     []string{"fix"},
+			base:       "feat/stacked",
+			wantErr:    true,
+			wantSubstr: []string{"PR must target main"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			bodyFile := writeTempFile(t, t.TempDir(), "pr-body-*.md", tt.body)
+			args := []string{"--title", tt.title, "--body-file", bodyFile, "--base", tt.base}
+			for _, label := range tt.labels {
+				args = append(args, "--label", label)
+			}
+
+			out, err := runBashScript(t, root, script, nil, args...)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error, got success:\n%s", out)
+				}
+			} else if err != nil {
+				t.Fatalf("check-pr-policy: %v\n%s", err, out)
+			}
+
+			for _, sub := range tt.wantSubstr {
+				if !strings.Contains(out, sub) {
+					t.Fatalf("expected output to contain %q, got:\n%s", sub, out)
+				}
+			}
+		})
+	}
+}

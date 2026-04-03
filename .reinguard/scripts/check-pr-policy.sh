@@ -12,18 +12,16 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LABELS_YAML="$SCRIPT_DIR/../labels.yaml"
-if [[ ! -f "$LABELS_YAML" ]]; then
-  echo "ERROR: $LABELS_YAML not found." >&2
-  exit 2
-fi
-if ! command -v yq >/dev/null 2>&1; then
-  echo "ERROR: yq is required. Install: https://github.com/mikefarah/yq" >&2
-  exit 2
-fi
-mapfile -t TYPE_LABELS < <(yq -r '.categories.type.labels[].name' "$LABELS_YAML")
-mapfile -t EXCEPTION_LABELS < <(yq -r '.categories.exception.labels[].name' "$LABELS_YAML")
-TYPE_PATTERN=$(printf '%s\n' "${TYPE_LABELS[@]}" | paste -sd '|' -)
+# shellcheck source=.reinguard/scripts/lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+# shellcheck source=.reinguard/scripts/lib/labels.sh
+source "$SCRIPT_DIR/lib/labels.sh"
+
+LABELS_YAML="$(require_labels_yaml "$SCRIPT_DIR")"
+require_command "yq" "yq is required. Install: https://github.com/mikefarah/yq" 2
+load_label_names "$LABELS_YAML" '.categories.type.labels[].name' TYPE_LABELS
+load_label_names "$LABELS_YAML" '.categories.exception.labels[].name' EXCEPTION_LABELS
+TYPE_PATTERN="$(join_with_pipe "${TYPE_LABELS[@]}")"
 
 TITLE=""
 BODY_FILE=""
@@ -33,34 +31,22 @@ LABELS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --title)
-      [[ $# -ge 2 && -n "${2:-}" && "${2:0:1}" != "-" ]] || {
-        echo "ERROR: --title requires a non-empty value" >&2
-        exit 2
-      }
+      require_flag_value "--title" "${2:-}" "--title requires a non-empty value"
       TITLE="$2"
       shift 2
       ;;
     --body-file)
-      [[ $# -ge 2 && -n "${2:-}" && "${2:0:1}" != "-" ]] || {
-        echo "ERROR: --body-file requires a non-empty path" >&2
-        exit 2
-      }
+      require_flag_value "--body-file" "${2:-}" "--body-file requires a non-empty path"
       BODY_FILE="$2"
       shift 2
       ;;
     --base)
-      [[ $# -ge 2 && -n "${2:-}" && "${2:0:1}" != "-" ]] || {
-        echo "ERROR: --base requires a non-empty branch name" >&2
-        exit 2
-      }
+      require_flag_value "--base" "${2:-}" "--base requires a non-empty branch name"
       BASE="$2"
       shift 2
       ;;
     --label)
-      [[ $# -ge 2 && -n "${2:-}" && "${2:0:1}" != "-" ]] || {
-        echo "ERROR: --label requires a non-empty value" >&2
-        exit 2
-      }
+      require_flag_value "--label" "${2:-}" "--label requires a non-empty value"
       LABELS+=("$2")
       shift 2
       ;;
@@ -73,19 +59,14 @@ if [[ -z "$TITLE" || -z "$BODY_FILE" || ${#LABELS[@]} -eq 0 ]]; then
   exit 2
 fi
 
-if [[ ! -f "$BODY_FILE" ]]; then
-  echo "ERROR: body file not found: $BODY_FILE" >&2
-  exit 2
-fi
+require_file "$BODY_FILE" "body file not found: $BODY_FILE" 2
 
 BODY=$(cat "$BODY_FILE")
 ERRORS=()
 WARNINGS=()
 
 strip_comments() {
-  # shellcheck disable=SC2001
-  # HTML comment strip needs sed regex; not replaceable by bash ${var//}.
-  sed 's/<!--[^>]*-->//g' <<< "$1" | sed '/^[[:space:]]*$/d'
+  strip_html_comments_and_blank_lines "$1"
 }
 
 # 1. Issue linkage
