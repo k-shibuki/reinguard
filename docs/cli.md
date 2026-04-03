@@ -251,6 +251,11 @@ Evaluates merge signals. All conditions must be true for `ok == true`:
 
 All signals fail closed on missing or invalid values (guard returns `ok: false`).
 
+`merge-readiness` is a deterministic merge gate only for the signals above.
+It does **not** prove that non-thread findings from the current PR review
+cycle have been dispositioned; review-closure completeness remains a
+procedure / policy responsibility.
+
 ### Output
 
 JSON `{ "guard_id": "merge-readiness", "ok": true|false, "reason": "..." }`

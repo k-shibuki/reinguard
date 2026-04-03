@@ -41,8 +41,9 @@ review that runs after PR creation.
 
 ## Act
 
-1. Confirm `change-inspect` output: every material finding requiring a
-   disposition is
+1. Confirm `change-inspect` output: review closure is complete for the
+   current local review cycle, meaning every finding is classified and
+   closed on the latest branch head. Findings are
    dispositioned **Fixed**, **By design**, **False positive**, or
    exceptionally **Acknowledged** per
    `review--disposition-categories.md`; required local CodeRabbit CLI review

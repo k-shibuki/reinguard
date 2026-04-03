@@ -68,10 +68,11 @@ Confirm the required local CodeRabbit CLI gate completed per
 `coding--preflight.md` and `change-inspect.md`, and that its findings were
 handled coherently:
 
-- Review output confirms the local gate completed and its findings were
-  dispositioned before PR creation.
-- Material findings from the local CodeRabbit CLI gate use the same
-  four disposition categories as the rest of `change-inspect` (see
+- Review output confirms the latest local gate completed on the current
+  branch head and its findings were dispositioned before PR creation.
+- Findings from the latest local CodeRabbit CLI run on the current branch
+  head use the same four disposition categories as the rest of
+  `change-inspect` (see
   `.reinguard/policy/review--disposition-categories.md`).
 - Any local CodeRabbit finding dispositioned **Fixed** must also satisfy
   Dimension 6 when the fix pattern extends beyond the exact commented line,
@@ -137,7 +138,7 @@ from `.reinguard/policy/review--disposition-categories.md`:
   equally explicit deferred-work contract.
 
 `change-inspect` may declare the branch ready for `pr-create` only when
-every material finding has one of those dispositions and any
+review closure is complete for the current local review cycle and any
 `Acknowledged` item satisfies the stricter pre-PR rule above.
 
 ## Related
@@ -152,5 +153,5 @@ every material finding has one of those dispositions and any
   table-driven
 - `.reinguard/knowledge/testing--given-when-then.md` — GWT format
 - `.reinguard/procedure/change-inspect.md` — procedure that executes this
-  inspection (pre-PR; dimension 6 is deferred to `pr-create`; enter via
+  inspection (pre-PR; dimension 7 is deferred to `pr-create`; enter via
   `.cursor/commands/rgd-next.md` + `rgd context build`)

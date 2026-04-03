@@ -55,6 +55,14 @@ require a PR conversation comment with the same disposition ([**HS-REVIEW-RESOLV
 
 Use the same disposition vocabulary for local review and self-inspection; see
 [`.reinguard/policy/review--disposition-categories.md`](.reinguard/policy/review--disposition-categories.md).
+Classification depends on whether the finding is correct, whether the
+current behavior is intentional by design, or whether the finding is
+incorrect — not on reviewer tone, severity labels, or suggestion wording.
+
+Treat review closure as complete only when every finding in the current
+review cycle is classified and closed through the appropriate channel:
+local inspection ledger before PR creation, or PR thread reply / PR
+conversation comment plus consensus when a PR exists.
 
 Do **not** dismiss any finding as "pre-existing" or "outside diff range" ([**HS-NO-DISMISS**](.reinguard/policy/safety--agent-invariants.md)).
 

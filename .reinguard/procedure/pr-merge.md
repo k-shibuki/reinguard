@@ -24,7 +24,7 @@ escalate_when: Checks red, threads unresolved, or policy exception required.
 
 ## Context
 
-- [`../policy/review--consensus-protocol.md`](../policy/review--consensus-protocol.md) (disposition, thread resolution, CodeRabbit gate)
+- [`../policy/review--consensus-protocol.md`](../policy/review--consensus-protocol.md) (shared review-closure contract, thread resolution, CodeRabbit gate)
 
 **Already in context** (always-active Adapter rule): HS-* codes, catalogs, workflow & commit policy.
 
@@ -36,6 +36,9 @@ rgd guard eval --observation-file /tmp/obs.json merge-readiness
 ```
 
 Interpret JSON: `"ok": true` only when CI success, zero unresolved review threads, required bot review terminal (not pending), no formal `CHANGES_REQUESTED`, and clean working tree — see [`docs/cli.md`](../../docs/cli.md) § `merge-readiness`.
+This guard does **not** prove that non-thread findings from the current PR
+review cycle have been dispositioned; that remains part of review closure
+per [`../policy/review--consensus-protocol.md`](../policy/review--consensus-protocol.md).
 
 Optional full pipeline: `rgd context build` (observe → state → route → guard → knowledge entries).
 
@@ -51,7 +54,7 @@ rgd context build | jq '.observation.signals.github.reviews.bot_review_diagnosti
 
 ## Act
 
-1. Confirm **all** of: guard `merge-readiness` is `"ok": true`; `gh pr checks` shows CI green; required bot review is **terminal** (`bot_review_pending == false`, `bot_review_terminal == true`, `bot_review_failed == false` — HS-MERGE-CONSENSUS); threads resolved; consensus reached per `review--consensus-protocol.md`.
+1. Confirm **all** of: guard `merge-readiness` is `"ok": true`; `gh pr checks` shows CI green; required bot review is **terminal** (`bot_review_pending == false`, `bot_review_terminal == true`, `bot_review_failed == false` — HS-MERGE-CONSENSUS); threads resolved; and review closure is complete for the current PR review cycle, including non-thread findings, per `review--consensus-protocol.md`.
 2. Merge: `gh pr merge <N> --squash` or `--merge` per [`.github/CONTRIBUTING.md`](../../.github/CONTRIBUTING.md) and maintainer convention for this repo.
    Do **not** use `--admin`. Do **not** merge with failing checks.
 

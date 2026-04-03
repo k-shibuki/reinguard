@@ -5,10 +5,10 @@ schema_version: "0.6.0"
 entries:
   - id: review-disposition-categories
     path: review--disposition-categories.md
-    description: "Normative disposition categories for local review, self-inspection, and PR review"
+    description: "Normative disposition categories and classification basis for local review, self-inspection, and PR review"
   - id: review-consensus-protocol
     path: review--consensus-protocol.md
-    description: "Disposition categories, consensus flow, thread resolution rules"
+    description: "Shared review-closure contract, PR consensus flow, and thread resolution rules"
   - id: safety-agent-invariants
     path: safety--agent-invariants.md
     description: "HS-* safety codes — CI merge, PR template/base, local verify, review resolve, merge consensus"

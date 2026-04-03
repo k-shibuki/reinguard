@@ -10,13 +10,19 @@ triggers:
 
 # Review disposition categories
 
-Normative disposition categories for review findings across local review,
-self-inspection, and PR review.
+Normative disposition categories and classification basis for review
+findings across local review, self-inspection, and PR review.
 
 ## Principle
 
 Use one disposition vocabulary everywhere review findings are classified:
 **Fixed / By design / False positive / Acknowledged**.
+
+Reviewer-supplied wording, severity, optionality, or tone (for example
+`nitpick`, `trivial`, `consider`, `suggestion`, or `optional`) does **not**
+change how a finding is classified. Classification depends on whether the
+finding is correct, whether the current behavior is intentional by design,
+and whether any valid deferral is explicit.
 
 Legacy reviewer severity labels such as **P0 / P1** and pre-PR gate labels
 such as **Blocking / Non-blocking** are retired as standing classification
@@ -31,6 +37,20 @@ guidance must use the four disposition categories instead.
 | **By design** | The reported behavior is intentional for this repository. | ADR, policy, Issue scope, or explicit design rationale. |
 | **False positive** | The finding premise is incorrect. | Code path, test, or repo rule showing the report is mistaken. |
 | **Acknowledged** | The finding is valid but intentionally deferred. | Explicit deferred-work contract, plus rationale. |
+
+## Classification basis
+
+Choose the category from the finding itself, not from how the reviewer
+phrased it:
+
+1. **Fixed** — the finding is correct and the branch now includes the
+   change required to address it.
+2. **By design** — the finding is correct about the observed behavior, but
+   the current behavior is an intentional design choice that should remain.
+3. **False positive** — the finding premise is incorrect for the actual
+   code, tests, policy, or repository rules.
+4. **Acknowledged** — the finding is correct, but the repository
+   explicitly defers the work with a documented contract.
 
 `Fixed` is the correct disposition label. Do **not** rename it to `Fix`:
 `Fix` is an action verb, while `Fixed` is the recorded outcome/state of a

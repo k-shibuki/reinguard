@@ -7,6 +7,7 @@ applies_to:
 reads:
   - ../policy/review--self-inspection.md
   - ../policy/review--disposition-categories.md
+  - ../policy/review--consensus-protocol.md
   - ../policy/coding--preflight.md
   - ../policy/coding--standards.md
 sense:
@@ -15,9 +16,9 @@ sense:
 act:
   - Gather diff and commits; run local CodeRabbit review; inspect every dimension; disposition findings; loop until PR-ready.
 output:
-  - Pass/fail per dimension, disposition summary, commit-structure note, readiness declaration.
-done_when: All material findings have gate-clearing dispositions; ready for `pr-create` or documented otherwise.
-escalate_when: Policy interpretation conflicts or inspection scope unclear.
+  - Pass/fail per dimension, disposition ledger, commit-structure note, readiness declaration.
+done_when: Review closure is complete for the current local review cycle; ready for `pr-create` or documented otherwise.
+escalate_when: Policy interpretation conflicts, inspection scope unclear, or local review tooling cannot complete.
 ---
 
 # change-inspect
@@ -30,6 +31,7 @@ merge, or restructure commits (commit organization is `implement` step 7).
 
 - [`../policy/review--self-inspection.md`](../policy/review--self-inspection.md) — SSOT for inspection dimensions (open the file; do not duplicate its criteria here)
 - [`../policy/review--disposition-categories.md`](../policy/review--disposition-categories.md) — shared disposition vocabulary across local and PR review
+- [`../policy/review--consensus-protocol.md`](../policy/review--consensus-protocol.md) — shared review-closure model; PR-only thread mechanics remain downstream
 - [`../policy/coding--preflight.md`](../policy/coding--preflight.md) — prerequisite; meta-verify its obligations were met
 - [`../policy/coding--standards.md`](../policy/coding--standards.md) § **Change scope** — same-kind sweep across code, `.reinguard/`, `.cursor/`
 - [`../../AGENTS.md`](../../AGENTS.md) — review guidelines
@@ -100,23 +102,27 @@ recorded for that deferment, which should be rare before PR creation.
 
 ### 5. Report findings
 
-Disposition each finding as **Fixed**, **By design**, **False positive**,
-or **Acknowledged** per
+Disposition each finding exactly once as **Fixed**, **By design**,
+**False positive**, or **Acknowledged** per
 [`../policy/review--disposition-categories.md`](../policy/review--disposition-categories.md)
-and `review--self-inspection.md` § **Disposition guidance**.
+and `review--self-inspection.md` § **Disposition guidance**. Record a
+disposition ledger for the current local review cycle: finding source,
+summary, disposition, evidence or rationale, and follow-up contract when
+`Acknowledged` applies.
 
 ### 6. Fix-and-re-inspect loop
 
-If any material finding still lacks a gate-clearing disposition:
+If review closure is not yet complete for the current local review cycle:
 
 1. Return to `implement` for fixes (and commit restructuring if recommended)
-2. Treat one local CR output as a **single batch**: fix all in-scope
-   material findings from that pass, and apply same-kind sweep for any fix
-   pattern that extends beyond the exact commented line or file.
+2. Treat one local CR output as a **single batch**: classify every finding
+   from that pass, fix every finding you will disposition **Fixed** on the
+   current branch, and apply same-kind sweep for any fix pattern that
+   extends beyond the exact commented line or file.
 3. Re-run applicable preflight steps (`go test`, `go vet`, `golangci-lint`, `pre-commit run markdownlint-cli2 --all-files`)
-4. Re-run `bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit`
-5. Commit with `Refs: #<issue>`
-6. Re-run inspection (go to step 2) until every material finding is dispositioned **Fixed**, **By design**, **False positive**, or exceptionally **Acknowledged** per the shared policy
+4. Commit the stabilized batch with `Refs: #<issue>`
+5. Re-run `bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit` on the stabilized head
+6. Re-run inspection (go to step 2) until every finding in the current local review cycle is classified and closed per the shared policy
 
 If a finding is dispositioned **Acknowledged**, record the follow-up Issue
 or equally explicit deferred-work contract in the inspection output so the
@@ -124,13 +130,13 @@ PR handoff is auditable.
 
 ### 7. Declare readiness
 
-When inspection is clean (no material finding remains without a
-gate-clearing disposition, including local CodeRabbit findings): declare
+When inspection shows review closure complete for the current local review
+cycle, including local CodeRabbit findings on the latest head: declare
 **ready for PR creation**. Proceed to `pr-create`.
 
 ## Output
 
-- Dimension-by-dimension Pass/Fail with findings list and disposition
+- Dimension-by-dimension Pass/Fail with disposition ledger
 - Local CodeRabbit review status: completed / gate failed, plus finding summary
 - Commit structure assessment: clean / restructured / deferred with explicit `Acknowledged` contract
 - Fix commits (if any): SHA + what changed

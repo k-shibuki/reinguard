@@ -55,8 +55,10 @@ bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
   `.reinguard/policy/review--disposition-categories.md`; do not
   auto-dismiss them just because they came from the local CLI instead of
   the PR bot. Handle one local CR output as a batch before rerunning the
-  CLI: fix all in-scope material findings, apply same-kind sweep where the
-  fix pattern repeats, then rerun the gate on the stabilized head.
+  CLI: classify every finding from that pass, fix every finding
+  dispositioned **Fixed** on the current branch, apply same-kind sweep
+  where the fix pattern repeats, then rerun the gate on the stabilized
+  head.
 
 ## Defensive implementation checks
 

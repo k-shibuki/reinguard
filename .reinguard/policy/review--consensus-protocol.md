@@ -1,6 +1,6 @@
 ---
 id: review-consensus-protocol
-description: Disposition categories, consensus flow, and thread resolution rules for review threads
+description: Shared review-closure contract, PR consensus flow, and thread resolution rules
 triggers:
   - consensus protocol
   - disposition reply
@@ -13,14 +13,41 @@ triggers:
 
 # Review Consensus Protocol
 
-Bidirectional agreement model for review threads. All commands that
-interact with review threads (`review-address`, `pr-merge`) reference this
-document as the SSOT for disposition and resolution.
+Shared review-closure contract plus the bidirectional agreement model for
+PR review threads. Commands that classify or resolve review findings
+(`change-inspect`, `review-address`, `pr-merge`) reference this document
+for closure semantics; only the PR-side sections below govern thread
+resolution.
 
 The shared disposition vocabulary across local review, self-inspection, and
 PR review is defined in
 `.reinguard/policy/review--disposition-categories.md`. This policy defines
-the PR-side consensus and resolution mechanics for those same categories.
+how those same categories become **closed** findings locally and on a PR.
+
+## Shared review-closure model
+
+- **Finding** — one review-reported concern that requires classification.
+  Findings include self-inspection findings, commit-structure findings,
+  repository-local CodeRabbit findings, PR review threads, outside-diff
+  findings, PR summary findings, and conversation-level review findings.
+- **Classified** — a finding has been mapped to exactly one of
+  **Fixed / By design / False positive / Acknowledged**.
+- **Closed** — a classified finding also has the evidence required by its
+  review channel:
+  - **Local review**: the disposition is recorded in inspection output; any
+    finding dispositioned **Fixed** is already addressed on the current
+    branch head; and the applicable local verification / local CodeRabbit
+    reruns for that stabilized head have completed.
+  - **PR review**: the disposition is posted on the correct PR channel
+    (thread reply or PR conversation comment), and any thread finding also
+    satisfies the consensus and resolve rules in this policy.
+- **Review cycle** — one bounded set of findings observed on the current
+  branch or PR head. For local review, this is the current self-inspection
+  pass plus the latest local CodeRabbit run on that head. For PR review,
+  this is the current set of thread and non-thread findings visible after
+  the latest observation / re-review turn on that head.
+- **Review closure complete** — every finding in the current review cycle is
+  classified and closed.
 
 ## Principle
 
@@ -46,6 +73,14 @@ thread resolution mechanism. `unresolved threads == 0` is therefore
 additionally verify that all non-thread findings have been dispositioned
 via PR conversation comments (see § Non-thread findings below).
 `HS-NO-DISMISS` prohibits skipping these findings as "pre-existing."
+
+Within a PR review cycle:
+
+```text
+review closure complete
+  ⟹ all thread findings are closed
+  ∧ all non-thread findings are dispositioned on the PR
+```
 
 ## PR-side application of disposition categories
 
@@ -221,6 +256,7 @@ no deterministic guard currently tracks it.
 
 ## Related
 
+- `.reinguard/procedure/change-inspect.md` — local review closure before PR creation
 - `.reinguard/knowledge/review--bot-operations.md` — trigger, detection,
   timing
 - `.reinguard/policy/review--disposition-categories.md` — shared
