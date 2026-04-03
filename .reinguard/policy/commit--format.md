@@ -15,7 +15,7 @@ Mandatory requirements for commit messages.
 ## Positioning
 
 - Format template: `.github/gitmessage` (install via `git config commit.template .github/gitmessage`).
-- Machine validation: `commit-msg` stage in `.pre-commit-config.yaml` (runs `.reinguard/scripts/check-commit-msg.sh`).
+- Machine validation: `commit-msg` stage in `.pre-commit-config.yaml` (runs `.reinguard/scripts/check-commit-msg.sh`). The script path is the SSOT for validation; it is not invoked via `make`.
 
 ## Prefix (Type)
 

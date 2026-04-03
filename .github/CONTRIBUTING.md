@@ -28,9 +28,10 @@ go build -o rgd ./cmd/rgd
 ```
 
 Optional: the repo **[`Makefile`](../Makefile)** provides `make test`, `make check`
-(fmt, vet, lint, test — lint is `golangci-lint`), `make coverage`, `make build`,
-etc. Use `make local-review` from the required pre-PR gate section below.
+(fmt, vet, lint, test — lint is `golangci-lint`), `make build`, etc.
 It is **not** normative — CI and the shell commands below are the source of truth.
+Repository policy and workflow scripts under **`.reinguard/scripts/`** are invoked
+directly with `bash` (see sections below); they are **not** wrapped by `make`.
 
 Optional commit message template (see [`.reinguard/policy/commit--format.md`](../.reinguard/policy/commit--format.md)):
 
@@ -62,16 +63,18 @@ After local verification passes and before `pr-create`, run the repository
 CodeRabbit gate from the repo root:
 
 ```bash
-make local-review
-# or:
 bash .reinguard/scripts/check-local-review.sh --base main
+# agents / automation (rate-limit cooldown + one retry):
+bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
 ```
 
 - This repository treats the local CodeRabbit CLI pass as a **required pre-PR gate**.
 - The script checks installation and authentication (`cr auth login`) before
   invoking `coderabbit review -c .coderabbit.yaml`.
-- Execution failures (CLI missing, auth missing, rate limit, command error)
-  block PR creation.
+- For autonomous workflows, `--retry-on-rate-limit` sleeps for the cooldown
+  reported by the CLI and retries the same review command once.
+- Execution failures (CLI missing, auth missing, second consecutive rate limit,
+  command error) block PR creation.
 - Review findings are triaged during `change-inspect`; the local CLI does
   **not** replace the PR bot review from `.coderabbit.yaml`.
 - For automation, the script also supports `--mode agent`; the default remains

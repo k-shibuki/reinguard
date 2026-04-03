@@ -68,7 +68,7 @@ These commands read [`.reinguard/labels.yaml`](../.reinguard/labels.yaml) and sh
 | `rgd labels list` | Print type / exception / scope label names as JSON (stdout). |
 | `rgd labels sync` | Align existing GitHub label color/description with `labels.yaml` (`gh label edit`); does not delete extra labels. Use `--dry-run` to preview. |
 
-Issue/PR **policy enforcement** scripts live under **`.reinguard/scripts/`** (`check-commit-msg.sh`, `check-pr-policy.sh`, `check-issue-policy.sh`, `sync-issue-templates.sh`).
+Issue/PR **policy enforcement** and related repository tooling scripts live under **`.reinguard/scripts/`** (for example `check-commit-msg.sh`, `check-pr-policy.sh`, `check-issue-policy.sh`, `sync-issue-templates.sh`, `check-coverage-threshold.sh`, `check-local-review.sh`). Invoke them with `bash .reinguard/scripts/<name>.sh` from the repository root; they are **not** part of the shipped `rgd` binary and are **not** wrapped by `Makefile` targets.
 
 ## Provider IDs ↔ commands
 
