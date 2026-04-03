@@ -78,10 +78,11 @@ Run the repository-local CodeRabbit gate from the repo root:
 bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
 ```
 
-If the CLI reports a rate limit with a cooldown, sleep for that reported
-duration and retry the same command automatically once. Treat
-installation/authentication/execution failures, or a second consecutive
-rate limit, as **Blocking**.
+If the CLI reports a rate limit, the script uses the **latest** rate-limit
+line in that run to parse the cooldown, adds a **safety buffer**, then
+retries the review **once** (`--retry-on-rate-limit`). Treat
+installation/authentication/execution failures, unparsed cooldown, or a
+second consecutive rate limit, as **Blocking**.
 Review the output and classify findings using the same severity guidance as
 the other self-inspection dimensions; do not auto-dismiss them because they
 were surfaced locally instead of on the PR.

@@ -5,7 +5,11 @@
 #
 # Usage:
 #   bash .reinguard/scripts/check-local-review.sh [--base main] [--mode plain|prompt-only|agent] [--type all|committed|uncommitted] [--retry-on-rate-limit]
+# Optional env: RATE_LIMIT_RETRY_BUFFER_SEC (default 30) — seconds after parsed cooldown before automatic retry.
 set -euo pipefail
+
+# Seconds added after the CLI-reported cooldown so the retry does not land on the boundary.
+RATE_LIMIT_RETRY_BUFFER_SEC="${RATE_LIMIT_RETRY_BUFFER_SEC:-30}"
 
 BASE="main"
 MODE="plain"
@@ -116,6 +120,33 @@ echo "  Output mode: $MODE"
 echo "  Config file: $CONFIG_FILE"
 echo
 
+# Strip ANSI and CR from one CLI run; used only for parsing this attempt's output.
+strip_ansi_cr() {
+  printf '%s\n' "$1" | sed -E 's/\x1B\[[0-9;?]*[[:alpha:]]//g' | tr -d '\r'
+}
+
+# Text from the last line containing "rate limit exceeded" through EOF (latest evidence only).
+tail_from_last_rate_limit_line() {
+  local text="$1"
+  local line
+  local -a lines
+  local i start=-1
+
+  mapfile -t lines <<< "$(printf '%s\n' "$text")"
+  for ((i = 0; i < ${#lines[@]}; i++)); do
+    if grep -qi "rate limit exceeded" <<< "${lines[$i]}"; then
+      start=$i
+    fi
+  done
+  if [[ $start -lt 0 ]]; then
+    return 1
+  fi
+  for ((i = start; i < ${#lines[@]}; i++)); do
+    printf '%s\n' "${lines[$i]}"
+  done
+}
+
+# Parse hours/minutes/seconds from a single rate-limit snippet (one CLI message block).
 extract_rate_limit_seconds() {
   local text="$1"
   local lower hours minutes seconds total
@@ -153,18 +184,32 @@ while true; do
     break
   fi
 
-  REVIEW_OUTPUT_CLEAN="$(printf '%s\n' "$REVIEW_OUTPUT" | sed -E 's/\x1B\[[0-9;?]*[[:alpha:]]//g' | tr -d '\r')"
+  REVIEW_OUTPUT_CLEAN="$(strip_ansi_cr "$REVIEW_OUTPUT")"
   if grep -qi "rate limit exceeded" <<< "$REVIEW_OUTPUT_CLEAN"; then
     if [[ $RETRY_ON_RATE_LIMIT -eq 1 && $attempt -lt $max_attempts ]]; then
-      wait_seconds="$(extract_rate_limit_seconds "$REVIEW_OUTPUT_CLEAN")"
-      if [[ "$wait_seconds" =~ ^[0-9]+$ ]] && [[ "$wait_seconds" -gt 0 ]]; then
-        echo "Rate limit detected. Sleeping ${wait_seconds}s before one automatic retry..."
-        sleep "$wait_seconds"
-        attempt=$((attempt + 1))
-        continue
+      LATEST_RL_BLOCK=""
+      if LATEST_RL_BLOCK="$(tail_from_last_rate_limit_line "$REVIEW_OUTPUT_CLEAN")"; then
+        wait_seconds="$(extract_rate_limit_seconds "$LATEST_RL_BLOCK")"
+        if [[ "$wait_seconds" =~ ^[0-9]+$ ]] && [[ "$wait_seconds" -gt 0 ]]; then
+          total_sleep=$((wait_seconds + RATE_LIMIT_RETRY_BUFFER_SEC))
+          echo "" >&2
+          echo "Rate limit detected on attempt ${attempt}/${max_attempts} (using latest rate-limit line from this CLI run only; ignoring earlier text)." >&2
+          echo "Parsed cooldown: ${wait_seconds}s; safety buffer: ${RATE_LIMIT_RETRY_BUFFER_SEC}s; sleeping ${total_sleep}s before one automatic retry..." >&2
+          sleep "$total_sleep"
+          echo "Retrying CodeRabbit local review (attempt $((attempt + 1))/${max_attempts})..." >&2
+          attempt=$((attempt + 1))
+          continue
+        fi
+      fi
+      echo "ERROR: CodeRabbit CLI reported rate limit but cooldown could not be parsed from the latest rate-limit line in this CLI run. Re-run after cooldown or check CLI output." >&2
+      exit 2
+    else
+      if [[ $RETRY_ON_RATE_LIMIT -eq 1 && $attempt -eq $max_attempts ]]; then
+        echo "ERROR: CodeRabbit CLI is rate limited again after automatic retry (second consecutive). Wait for the reported cooldown and rerun manually." >&2
+      else
+        echo "ERROR: CodeRabbit CLI is rate limited. Pass --retry-on-rate-limit for one automatic cooldown wait, or wait and rerun manually." >&2
       fi
     fi
-    echo "ERROR: CodeRabbit CLI is rate limited. Wait for the reported cooldown and retry before PR creation." >&2
   else
     echo "ERROR: CodeRabbit local review failed. Resolve the CLI error and rerun before PR creation." >&2
   fi

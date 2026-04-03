@@ -40,12 +40,15 @@ bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
 - This is a **required pre-PR gate** for this repository; it does **not**
   replace PR-based CodeRabbit review or merge consensus.
 - The script standardizes installation/authentication checks and executes
-  the CLI review against the repository's `.coderabbit.yaml`. If the
-  script hits a CodeRabbit rate limit and the cooldown is included in the
-  CLI output, sleep for that reported duration and retry the same command
-  automatically once before treating the gate as failed.
+  the CLI review against the repository's `.coderabbit.yaml`. On a rate
+  limit, it parses the cooldown **only from the latest rate-limit line in
+  that CLI run** (so earlier log text does not affect the wait), adds a
+  small **safety buffer** (default 30s; override with
+  `RATE_LIMIT_RETRY_BUFFER_SEC`), then retries the review **once**
+  automatically. If the cooldown cannot be parsed from that line, or a
+  second consecutive rate limit occurs, treat the gate as failed.
 - If the script cannot run (CLI missing, auth missing, second consecutive
-  rate limit, execution error), treat that as **Blocking** and do not
+  rate limit after retry, execution error), treat that as **Blocking** and do not
   proceed to `pr-create`.
 - Review findings are evaluated in `change-inspect` using existing
   **Blocking / Non-blocking** severity guidance; do not auto-dismiss them

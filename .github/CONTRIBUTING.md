@@ -64,17 +64,19 @@ CodeRabbit gate from the repo root:
 
 ```bash
 bash .reinguard/scripts/check-local-review.sh --base main
-# agents / automation (rate-limit cooldown + one retry):
+# agents / automation (latest cooldown parse + buffer + one retry):
 bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
 ```
 
 - This repository treats the local CodeRabbit CLI pass as a **required pre-PR gate**.
 - The script checks installation and authentication (`cr auth login`) before
   invoking `coderabbit review -c .coderabbit.yaml`.
-- For autonomous workflows, `--retry-on-rate-limit` sleeps for the cooldown
-  reported by the CLI and retries the same review command once.
-- Execution failures (CLI missing, auth missing, second consecutive rate limit,
-  command error) block PR creation.
+- With `--retry-on-rate-limit`, on rate limit the script parses the cooldown from
+  the **latest** rate-limit line in that CLI run (ignoring earlier unrelated text),
+  adds a **safety buffer** (default 30s; set `RATE_LIMIT_RETRY_BUFFER_SEC`), then
+  retries the review **once**.
+- Execution failures (CLI missing, auth missing, unparsed cooldown, second
+  consecutive rate limit after retry, command error) block PR creation.
 - Review findings are triaged during `change-inspect`; the local CLI does
   **not** replace the PR bot review from `.coderabbit.yaml`.
 - For automation, the script also supports `--mode agent`; the default remains

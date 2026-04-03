@@ -43,7 +43,7 @@ escalate_when: gate-policy or branch protection cannot be satisfied without main
    bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
    ```
 
-   If the CLI reports a rate limit with a cooldown, sleep for that reported duration and retry the same command automatically once. Treat installation/authentication/execution failures, or a second consecutive rate limit, as blocking before PR creation.
+   On rate limit, the script parses the cooldown from the **latest** rate-limit line in that CLI run, applies a **safety buffer**, and retries **once**. Treat installation/authentication/execution failures, unparsed cooldown, or a second consecutive rate limit, as blocking before PR creation.
 3. Push: `git push -u origin HEAD` (after **HS-LOCAL-VERIFY**).
 4. **Pre-flight PR policy** (before `gh pr create`): fill the template into a file, then run from repo root:
 
