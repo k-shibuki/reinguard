@@ -20,7 +20,13 @@ load_label_names() {
   local query="$2"
   local out_name="$3"
   local -n out="$out_name"
-  mapfile -t out < <(yq -r "$query" "$labels_yaml")
+  local data
+  data="$(yq -r "$query" "$labels_yaml")" || fail_with "failed to load labels from $labels_yaml" 1
+  if [[ -z "$data" || "$data" == "null" ]]; then
+    out=()
+    return 0
+  fi
+  mapfile -t out <<< "$data"
 }
 
 join_with_pipe() {

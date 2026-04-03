@@ -8,13 +8,10 @@ import (
 	"testing"
 )
 
-func TestCheckLocalReviewScript_RetryUsesLatestRateLimitLine(t *testing.T) {
-	t.Parallel()
+func setupLocalReviewRepo(t *testing.T) string {
+	t.Helper()
 
-	script := scriptPath(t, "check-local-review.sh")
 	repo := t.TempDir()
-
-	// Given: a temporary git repo with stubbed CodeRabbit CLI and sleep commands.
 	cmd := exec.Command("git", "init", "-q")
 	cmd.Dir = repo
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -23,6 +20,15 @@ func TestCheckLocalReviewScript_RetryUsesLatestRateLimitLine(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(repo, ".coderabbit.yaml"), []byte("reviews:\n  auto_review:\n    enabled: true\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	return repo
+}
+
+func TestCheckLocalReviewScript_RetryUsesLatestRateLimitLine(t *testing.T) {
+	t.Parallel()
+
+	script := scriptPath(t, "check-local-review.sh")
+	// Given: a temporary git repo with stubbed CodeRabbit CLI and sleep commands.
+	repo := setupLocalReviewRepo(t)
 
 	stubDir := t.TempDir()
 	logFile := filepath.Join(stubDir, "coderabbit.log")
@@ -109,17 +115,8 @@ func TestCheckLocalReviewScript_UnparseableLatestRateLimitFailsClosed(t *testing
 	t.Parallel()
 
 	script := scriptPath(t, "check-local-review.sh")
-	repo := t.TempDir()
-
 	// Given: a temporary git repo with a stubbed CodeRabbit CLI that emits an unparseable rate-limit line.
-	cmd := exec.Command("git", "init", "-q")
-	cmd.Dir = repo
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("git init: %v\n%s", err, out)
-	}
-	if err := os.WriteFile(filepath.Join(repo, ".coderabbit.yaml"), []byte("reviews:\n  auto_review:\n    enabled: true\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	repo := setupLocalReviewRepo(t)
 
 	stubDir := t.TempDir()
 	writeExecutable(t, stubDir, "coderabbit", `#!/usr/bin/env bash

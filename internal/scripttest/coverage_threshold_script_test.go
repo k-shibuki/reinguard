@@ -32,20 +32,33 @@ func TestCheckCoverageThresholdScript(t *testing.T) {
 		goFile := writeTempFile(t, dir, "sample-*.go", "package sample\n\nfunc Covered() {}\nfunc Uncovered() {}\n")
 		profile := writeTempFile(t, dir, "coverage-*.out", "mode: set\n"+goFile+":3.1,3.17 1 1\n"+goFile+":4.1,4.19 1 0\n")
 
-		out, err := runBashScript(t, root, script, nil, "40", profile)
-		if err != nil {
-			t.Fatalf("expected success at 40%% threshold: %v\n%s", err, out)
-		}
-		if !strings.Contains(out, "total coverage:") {
-			t.Fatalf("expected coverage summary, got:\n%s", out)
+		cases := []struct {
+			name      string
+			threshold string
+			wantOut   string
+			wantErr   bool
+		}{
+			{name: "passesAt40", threshold: "40", wantOut: "total coverage:"},
+			{name: "failsAt60", threshold: "60", wantErr: true, wantOut: "below required 60.0%"},
 		}
 
-		out, err = runBashScript(t, root, script, nil, "60", profile)
-		if err == nil {
-			t.Fatalf("expected threshold failure, got success:\n%s", out)
-		}
-		if !strings.Contains(out, "below required 60.0%") {
-			t.Fatalf("expected threshold failure message, got:\n%s", out)
+		for _, tc := range cases {
+			tc := tc
+			t.Run(tc.name, func(t *testing.T) {
+				t.Parallel()
+
+				out, err := runBashScript(t, root, script, nil, tc.threshold, profile)
+				if tc.wantErr {
+					if err == nil {
+						t.Fatalf("expected error, got success:\n%s", out)
+					}
+				} else if err != nil {
+					t.Fatalf("unexpected error: %v\n%s", err, out)
+				}
+				if !strings.Contains(out, tc.wantOut) {
+					t.Fatalf("expected output containing %q, got:\n%s", tc.wantOut, out)
+				}
+			})
 		}
 	})
 }

@@ -90,13 +90,17 @@ If the branch is updated while CodeRabbit is reviewing, CR may post
 - Exit early as soon as the required bot becomes terminal, actionable
   review threads appear, or the state changes to a different FSM route
   such as `review-address`.
-- When the Adapter supports delegation, prefer a delegated wait owner over
-  an inline main-agent sleep loop. Inline polling is a fallback for
-  environments that do not support delegation.
+- When the Adapter (the execution environment that runs these procedures)
+  supports delegation, prefer a delegated wait owner over an inline
+  main-agent sleep loop. Inline polling is a fallback for environments
+  that do not support delegation.
 - The repository-local CodeRabbit CLI gate
   (`bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit`)
   is **not** a polling workflow. It is one blocking command with built-in
   rate-limit retry, and should remain separate from PR-side review waits.
+- In short: use the local CLI gate before `pr-create`, and use this
+  polling model only after a PR exists and the FSM routes to
+  `wait-bot-review`.
 
 ## Rate-Limit Recovery
 

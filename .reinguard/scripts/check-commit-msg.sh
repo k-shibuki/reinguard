@@ -25,6 +25,9 @@ LABELS_FILE="$(require_labels_yaml "$SCRIPT_DIR")"
 require_command "yq" "yq is required for commit-msg validation. See CONTRIBUTING.md." 1
 
 load_label_names "$LABELS_FILE" '[.categories[].labels[] | select(.commit_prefix == true)] | .[].name' COMMIT_TYPES
+if [[ ${#COMMIT_TYPES[@]} -eq 0 ]]; then
+  fail_with "No commit types found in $LABELS_FILE (commit_prefix: true labels missing)." 1
+fi
 TYPES="$(join_with_pipe "${COMMIT_TYPES[@]}")"
 PATTERN="^($TYPES)(\(.+\))?!?: .+"
 

@@ -31,10 +31,11 @@ escalate_when: gate-policy or branch protection cannot be satisfied without main
 
 **Already in context** (always-active Adapter rule): HS-* codes, catalogs, workflow & commit policy.
 
-**Pre-requisite:** `change-inspect` completed with all material findings in
-gate-clearing dispositions and the required local CodeRabbit CLI review
-completed. This local CLI gate is a **pre-PR** check and is separate from
-the PR bot review that runs after PR creation.
+**Normal starting point:** enter this procedure immediately after a clean
+`change-inspect`. If that inspection evidence is missing or predates the
+latest commit on the branch, refresh it in step 2 before continuing. This
+local CLI gate is a **pre-PR** check and is separate from the PR bot
+review that runs after PR creation.
 
 **Pre-flight:** on feature branch, `git status` clean; push latest commits.
 
@@ -46,7 +47,9 @@ the PR bot review that runs after PR creation.
    `review--classification-map.md`; required local CodeRabbit CLI review
    completed; commit structure clean (or already restructured per
    **Commit organization** in [`.reinguard/procedure/implement.md`](implement.md)).
-2. If `change-inspect` evidence is missing or stale, run the required local gate from the repo root:
+2. If `change-inspect` evidence is missing or was produced before the
+   latest commit on the feature branch, re-run the required local gate
+   from the repo root:
 
    ```bash
    bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit

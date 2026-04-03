@@ -14,6 +14,9 @@ source "$SCRIPT_DIR/lib/common.sh"
 
 # Seconds added after the CLI-reported cooldown so the retry does not land on the boundary.
 RATE_LIMIT_RETRY_BUFFER_SEC="${RATE_LIMIT_RETRY_BUFFER_SEC:-30}"
+if ! [[ "$RATE_LIMIT_RETRY_BUFFER_SEC" =~ ^[0-9]+$ ]]; then
+  fail_with "RATE_LIMIT_RETRY_BUFFER_SEC must be a non-negative integer. Got: $RATE_LIMIT_RETRY_BUFFER_SEC" 2
+fi
 
 BASE="main"
 MODE="plain"

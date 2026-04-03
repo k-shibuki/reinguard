@@ -41,9 +41,4 @@ func TestSyncIssueTemplatesScript_UpdatesTaskDropdown(t *testing.T) {
 	if !reflect.DeepEqual(gotOptions, wantOptions) {
 		t.Fatalf("synced options = %v, want %v", gotOptions, wantOptions)
 	}
-	for _, option := range gotOptions {
-		if option == "old" {
-			t.Fatalf("expected old option to be replaced, got %v", gotOptions)
-		}
-	}
 }

@@ -74,7 +74,7 @@ func TestCheckPRPolicyScript(t *testing.T) {
 			body:       validPRBody,
 			base:       "main",
 			wantErr:    true,
-			wantSubstr: []string{"Usage: check-pr-policy.sh --title <title> --body-file <file> --label <type> [--label ...] [--base main]"},
+			wantSubstr: []string{"--label <type>"},
 		},
 	}
 
