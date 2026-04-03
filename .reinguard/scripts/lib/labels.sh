@@ -42,5 +42,8 @@ load_label_names() {
 }
 
 join_with_pipe() {
+  if [[ $# -eq 0 ]]; then
+    return 0
+  fi
   printf '%s\n' "$@" | paste -sd '|' -
 }

@@ -34,7 +34,9 @@ Open `.reinguard/knowledge/review--bot-operations.md` for **CodeRabbit** and **C
 
 This procedure governs **PR-side bot waiting** after PR creation. It does
 not replace the repository-local CodeRabbit CLI gate; that local gate
-remains a single blocking command in `change-inspect.md` / `pr-create.md`.
+remains a single blocking command in
+`.reinguard/procedure/change-inspect.md` /
+`.reinguard/procedure/pr-create.md`.
 
 If **open review threads** or formal **changes requested** also apply, run `.reinguard/procedure/review-address.md` **in parallel or first** — the workflow FSM prefers human-actionable review states over bot-wait states when both are true.
 
@@ -61,9 +63,9 @@ Use `knowledge.entries` (typically includes `review--bot-operations.md`, `review
 2. Apply the **row** for your `state_id` above; use **only** PR conversation / documented triggers — do not rely on thread replies for Codex rerun.
 3. For `waiting_bot_run`, poll every **30 seconds** for up to **15 minutes**. Stop immediately if the required bot becomes terminal, actionable review work appears, or the FSM should hand off to another procedure.
 4. For `waiting_bot_rate_limited`, follow the parsed cool-down and the one-retry recovery path from `review--bot-operations.md` instead of the generic 30-second cadence during the cool-down window.
-5. When the Adapter supports delegation, prefer a delegated wait owner for this polling loop instead of keeping the main agent in an inline sleep cycle.
+5. For the polling waits above, when the Adapter (the execution environment, such as Cursor) supports delegation, prefer a delegated wait owner instead of keeping the main agent in an inline sleep cycle.
 6. For a single active unit, prefer foreground-first delegated wait ownership so the delegated worker blocks until review state changes.
-7. Use the Adapter's configured bot-review wait template or policy when available. Use inline polling only as a fallback when delegation is unavailable.
+7. Use the Adapter's configured bot-review wait template or wrapper when available; otherwise use the inline polling behavior described in steps 3-4.
 8. When bots are terminal and review threads still exist, switch to `review-address.md`.
 
 ## Output

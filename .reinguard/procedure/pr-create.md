@@ -41,7 +41,8 @@ review that runs after PR creation.
 
 ## Act
 
-1. Confirm `change-inspect` output: every material finding is
+1. Confirm `change-inspect` output: every material finding requiring a
+   disposition is
    dispositioned **Fixed**, **By design**, **False positive**, or
    exceptionally **Acknowledged** per
    `review--disposition-categories.md`; required local CodeRabbit CLI review
@@ -57,9 +58,9 @@ review that runs after PR creation.
 
    On rate limit, the script parses the cooldown from the **latest**
    rate-limit line in that CLI run, applies a **safety buffer**, and
-   retries **once**. Treat installation/authentication/execution failures,
-   unparsed cooldown, or a second consecutive rate limit, as a failed gate
-   before PR creation.
+   retries **once**. If the script still exits after retry exhaustion,
+   installation/authentication/execution failure, or an unparsed
+   cooldown, treat that result as a failed gate before PR creation.
 3. Push: `git push -u origin HEAD` (after **HS-LOCAL-VERIFY**).
 4. **Pre-flight PR policy** (before `gh pr create`): fill the template into a file, then run from repo root:
 

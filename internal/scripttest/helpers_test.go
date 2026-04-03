@@ -23,6 +23,8 @@ func scriptPath(t *testing.T, script string) string {
 	return filepath.Join(repoRoot(t), ".reinguard", "scripts", script)
 }
 
+// mustMikefarahYq ensures mikefarah/yq is available for the test.
+// Callers must not use t.Parallel because this helper may call t.Setenv.
 func mustMikefarahYq(t *testing.T, root string) {
 	t.Helper()
 	binDir := filepath.Join(root, ".reinguard", "scripts", ".bin")

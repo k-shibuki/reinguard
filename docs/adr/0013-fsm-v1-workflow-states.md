@@ -42,12 +42,14 @@ wins** among matching rules (ADR-0004). `state_id` values:
   - `completed` — bot finished review; review findings may or may not have been reported.
   - `completed_clean` — all of the following are true:
     1. The bot finished review.
-    2. The bot emitted an explicit clean marker recognized by the observation/provider implementation for that bot.
-    3. A corresponding GitHub review entry for the same bot is observable.
+    2. The bot emitted an explicit clean marker recognized by the observation/provider implementation for that bot (see `docs/cli.md` signal notes for the current enrichment contract).
+    3. A corresponding GitHub review entry for the same bot login is observable.
   - Timing rule: if the clean marker is observed before the matching
-    GitHub review entry becomes observable, classify as `completed` on
-    that observation pass and upgrade to `completed_clean` on a later
-    pass once the review entry is visible.
+    GitHub review entry appears in the observation pass, classify as
+    `completed` on that pass and upgrade to `completed_clean` on a later
+    observation pass once both are visible. If the GitHub review entry
+    appears first, remain `completed` until the clean marker is also
+    observed.
 - **Failed:** `rate_limited`, `review_paused`, `review_failed`
 - **In progress:** `pending`, `not_triggered`
 
@@ -124,6 +126,8 @@ issue-first (Phase 3B content); not part of the FSM.
 - **Harder**: Observation providers and tests must cover the timing gap where a
   clean marker appears before the matching GitHub review entry, because
   `completed` may need to upgrade to `completed_clean` on a later pass.
+  Required timing scenarios are marker-first, review-first, same-pass,
+  and marker-without-review-entry.
 - **Harder**: Observation gaps mean broader states (e.g. `working_no_pr` when PR
   facet is missing) — agents must not over-interpret.
 

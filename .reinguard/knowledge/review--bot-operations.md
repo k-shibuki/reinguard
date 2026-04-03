@@ -85,15 +85,15 @@ If the branch is updated while CodeRabbit is reviewing, CR may post
 ### Polling model
 
 - Use this polling model for **PR-side bot review waits** only
-  (`wait-bot-review.md` after PR creation).
+  (`.reinguard/procedure/wait-bot-review.md` after PR creation).
 - Poll every **30 seconds** for up to **15 minutes**.
 - Exit early as soon as the required bot becomes terminal, actionable
   review threads appear, or the state changes to a different FSM route
   such as `review-address`.
-- When the Adapter (the execution environment that runs these procedures)
-  supports delegation, prefer a delegated wait owner over an inline
-  main-agent sleep loop. Inline polling is a fallback for environments
-  that do not support delegation.
+- When the Adapter (the execution environment that runs these procedures,
+  such as Cursor) supports delegation, prefer a delegated wait owner over
+  an inline main-agent sleep loop. Inline polling is a fallback for
+  environments that do not support delegation.
 - The repository-local CodeRabbit CLI gate
   (`bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit`)
   is **not** a polling workflow. It is one blocking command with built-in
