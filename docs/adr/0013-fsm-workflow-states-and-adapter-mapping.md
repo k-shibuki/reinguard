@@ -1,4 +1,4 @@
-# ADR-0013: FSM v1 workflow states and Adapter mapping
+# ADR-0013: FSM workflow states and Adapter mapping
 
 ## Status
 
@@ -7,7 +7,7 @@ Accepted (design note; amend when observation or Adapter contracts change).
 ## Context
 
 reinguard needs a **single priority space** (ADR-0004) for declarative workflow
-position from GitHub + git observation, without copying an external tool’s state
+position from GitHub + git observation, without copying an external tool's state
 inventory. Cursor commands are **derived** from this FSM as thin Adapter bridges
 (ADR-0001, Epic #59).
 
@@ -18,7 +18,7 @@ hard-coded to a single vendor).
 
 ## Decision
 
-### 1. State catalog (v2)
+### 1. State catalog
 
 States live in `.reinguard/control/states/*.yaml`. **Lower numeric `priority`
 wins** among matching rules (ADR-0004). `state_id` values:
@@ -26,21 +26,21 @@ wins** among matching rules (ADR-0004). `state_id` values:
 | state_id | Intent | Notes |
 |----------|--------|--------|
 | `unresolved_threads` | Actionable review threads remain open | `github.reviews.review_threads_unresolved` > 0 (GraphQL `reviewThreads` with `isResolved` false). **Stronger than** bot-wait states when both match so agents fix threads instead of waiting on bots. |
-| `changes_requested` | Formal GitHub “Request changes” on the PR | `github.reviews.review_decisions_changes_requested` > 0 (`latestReviews` with state `CHANGES_REQUESTED`). **Not** the same as open review threads; a bot may leave threads without a CHANGES_REQUESTED review. |
+| `changes_requested` | Formal GitHub "Request changes" on the PR | `github.reviews.review_decisions_changes_requested` > 0 (`latestReviews` with state `CHANGES_REQUESTED`). **Not** the same as open review threads; a bot may leave threads without a CHANGES_REQUESTED review. |
 | `waiting_bot_rate_limited` | Required bot `status` is `rate_limited` | `op: any` on `github.reviews.bot_reviewer_status` with `$.required` and `$.status` |
 | `waiting_bot_paused` | Required bot `status` is `review_paused` | Same pattern |
 | `waiting_bot_failed` | Any required bot in failed tier (aggregate) | `github.reviews.bot_review_diagnostics.bot_review_failed` |
 | `waiting_bot_run` | Waiting on required bot outcome | `bot_review_diagnostics.bot_review_pending` and PR exists |
 | `merge_ready` | Coarse merge gate (clean tree, CI, threads, decisions) | Aligns with `merge-readiness` guard signals |
-| `waiting_ci` | PR open; no thread/decision work; CI or mergeability not satisfied | Threads 0, changes 0, working tree clean; `ci_status` ≠ `success` **or** `merge_state_status` ≠ `clean` |
+| `waiting_ci` | PR open; no thread/decision work; CI or mergeability not satisfied | Threads 0, changes 0, working tree clean; `ci_status` != `success` **or** `merge_state_status` != `clean` |
 | `pr_open` | PR exists; residual (e.g. dirty working tree) | `github.pull_requests.pr_exists_for_branch` true |
 | `working_no_pr` | No PR for branch (or PR facet absent) | `pr_exists_for_branch` false or path missing |
 
 **Bot status tiers** (per-element `status` in `bot_reviewer_status`):
 
 - **Reviewed (success path):**
-  - `completed` — bot finished review; review findings may or may not have been reported.
-  - `completed_clean` — all of the following are true:
+  - `completed` - bot finished review; review findings may or may not have been reported.
+  - `completed_clean` - all of the following are true:
     1. The bot finished review.
     2. The bot emitted an explicit clean marker recognized by the observation/provider implementation for that bot (see `docs/cli.md` signal notes for the current enrichment contract).
     3. A corresponding GitHub review entry for the same bot login is observable.
@@ -62,7 +62,7 @@ affect aggregates.
 Consensus-style conditions (approved + no changes + threads resolved) are
 **expressed as rules**, not a single derived observation key (see issue #72).
 
-### 2. Routes (v2)
+### 2. Routes
 
 Routes in `.reinguard/control/routes/*.yaml` key off flattened `state.state_id`
 after state resolution (same mechanism as `rgd route select` with merged state).
@@ -81,7 +81,7 @@ after state resolution (same mechanism as `rgd route select` with merged state).
 
 `user-*` names are **Adapter-agnostic** (not tied to a specific IDE). A given Adapter maps `rgd` output to local commands.
 
-`pr-create` (after local work) still applies when `state_id` is `working_no_pr`; there is no separate `route_id` for it in v1.
+`pr-create` (after local work) still applies when `state_id` is `working_no_pr`; there is no separate `route_id` for it in this FSM.
 
 Multiple routes may match one state; **lowest route `priority` wins** for the
 primary `route_id` in `rgd route select` output. Alternatives appear in
@@ -109,12 +109,12 @@ primary `route_id` in `rgd route select` output. Alternatives appear in
 Self-inspection before PR creation: `.reinguard/procedure/change-inspect.md`.
 Post-review learning: `.reinguard/procedure/internalize.md`.
 
-**Cursor entries:** `.cursor/commands/rgd-next.md` — run/read `rgd context build`,
-Route (`state_id` → procedure) per § 4 above; no per-procedure Adapter stubs.
+**Cursor entries:** `.cursor/commands/rgd-next.md` - run/read `rgd context build`,
+Route (`state_id` -> procedure) per section 4 above; no per-procedure Adapter stubs.
 Orchestration (mandatory after Sense and Route: single full-path **Propose**, one approval, then **Execute** to DoD):
-`.reinguard/procedure/next-orchestration.md` — contract referenced from `rgd-next.md` § Propose and § Execute;
+`.reinguard/procedure/next-orchestration.md` - contract referenced from `rgd-next.md` section Propose and section Execute;
 not state-mapped.
-`.cursor/commands/cursor-plan.md` — Plan-mode-style interrogation (`AskQuestion` /
+`.cursor/commands/cursor-plan.md` - Plan-mode-style interrogation (`AskQuestion` /
 `CreatePlan` only); GitHub Issue creation is expressed inside the plan when
 issue-first (Phase 3B content); not part of the FSM.
 
@@ -129,7 +129,7 @@ issue-first (Phase 3B content); not part of the FSM.
   Required timing scenarios are marker-first, review-first, same-pass,
   and marker-without-review-entry.
 - **Harder**: Observation gaps mean broader states (e.g. `working_no_pr` when PR
-  facet is missing) — agents must not over-interpret.
+  facet is missing) - agents must not over-interpret.
 
 ## Refs
 

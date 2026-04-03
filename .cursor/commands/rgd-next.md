@@ -21,7 +21,7 @@ Single Cursor entry for workflow procedures: use **substrate** output to pick Se
 
 ## Route
 
-**Normative mapping:** [ADR-0013 § 4](../../docs/adr/0013-fsm-v1-workflow-states.md) (*Adapter mapping (durable)*). Use ADR-0013 and `.reinguard/control/` as SSOT for state and route semantics.
+**Normative mapping:** [ADR-0013 § 4](../../docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md) (*Adapter mapping (durable)*). Use ADR-0013 and `.reinguard/control/` as SSOT for state and route semantics.
 
 The table below is a **Cursor-facing heuristic** (when `state.kind` is `resolved`) with the same procedure targets as ADR-0013 § 4:
 
@@ -46,7 +46,7 @@ When `state.kind` is not `resolved`, follow ADR-0007 handoff: gather observation
 
 After **Sense** and **Route**, present the full-path proposal **exactly once** per run, then wait for approval. There is no alternate mode (no proposal-only run and no stopping after a minimal state dump).
 
-1. Trace forward from the current `state_id` using [ADR-0013 § 4](../../docs/adr/0013-fsm-v1-workflow-states.md) through **Per-unit Definition of Done** in [`.reinguard/procedure/next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md).
+1. Trace forward from the current `state_id` using [ADR-0013 § 4](../../docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md) through **Per-unit Definition of Done** in [`.reinguard/procedure/next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md).
 2. Follow **`next-orchestration.md` § Full-path proposal format** in full: current position, ordered remainder, gaps, completion condition.
 3. Obtain **single explicit user approval** per **`next-orchestration.md` § Approval gate** (unit identity, ordered remainder, completion condition). **No per-procedure re-approval** after this gate.
 
@@ -62,6 +62,6 @@ Loop (summary): **Sense** (`rgd context build`) → **Route** (ADR-0013 § 4; sa
 
 ## Guard
 
-- FSM and priorities: [`docs/adr/0013-fsm-v1-workflow-states.md`](../../docs/adr/0013-fsm-v1-workflow-states.md)
+- FSM and priorities: [`docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md`](../../docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md)
 - Adapter vs Semantics: [`docs/adr/0001-system-positioning.md`](../../docs/adr/0001-system-positioning.md)
 - Verification / preflight SSOT: [`.reinguard/policy/coding--preflight.md`](../../.reinguard/policy/coding--preflight.md) (local gates before push; aligns with procedure **Reads** such as `change-inspect` / `implement`)

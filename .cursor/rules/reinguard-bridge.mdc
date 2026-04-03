@@ -88,5 +88,5 @@ Run `rgd knowledge index` and commit `manifest.json`; then `rgd config validate`
 - ADR-0001: `docs/adr/0001-system-positioning.md` (Adapter / Semantics / Substrate)
 - ADR-0010: `docs/adr/0010-knowledge-management.md`
 - ADR-0011: `docs/adr/0011-semantic-control-plane-structure.md`
-- ADR-0013: `docs/adr/0013-fsm-v1-workflow-states.md` (FSM states, routes, Adapter mapping)
+- ADR-0013: `docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md` (FSM states, routes, Adapter mapping)
 - CLI: `docs/cli.md`

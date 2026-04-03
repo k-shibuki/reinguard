@@ -73,4 +73,4 @@ Control plane states live under `.reinguard/control/states/workflow.yaml`. Human
 - `.reinguard/policy/review--consensus-protocol.md` — normative disposition and resolve rules
 - `.reinguard/knowledge/review--bot-operations.md` — CodeRabbit / Codex mechanics
 - `.reinguard/knowledge/review--github-thread-api.md` — REST vs GraphQL for `isResolved`
-- `docs/adr/0013-fsm-v1-workflow-states.md` — state catalog and Adapter mapping
+- `docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md` — state catalog and Adapter mapping

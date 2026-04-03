@@ -2,7 +2,7 @@
 
 Configuration for AI reviewers (e.g. CodeRabbit) and agents using this repository.
 
-- **Semantics (SSOT)**: `.reinguard/` — policy index: [`.reinguard/policy/catalog.yaml`](.reinguard/policy/catalog.yaml); knowledge index: [`.reinguard/knowledge/manifest.json`](.reinguard/knowledge/manifest.json); agent procedures: [`.reinguard/procedure/`](.reinguard/procedure/) (Cursor: [`.cursor/commands/rgd-next.md`](.cursor/commands/rgd-next.md) for FSM workflow; [`.cursor/commands/cursor-plan.md`](.cursor/commands/cursor-plan.md) for deep planning (`CreatePlan` only; Issue steps embedded when needed); FSM: [ADR-0013](docs/adr/0013-fsm-v1-workflow-states.md)).
+- **Semantics (SSOT)**: `.reinguard/` — policy index: [`.reinguard/policy/catalog.yaml`](.reinguard/policy/catalog.yaml); knowledge index: [`.reinguard/knowledge/manifest.json`](.reinguard/knowledge/manifest.json); agent procedures: [`.reinguard/procedure/`](.reinguard/procedure/) (Cursor: [`.cursor/commands/rgd-next.md`](.cursor/commands/rgd-next.md) for FSM workflow; [`.cursor/commands/cursor-plan.md`](.cursor/commands/cursor-plan.md) for deep planning (`CreatePlan` only; Issue steps embedded when needed); FSM: [ADR-0013](docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md)).
 - **Adapter (Cursor)**: single always-active rule `.cursor/rules/reinguard-bridge.mdc` + commands in `.cursor/commands/`; see [ADR-0001](docs/adr/0001-system-positioning.md).
 
 ## Project context
