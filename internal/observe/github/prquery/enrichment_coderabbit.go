@@ -71,6 +71,7 @@ func parseCoderabbitReviewStatusMarkers(body string) map[string]any {
 	if reCRWalkthrough.MatchString(body) {
 		out["cr_walkthrough_present"] = true
 	}
+	// "No issues found" is a terminal clean result; other status markers do not add value after this.
 	if reCRReviewClean.MatchString(body) {
 		out["cr_review_processing"] = false
 		out["cr_review_completed_clean"] = true

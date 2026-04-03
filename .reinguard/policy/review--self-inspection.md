@@ -65,7 +65,7 @@ patterns are present in changed code.
 ### 4. Local AI review gate
 
 Confirm the required local CodeRabbit CLI gate completed per
-`coding--preflight.md` and `change-inspect.md`, and that its findings were
+`coding--preflight.md` and `.reinguard/procedure/change-inspect.md`, and that its findings were
 handled coherently:
 
 - Review output confirms the latest local gate completed on the current

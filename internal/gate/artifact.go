@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	jsonschema "github.com/santhosh-tekuri/jsonschema/v6"
@@ -30,7 +31,14 @@ const (
 	StatusStale   = "stale"
 )
 
-var gateIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
+var (
+	gateIDPattern  = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+	headSHAPattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
+
+	gateSchemaOnce sync.Once
+	gateSchema     *jsonschema.Schema
+	gateSchemaErr  error
+)
 
 // Check is one recorded verification check in a gate artifact.
 type Check struct {
@@ -183,13 +191,14 @@ func LoadSignals(ctx context.Context, cfgDir, wd string) (map[string]any, error)
 }
 
 func buildArtifact(gateID, status string, checks []Check, branch, headSHA string, now time.Time) (Artifact, error) {
+	status = strings.TrimSpace(status)
 	if err := validateArtifactStatus(status); err != nil {
 		return Artifact{}, err
 	}
 	if strings.TrimSpace(branch) == "" {
 		return Artifact{}, fmt.Errorf("gate: empty branch")
 	}
-	if !regexp.MustCompile(`^[0-9a-f]{40}$`).MatchString(headSHA) {
+	if !headSHAPattern.MatchString(headSHA) {
 		return Artifact{}, fmt.Errorf("gate: invalid head_sha %q", headSHA)
 	}
 	normalized := make([]Check, 0, len(checks))
@@ -300,15 +309,18 @@ func validateArtifactDoc(doc any, pathHint string) error {
 }
 
 func compileGateSchema() (*jsonschema.Schema, error) {
-	comp, err := schema.NewCompiler()
-	if err != nil {
-		return nil, fmt.Errorf("gate: new compiler: %w", err)
-	}
-	sch, err := comp.Compile(schema.URIGateArtifact)
-	if err != nil {
-		return nil, fmt.Errorf("gate: compile schema: %w", err)
-	}
-	return sch, nil
+	gateSchemaOnce.Do(func() {
+		comp, err := schema.NewCompiler()
+		if err != nil {
+			gateSchemaErr = fmt.Errorf("gate: new compiler: %w", err)
+			return
+		}
+		gateSchema, gateSchemaErr = comp.Compile(schema.URIGateArtifact)
+		if gateSchemaErr != nil {
+			gateSchemaErr = fmt.Errorf("gate: compile schema: %w", gateSchemaErr)
+		}
+	})
+	return gateSchema, gateSchemaErr
 }
 
 func deriveStatus(ctx context.Context, wd string, art Artifact) StatusResult {

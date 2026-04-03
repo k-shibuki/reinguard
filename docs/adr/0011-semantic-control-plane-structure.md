@@ -40,7 +40,9 @@ Without explicit structure:
      when a bounded runtime contract explicitly allows it (for example runtime
      gate artifacts; see ADR-0014). This directory is **not** Semantics
      content, is not indexed as knowledge, and is not part of control-rule
-     validation.
+     validation. Physical placement under `.reinguard/` is for repository-local
+     discovery only; semantic ownership remains Substrate/runtime, not
+     Semantics.
 
 2. **No `.reinguard/rules/`** — Replaced by `control/` subdirectories to
    avoid ambiguous naming.
@@ -56,6 +58,7 @@ Without explicit structure:
    - Must be followed as a norm → `policy/`
    - State / route / guard meaning in match YAML → `control/`
    - Repeatable agent procedure bound to state/route → `procedure/`
+   - Substrate operational state under bounded contract → `runtime/`
    - Client-specific bridge only (no SSOT prose) → Adapter layer (`.cursor/`)
 
 5. **Adapter layer** — `.cursor/` remains thin: bridge files and commands

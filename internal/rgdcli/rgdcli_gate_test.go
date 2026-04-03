@@ -133,6 +133,32 @@ func TestRunStateEval_mergesRuntimeGateSignals(t *testing.T) {
 	}
 }
 
+func TestRunGateRecord_badChecksFile(t *testing.T) {
+	t.Parallel()
+	// Given: a git repo and a malformed checks file
+	repo := initGitRepoForGateCLI(t)
+	cfgDir := t.TempDir()
+	writeFile(t, filepath.Join(repo, "checks.json"), []byte(`{`))
+
+	// When: gate record reads the malformed checks file
+	var buf bytes.Buffer
+	app := NewApp("t")
+	app.Writer = &buf
+	err := app.Run([]string{
+		"rgd", "gate", "record",
+		"--config-dir", cfgDir,
+		"--cwd", repo,
+		"--status", "pass",
+		"--checks-file", "checks.json",
+		"local-verification",
+	})
+
+	// Then: the JSON parse error is returned
+	if err == nil {
+		t.Fatal("expected error for malformed checks file")
+	}
+}
+
 func initGitRepoForGateCLI(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()

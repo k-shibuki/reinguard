@@ -147,7 +147,6 @@ func TestStatus_classifiesArtifacts(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			cfgDir := t.TempDir()
@@ -240,7 +239,7 @@ func currentHeadForTest(t *testing.T, dir string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return stringsTrimSpace(string(out))
+	return strings.TrimSpace(string(out))
 }
 
 func currentBranchForTest(t *testing.T, dir string) string {
@@ -249,7 +248,7 @@ func currentBranchForTest(t *testing.T, dir string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return stringsTrimSpace(string(out))
+	return strings.TrimSpace(string(out))
 }
 
 func writeArtifactForTest(t *testing.T, cfgDir string, art Artifact) {
@@ -278,8 +277,4 @@ func writeFile(t *testing.T, path string, data []byte) {
 
 func contains(s, want string) bool {
 	return strings.TrimSpace(s) != "" && strings.Contains(s, want)
-}
-
-func stringsTrimSpace(s string) string {
-	return strings.TrimSpace(s)
 }
