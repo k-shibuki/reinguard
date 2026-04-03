@@ -257,8 +257,27 @@ func writeArtifactFile(path string, art Artifact) error {
 		return fmt.Errorf("gate: marshal artifact: %w", err)
 	}
 	data = append(data, '\n')
-	if err := os.WriteFile(path, data, 0o644); err != nil {
-		return fmt.Errorf("gate: write %s: %w", path, err)
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, ".gate-artifact-*.json")
+	if err != nil {
+		return fmt.Errorf("gate: temp file: %w", err)
+	}
+	tmpPath := tmp.Name()
+	defer func() { _ = os.Remove(tmpPath) }()
+
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("gate: write temp: %w", err)
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("gate: sync temp: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("gate: close temp: %w", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		return fmt.Errorf("gate: atomic replace %s: %w", path, err)
 	}
 	return nil
 }

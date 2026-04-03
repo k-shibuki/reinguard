@@ -45,6 +45,37 @@ func TestRecordAndShow_roundTrip(t *testing.T) {
 	}
 }
 
+func TestRecord_rejectsDetachedHEAD(t *testing.T) {
+	t.Parallel()
+	repo := initGitRepo(t)
+	runGit(t, repo, "checkout", "--detach", "HEAD")
+	cfgDir := t.TempDir()
+	_, err := Record(context.Background(), cfgDir, repo, "local-verification", StatusPass, []Check{
+		{ID: "go-test", Status: StatusPass},
+	}, time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC))
+	if err == nil {
+		t.Fatal("expected error on detached HEAD")
+	}
+	if !strings.Contains(err.Error(), "detached HEAD") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRecord_rejectsInvalidArtifactStatus(t *testing.T) {
+	t.Parallel()
+	repo := initGitRepo(t)
+	cfgDir := t.TempDir()
+	_, err := Record(context.Background(), cfgDir, repo, "local-verification", "bogus", []Check{
+		{ID: "go-test", Status: StatusPass},
+	}, time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC))
+	if err == nil {
+		t.Fatal("expected error for invalid status")
+	}
+	if !strings.Contains(err.Error(), "status") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestStatus_classifiesArtifacts(t *testing.T) {
 	t.Parallel()
 	// Given/When/Then: gate status derives missing, invalid, stale, pass, and fail outcomes

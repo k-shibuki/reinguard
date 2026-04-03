@@ -11,6 +11,13 @@
 # --base defaults to main (must be main to match gate-policy CI).
 set -euo pipefail
 
+# labels.sh uses `local -n` (Bash 4.3+). Fail fast with guidance for macOS /bin/bash 3.2.
+if [ "${BASH_VERSINFO[0]:-0}" -lt 4 ] || { [ "${BASH_VERSINFO[0]:-0}" -eq 4 ] && [ "${BASH_VERSINFO[1]:-0}" -lt 3 ]; }; then
+  echo "check-pr-policy.sh requires Bash 4.3+ (uses local -n via labels.sh). Current: ${BASH_VERSION:-unknown}" >&2
+  echo "Install a newer bash (e.g. brew install bash) and run: bash $0 ..." >&2
+  exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
 source "$SCRIPT_DIR/lib/common.sh"
