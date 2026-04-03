@@ -20,7 +20,8 @@ when:
 # Bot Review Operations
 
 Operational reference for AI code reviewers (CodeRabbit and Codex).
-Covers trigger, detection, timing, rate limits, and re-review.
+Covers trigger, detection, timing, rate limits, re-review, and polling
+cadence for PR-side bot waits.
 
 For the consensus model (disposition, resolve, agreement), see
 `.reinguard/policy/review--consensus-protocol.md`.
@@ -79,7 +80,23 @@ If the branch is updated while CodeRabbit is reviewing, CR may post
 |---|---|---|
 | Typical completion | 2–7 min | 1–7 min |
 | Polling interval | 30 s | 30 s |
-| Timeout | 20 min | 20 min |
+| Polling window | 15 min | 15 min |
+
+### Polling model
+
+- Use this polling model for **PR-side bot review waits** only
+  (`wait-bot-review.md` after PR creation).
+- Poll every **30 seconds** for up to **15 minutes**.
+- Exit early as soon as the required bot becomes terminal, actionable
+  review threads appear, or the state changes to a different FSM route
+  such as `review-address`.
+- When the Adapter supports delegation, prefer a delegated wait owner over
+  an inline main-agent sleep loop. Inline polling is a fallback for
+  environments that do not support delegation.
+- The repository-local CodeRabbit CLI gate
+  (`bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit`)
+  is **not** a polling workflow. It is one blocking command with built-in
+  rate-limit retry, and should remain separate from PR-side review waits.
 
 ## Rate-Limit Recovery
 
