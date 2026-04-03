@@ -22,6 +22,9 @@ func TestComputeBotReviewDiagnostics_vacuousNoRequired(t *testing.T) {
 	if g, ok := got["bot_review_stale"].(bool); !ok || g {
 		t.Fatalf("stale should be false for vacuous: %+v", got)
 	}
+	if g, ok := got["duplicate_findings_detected"].(bool); !ok || g {
+		t.Fatalf("duplicate_findings_detected should be false for vacuous: %+v", got)
+	}
 }
 
 func TestComputeBotReviewDiagnostics_requiredPending(t *testing.T) {
@@ -93,6 +96,24 @@ func TestComputeBotReviewDiagnostics_optionalIgnoredForAggregate(t *testing.T) {
 	}, "abc123")
 	if got["bot_review_completed"].(bool) != true {
 		t.Fatalf("optional should not block: %+v", got)
+	}
+	if got["duplicate_findings_detected"].(bool) {
+		t.Fatalf("no duplicate signal: %+v", got)
+	}
+}
+
+func TestComputeBotReviewDiagnostics_duplicateFindingsOnOptionalBot(t *testing.T) {
+	t.Parallel()
+	// Given: optional bot with duplicate findings in review summary (observation still surfaces it).
+	got := ComputeBotReviewDiagnostics([]any{
+		map[string]any{"required": false, "status": BotStatusCompleted, "cr_duplicate_findings_count": 2},
+		map[string]any{"required": true, "status": BotStatusCompleted, "review_commit_sha": "abc123"},
+	}, "abc123")
+	if got["duplicate_findings_detected"].(bool) != true {
+		t.Fatalf("want duplicate_findings_detected=true, got %+v", got)
+	}
+	if got["bot_review_completed"].(bool) != true {
+		t.Fatalf("required bot still completed: %+v", got)
 	}
 }
 

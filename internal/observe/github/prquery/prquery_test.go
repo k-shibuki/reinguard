@@ -535,6 +535,72 @@ func TestCollect_botReviewer_completedClean(t *testing.T) {
 	if diag["bot_review_stale"].(bool) {
 		t.Fatalf("want bot_review_stale=false, got %+v", diag)
 	}
+	if diag["duplicate_findings_detected"].(bool) {
+		t.Fatalf("want duplicate_findings_detected=false, got %+v", diag)
+	}
+}
+
+func TestCollect_reviewBodyDuplicateFindings(t *testing.T) {
+	t.Parallel()
+	// Given: CodeRabbit latest review body contains a Duplicate comments (N) summary line.
+	// When:  Collect runs with coderabbit enrichment.
+	// Then:  cr_duplicate_findings_count is set and duplicate_findings_detected is true.
+	dupBody := "**Actionable comments posted: 4**\n\n<details>\n<summary>♻️ Duplicate comments (2)</summary><blockquote>\n</blockquote></details>"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		resp := map[string]any{
+			"data": map[string]any{
+				"repository": map[string]any{
+					"pullRequest": map[string]any{
+						"state": "OPEN", "isDraft": false, "title": "t",
+						"mergeable": "UNKNOWN", "mergeStateStatus": "UNKNOWN",
+						"baseRefName": "main", "headRefOid": "head-sha",
+						"labels":                  map[string]any{"nodes": []any{}},
+						"closingIssuesReferences": map[string]any{"nodes": []any{}},
+						"latestReviews": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false},
+							"nodes": []any{
+								map[string]any{
+									"state":  "COMMENTED",
+									"body":   dupBody,
+									"author": map[string]any{"login": "coderabbitai"},
+									"commit": map[string]any{"oid": "head-sha"},
+								},
+							},
+						},
+						"comments": map[string]any{
+							"nodes": []map[string]any{
+								{
+									"author":    map[string]any{"login": "coderabbitai"},
+									"body":      "Review completed.",
+									"updatedAt": "2026-03-28T12:00:00Z",
+								},
+							},
+						},
+						"reviewThreads": map[string]any{"pageInfo": map[string]any{"hasNextPage": false}, "nodes": []any{}},
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	bots := []BotReviewer{{ID: "cr", Login: "coderabbitai[bot]", Required: true, Enrich: []string{"coderabbit"}}}
+	_, rev, err := Collect(context.Background(), c, "o", "r", 1, bots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := rev["bot_reviewer_status"].([]any)[0].(map[string]any)
+	if m["cr_duplicate_findings_count"].(int) != 2 {
+		t.Fatalf("cr_duplicate_findings_count: %+v", m)
+	}
+	diag := rev["bot_review_diagnostics"].(map[string]any)
+	if !diag["duplicate_findings_detected"].(bool) {
+		t.Fatalf("want duplicate_findings_detected=true, got %+v", diag)
+	}
 }
 
 func TestCollect_commentPagination_fetchesOlderBotHeadMovedMessage(t *testing.T) {

@@ -81,6 +81,18 @@ If `observation.signals.git.working_tree_clean` is `false` (from `rgd context bu
 
 This keeps review-sourced fixes inspected and committed before disposition-heavy steps. Full pattern: [`../knowledge/review--incremental-fix-flow.md`](../knowledge/review--incremental-fix-flow.md).
 
+### 0.5 CodeRabbit duplicate-comment suppression (`duplicate_findings_detected`)
+
+After `rgd context build` / `rgd observe github reviews`, check `observation.signals.github.reviews.bot_review_diagnostics.duplicate_findings_detected`.
+
+When **true**, CodeRabbit’s latest `PullRequestReview` body listed one or more findings under **♻️ Duplicate comments (N)** — meaning the bot detected the same issue again but **did not open new inline threads** (deduplication). That is **not** evidence the issue was fixed; it often means a prior thread was resolved while the underlying problem remained.
+
+1. Open the bot’s latest review on GitHub (or use `gh api` / GraphQL to read `latestReviews` for the configured bot) and read the collapsed duplicate section.
+2. Classify and disposition each listed finding like any other review feedback (fix, or **Fixed** / **By design** / **False positive** / **Acknowledged** with threaded reply or PR conversation comment per [`../policy/review--consensus-protocol.md`](../policy/review--consensus-protocol.md) § **Non-thread findings** when there is no new thread id).
+3. Do **not** treat `review_threads_unresolved == 0` alone as “no review work” while `duplicate_findings_detected` is true.
+
+Per-bot count is also available as `cr_duplicate_findings_count` on the matching `bot_reviewer_status` entry when `enrich` includes `coderabbit`.
+
 ### 1. Classify every finding in the current PR review cycle by correctness
 
 Evaluate **every** review comment and non-thread finding in the current PR
