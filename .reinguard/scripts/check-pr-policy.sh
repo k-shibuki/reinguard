@@ -65,10 +65,6 @@ BODY=$(cat "$BODY_FILE")
 ERRORS=()
 WARNINGS=()
 
-strip_comments() {
-  strip_html_comments_and_blank_lines "$1"
-}
-
 # 1. Issue linkage
 if ! grep -qiE '(closes|fixes|resolves)\s+#[0-9]+' <<< "$BODY"; then
   IS_EXCEPTION=false
@@ -106,7 +102,7 @@ fi
 
 # 5. Test plan section (non-empty)
 TEST_PLAN=$(sed -n '/## Test [Pp]lan/,/^## /p' <<< "$BODY" | tail -n +2)
-TEST_PLAN_CLEAN=$(strip_comments "$TEST_PLAN")
+TEST_PLAN_CLEAN=$(strip_html_comments_and_blank_lines "$TEST_PLAN")
 if [[ -z "$TEST_PLAN" ]]; then
   ERRORS+=("Test plan: section missing from body.")
 elif [[ ${#TEST_PLAN_CLEAN} -lt 5 ]]; then
@@ -127,7 +123,7 @@ RISK=$(awk -v want="risk / impact" '
   }
   on { print }
 ' <<< "$BODY")
-RISK_CLEAN=$(strip_comments "$RISK")
+RISK_CLEAN=$(strip_html_comments_and_blank_lines "$RISK")
 if [[ -z "$RISK" ]]; then
   ERRORS+=("Risk / Impact: section missing from body.")
 elif [[ ${#RISK_CLEAN} -lt 5 ]]; then
@@ -148,7 +144,7 @@ ROLLBACK=$(awk -v want="rollback plan" '
   }
   on { print }
 ' <<< "$BODY")
-ROLLBACK_CLEAN=$(strip_comments "$ROLLBACK")
+ROLLBACK_CLEAN=$(strip_html_comments_and_blank_lines "$ROLLBACK")
 if [[ -z "$ROLLBACK" ]]; then
   ERRORS+=("Rollback Plan: section missing from body.")
 elif [[ ${#ROLLBACK_CLEAN} -lt 3 ]]; then

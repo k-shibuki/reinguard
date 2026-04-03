@@ -87,14 +87,15 @@ Evaluate **every** review comment — regardless of any reviewer-supplied
 label or tone (severity, nitpick, trivial, etc.). Such labels do **not**
 exempt a comment from evaluation or reply.
 
-Map each finding to **exactly one** of the four disposition categories in
+Map each finding to **exactly one** of the four disposition categories
+defined in
 [`../knowledge/review--classification-map.md`](../knowledge/review--classification-map.md)
-and
+(**Fixed** / **By design** / **False positive** / **Acknowledged**),
+following the PR-side consensus and thread-resolution mechanics in
 [`../policy/review--consensus-protocol.md`](../policy/review--consensus-protocol.md)
-§ **Disposition Categories (4, exhaustive)** (**Fixed** / **By design** /
-**False positive** / **Acknowledged**). Keep the same vocabulary that
-`change-inspect` uses for local review; only the PR-side consensus and
-thread-resolution mechanics change here.
+§ **Disposition Categories (4, exhaustive)**. Keep the same vocabulary
+that `change-inspect` uses for local review; only the PR-side consensus
+and thread-resolution mechanics change here.
 
 For **Acknowledged** specifically — **before** posting the thread reply: read `review--consensus-protocol.md` § **Acknowledged — in-PR resolution vs follow-up Issue**. Open a **new** GitHub Issue with `Tracked in #…` **only** when deferred work is a **large, separately scoped** deliverable; otherwise use **Fixed** / **By design** / **False positive**, or **Acknowledged** with a written rationale and **no** new Issue when the protocol allows. Never use `Tracked in #N` where `N` equals the PR’s `Closes` issue.
 

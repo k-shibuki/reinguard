@@ -3,12 +3,14 @@
 
 script_dir_from_source() {
   local source_path="$1"
-  cd "$(dirname "$source_path")" && pwd
+  cd "$(dirname "$source_path")" || return 1
+  pwd
 }
 
 repo_root_from_script_dir() {
   local script_dir="$1"
-  cd "$script_dir/../.." && pwd
+  cd "$script_dir/../.." || return 1
+  pwd
 }
 
 fail_with() {
@@ -54,6 +56,7 @@ strip_html_comments_and_blank_lines() {
   if command -v perl >/dev/null 2>&1; then
     perl -0777 -pe 's/<!--.*?-->//gs' <<< "$text" | sed '/^[[:space:]]*$/d'
   else
+    # Fallback handles simple single-line comments only; perl path is preferred.
     sed 's/<!--[^>]*-->//g' <<< "$text" | sed '/^[[:space:]]*$/d'
   fi
 }

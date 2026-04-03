@@ -9,6 +9,8 @@ import (
 )
 
 func TestCheckLocalReviewScript_RetryUsesLatestRateLimitLine(t *testing.T) {
+	t.Parallel()
+
 	script := scriptPath(t, "check-local-review.sh")
 	repo := t.TempDir()
 
@@ -64,7 +66,10 @@ EOF
     ;;
 esac
 `)
-	writeExecutable(t, stubDir, "sleep", "#!/usr/bin/env bash\nset -euo pipefail\nprintf '%s\\n' \"$1\" >>\"${TEST_SLEEP_FILE:?}\"\n")
+	writeExecutable(t, stubDir, "sleep", `#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$1" >>"${TEST_SLEEP_FILE:?}"
+`)
 
 	env := []string{
 		"PATH=" + stubDir + string(os.PathListSeparator) + os.Getenv("PATH"),
@@ -101,6 +106,8 @@ esac
 }
 
 func TestCheckLocalReviewScript_UnparseableLatestRateLimitFailsClosed(t *testing.T) {
+	t.Parallel()
+
 	script := scriptPath(t, "check-local-review.sh")
 	repo := t.TempDir()
 

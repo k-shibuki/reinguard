@@ -85,7 +85,8 @@ Install one of:
   curl -fsSL https://cli.coderabbit.ai/install.sh | sh
   brew install coderabbit
 Then authenticate with:
-  cr auth login
+  coderabbit auth login
+  # or: cr auth login
 EOF
   exit 2
 fi
@@ -135,20 +136,28 @@ tail_from_last_rate_limit_line() {
 # Parse hours/minutes/seconds from a single rate-limit snippet (one CLI message block).
 extract_rate_limit_seconds() {
   local text="$1"
-  local lower hours minutes seconds total
+  local lower parse_target hours minutes seconds total
 
   lower="$(printf '%s\n' "$text" | tr '[:upper:]' '[:lower:]')"
+  parse_target="$lower"
+  if [[ $parse_target == *"try after "* ]]; then
+    parse_target="${parse_target#*try after }"
+  elif [[ $parse_target == *"try again in "* ]]; then
+    parse_target="${parse_target#*try again in }"
+  elif [[ $parse_target == *"retry in "* ]]; then
+    parse_target="${parse_target#*retry in }"
+  fi
   hours=0
   minutes=0
   seconds=0
 
-  if [[ $lower =~ ([0-9]+)[[:space:]]*hours? ]]; then
+  if [[ $parse_target =~ ([0-9]+)[[:space:]]*hours? ]]; then
     hours="${BASH_REMATCH[1]}"
   fi
-  if [[ $lower =~ ([0-9]+)[[:space:]]*minutes? ]]; then
+  if [[ $parse_target =~ ([0-9]+)[[:space:]]*minutes? ]]; then
     minutes="${BASH_REMATCH[1]}"
   fi
-  if [[ $lower =~ ([0-9]+)[[:space:]]*seconds? ]]; then
+  if [[ $parse_target =~ ([0-9]+)[[:space:]]*seconds? ]]; then
     seconds="${BASH_REMATCH[1]}"
   fi
 

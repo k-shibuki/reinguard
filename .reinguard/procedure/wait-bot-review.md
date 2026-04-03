@@ -61,7 +61,7 @@ Use `knowledge.entries` (typically includes `review--bot-operations.md`, `review
 2. Apply the **row** for your `state_id` above; use **only** PR conversation / documented triggers — do not rely on thread replies for Codex rerun.
 3. For `waiting_bot_run`, poll every **30 seconds** for up to **15 minutes**. Stop immediately if the required bot becomes terminal, actionable review work appears, or the FSM should hand off to another procedure.
 4. For `waiting_bot_rate_limited`, follow the parsed cool-down and the one-retry recovery path from `review--bot-operations.md` instead of the generic 30-second cadence during the cool-down window.
-5. When the Adapter supports delegation, prefer a delegated wait owner for this polling loop instead of keeping the main agent in an inline sleep cycle. Use inline polling only as a fallback when delegation is unavailable.
+5. When the Adapter supports delegation, prefer a delegated wait owner for this polling loop instead of keeping the main agent in an inline sleep cycle. For a single active unit, prefer foreground-first delegated wait ownership so the delegated worker blocks until review state changes. Use the Adapter's configured bot-review wait template or policy when available; use inline polling only as a fallback when delegation is unavailable.
 6. When bots are terminal and review threads still exist, switch to `review-address.md`.
 
 ## Output

@@ -27,6 +27,7 @@ const validPRBody = "## Summary\n\n" +
 	"- Justification:\n"
 
 func TestCheckPRPolicyScript(t *testing.T) {
+	// mustMikefarahYq uses t.Setenv, so this test must stay serial.
 	root := repoRoot(t)
 	mustMikefarahYq(t, root)
 	script := scriptPath(t, "check-pr-policy.sh")
@@ -66,6 +67,14 @@ func TestCheckPRPolicyScript(t *testing.T) {
 			base:       "feat/stacked",
 			wantErr:    true,
 			wantSubstr: []string{"PR must target main"},
+		},
+		{
+			name:       "missingTypeLabel",
+			title:      "fix(workflow): add script integration checks",
+			body:       validPRBody,
+			base:       "main",
+			wantErr:    true,
+			wantSubstr: []string{"Usage: check-pr-policy.sh --title <title> --body-file <file> --label <type> [--label ...] [--base main]"},
 		},
 	}
 

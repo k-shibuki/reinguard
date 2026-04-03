@@ -1,12 +1,14 @@
 package scripttest
 
 import (
-	"os"
+	"os/exec"
+	"reflect"
 	"strings"
 	"testing"
 )
 
 func TestSyncIssueTemplatesScript_UpdatesTaskDropdown(t *testing.T) {
+	// mustMikefarahYq uses t.Setenv, so this test must stay serial.
 	root := repoRoot(t)
 	mustMikefarahYq(t, root)
 	script := scriptPath(t, "sync-issue-templates.sh")
@@ -30,17 +32,18 @@ func TestSyncIssueTemplatesScript_UpdatesTaskDropdown(t *testing.T) {
 	}
 
 	// Then: the dropdown options are replaced with the provided label list.
-	updated, err := os.ReadFile(taskFile)
+	optionsOut, err := exec.Command("yq", "-r", ".body[0].attributes.options[]", taskFile).CombinedOutput()
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("read synced options: %v\n%s", err, optionsOut)
 	}
-	got := string(updated)
-	for _, want := range []string{"feat", "fix", "docs"} {
-		if !strings.Contains(got, want) {
-			t.Fatalf("expected task template to contain %q, got:\n%s", want, got)
+	gotOptions := strings.Fields(string(optionsOut))
+	wantOptions := []string{"feat", "fix", "docs"}
+	if !reflect.DeepEqual(gotOptions, wantOptions) {
+		t.Fatalf("synced options = %v, want %v", gotOptions, wantOptions)
+	}
+	for _, option := range gotOptions {
+		if option == "old" {
+			t.Fatalf("expected old option to be replaced, got %v", gotOptions)
 		}
-	}
-	if strings.Contains(got, "- old") {
-		t.Fatalf("expected old option to be replaced, got:\n%s", got)
 	}
 }

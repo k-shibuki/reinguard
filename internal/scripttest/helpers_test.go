@@ -46,10 +46,12 @@ func writeTempFile(t *testing.T, dir, pattern, contents string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
 	if _, err := f.WriteString(contents); err != nil {
-		t.Fatal(err)
-	}
-	if err := f.Close(); err != nil {
 		t.Fatal(err)
 	}
 	return f.Name()

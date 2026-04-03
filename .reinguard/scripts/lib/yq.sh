@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Helpers for mikefarah yq detection / caching.
+# Requires: source lib/common.sh before sourcing this file.
 
 is_mikefarah_yq() {
   local yq_bin="${1:-yq}"
@@ -7,7 +8,7 @@ is_mikefarah_yq() {
   local out
   out=$("$yq_bin" --version 2>&1 || true)
   grep -qE 'mikefarah|github.com/mikefarah/yq' <<< "$out" || return 1
-  grep -qE 'version v[4-9]' <<< "$out" || return 1
+  grep -qE 'version v([4-9]|[1-9][0-9]+)' <<< "$out" || return 1
   return 0
 }
 
@@ -36,8 +37,15 @@ ensure_mikefarah_yq_cached() {
         ;;
     esac
     local url="https://github.com/mikefarah/yq/releases/download/v${ver}/yq_linux_${arch}"
-    curl -sSL "$url" -o "$cached"
+    if ! curl -fsSL "$url" -o "$cached"; then
+      rm -f "$cached"
+      fail_with "failed to download yq from $url" 1
+    fi
     chmod +x "$cached"
+    if ! is_mikefarah_yq "$cached"; then
+      rm -f "$cached"
+      fail_with "downloaded yq binary failed validation" 1
+    fi
   fi
   out=("$cached")
 }

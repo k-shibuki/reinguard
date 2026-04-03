@@ -7,11 +7,15 @@ import (
 )
 
 func TestCheckCoverageThresholdScript(t *testing.T) {
+	t.Parallel()
+
 	root := repoRoot(t)
 	script := scriptPath(t, "check-coverage-threshold.sh")
 
 	// Given/When/Then: coverage profiles are checked against the requested minimum threshold.
 	t.Run("missingProfileFails", func(t *testing.T) {
+		t.Parallel()
+
 		out, err := runBashScript(t, root, script, nil, "80", filepath.Join(t.TempDir(), "missing.out"))
 		if err == nil {
 			t.Fatalf("expected error, got success:\n%s", out)
@@ -22,6 +26,8 @@ func TestCheckCoverageThresholdScript(t *testing.T) {
 	})
 
 	t.Run("thresholdEvaluation", func(t *testing.T) {
+		t.Parallel()
+
 		dir := t.TempDir()
 		goFile := writeTempFile(t, dir, "sample-*.go", "package sample\n\nfunc Covered() {}\nfunc Uncovered() {}\n")
 		profile := writeTempFile(t, dir, "coverage-*.out", "mode: set\n"+goFile+":3.1,3.17 1 1\n"+goFile+":4.1,4.19 1 0\n")

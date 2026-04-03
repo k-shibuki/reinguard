@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Shared helpers for scripts that read label metadata from labels.yaml.
+# Requires: source lib/common.sh before sourcing this file.
 
 labels_yaml_path() {
   local script_dir="$1"
