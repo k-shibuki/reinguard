@@ -166,5 +166,7 @@ printf '%s\n' "$1" >>"${TEST_SLEEP_FILE:?}"
 			t.Fatal(readErr)
 		}
 		t.Fatalf("expected fail-closed behavior without sleep, got sleep log:\n%s", sleepLog)
+	} else if !os.IsNotExist(err) {
+		t.Fatalf("unexpected error checking sleep file: %v", err)
 	}
 }

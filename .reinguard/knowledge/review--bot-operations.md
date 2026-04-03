@@ -87,9 +87,9 @@ If the branch is updated while CodeRabbit is reviewing, CR may post
 - Use this polling model for **PR-side bot review waits** only
   (`.reinguard/procedure/wait-bot-review.md` after PR creation).
 - Poll every **30 seconds** for up to **15 minutes**.
-- Exit early as soon as the required bot becomes terminal, actionable
-  review threads appear, or the state changes to a different FSM route
-  such as `review-address`.
+- Exit early as soon as the required bot becomes terminal, review threads
+  that need classification or reply appear, or the state changes to a
+  different FSM route such as `review-address`.
 - When the Adapter (the execution environment that runs these procedures,
   such as Cursor) supports delegation, prefer a delegated wait owner over
   an inline main-agent sleep loop. Inline polling is a fallback for

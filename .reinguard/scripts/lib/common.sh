@@ -3,14 +3,12 @@
 
 script_dir_from_source() {
   local source_path="$1"
-  cd "$(dirname "$source_path")" || return 1
-  pwd
+  (cd "$(dirname "$source_path")" && pwd) || return 1
 }
 
 repo_root_from_script_dir() {
   local script_dir="$1"
-  cd "$script_dir/../.." || return 1
-  pwd
+  (cd "$script_dir" && git rev-parse --show-toplevel) || return 1
 }
 
 fail_with() {

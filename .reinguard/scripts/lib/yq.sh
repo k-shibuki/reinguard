@@ -24,7 +24,8 @@ ensure_mikefarah_yq_cached() {
   fi
 
   mkdir -p "$cache_dir"
-  if [[ ! -x "$cached" ]]; then
+  if [[ ! -x "$cached" ]] || ! is_mikefarah_yq "$cached"; then
+    rm -f "$cached"
     echo "Installing mikefarah yq to $cached (one-time)..." >&2
     local ver=4.45.1
     local arch
