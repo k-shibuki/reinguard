@@ -127,7 +127,6 @@ echo
 # Text from the last line containing "rate limit exceeded" through EOF (latest evidence only).
 tail_from_last_rate_limit_line() {
   local text="$1"
-  local line
   local -a lines
   local i start=-1
 

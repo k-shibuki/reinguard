@@ -32,6 +32,15 @@ func TestCheckPRPolicyScript(t *testing.T) {
 	mustMikefarahYq(t, root)
 	script := scriptPath(t, "check-pr-policy.sh")
 
+	mustReplaceOne := func(old, repl string) string {
+		t.Helper()
+		out := strings.Replace(validPRBody, old, repl, 1)
+		if out == validPRBody {
+			t.Fatalf("fixture setup failed: replacement target not found: %q", old)
+		}
+		return out
+	}
+
 	// Given/When/Then: PR body/title/label fixtures are validated against repository PR policy.
 	tests := []struct {
 		name          string
@@ -56,7 +65,7 @@ func TestCheckPRPolicyScript(t *testing.T) {
 		{
 			name:       "missingIssueLink",
 			title:      "fix(workflow): add script integration checks",
-			body:       strings.Replace(validPRBody, "Closes #97", "", 1),
+			body:       mustReplaceOne("Closes #97", ""),
 			labels:     []string{"fix"},
 			base:       "main",
 			wantErr:    true,
@@ -109,7 +118,7 @@ func TestCheckPRPolicyScript(t *testing.T) {
 		{
 			name:       "testPlanAllCapsHeading",
 			title:      "fix(workflow): add script integration checks",
-			body:       strings.Replace(validPRBody, "## Test plan\n", "## TEST PLAN\n", 1),
+			body:       mustReplaceOne("## Test plan\n", "## TEST PLAN\n"),
 			labels:     []string{"fix"},
 			base:       "main",
 			wantSubstr: []string{"PR policy pre-flight OK."},
@@ -117,7 +126,7 @@ func TestCheckPRPolicyScript(t *testing.T) {
 		{
 			name:       "emptyTestPlanBody",
 			title:      "fix(workflow): add script integration checks",
-			body:       strings.Replace(validPRBody, "## Test plan\n\n1. Run `go test ./...`\n2. Run `go vet ./...`\n\n", "## Test plan\n\n## Risk / Impact\n\n", 1),
+			body:       mustReplaceOne("## Test plan\n\n1. Run `go test ./...`\n2. Run `go vet ./...`\n\n", "## Test plan\n\n## Risk / Impact\n\n"),
 			labels:     []string{"fix"},
 			base:       "main",
 			wantErr:    true,
@@ -126,7 +135,7 @@ func TestCheckPRPolicyScript(t *testing.T) {
 		{
 			name:       "commentOnlyRiskImpact",
 			title:      "fix(workflow): add script integration checks",
-			body:       strings.Replace(validPRBody, "- Affects repository-local workflow docs and checks.\n\n", "<!-- placeholder -->\n\n", 1),
+			body:       mustReplaceOne("- Affects repository-local workflow docs and checks.\n\n", "<!-- placeholder -->\n\n"),
 			labels:     []string{"fix"},
 			base:       "main",
 			wantErr:    true,
@@ -135,7 +144,7 @@ func TestCheckPRPolicyScript(t *testing.T) {
 		{
 			name:       "commentOnlyRollbackPlan",
 			title:      "fix(workflow): add script integration checks",
-			body:       strings.Replace(validPRBody, "- Revert the workflow commit if the local gate blocks PR creation incorrectly.\n\n", "<!-- placeholder -->\n\n", 1),
+			body:       mustReplaceOne("- Revert the workflow commit if the local gate blocks PR creation incorrectly.\n\n", "<!-- placeholder -->\n\n"),
 			labels:     []string{"fix"},
 			base:       "main",
 			wantErr:    true,
@@ -191,7 +200,7 @@ func TestCheckPRPolicyScript(t *testing.T) {
 		{
 			name:       "commentOnlyTestPlanAfterStrip",
 			title:      "fix(workflow): add script integration checks",
-			body:       strings.Replace(validPRBody, "## Test plan\n\n1. Run `go test ./...`\n2. Run `go vet ./...`\n\n", "## Test plan\n\n<!-- no substantive test plan -->\n\n", 1),
+			body:       mustReplaceOne("## Test plan\n\n1. Run `go test ./...`\n2. Run `go vet ./...`\n\n", "## Test plan\n\n<!-- no substantive test plan -->\n\n"),
 			labels:     []string{"fix"},
 			base:       "main",
 			wantErr:    true,
