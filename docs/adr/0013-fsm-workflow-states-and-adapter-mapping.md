@@ -34,7 +34,8 @@ wins** among matching rules (ADR-0004). `state_id` values:
 | `merge_ready` | Coarse merge gate (clean tree, CI, threads, decisions) | Aligns with `merge-readiness` guard signals |
 | `waiting_ci` | PR open; no thread/decision work; CI or mergeability not satisfied | Threads 0, changes 0, working tree clean; `ci_status` != `success` **or** `merge_state_status` != `clean` |
 | `pr_open` | PR exists; residual (e.g. dirty working tree) | `github.pull_requests.pr_exists_for_branch` true |
-| `working_no_pr` | No PR for branch (or PR facet absent) | `pr_exists_for_branch` false or path missing |
+| `ready_for_pr` | No PR exists, and `pr-readiness` is fresh and passing | `pr_exists_for_branch` false (or missing) and `gates.pr-readiness.status == pass`; keeps PR readiness mechanically visible without a dedicated route vocabulary |
+| `working_no_pr` | No PR for branch (or PR facet absent); residual before PR readiness is proven | `pr_exists_for_branch` false or path missing, with `ready_for_pr` taking precedence when its gate condition matches |
 
 **Bot status tiers** (per-element `status` in `bot_reviewer_status`):
 
@@ -69,7 +70,7 @@ after state resolution (same mechanism as `rgd route select` with merged state).
 
 | route_id | Typical state_id | Procedure hint (Semantics) |
 |----------|------------------|----------------------------|
-| `user-implement` | `working_no_pr` | `implement` |
+| `user-implement` | `working_no_pr`, `ready_for_pr` | `implement` while work is still in progress; `pr-create` when `state_id` is `ready_for_pr` |
 | `user-monitor-pr` | `pr_open` | Observe PR / residual |
 | `user-wait-ci` | `waiting_ci` | `review-address` (checks / mergeability) |
 | `user-address-review` | `unresolved_threads`, `changes_requested` | `review-address` |
@@ -81,7 +82,8 @@ after state resolution (same mechanism as `rgd route select` with merged state).
 
 `user-*` names are **Adapter-agnostic** (not tied to a specific IDE). A given Adapter maps `rgd` output to local commands.
 
-`pr-create` (after local work) still applies when `state_id` is `working_no_pr`; there is no separate `route_id` for it in this FSM.
+`pr-create` (after local work) applies when `state_id` is `ready_for_pr`; there
+is still no separate `route_id` for it in this FSM.
 
 Multiple routes may match one state; **lowest route `priority` wins** for the
 primary `route_id` in `rgd route select` output. Alternatives appear in
@@ -98,7 +100,7 @@ primary `route_id` in `rgd route select` output. Alternatives appear in
 | state_id | Primary procedure (Semantics) |
 |----------|------------------------------|
 | `working_no_pr` | `.reinguard/procedure/implement.md` |
-| `working_no_pr` | `.reinguard/procedure/pr-create.md` (when opening a PR) |
+| `ready_for_pr` | `.reinguard/procedure/pr-create.md` |
 | `pr_open` | `.reinguard/procedure/review-address.md` |
 | `waiting_ci` | `.reinguard/procedure/review-address.md` |
 | `unresolved_threads` | `.reinguard/procedure/review-address.md` |
@@ -106,7 +108,9 @@ primary `route_id` in `rgd route select` output. Alternatives appear in
 | `waiting_bot_rate_limited` / `waiting_bot_paused` / `waiting_bot_failed` / `waiting_bot_run` | `.reinguard/procedure/wait-bot-review.md` (+ `review--bot-operations.md` in `knowledge.entries`) |
 | `merge_ready` | `.reinguard/procedure/pr-merge.md` |
 
-Self-inspection before PR creation: `.reinguard/procedure/change-inspect.md`.
+Self-inspection before PR creation remains `.reinguard/procedure/change-inspect.md`;
+it prepares `ready_for_pr` by recording the `pr-readiness` gate but is not
+itself a state-mapped procedure.
 Post-review learning: `.reinguard/procedure/internalize.md`.
 
 **Cursor entries:** `.cursor/commands/rgd-next.md` - run/read `rgd context build`,
@@ -128,8 +132,9 @@ issue-first (Phase 3B content); not part of the FSM.
   `completed` may need to upgrade to `completed_clean` on a later pass.
   Required timing scenarios are marker-first, review-first, same-pass,
   and marker-without-review-entry.
-- **Harder**: Observation gaps mean broader states (e.g. `working_no_pr` when PR
-  facet is missing) - agents must not over-interpret.
+- **Harder**: Observation gaps still require residual states (for example
+  `working_no_pr` when PR readiness has not been proven yet or the PR facet is
+  missing) - agents must not over-interpret.
 
 ## Refs
 

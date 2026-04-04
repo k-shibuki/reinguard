@@ -2,6 +2,15 @@
 # route_id uses the user-* prefix (Adapter-agnostic; not tied to a specific IDE).
 rules:
   - type: route
+    id: route_implement_pr_ready
+    priority: 19
+    route_id: user-implement
+    when:
+      op: eq
+      path: state.state_id
+      value: ready_for_pr
+
+  - type: route
     id: route_implement
     priority: 20
     route_id: user-implement

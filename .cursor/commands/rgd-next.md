@@ -27,7 +27,8 @@ The table below is a **Cursor-facing heuristic** (when `state.kind` is `resolved
 
 | `state_id` | Open procedure |
 |------------|----------------|
-| `working_no_pr` | `.reinguard/procedure/implement.md` (or `pr-create.md` when opening a PR) |
+| `working_no_pr` | `.reinguard/procedure/implement.md` |
+| `ready_for_pr` | `.reinguard/procedure/pr-create.md` |
 | `pr_open` | `.reinguard/procedure/review-address.md` (residual monitor) |
 | `waiting_ci` | `.reinguard/procedure/review-address.md` (checks / mergeability) |
 | `unresolved_threads` | `.reinguard/procedure/review-address.md` (thread disposition) |

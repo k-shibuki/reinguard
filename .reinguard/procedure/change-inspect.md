@@ -137,17 +137,25 @@ If a finding is dispositioned **Acknowledged**, record the follow-up Issue
 or equally explicit deferred-work contract in the inspection output so the
 PR handoff is auditable.
 
-### 7. Declare readiness
+### 7. Record PR readiness and declare readiness
 
 When inspection shows review closure complete for the current local review
-cycle, including local CodeRabbit findings on the latest head: declare
-**ready for PR creation**. Proceed to `pr-create`.
+cycle, including local CodeRabbit findings on the latest head: record or
+refresh the runtime gate that proves the branch is ready for PR creation on
+the inspected HEAD, for example:
+
+```bash
+rgd gate record pr-readiness --status pass
+```
+
+Then declare **ready for PR creation**. Proceed to `pr-create`.
 
 ## Output
 
 - Dimension-by-dimension Pass/Fail with disposition ledger
 - Local CodeRabbit review status: completed / gate failed, plus finding summary
 - Commit structure assessment: clean / restructured / deferred with explicit `Acknowledged` contract
+- PR-readiness gate status: recorded / refreshed / not recorded with reason
 - Fix commits (if any): SHA + what changed
 - Final status: **Ready for PR creation** or **Findings remain** (with list)
 

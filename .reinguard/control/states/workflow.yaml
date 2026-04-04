@@ -171,6 +171,25 @@ rules:
       value: true
 
   - type: state
+    id: ready_for_pr
+    priority: 55
+    state_id: ready_for_pr
+    when:
+      and:
+        - op: eq
+          path: git.detached_head
+          value: false
+        - or:
+            - op: eq
+              path: github.pull_requests.pr_exists_for_branch
+              value: false
+            - op: not_exists
+              path: github.pull_requests.pr_exists_for_branch
+        - op: eq
+          path: gates.pr-readiness.status
+          value: pass
+
+  - type: state
     id: working_no_pr
     priority: 60
     state_id: working_no_pr
