@@ -10,6 +10,7 @@ reads:
   - ../policy/review--consensus-protocol.md
   - ../policy/coding--preflight.md
   - ../policy/coding--standards.md
+  - ../knowledge/review--local-coderabbit-cli.md
 sense:
   - rgd context build
   - git diff
@@ -34,6 +35,7 @@ merge, or restructure commits (commit organization is `implement` step 7).
 - [`../policy/review--consensus-protocol.md`](../policy/review--consensus-protocol.md) — shared review-closure model; PR-only thread mechanics remain downstream
 - [`../policy/coding--preflight.md`](../policy/coding--preflight.md) — prerequisite; meta-verify its obligations were met
 - [`../policy/coding--standards.md`](../policy/coding--standards.md) § **Change scope** — same-kind sweep across code, `.reinguard/`, `.cursor/`
+- [`../knowledge/review--local-coderabbit-cli.md`](../knowledge/review--local-coderabbit-cli.md) — pre-PR local CodeRabbit CLI gate (foreground wait, not PR-side polling)
 - [`../../AGENTS.md`](../../AGENTS.md) — review guidelines
 
 **Already in context** (always-active Adapter rule): HS-* codes, catalogs, workflow & commit policy.
@@ -76,6 +78,8 @@ Dimension 7 (PR template substance) is deferred to `pr-create`, which fills and 
 
 ### 3. Run required local CodeRabbit review
 
+Normative script details: [`../policy/coding--preflight.md`](../policy/coding--preflight.md) § Required local AI review. Scope vs PR-side bot review: [`../knowledge/review--local-coderabbit-cli.md`](../knowledge/review--local-coderabbit-cli.md).
+
 Run the repository-local CodeRabbit gate from the repo root:
 
 ```bash
@@ -87,6 +91,10 @@ line in that run to parse the cooldown, adds a **safety buffer**, then
 retries the review **once** (`--retry-on-rate-limit`). Treat
 installation/authentication/execution failures, unparsed cooldown, or a
 second consecutive rate limit, as a failed gate and do not proceed.
+While the command is running, treat sparse output or a long cooldown sleep as
+normal for this gate. Do not kill and restart the process unless you have
+positive evidence that it exited, crashed, or violated the documented retry
+contract.
 If the branch uses a runtime verification gate such as `local-verification`,
 record or refresh it on the reviewed head after the required local checks
 pass, for example:

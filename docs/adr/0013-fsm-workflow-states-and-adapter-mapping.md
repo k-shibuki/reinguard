@@ -122,6 +122,21 @@ not state-mapped.
 `CreatePlan` only); GitHub Issue creation is expressed inside the plan when
 issue-first (Phase 3B content); not part of the FSM.
 
+### 5. Extension contract (state / route / Adapter)
+
+When adding or changing FSM wiring, keep these touchpoints consistent:
+
+1. **State catalog (this ADR)** — Add or update the row in section 1 for every new or changed `state_id`. Residual states must stay documented (observation gaps, missing facets) and their **numeric `priority`** must be explicit relative to refinements (lower wins; ADR-0004).
+2. **Control state rules** — Edit `.reinguard/control/states/*.yaml`. Ensure rules do not accidentally overlap: a more specific condition (e.g. a gate-backed state) must use a **lower** numeric `priority` than its residual fallback.
+3. **Routes** — Edit `.reinguard/control/routes/*.yaml` when a `state_id` needs a different primary `route_id` or when new states share an existing route with different procedure hints (section 2).
+4. **Adapter mapping** — Update section 4 (Primary procedure) and `.cursor/commands/rgd-next.md` when the primary Cursor procedure for a `state_id` changes.
+5. **Procedures** — Update `applies_to.state_ids` in affected `.reinguard/procedure/*.md` files. Procedures that are **not** state-mapped (e.g. `change-inspect`) remain documented here and in their body as producers or prerequisites, not as `state_id` values.
+6. **Tests** — Extend scenario tests (e.g. `internal/rgdcli/workflow_fsm_test.go`) when resolution or fallback behavior is non-obvious (residual vs refined state, stale gate fallback).
+
+**Guards vs states:** `guard eval` outputs (e.g. built-in `merge-readiness`) are **not** `state_id` values. FSM states may *align* with guard signals (e.g. `merge_ready` with merge-readiness); wiring belongs in `control/states/*.yaml` and this ADR, not by conflating guard JSON with state without explicit rules.
+
+Operational checklist (files, validation commands, knowledge surfacing): see `.reinguard/knowledge/workflow--state-gate-guard-extension.md` (ADR-0010 knowledge atom).
+
 ## Consequences
 
 - **Easier**: One YAML-defined FSM; `rgd-next` routes substrate output to procedures.

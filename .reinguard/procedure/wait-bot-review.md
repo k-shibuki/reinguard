@@ -30,13 +30,11 @@ escalate_when: Org policy blocks bot rerun; required bot persistently failed; ra
 
 ## Context
 
-Open `.reinguard/knowledge/review--bot-operations.md` for **CodeRabbit** and **Codex** specifics (logins, triggers, rate-limit recovery, `@coderabbitai review`, `@codex review`).
+Open `.reinguard/knowledge/review--bot-operations.md` for **PR-side** **CodeRabbit** and **Codex** specifics (logins, triggers, rate-limit recovery, `@coderabbitai review`, `@codex review`). Do **not** use `.reinguard/knowledge/review--local-coderabbit-cli.md` as the primary reference here — that atom is **pre-PR** only.
 
-This procedure governs **PR-side bot waiting** after PR creation. It does
-not replace the repository-local CodeRabbit CLI gate; that local gate
-remains a single blocking command in
-`.reinguard/procedure/change-inspect.md` /
-`.reinguard/procedure/pr-create.md`.
+This procedure governs **PR-side bot waiting** after PR creation. The
+repository-local CodeRabbit CLI gate remains a single blocking command in
+`change-inspect` / `pr-create` only; it is not part of this polling loop.
 
 If **open review threads** or formal **changes requested** also apply, run `.reinguard/procedure/review-address.md` **in parallel or first** — the workflow FSM prefers human-actionable review states over bot-wait states when both are true.
 

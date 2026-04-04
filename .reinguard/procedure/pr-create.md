@@ -9,6 +9,7 @@ reads:
   - ../../.github/PULL_REQUEST_TEMPLATE.md
   - ../policy/commit--format.md
   - ../policy/workflow--pr-discipline.md
+  - ../knowledge/review--local-coderabbit-cli.md
 sense:
   - gh pr checks
 act:
@@ -28,6 +29,7 @@ escalate_when: gate-policy or branch protection cannot be satisfied without main
 - [`../policy/workflow--pr-discipline.md`](../policy/workflow--pr-discipline.md) § **PR body updates** — multiline `gh api` pitfalls (gate-policy)
 - [`check-pr-policy.sh`](../scripts/check-pr-policy.sh) (local pre-flight mirroring `gate-policy` CI)
 - [`../policy/review--disposition-categories.md`](../policy/review--disposition-categories.md) — pre-PR disposition vocabulary used by `change-inspect`
+- [`../knowledge/review--local-coderabbit-cli.md`](../knowledge/review--local-coderabbit-cli.md) — pre-PR local CodeRabbit CLI vs PR-side review (this procedure ends before PR-side `wait-bot-review` polling)
 
 **Already in context** (always-active Adapter rule): HS-* codes, catalogs, workflow & commit policy.
 

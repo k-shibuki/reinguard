@@ -1,6 +1,6 @@
 ---
 id: review-bot-operations
-description: Bot reviewer trigger, detection, timing, rate-limit recovery, and re-review procedures
+description: PR-side bot review — trigger, detection, timing, rate-limit recovery, re-review (not pre-PR local CLI)
 triggers:
   - bot review trigger
   - bot review detection
@@ -17,11 +17,14 @@ when:
   value: true
 ---
 
-# Bot Review Operations
+# Bot Review Operations (PR-side)
 
-Operational reference for AI code reviewers (CodeRabbit and Codex).
-Covers trigger, detection, timing, rate limits, re-review, and polling
-cadence for PR-side bot waits.
+Operational reference for **PR-side** bot review (after a PR exists):
+CodeRabbit and Codex on GitHub — trigger, detection, timing, rate limits,
+re-review, and polling cadence for `wait-bot-review` / `review-address`.
+
+**Pre-PR** local CodeRabbit CLI (`check-local-review.sh`) is **not** covered
+here; see `.reinguard/knowledge/review--local-coderabbit-cli.md`.
 
 For the consensus model (disposition, resolve, agreement), see
 `.reinguard/policy/review--consensus-protocol.md`.
@@ -94,13 +97,9 @@ If the branch is updated while CodeRabbit is reviewing, CR may post
   such as Cursor) supports delegation, prefer a delegated wait owner over
   an inline main-agent sleep loop. Inline polling is a fallback for
   environments that do not support delegation.
-- The repository-local CodeRabbit CLI gate
-  (`bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit`)
-  is **not** a polling workflow. It is one blocking command with built-in
-  rate-limit retry, and should remain separate from PR-side review waits.
-- In short: use the local CLI gate before `pr-create`, and use this
-  polling model only after a PR exists and the FSM routes to
-  `wait-bot-review`.
+- Use the **PR-side** polling model only after a PR exists and the FSM routes
+  to `wait-bot-review`. The **pre-PR** local CodeRabbit CLI gate is separate;
+  see `.reinguard/knowledge/review--local-coderabbit-cli.md`.
 
 ## Rate-Limit Recovery
 
@@ -127,6 +126,7 @@ Deduplicate when both reviewers flag the same issue.
 
 ## Related
 
+- `.reinguard/knowledge/review--local-coderabbit-cli.md` — pre-PR local CLI gate only
 - `.reinguard/policy/review--consensus-protocol.md` — disposition, resolve, consensus
 - `.reinguard/policy/safety--agent-invariants.md` § **HS-REVIEW-RESOLVE**
 - `.reinguard/procedure/wait-bot-review.md` — FSM routes `user-wait-bot-*` (quota, pause, failed, run)

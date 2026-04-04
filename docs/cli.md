@@ -372,6 +372,13 @@ The `state` field is the state-resolution **Result** (same JSON shape as `rgd st
 The `routes` array contains one route-resolution **Result** (same shape as `rgd route select` stdout,
 including `route_candidates` when applicable). See `pkg/schema/operational-context.json` (`resolutionResult`).
 
+### Authors: extending State / Gate / Guard
+
+- **Normative FSM and gate rules:** [ADR-0013](../adr/0013-fsm-workflow-states-and-adapter-mapping.md) (states, routes, Adapter mapping), [ADR-0014](../adr/0014-runtime-gate-artifacts.md) (runtime gates, `gates.*` signals, freshness).
+- **Operational checklist** (which files to update, `rgd config validate`, tests, knowledge manifest): `.reinguard/knowledge/workflow--state-gate-guard-extension.md`.
+- **`knowledge.entries`:** Filtered using the **merged** flat map that includes `gates.<gate-id>.*` and, after state resolution, `state.kind`, `state.state_id`, and `state.rule_id`. Use **`rgd context build`** when authoring or debugging `when` clauses that reference `gates.*` or `state.*`. `rgd knowledge pack --observation-file` alone does **not** merge state or gates unless those keys are already in the observation file—see the `knowledge pack` section above.
+- **`rgd gate status` / `rgd gate record`:** Verify CLI behavior and flag order against this document when documenting new gates in procedures.
+
 ## `rgd config validate`
 
 Validates `reinguard.yaml`, `control/{states,routes,guards}/*.yaml`, and `knowledge/manifest.json` when
