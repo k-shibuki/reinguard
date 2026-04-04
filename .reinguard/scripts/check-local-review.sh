@@ -124,8 +124,10 @@ echo "  Output mode: $MODE"
 echo "  Config file: $CONFIG_FILE"
 echo
 
-# Text from the last line containing "rate limit exceeded" through EOF (latest evidence only).
-tail_from_last_rate_limit_line() {
+# The last line containing "rate limit exceeded" (case-insensitive). Cooldown is parsed
+# from this line only so unrelated footer text (e.g. "finished in N seconds") cannot
+# satisfy extraction when the rate-limit line itself is unparseable.
+last_rate_limit_line_only() {
   local text="$1"
   local -a lines
   local i start=-1
@@ -139,9 +141,7 @@ tail_from_last_rate_limit_line() {
   if [[ $start -lt 0 ]]; then
     return 1
   fi
-  for ((i = start; i < ${#lines[@]}; i++)); do
-    printf '%s\n' "${lines[$i]}"
-  done
+  printf '%s\n' "${lines[$start]}"
 }
 
 # Parse hours/minutes/seconds from a single rate-limit snippet (one CLI message block).
@@ -201,10 +201,10 @@ while true; do
   REVIEW_OUTPUT_CLEAN="$(strip_ansi_cr "$REVIEW_OUTPUT")"
   if grep -qi "rate limit exceeded" <<< "$REVIEW_OUTPUT_CLEAN"; then
     if [[ $RETRY_ON_RATE_LIMIT -eq 1 && $attempt -lt $max_attempts ]]; then
-      LATEST_RL_BLOCK=""
-      if LATEST_RL_BLOCK="$(tail_from_last_rate_limit_line "$REVIEW_OUTPUT_CLEAN")"; then
+      LATEST_RL_LINE=""
+      if LATEST_RL_LINE="$(last_rate_limit_line_only "$REVIEW_OUTPUT_CLEAN")"; then
         wait_seconds=""
-        if wait_seconds="$(extract_rate_limit_seconds "$LATEST_RL_BLOCK")" && [[ "$wait_seconds" =~ ^[0-9]+$ ]]; then
+        if wait_seconds="$(extract_rate_limit_seconds "$LATEST_RL_LINE")" && [[ "$wait_seconds" =~ ^[0-9]+$ ]]; then
           total_sleep=$((wait_seconds + RATE_LIMIT_RETRY_BUFFER_SEC))
           echo "" >&2
           echo "Rate limit detected on attempt ${attempt}/${max_attempts} (using latest rate-limit line from this CLI run only; ignoring earlier text)." >&2

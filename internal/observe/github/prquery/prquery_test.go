@@ -593,7 +593,11 @@ func TestCollect_reviewBodyDuplicateFindings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m := rev["bot_reviewer_status"].([]any)[0].(map[string]any)
+	st := rev["bot_reviewer_status"].([]any)
+	if len(st) != 1 {
+		t.Fatalf("bot_reviewer_status len: %d, want 1", len(st))
+	}
+	m := st[0].(map[string]any)
 	if m["cr_duplicate_findings_count"].(int) != 2 {
 		t.Fatalf("cr_duplicate_findings_count: %+v", m)
 	}

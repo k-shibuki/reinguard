@@ -1,12 +1,24 @@
 package scripttest
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func requireExitCode(t *testing.T, err error, want int, out string) {
+	t.Helper()
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		t.Fatalf("expected *exec.ExitError, got %T: %v\n%s", err, err, out)
+	}
+	if got := exitErr.ExitCode(); got != want {
+		t.Fatalf("exit code = %d, want %d\n%s", got, want, out)
+	}
+}
 
 func setupLocalReviewRepo(t *testing.T) string {
 	t.Helper()
@@ -157,6 +169,7 @@ printf '%s\n' "$1" >>"${TEST_SLEEP_FILE:?}"
 	if err == nil {
 		t.Fatalf("expected failure, got success:\n%s", out)
 	}
+	requireExitCode(t, err, 2, out)
 	if !strings.Contains(out, "could not be parsed from the latest rate-limit line") {
 		t.Fatalf("expected parse failure message, got:\n%s", out)
 	}
@@ -166,6 +179,64 @@ printf '%s\n' "$1" >>"${TEST_SLEEP_FILE:?}"
 			t.Fatal(readErr)
 		}
 		t.Fatalf("expected fail-closed behavior without sleep, got sleep log:\n%s", sleepLog)
+	} else if !os.IsNotExist(err) {
+		t.Fatalf("unexpected error checking sleep file: %v", err)
+	}
+}
+
+func TestCheckLocalReviewScript_RateLimitFooterDoesNotSupplyCooldown(t *testing.T) {
+	t.Parallel()
+
+	script := scriptPath(t, "check-local-review.sh")
+	repo := setupLocalReviewRepo(t)
+
+	stubDir := t.TempDir()
+	sleepFile := filepath.Join(stubDir, "sleep.log")
+	writeExecutable(t, stubDir, "coderabbit", `#!/usr/bin/env bash
+set -euo pipefail
+subcmd="$1"
+shift
+case "$subcmd" in
+  auth)
+    echo "Authentication: logged in"
+    ;;
+  review)
+    cat <<'EOF'
+[2026-04-03T00:00:00Z] ERROR: Rate limit exceeded, please wait for cooldown reset
+Job finished in 5 seconds
+EOF
+    exit 1
+    ;;
+  *)
+    exit 1
+    ;;
+esac
+`)
+	writeExecutable(t, stubDir, "sleep", `#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$1" >>"${TEST_SLEEP_FILE:?}"
+`)
+
+	env := []string{
+		"PATH=" + stubDir + string(os.PathListSeparator) + os.Getenv("PATH"),
+		"RATE_LIMIT_RETRY_BUFFER_SEC=30",
+		"TEST_SLEEP_FILE=" + sleepFile,
+	}
+
+	out, err := runBashScript(t, repo, script, env, "--base", "main", "--retry-on-rate-limit")
+	if err == nil {
+		t.Fatalf("expected failure, got success:\n%s", out)
+	}
+	requireExitCode(t, err, 2, out)
+	if !strings.Contains(out, "could not be parsed from the latest rate-limit line") {
+		t.Fatalf("expected parse failure message, got:\n%s", out)
+	}
+	if _, err := os.Stat(sleepFile); err == nil {
+		sleepLog, readErr := os.ReadFile(sleepFile)
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		t.Fatalf("expected fail-closed without sleep; footer must not supply cooldown, got:\n%s", sleepLog)
 	} else if !os.IsNotExist(err) {
 		t.Fatalf("unexpected error checking sleep file: %v", err)
 	}
@@ -259,6 +330,7 @@ esac
 	if err == nil {
 		t.Fatalf("expected failure, got success:\n%s", out)
 	}
+	requireExitCode(t, err, 2, out)
 	if !strings.Contains(out, "CodeRabbit CLI is not authenticated") {
 		t.Fatalf("expected unauthenticated error, got:\n%s", out)
 	}

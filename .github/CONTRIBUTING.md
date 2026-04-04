@@ -18,7 +18,8 @@ Review routing for touched areas is defined in **[`CODEOWNERS`](CODEOWNERS)**.
   without `--observation-file`). See ADR-0006.
 - **CodeRabbit CLI**: required locally before PR creation in this repository.
   Install with `curl -fsSL https://cli.coderabbit.ai/install.sh | sh` or
-  `brew install coderabbit`, then authenticate with `cr auth login`.
+  `brew install coderabbit`, then authenticate with `coderabbit auth login`
+  (the `cr` shim also works: `cr auth login`).
 
 ## Quick setup
 
@@ -75,8 +76,8 @@ bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
 ```
 
 - This repository treats the local CodeRabbit CLI pass as a **required pre-PR gate**.
-- The script checks installation and authentication (`cr auth login`) before
-  invoking `coderabbit review -c .coderabbit.yaml`.
+- The script checks installation and authentication (`coderabbit auth login` or
+  `cr auth login`) before invoking `coderabbit review -c .coderabbit.yaml`.
 - With `--retry-on-rate-limit`, on rate limit the script parses the cooldown from
   the **latest** rate-limit line in that CLI run (ignoring earlier unrelated text),
   adds a **safety buffer** (default 30s; set `RATE_LIMIT_RETRY_BUFFER_SEC`), then

@@ -29,6 +29,9 @@ require_command "yq" "yq is required. Install: https://github.com/mikefarah/yq" 
 load_label_names "$LABELS_YAML" '.categories.type.labels[].name' TYPE_LABELS
 load_label_names "$LABELS_YAML" '.categories.exception.labels[].name' EXCEPTION_LABELS
 TYPE_PATTERN="$(join_with_pipe "${TYPE_LABELS[@]}")"
+if [[ -z "$TYPE_PATTERN" ]]; then
+  fail_with "$LABELS_YAML must define at least one type label under categories.type.labels" 1
+fi
 
 TITLE=""
 BODY_FILE=""
