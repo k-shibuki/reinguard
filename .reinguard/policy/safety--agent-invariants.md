@@ -36,7 +36,7 @@ Before pushing Go changes:
 
 - `bash .reinguard/scripts/with-repo-local-state.sh -- go test ./...`
 - `bash .reinguard/scripts/with-repo-local-state.sh -- go vet ./...`
-- `bash .reinguard/scripts/with-repo-local-state.sh -- golangci-lint run` (or rely on CI, but local run is strongly preferred)
+- `bash .reinguard/scripts/with-repo-local-state.sh -- golangci-lint run`
 
 Before pushing Markdown changes:
 

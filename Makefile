@@ -4,8 +4,9 @@
 # (see .github/CONTRIBUTING.md); they are not wrapped here.
 # Run `make help` for targets.
 #
-# Use with-repo-local-state.sh so Go tooling caches (GOCACHE, golangci-lint)
-# and temp dirs stay under repo-local /.tmp/ (Cursor sandbox–friendly).
+# Use with-repo-local-state.sh so Go tooling caches (GOCACHE, golangci-lint
+# cache) stay under repo-local /.tmp/ (Cursor sandbox–friendly). The wrapper does
+# not set TMPDIR; mktemp and similar may still use the system temp directory.
 
 REPO_LOCAL := bash .reinguard/scripts/with-repo-local-state.sh --
 

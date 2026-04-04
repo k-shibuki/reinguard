@@ -165,6 +165,24 @@ func assertObservationDegradedWithLocalGitHubRepo(t *testing.T, out map[string]a
 	if !degOK || !deg {
 		t.Fatalf("expected observation.degraded=true, got %v", obs["degraded"])
 	}
+	diags, ok := obs["diagnostics"].([]any)
+	if !ok {
+		t.Fatalf("expected observation.diagnostics array, got %T", obs["diagnostics"])
+	}
+	var sawAuthFailed bool
+	for _, d := range diags {
+		m, ok := d.(map[string]any)
+		if !ok {
+			continue
+		}
+		if m["code"] == "auth_failed" {
+			sawAuthFailed = true
+			break
+		}
+	}
+	if !sawAuthFailed {
+		t.Fatalf("expected auth_failed diagnostic in %+v", diags)
+	}
 	assertStateIdleRouteNext(t, out)
 	signals := mustMap(t, obs["signals"], "signals")
 	gh := mustMap(t, signals["github"], "signals.github")

@@ -168,6 +168,9 @@ exit 1
 	if repoSignal["owner"] != "octocat" || repoSignal["name"] != "hello-world" {
 		t.Fatalf("repository signal: %+v", repoSignal)
 	}
+	if repoSignal["identity_source"] != "local_git" {
+		t.Fatalf("identity_source: %+v", repoSignal)
+	}
 	for _, d := range frag.Diagnostics {
 		if d.Code == "repo_resolve_failed" {
 			t.Fatalf("unexpected repo_resolve_failed: %+v", frag.Diagnostics)

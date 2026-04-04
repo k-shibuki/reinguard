@@ -227,7 +227,16 @@ run_supervised_review() {
       return 124
     fi
     echo "Local CodeRabbit review still running (${elapsed}s / ${LOCAL_CR_MAX_WAIT_SEC}s max)..." >&2
-    heartbeat_pause "$LOCAL_CR_HEARTBEAT_SEC"
+    if ! kill -0 "$cr_pid" 2>/dev/null; then
+      break
+    fi
+    # Sleep in short chunks (Python `heartbeat_pause`, not PATH `sleep`) so a fast exit
+    # is noticed without waiting a full heartbeat; keeps scripttest sleep stubs accurate.
+    local slept=0
+    while [[ $slept -lt $LOCAL_CR_HEARTBEAT_SEC ]] && kill -0 "$cr_pid" 2>/dev/null; do
+      heartbeat_pause 1
+      slept=$((slept + 1))
+    done
   done
   wait "$cr_pid"
   rc=$?

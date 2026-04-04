@@ -158,6 +158,33 @@ func TestResolveGitHubRepoIdentity_runGitCommandStubbed(t *testing.T) {
 	}
 }
 
+func TestResolveGitHubRepoIdentity_localGit_sshSchemeOrigin(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("git remote fixture uses Unix-oriented helpers elsewhere in this package")
+	}
+	old := runGHCommand
+	t.Cleanup(func() { runGHCommand = old })
+	runGHCommand = func(ctx context.Context, wd string, args []string) ([]byte, []byte, error) {
+		t.Fatal("gh should not be called when ssh:// origin resolves")
+		return nil, nil, nil
+	}
+
+	dir := t.TempDir()
+	runGitCmd(t, dir, "init")
+	runGitCmd(t, dir, "remote", "add", "origin", "ssh://git@github.com/acme/widget.git")
+
+	id, err := ResolveGitHubRepoIdentityFromWorkDir(context.Background(), dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id.Owner != "acme" || id.Name != "widget" {
+		t.Fatalf("owner/name: got %q %q", id.Owner, id.Name)
+	}
+	if id.Source != RepoIdentitySourceLocalGit {
+		t.Fatalf("source: got %q", id.Source)
+	}
+}
+
 func TestResolveGitHubRepoIdentity_localGitPreferredNoGhCall(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("git remote fixture uses Unix-oriented helpers elsewhere in this package")
