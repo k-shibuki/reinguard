@@ -99,6 +99,33 @@ func parseCoderabbitReviewedHeadSHA(body string) string {
 	return ""
 }
 
+// CoderabbitIssueCommentMaxTier returns the highest semantic tier for PR issue-comment
+// bodies when CodeRabbit enrichment applies. Higher wins when multiple comments exist.
+// Tiers: 5 terminal clean/completed, 4 rate limit, 3 paused, 2 failure cues, 1 other markers.
+func CoderabbitIssueCommentMaxTier(body string) int {
+	lower := strings.ToLower(body)
+	t := 0
+	if reCRReviewClean.MatchString(body) {
+		t = max(t, 5)
+	}
+	if reCRReviewCompleted.MatchString(body) {
+		t = max(t, 5)
+	}
+	if strings.Contains(lower, "rate limit") || parseCoderabbitRateLimitSeconds(body) > 0 {
+		t = max(t, 4)
+	}
+	if strings.Contains(lower, "review paused") || strings.Contains(lower, "review pause") {
+		t = max(t, 3)
+	}
+	if reviewFailedFromComment(lower) {
+		t = max(t, 2)
+	}
+	if m := parseCoderabbitReviewStatusMarkers(body); len(m) > 0 {
+		t = max(t, 1)
+	}
+	return t
+}
+
 func parseCoderabbitReviewStatusMarkers(body string) map[string]any {
 	out := make(map[string]any)
 	if sha := parseCoderabbitReviewedHeadSHA(body); sha != "" {

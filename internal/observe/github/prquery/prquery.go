@@ -492,6 +492,82 @@ func reviewFailedFromComment(lower string) bool {
 	return false
 }
 
+func hasCoderabbitEnrich(enrichNames []string) bool {
+	for _, n := range enrichNames {
+		if strings.TrimSpace(n) == "coderabbit" {
+			return true
+		}
+	}
+	return false
+}
+
+// genericIssueCommentMaxTier assigns coarse tiers for non-CodeRabbit enrichment bots.
+func genericIssueCommentMaxTier(body string) int {
+	lower := strings.ToLower(body)
+	t := 0
+	if strings.Contains(lower, "rate limit") {
+		t = max(t, 4)
+	}
+	if strings.Contains(lower, "review paused") || strings.Contains(lower, "review pause") {
+		t = max(t, 3)
+	}
+	if reviewFailedFromComment(lower) {
+		t = max(t, 2)
+	}
+	return t
+}
+
+func commentMaxTier(body string, enrichNames []string) int {
+	if hasCoderabbitEnrich(enrichNames) {
+		return CoderabbitIssueCommentMaxTier(body)
+	}
+	return genericIssueCommentMaxTier(body)
+}
+
+// selectStatusCommentForLogin picks the PR issue comment whose body drives bot status
+// (contains_* and issue-comment enrichment). It prefers the highest semantic tier, then the
+// newest updatedAt within that tier, so an edited Review Status comment is not shadowed by a
+// later short acknowledgment comment without status markers.
+func selectStatusCommentForLogin(nodes []prCommentNode, wantLogin string, enrichNames []string) (body, updatedAt, source string) {
+	latestBody, latestAt := latestCommentForLogin(nodes, wantLogin)
+	var candidates []prCommentNode
+	for _, n := range nodes {
+		if n.Author == nil {
+			continue
+		}
+		if normalizeGitHubActorLogin(n.Author.Login) != normalizeGitHubActorLogin(wantLogin) {
+			continue
+		}
+		if commentMaxTier(n.Body, enrichNames) > 0 {
+			candidates = append(candidates, n)
+		}
+	}
+	if len(candidates) == 0 {
+		return latestBody, latestAt, "fallback_latest"
+	}
+	maxTier := 0
+	for _, n := range candidates {
+		if t := commentMaxTier(n.Body, enrichNames); t > maxTier {
+			maxTier = t
+		}
+	}
+	var best prCommentNode
+	var bestSet bool
+	for _, n := range candidates {
+		if commentMaxTier(n.Body, enrichNames) != maxTier {
+			continue
+		}
+		if !bestSet || n.UpdatedAt >= best.UpdatedAt {
+			best = n
+			bestSet = true
+		}
+	}
+	if !bestSet {
+		return latestBody, latestAt, "fallback_latest"
+	}
+	return best.Body, best.UpdatedAt, "status_marker"
+}
+
 func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNodes []prCommentNode) []any {
 	if len(bots) == 0 {
 		return []any{}
@@ -531,8 +607,9 @@ func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNo
 		if !hasRev {
 			state = ""
 		}
-		body, updated := latestCommentForLogin(nodes, login)
-		lower := strings.ToLower(body)
+		statusBody, statusAt, statusSrc := selectStatusCommentForLogin(nodes, login, br.Enrich)
+		_, latestAt := latestCommentForLogin(nodes, login)
+		statusLower := strings.ToLower(statusBody)
 		status := map[string]any{
 			"id":                     strings.TrimSpace(br.ID),
 			"login":                  login,
@@ -540,12 +617,14 @@ func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNo
 			"has_review":             hasRev,
 			"review_state":           state,
 			"review_commit_sha":      ri.CommitOid,
-			"latest_comment_at":      updated,
-			"contains_rate_limit":    strings.Contains(lower, "rate limit"),
-			"contains_review_paused": strings.Contains(lower, "review paused") || strings.Contains(lower, "review pause"),
-			"contains_review_failed": reviewFailedFromComment(lower),
+			"latest_comment_at":      latestAt,
+			"status_comment_at":      statusAt,
+			"status_comment_source":  statusSrc,
+			"contains_rate_limit":    strings.Contains(statusLower, "rate limit"),
+			"contains_review_paused": strings.Contains(statusLower, "review paused") || strings.Contains(statusLower, "review pause"),
+			"contains_review_failed": reviewFailedFromComment(statusLower),
 		}
-		if extra := applyEnrichments(body, br.Enrich); len(extra) > 0 {
+		if extra := applyEnrichments(statusBody, br.Enrich); len(extra) > 0 {
 			for k, v := range extra {
 				status[k] = v
 			}

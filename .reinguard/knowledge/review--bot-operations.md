@@ -103,8 +103,10 @@ If the branch is updated while CodeRabbit is reviewing, CR may post
 
 ## Rate-Limit Recovery
 
-1. Detect: PR comment from bot containing "Rate limit exceeded"
-2. **Cool-down duration:** when `signals.github.reviews.bot_reviewer_status[].rate_limit_remaining_seconds` is present (CodeRabbit enrichment), use it as the primary sleep budget (add any buffer your policy requires) instead of re-parsing the comment body. Otherwise parse wait time from the **latest** bot issue comment (minutes + seconds + 30s buffer).
+CodeRabbit often **edits** a single PR issue “Review Status” comment in place; it may also post separate short replies. `rgd` derives rate-limit cues from the **selected status comment** (`status_comment_at` / `status_comment_source` in `bot_reviewer_status`, see `docs/cli.md`), not from “newest comment only,” so a later acknowledgment does not hide an active rate-limit body in the Review Status comment.
+
+1. Detect: selected status comment body contains "Rate limit exceeded" (or `contains_rate_limit` in observation).
+2. **Cool-down duration:** when `signals.github.reviews.bot_reviewer_status[].rate_limit_remaining_seconds` is present (CodeRabbit enrichment), use it as the primary sleep budget (add any buffer your policy requires) instead of re-parsing the comment body. Otherwise parse wait time from the **selected status comment** body (minutes + seconds + 30s buffer).
 3. Sleep, re-trigger same reviewer
 4. Second rate limit → treat as timed out (max 1 recovery)
 
