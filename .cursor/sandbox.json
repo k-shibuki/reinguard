@@ -1,0 +1,12 @@
+{
+  "networkPolicy": {
+    "allow": [
+      "ide.coderabbit.ai",
+      "*.coderabbit.ai"
+    ]
+  },
+  "additionalReadwritePaths": [
+    "/home/statuser/.cache"
+  ],
+  "enableSharedBuildCache": true
+}

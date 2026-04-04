@@ -46,3 +46,6 @@ vendor/
 
 # Runtime gate artifacts (substrate-owned operational state)
 .reinguard/runtime/
+
+# Workspace-local temporary caches (pre-commit workaround, etc.)
+.tmp/
