@@ -20,6 +20,7 @@ Whole-change inspection criteria applied **after** `coding--preflight.md`
 
 `coding--preflight.md` covers mechanical, line-level checks (nil guards,
 silent ignores, setup error handling, `go vet`, `pre-commit run markdownlint-cli2 --all-files`).
+It also requires the local CodeRabbit CLI gate before self-inspection begins.
 Self-inspection operates at the **whole-change** level: coherence,
 alignment, and coverage that only become visible when reviewing the
 complete diff against the Issue and architecture.
@@ -28,7 +29,7 @@ Preflight is a prerequisite; self-inspection is not a re-run of
 preflight but a meta-verification that preflight obligations were met
 plus higher-order checks.
 
-## Dimensions (7)
+## Dimensions (8)
 
 ### 1. Issue alignment
 
@@ -61,7 +62,23 @@ applied across the diff:
 This is a **diff-level scan**, not re-running tools — verify the
 patterns are present in changed code.
 
-### 4. Test adequacy
+### 4. Local AI review gate
+
+Confirm the required local CodeRabbit CLI gate completed per
+`coding--preflight.md` and `.reinguard/procedure/change-inspect.md`, and that its findings were
+handled coherently:
+
+- Review output confirms the latest local gate completed on the current
+  branch head and its findings were dispositioned before PR creation.
+- Findings from the latest local CodeRabbit CLI run on the current branch
+  head use the same four disposition categories as the rest of
+  `change-inspect` (see
+  `.reinguard/policy/review--disposition-categories.md`).
+- Any local CodeRabbit finding dispositioned **Fixed** must also satisfy
+  Dimension 6 when the fix pattern extends beyond the exact commented line,
+  file, or wording instance.
+
+### 5. Test adequacy
 
 For each **behavior change in the diff** (not the Issue checklist alone),
 confirm:
@@ -75,7 +92,7 @@ confirm:
 - No `_ = <fallible call>` in test setup (immediate fail-fast with
   `t.Fatal`)
 
-### 5. Same-kind sweep
+### 6. Same-kind sweep
 
 Verify `coding--standards.md` § Change scope was completed:
 
@@ -84,7 +101,7 @@ Verify `coding--standards.md` § Change scope was completed:
 - Any intentional gap has an explicit rationale (PR body or inline
   comment), not silent omission
 
-### 6. PR template substance
+### 7. PR template substance
 
 Check each section of `.github/PULL_REQUEST_TEMPLATE.md`:
 
@@ -95,7 +112,7 @@ Check each section of `.github/PULL_REQUEST_TEMPLATE.md`:
 - **Risk / Impact** — non-placeholder content
 - **Rollback Plan** — non-placeholder or justified "N/A"
 
-### 7. Documentation impact
+### 8. Documentation impact
 
 Verify the doc impact list from `implement` (Act step 3) is reflected:
 
@@ -105,15 +122,24 @@ Verify the doc impact list from `implement` (Act step 3) is reflected:
   changed
 - Intentional deferrals documented in the PR body
 
-## Severity guidance
+## Disposition guidance
 
-When reporting findings, use:
+When `change-inspect` reports findings, use the shared disposition model
+from `.reinguard/policy/review--disposition-categories.md`:
 
-- **Blocking** — must fix before external review (Issue misalignment,
-  ADR violation, missing tests for new behavior, broken defensive
-  pattern)
-- **Non-blocking** — should fix but may proceed (template wording,
-  minor doc gap, sweep miss with low risk)
+- **Fixed** — the finding required a change and that change is now present
+  before PR creation.
+- **By design** — the reported concern is intentional and supported by an
+  ADR, policy, or Issue-scope rationale.
+- **False positive** — the finding premise is incorrect for the actual
+  diff or repository rules.
+- **Acknowledged** — the finding is valid but deferred. Before PR
+  creation, this is allowed only with a separate follow-up Issue or an
+  equally explicit deferred-work contract.
+
+`change-inspect` may declare the branch ready for `pr-create` only when
+review closure is complete for the current local review cycle and any
+`Acknowledged` item satisfies the stricter pre-PR rule above.
 
 ## Related
 
@@ -121,9 +147,11 @@ When reporting findings, use:
   (prerequisite)
 - `.reinguard/policy/coding--standards.md` — Change scope, language
   policy
+- `.reinguard/policy/review--disposition-categories.md` — shared
+  disposition vocabulary across local and PR review
 - `.reinguard/knowledge/testing--strategy.md` — test perspectives,
   table-driven
 - `.reinguard/knowledge/testing--given-when-then.md` — GWT format
 - `.reinguard/procedure/change-inspect.md` — procedure that executes this
-  inspection (pre-PR; dimension 6 is deferred to `pr-create`; enter via
+  inspection (pre-PR; dimension 7 is deferred to `pr-create`; enter via
   `.cursor/commands/rgd-next.md` + `rgd context build`)

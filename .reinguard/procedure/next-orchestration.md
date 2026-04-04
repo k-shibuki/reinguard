@@ -22,12 +22,12 @@ escalate_when: "HS-* violation; genuine cannot-proceed with evidence."
 
 **Not a Cursor slash command** — the invocable Adapter entry is [`.cursor/commands/rgd-next.md`](../../.cursor/commands/rgd-next.md) (Propose → Execute after approval).
 
-**Design alignment**: [ADR-0001](../../docs/adr/0001-system-positioning.md) — `state_id` → procedure routing is normative in [ADR-0013](../../docs/adr/0013-fsm-v1-workflow-states.md) § 4; this document holds **orchestration** (proposal, approval, execution contract, loop).
+**Design alignment**: [ADR-0001](../../docs/adr/0001-system-positioning.md) — `state_id` → procedure routing is normative in [ADR-0013](../../docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md) § 4; this document holds **orchestration** (proposal, approval, execution contract, loop).
 
 ## Context
 
 - [`../policy/safety--agent-invariants.md`](../policy/safety--agent-invariants.md) — **HS-*** hard stops
-- [ADR-0013](../../docs/adr/0013-fsm-v1-workflow-states.md) — FSM states; **§ 4 Adapter mapping (durable)** for `state_id` → procedure routing
+- [ADR-0013](../../docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md) — FSM states; **§ 4 Adapter mapping (durable)** for `state_id` → procedure routing
 
 **Already in context** (always-active Adapter rule): HS-* codes, catalogs, workflow and commit policy.
 

@@ -117,6 +117,46 @@ func TestCoderabbitEnrichment_walkthroughMarker(t *testing.T) {
 	}
 }
 
+func TestParseCoderabbitDuplicateCount(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		body string
+		want int
+	}{
+		{name: "empty", body: "", want: 0},
+		{name: "no_match", body: "Actionable comments posted: 4", want: 0},
+		{name: "emoji_and_count", body: "**Actionable comments posted: 4**\n\n<details>\n<summary>♻️ Duplicate comments (2)</summary>", want: 2},
+		{name: "recycling_symbol_no_vs", body: "\u267b Duplicate comments (1)", want: 1},
+		{name: "malformed_non_numeric", body: "♻️ Duplicate comments (x)", want: 0},
+		{name: "zero_count", body: "♻️ Duplicate comments (0)", want: 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := parseCoderabbitDuplicateCount(tt.body); got != tt.want {
+				t.Fatalf("parseCoderabbitDuplicateCount(%q) = %d, want %d", tt.body, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCoderabbitEnrichment_EnrichReviewBody(t *testing.T) {
+	t.Parallel()
+	e := coderabbitEnrichment{}
+	body := "<summary>♻️ Duplicate comments (3)</summary>"
+	got := e.EnrichReviewBody(body)
+	if got == nil {
+		t.Fatal("got nil")
+	}
+	if n, ok := got["cr_duplicate_findings_count"].(int); !ok || n != 3 {
+		t.Fatalf("got %v", got)
+	}
+	if e.EnrichReviewBody("no duplicate section") != nil {
+		t.Fatal("want nil")
+	}
+}
+
 func TestCoderabbitEnrichment_ClassifyStatus_order(t *testing.T) {
 	t.Parallel()
 	e := coderabbitEnrichment{}

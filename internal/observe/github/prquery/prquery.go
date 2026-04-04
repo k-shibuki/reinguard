@@ -38,6 +38,7 @@ const prContextQuery = `query PRContext($owner: String!, $name: String!, $number
       latestReviews(first: 100) @include(if: $includeDetail) {
         nodes {
           state
+          body
           author { login }
           commit { oid }
         }
@@ -132,6 +133,7 @@ type closingIssuesConn struct {
 type latestReviewsConn struct {
 	Nodes []struct {
 		State  string `json:"state"`
+		Body   string `json:"body"`
 		Author *struct {
 			Login string `json:"login"`
 		} `json:"author"`
@@ -284,10 +286,11 @@ func emptyReviewsInner() map[string]any {
 		"review_decisions_truncated":         false,
 		"bot_reviewer_status":                []any{},
 		"bot_review_diagnostics": map[string]any{
-			"bot_review_completed": true,
-			"bot_review_pending":   false,
-			"bot_review_terminal":  true,
-			"bot_review_failed":    false,
+			"bot_review_completed":        true,
+			"bot_review_pending":          false,
+			"bot_review_terminal":         true,
+			"bot_review_failed":           false,
+			"duplicate_findings_detected": false,
 		},
 	}
 }
@@ -486,6 +489,7 @@ func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNo
 	type reviewInfo struct {
 		State     string
 		CommitOid string
+		Body      string
 	}
 	reviewByLogin := map[string]reviewInfo{}
 	if pr.LatestReviews != nil {
@@ -497,7 +501,7 @@ func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNo
 			if login == "" {
 				continue
 			}
-			ri := reviewInfo{State: n.State}
+			ri := reviewInfo{State: n.State, Body: n.Body}
 			if n.Commit != nil {
 				ri.CommitOid = n.Commit.Oid
 			}
@@ -532,6 +536,11 @@ func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNo
 			"contains_review_failed": reviewFailedFromComment(lower),
 		}
 		if extra := applyEnrichments(body, br.Enrich); len(extra) > 0 {
+			for k, v := range extra {
+				status[k] = v
+			}
+		}
+		if extra := applyReviewBodyEnrichments(ri.Body, br.Enrich); len(extra) > 0 {
 			for k, v := range extra {
 				status[k] = v
 			}

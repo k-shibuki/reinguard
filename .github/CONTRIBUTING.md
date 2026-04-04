@@ -10,10 +10,17 @@ Review routing for touched areas is defined in **[`CODEOWNERS`](CODEOWNERS)**.
 
 - **Go**: match `go.mod` / CI (toolchain **1.26.1** as of this writing).
 - **golangci-lint**: optional locally; CI runs it on every PR.
-- **`yq`**: **[mikefarah/yq](https://github.com/mikefarah/yq) v4** — required for local runs of `.reinguard/scripts/check-commit-msg.sh`, `check-pr-policy.sh`, `check-issue-policy.sh`, and for `.reinguard/scripts/sync-issue-templates.sh` (CI installs a pinned binary in workflows).
+- **Bash**: **4.3+** — required for `.reinguard/scripts/lib/labels.sh` (`local -n`), used by `check-pr-policy.sh` and related policy scripts. The default `/bin/bash` on macOS is 3.2; install a newer Bash (e.g. `brew install bash`) and invoke scripts with `bash` from your PATH.
+- **`yq`**: **[mikefarah/yq](https://github.com/mikefarah/yq) v4** — required for local runs of `.reinguard/scripts/check-commit-msg.sh`, `check-pr-policy.sh`, `check-issue-policy.sh`, and for `.reinguard/scripts/sync-issue-templates.sh` (CI installs a pinned binary in workflows for the script integration suite).
+- **Label `name` values** in [`.reinguard/labels.yaml`](../.reinguard/labels.yaml): keep each name **regex-safe** for POSIX extended-regex matching (avoid raw `()`, `+`, `*`, `.`, `?`, `[`, `]`, `^`, `$`, `|`, `\`). `check-pr-policy.sh` joins type labels into the PR title pattern.
+- **`jq`**: required for `.reinguard/scripts/sync-issue-templates.sh` when not using test-only overrides.
 - **`gh`**: required only when using commands that call the GitHub API (e.g.
   `rgd observe github`, or live observation in `rgd state eval` / `rgd context build`
   without `--observation-file`). See ADR-0006.
+- **CodeRabbit CLI**: required locally before PR creation in this repository.
+  Install with `curl -fsSL https://cli.coderabbit.ai/install.sh | sh` or
+  `brew install coderabbit`, then authenticate with `coderabbit auth login`
+  (the `cr` shim also works: `cr auth login`).
 
 ## Quick setup
 
@@ -25,8 +32,10 @@ go build -o rgd ./cmd/rgd
 ```
 
 Optional: the repo **[`Makefile`](../Makefile)** provides `make test`, `make check`
-(fmt, vet, lint, test — lint is `golangci-lint`), `make coverage`, `make build`, etc.
+(fmt, vet, lint, test — lint is `golangci-lint`), `make build`, etc.
 It is **not** normative — CI and the shell commands below are the source of truth.
+Repository policy and workflow scripts under **`.reinguard/scripts/`** are invoked
+directly with `bash` (see sections below); they are **not** wrapped by `make`.
 
 Optional commit message template (see [`.reinguard/policy/commit--format.md`](../.reinguard/policy/commit--format.md)):
 
@@ -45,12 +54,41 @@ golangci-lint run --timeout=5m ./...
 pre-commit run markdownlint-cli2 --all-files
 ```
 
+`go test ./...` includes Go integration tests for repository-local shell scripts
+under `internal/scripttest/` and `internal/labels/`. Tool-sensitive cases skip
+cleanly when dependencies such as mikefarah `yq` are unavailable.
+
 **Coverage** (module-wide threshold **80%**, same as CI):
 
 ```bash
 go test ./... -race -coverpkg=./... -coverprofile=coverage.out -count=1
 bash .reinguard/scripts/check-coverage-threshold.sh 80 coverage.out
 ```
+
+## Required local CodeRabbit review before PR creation
+
+After local verification passes and before `pr-create`, run the repository
+CodeRabbit gate from the repo root:
+
+```bash
+bash .reinguard/scripts/check-local-review.sh --base main
+# agents / automation (latest cooldown parse + buffer + one retry):
+bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
+```
+
+- This repository treats the local CodeRabbit CLI pass as a **required pre-PR gate**.
+- The script checks installation and authentication (`coderabbit auth login` or
+  `cr auth login`) before invoking `coderabbit review -c .coderabbit.yaml`.
+- With `--retry-on-rate-limit`, on rate limit the script parses the cooldown from
+  the **latest** rate-limit line in that CLI run (ignoring earlier unrelated text),
+  adds a **safety buffer** (default 30s; set `RATE_LIMIT_RETRY_BUFFER_SEC`), then
+  retries the review **once**.
+- Execution failures (CLI missing, auth missing, unparsed cooldown, second
+  consecutive rate limit after retry, command error) block PR creation.
+- Review findings are triaged during `change-inspect`; the local CLI does
+  **not** replace the PR bot review from `.coderabbit.yaml`.
+- For automation, the script also supports `--mode agent`; the default remains
+  `plain` for contributor-facing output.
 
 Optional: `pre-commit install --hook-type commit-msg` and `pre-commit install` (see [`.pre-commit-config.yaml`](../.pre-commit-config.yaml)).
 

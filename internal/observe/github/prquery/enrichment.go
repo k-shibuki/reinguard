@@ -93,3 +93,35 @@ func applyEnrichments(body string, enrichNames []string) map[string]any {
 	}
 	return out
 }
+
+// reviewBodyEnricher parses PullRequestReview bodies (distinct from issue comments).
+type reviewBodyEnricher interface {
+	EnrichReviewBody(reviewBody string) map[string]any
+}
+
+func applyReviewBodyEnrichments(reviewBody string, enrichNames []string) map[string]any {
+	if len(enrichNames) == 0 || strings.TrimSpace(reviewBody) == "" {
+		return nil
+	}
+	enrichmentMu.RLock()
+	defer enrichmentMu.RUnlock()
+	out := make(map[string]any)
+	for _, name := range enrichNames {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		e, ok := enrichmentByName[name]
+		if !ok {
+			continue
+		}
+		rbe, ok := e.(reviewBodyEnricher)
+		if !ok {
+			continue
+		}
+		for k, v := range rbe.EnrichReviewBody(reviewBody) {
+			out[k] = v
+		}
+	}
+	return out
+}

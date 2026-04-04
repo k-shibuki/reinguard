@@ -1,8 +1,10 @@
-# reinguard — optional dev shortcuts for the Go toolchain only.
+# reinguard — optional local dev shortcuts for Go checks only.
 # CI remains authoritative; rgd commands should be invoked directly.
+# Policy/workflow scripts live under .reinguard/scripts/ — invoke with bash
+# (see .github/CONTRIBUTING.md); they are not wrapped here.
 # Run `make help` for targets.
 
-.PHONY: help fmt vet test lint coverage build check
+.PHONY: help fmt vet test lint build check
 
 help: ## Show targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -23,10 +25,6 @@ lint: ## golangci-lint (required for check; must be on PATH)
 		exit 1; \
 	fi
 	golangci-lint run --timeout=5m ./...
-
-coverage: ## Race tests + module coverage profile + 80% gate
-	go test ./... -race -count=1 -coverpkg=./... -coverprofile=coverage.out
-	bash .reinguard/scripts/check-coverage-threshold.sh 80 coverage.out
 
 build: ## Build rgd binary to ./rgd
 	go build -o rgd ./cmd/rgd

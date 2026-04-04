@@ -179,6 +179,30 @@
       }
     },
     {
+      "id": "review-classification-map",
+      "path": ".reinguard/knowledge/review--classification-map.md",
+      "description": "Unified disposition categories for local review, self-inspection, and PR review flows",
+      "triggers": [
+        "review classification map",
+        "disposition categories",
+        "finding dispositions",
+        "local review disposition",
+        "pre-PR acknowledged"
+      ],
+      "when": {
+        "or": [
+          {
+            "op": "exists",
+            "path": "git.branch"
+          },
+          {
+            "op": "exists",
+            "path": "github.repository.owner"
+          }
+        ]
+      }
+    },
+    {
       "id": "review-github-thread-api",
       "path": ".reinguard/knowledge/review--github-thread-api.md",
       "description": "GitHub REST vs GraphQL for PR review thread resolution state (isResolved) and enumeration",

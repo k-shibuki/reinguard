@@ -13,20 +13,18 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LABELS_YAML="$SCRIPT_DIR/../labels.yaml"
-if [[ ! -f "$LABELS_YAML" ]]; then
-  echo "ERROR: $LABELS_YAML not found." >&2
-  exit 2
-fi
-if ! command -v yq >/dev/null 2>&1; then
-  echo "ERROR: yq is required (mikefarah/yq v4). Install: https://github.com/mikefarah/yq" >&2
-  exit 2
-fi
+# shellcheck source=.reinguard/scripts/lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+# shellcheck source=.reinguard/scripts/lib/labels.sh
+source "$SCRIPT_DIR/lib/labels.sh"
 
-mapfile -t TYPE_LABELS < <(yq -r '.categories.type.labels[].name' "$LABELS_YAML")
-mapfile -t EXCEPTION_LABELS < <(yq -r '.categories.exception.labels[].name' "$LABELS_YAML")
-mapfile -t SCOPE_LABELS < <(yq -r '.categories.scope.labels[].name' "$LABELS_YAML")
-TYPE_PATTERN=$(printf '%s\n' "${TYPE_LABELS[@]}" | paste -sd '|' -)
+LABELS_YAML="$(require_labels_yaml "$SCRIPT_DIR")"
+require_command "yq" "yq is required (mikefarah/yq v4). Install: https://github.com/mikefarah/yq" 2
+
+load_label_names "$LABELS_YAML" '.categories.type.labels[].name' TYPE_LABELS
+load_label_names "$LABELS_YAML" '.categories.exception.labels[].name' EXCEPTION_LABELS
+load_label_names "$LABELS_YAML" '.categories.scope.labels[].name' SCOPE_LABELS
+TYPE_PATTERN="$(join_with_pipe "${TYPE_LABELS[@]}")"
 
 TITLE=""
 BODY_FILE=""
@@ -36,34 +34,22 @@ LABELS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --title)
-      [[ $# -ge 2 && -n "${2:-}" && "${2:0:1}" != "-" ]] || {
-        echo "ERROR: --title requires a non-empty value" >&2
-        exit 2
-      }
+      require_flag_value "--title" "${2:-}" "--title requires a non-empty value"
       TITLE="$2"
       shift 2
       ;;
     --body-file)
-      [[ $# -ge 2 && -n "${2:-}" && "${2:0:1}" != "-" ]] || {
-        echo "ERROR: --body-file requires a non-empty path" >&2
-        exit 2
-      }
+      require_flag_value "--body-file" "${2:-}" "--body-file requires a non-empty path"
       BODY_FILE="$2"
       shift 2
       ;;
     --template)
-      [[ $# -ge 2 && -n "${2:-}" && "${2:0:1}" != "-" ]] || {
-        echo "ERROR: --template requires task or epic" >&2
-        exit 2
-      }
+      require_flag_value "--template" "${2:-}" "--template requires task or epic"
       TEMPLATE="$2"
       shift 2
       ;;
     --label)
-      [[ $# -ge 2 && -n "${2:-}" && "${2:0:1}" != "-" ]] || {
-        echo "ERROR: --label requires a non-empty value" >&2
-        exit 2
-      }
+      require_flag_value "--label" "${2:-}" "--label requires a non-empty value"
       LABELS+=("$2")
       shift 2
       ;;
@@ -81,10 +67,7 @@ if [[ "$TEMPLATE" != "task" && "$TEMPLATE" != "epic" ]]; then
   exit 2
 fi
 
-if [[ ! -f "$BODY_FILE" ]]; then
-  echo "ERROR: body file not found: $BODY_FILE" >&2
-  exit 2
-fi
+require_file "$BODY_FILE" "body file not found: $BODY_FILE" 2
 
 BODY=$(cat "$BODY_FILE")
 ERRORS=()
@@ -98,13 +81,7 @@ for l in "${LABELS[@]}"; do
 done
 
 strip_comments() {
-  # Prefer perl for multiline <!-- ... -->; fall back to sed for single-line only.
-  if command -v perl >/dev/null 2>&1; then
-    perl -0777 -pe 's/<!--.*?-->//gs' <<< "$1" | sed '/^[[:space:]]*$/d'
-  else
-    # shellcheck disable=SC2001
-    sed 's/<!--[^>]*-->//g' <<< "$1" | sed '/^[[:space:]]*$/d'
-  fi
+  strip_html_comments_and_blank_lines "$1"
 }
 
 # Match ## or ### heading (Issue Form markdown or hand-authored).

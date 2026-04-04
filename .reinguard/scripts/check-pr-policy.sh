@@ -8,22 +8,30 @@
 #       --body-file /tmp/pr-body.md --label chore [--base main]
 #
 # --title, --body-file, and at least one --label are required.
-# --base defaults to main (must be main or master to match gate-policy CI).
+# --base defaults to main (must be main to match gate-policy CI).
 set -euo pipefail
 
+# labels.sh uses `local -n` (Bash 4.3+). Fail fast with guidance for macOS /bin/bash 3.2.
+if [ "${BASH_VERSINFO[0]:-0}" -lt 4 ] || { [ "${BASH_VERSINFO[0]:-0}" -eq 4 ] && [ "${BASH_VERSINFO[1]:-0}" -lt 3 ]; }; then
+  echo "check-pr-policy.sh requires Bash 4.3+ (uses local -n via labels.sh). Current: ${BASH_VERSION:-unknown}" >&2
+  echo "Install a newer bash (e.g. brew install bash) and run: bash $0 ..." >&2
+  exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LABELS_YAML="$SCRIPT_DIR/../labels.yaml"
-if [[ ! -f "$LABELS_YAML" ]]; then
-  echo "ERROR: $LABELS_YAML not found." >&2
-  exit 2
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+# shellcheck source=lib/labels.sh
+source "$SCRIPT_DIR/lib/labels.sh"
+
+LABELS_YAML="$(require_labels_yaml "$SCRIPT_DIR")"
+require_command "yq" "yq is required. Install: https://github.com/mikefarah/yq" 2
+load_label_names "$LABELS_YAML" '.categories.type.labels[].name' TYPE_LABELS
+load_label_names "$LABELS_YAML" '.categories.exception.labels[].name' EXCEPTION_LABELS
+TYPE_PATTERN="$(join_with_pipe "${TYPE_LABELS[@]}")"
+if [[ -z "$TYPE_PATTERN" ]]; then
+  fail_with "$LABELS_YAML must define at least one type label under categories.type.labels" 1
 fi
-if ! command -v yq >/dev/null 2>&1; then
-  echo "ERROR: yq is required. Install: https://github.com/mikefarah/yq" >&2
-  exit 2
-fi
-mapfile -t TYPE_LABELS < <(yq -r '.categories.type.labels[].name' "$LABELS_YAML")
-mapfile -t EXCEPTION_LABELS < <(yq -r '.categories.exception.labels[].name' "$LABELS_YAML")
-TYPE_PATTERN=$(printf '%s\n' "${TYPE_LABELS[@]}" | paste -sd '|' -)
 
 TITLE=""
 BODY_FILE=""
@@ -33,34 +41,22 @@ LABELS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --title)
-      [[ $# -ge 2 && -n "${2:-}" && "${2:0:1}" != "-" ]] || {
-        echo "ERROR: --title requires a non-empty value" >&2
-        exit 2
-      }
+      require_flag_value "--title" "${2:-}" "--title requires a non-empty value"
       TITLE="$2"
       shift 2
       ;;
     --body-file)
-      [[ $# -ge 2 && -n "${2:-}" && "${2:0:1}" != "-" ]] || {
-        echo "ERROR: --body-file requires a non-empty path" >&2
-        exit 2
-      }
+      require_flag_value "--body-file" "${2:-}" "--body-file requires a non-empty path"
       BODY_FILE="$2"
       shift 2
       ;;
     --base)
-      [[ $# -ge 2 && -n "${2:-}" && "${2:0:1}" != "-" ]] || {
-        echo "ERROR: --base requires a non-empty branch name" >&2
-        exit 2
-      }
+      require_flag_value "--base" "${2:-}" "--base requires a non-empty branch name"
       BASE="$2"
       shift 2
       ;;
     --label)
-      [[ $# -ge 2 && -n "${2:-}" && "${2:0:1}" != "-" ]] || {
-        echo "ERROR: --label requires a non-empty value" >&2
-        exit 2
-      }
+      require_flag_value "--label" "${2:-}" "--label requires a non-empty value"
       LABELS+=("$2")
       shift 2
       ;;
@@ -73,20 +69,11 @@ if [[ -z "$TITLE" || -z "$BODY_FILE" || ${#LABELS[@]} -eq 0 ]]; then
   exit 2
 fi
 
-if [[ ! -f "$BODY_FILE" ]]; then
-  echo "ERROR: body file not found: $BODY_FILE" >&2
-  exit 2
-fi
+require_file "$BODY_FILE" "body file not found: $BODY_FILE" 2
 
 BODY=$(cat "$BODY_FILE")
 ERRORS=()
 WARNINGS=()
-
-strip_comments() {
-  # shellcheck disable=SC2001
-  # HTML comment strip needs sed regex; not replaceable by bash ${var//}.
-  sed 's/<!--[^>]*-->//g' <<< "$1" | sed '/^[[:space:]]*$/d'
-}
 
 # 1. Issue linkage
 if ! grep -qiE '(closes|fixes|resolves)\s+#[0-9]+' <<< "$BODY"; then
@@ -124,9 +111,26 @@ if ! grep -qiE '## (Acceptance Criteria|Definition of Done)' <<< "$BODY"; then
 fi
 
 # 5. Test plan section (non-empty)
-TEST_PLAN=$(sed -n '/## Test [Pp]lan/,/^## /p' <<< "$BODY" | tail -n +2)
-TEST_PLAN_CLEAN=$(strip_comments "$TEST_PLAN")
-if [[ -z "$TEST_PLAN" ]]; then
+HAS_TEST_PLAN_SECTION=false
+if grep -qiE '^## Test [Pp]lan([[:space:]]*)$' <<< "$BODY"; then
+  HAS_TEST_PLAN_SECTION=true
+fi
+TEST_PLAN=$(awk '
+  BEGIN { on = 0 }
+  /^##[[:space:]]+/ {
+    rest = $0
+    sub(/^##[[:space:]]+/, "", rest)
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", rest)
+    rl = tolower(rest)
+    gsub(/[[:space:]]+/, " ", rl)
+    if (rl == "test plan") { on = 1; next }
+    if (on) exit
+    next
+  }
+  on { print }
+' <<< "$BODY")
+TEST_PLAN_CLEAN=$(strip_html_comments_and_blank_lines "$TEST_PLAN")
+if [[ "$HAS_TEST_PLAN_SECTION" != true ]]; then
   ERRORS+=("Test plan: section missing from body.")
 elif [[ ${#TEST_PLAN_CLEAN} -lt 5 ]]; then
   ERRORS+=("Test plan: section exists but appears empty.")
@@ -146,7 +150,7 @@ RISK=$(awk -v want="risk / impact" '
   }
   on { print }
 ' <<< "$BODY")
-RISK_CLEAN=$(strip_comments "$RISK")
+RISK_CLEAN=$(strip_html_comments_and_blank_lines "$RISK")
 if [[ -z "$RISK" ]]; then
   ERRORS+=("Risk / Impact: section missing from body.")
 elif [[ ${#RISK_CLEAN} -lt 5 ]]; then
@@ -167,7 +171,7 @@ ROLLBACK=$(awk -v want="rollback plan" '
   }
   on { print }
 ' <<< "$BODY")
-ROLLBACK_CLEAN=$(strip_comments "$ROLLBACK")
+ROLLBACK_CLEAN=$(strip_html_comments_and_blank_lines "$ROLLBACK")
 if [[ -z "$ROLLBACK" ]]; then
   ERRORS+=("Rollback Plan: section missing from body.")
 elif [[ ${#ROLLBACK_CLEAN} -lt 3 ]]; then
@@ -194,8 +198,8 @@ elif [[ ${#HITS[@]} -gt 1 ]]; then
 fi
 
 # 10. Base branch (HS-PR-BASE; mirrors pr-policy.yaml)
-if [[ "$BASE" != "main" && "$BASE" != "master" ]]; then
-  ERRORS+=("Base branch: PR must target main (or master). Got: $BASE. Document stack deps in the PR body instead of using --base feat/...")
+if [[ "$BASE" != "main" ]]; then
+  ERRORS+=("Base branch: PR must target main. Got: $BASE. Document stack deps in the PR body instead of using --base feat/...")
 fi
 
 # Report

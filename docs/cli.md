@@ -38,6 +38,9 @@ before `state`.
 rgd version
 rgd config validate
 rgd schema export [--dir DIR]
+rgd gate record <gate-id> --status pass|fail [--checks-file FILE]
+rgd gate status <gate-id>
+rgd gate show <gate-id>
 rgd observe [workflow-position]
 rgd observe git
 rgd observe github
@@ -68,7 +71,9 @@ These commands read [`.reinguard/labels.yaml`](../.reinguard/labels.yaml) and sh
 | `rgd labels list` | Print type / exception / scope label names as JSON (stdout). |
 | `rgd labels sync` | Align existing GitHub label color/description with `labels.yaml` (`gh label edit`); does not delete extra labels. Use `--dry-run` to preview. |
 
-Issue/PR **policy enforcement** scripts live under **`.reinguard/scripts/`** (`check-commit-msg.sh`, `check-pr-policy.sh`, `check-issue-policy.sh`, `sync-issue-templates.sh`).
+Issue/PR **policy enforcement** and related repository tooling scripts live under **`.reinguard/scripts/`** (for example `check-commit-msg.sh`, `check-pr-policy.sh`, `check-issue-policy.sh`, `sync-issue-templates.sh`, `check-coverage-threshold.sh`, `check-local-review.sh`). Invoke them with `bash .reinguard/scripts/<name>.sh` from the repository root; they are **not** part of the shipped `rgd` binary and are **not** wrapped by `Makefile` targets.
+
+Deterministic policy validators (`check-pr-policy.sh`, `check-issue-policy.sh`, `check-commit-msg.sh`) are the only current candidates for future Go-backed `rgd` migration. External-CLI and repository-maintenance scripts (`check-local-review.sh`, `sync-issue-templates.sh`, `check-coverage-threshold.sh`) remain repository-local shell tooling. The shell script suite is exercised by Go integration tests under `internal/scripttest/` and `internal/labels/`.
 
 ## Provider IDs ↔ commands
 
@@ -84,7 +89,7 @@ Each `providers[]` entry may include `options` (object). Built-in factories cons
 | Provider `id` | Key | Type | Description |
 |---------------|-----|------|-------------|
 | `github` | `api_base` | string | Optional GitHub REST API root override (e.g. `httptest` or a host whose REST root is `https://HOST/api/v3`); GraphQL uses `https://api.github.com/graphql` by default and maps `.../api/v3` → `.../api/graphql` for that Enterprise Server shape; leading/trailing space trimmed |
-| `github` | `bot_reviewers` | array | Optional. Each element: `id` (string, required, `^[a-z0-9_]+$`, unique), `login` (string, required), `required` (boolean, required — whether this bot participates in aggregate diagnostics), `enrich` (optional string array of built-in enrichment names). Drives `signals.github.reviews.bot_reviewer_status` and `bot_review_diagnostics`. Unknown `enrich` names fail `rgd config validate` / provider build. Built-in enrichments: `coderabbit` (rate-limit seconds, CodeRabbit Review Status markers, `StatusClassifier`). |
+| `github` | `bot_reviewers` | array | Optional. Each element: `id` (string, required, `^[a-z0-9_]+$`, unique), `login` (string, required), `required` (boolean, required — whether this bot participates in aggregate diagnostics), `enrich` (optional string array of built-in enrichment names). Drives `signals.github.reviews.bot_reviewer_status` and `bot_review_diagnostics`. Unknown `enrich` names fail `rgd config validate` / provider build. Built-in enrichments: `coderabbit` (rate-limit seconds, CodeRabbit Review Status markers, duplicate-comment count from `PullRequestReview.body`, `StatusClassifier`). |
 
 The `git` provider accepts `options` for forward compatibility; keys are currently unused.
 
@@ -163,8 +168,8 @@ Populated when the `reviews` facet runs (see `rgd observe github reviews`). Data
 | `review_decisions_approved` | number | Count with state `APPROVED`. |
 | `review_decisions_changes_requested` | number | Count with state `CHANGES_REQUESTED`. |
 | `review_decisions_truncated` | boolean | True if `latestReviews` reports `hasNextPage` (more than one page of decisions not fetched). |
-| `bot_reviewer_status` | array | One object per configured `bot_reviewers` entry (empty array if unset). Each object includes: `id`, `login`, `required`, `status` (classified string: `not_triggered`, `pending`, `completed`, `completed_clean`, `rate_limited`, `review_paused`, `review_failed`; `completed_clean` is used when an enrichment can prove a clean completion, e.g. CodeRabbit "No issues found" plus a matching review), `has_review`, `review_state` (from `latestReviews`, empty if none), `review_commit_sha` (commit OID from the latest review by this bot, empty if none), `latest_comment_at` (ISO8601 from newest matching PR comment in the fetched `comments(last: 50)` window, or empty), generic flags `contains_rate_limit`, `contains_review_paused`, `contains_review_failed` (substring checks on that comment body, case-insensitive), optional enrich fields (e.g. `rate_limit_remaining_seconds`, `cr_review_processing`, `cr_walkthrough_present` from `coderabbit`). |
-| `bot_review_diagnostics` | object | Aggregates over **required** bots only: `bot_review_completed`, `bot_review_pending`, `bot_review_terminal`, `bot_review_failed`, `bot_review_stale` (booleans). `bot_review_stale` is true when any required bot with a completed review targets a different commit than the PR HEAD SHA, or when `review_commit_sha` is empty or missing (fail-closed). Vacuously false when no required bots are configured. See ADR-0013. |
+| `bot_reviewer_status` | array | One object per configured `bot_reviewers` entry (empty array if unset). Each object includes: `id`, `login`, `required`, `status` (classified string: `not_triggered`, `pending`, `completed`, `completed_clean`, `rate_limited`, `review_paused`, `review_failed`; `completed_clean` is used when an enrichment can prove the bot finished review, explicitly reported a clean result such as CodeRabbit "No issues found", and has a corresponding GitHub review entry for the same bot), `has_review`, `review_state` (from `latestReviews`, empty if none), `review_commit_sha` (commit OID from the latest review by this bot, empty if none), `latest_comment_at` (ISO8601 from newest matching PR comment in the fetched `comments(last: 50)` window, or empty), generic flags `contains_rate_limit`, `contains_review_paused`, `contains_review_failed` (substring checks on that comment body, case-insensitive), optional enrich fields (e.g. `rate_limit_remaining_seconds`, `cr_review_processing`, `cr_walkthrough_present`, `cr_duplicate_findings_count` from `coderabbit` — duplicate count is parsed from the latest `PullRequestReview.body`, not issue comments). |
+| `bot_review_diagnostics` | object | `bot_review_completed`, `bot_review_pending`, `bot_review_terminal`, `bot_review_failed`, `bot_review_stale` (booleans) aggregate over **required** bots only. `bot_review_stale` is true when any required bot with a completed review targets a different commit than the PR HEAD SHA, or when `review_commit_sha` is empty or missing (fail-closed). Vacuously false when no required bots are configured. `duplicate_findings_detected` is true when **any** configured bot (required or optional) has `cr_duplicate_findings_count` > 0 in `bot_reviewer_status` (CodeRabbit re-listed findings under duplicate suppression without new threads). See ADR-0013. |
 
 GraphQL failures for this query are reported as diagnostics with provider **`github.pr-query`** (non-fatal to other facets unless the whole provider degrades).
 
@@ -172,13 +177,15 @@ GraphQL failures for this query are reported as diagnostics with provider **`git
 
 Evaluates `type: state` rules from configuration against an observation.
 
-Committed workflow `state_id` priorities for this repository are documented in **ADR-0013** (`docs/adr/0013-fsm-v1-workflow-states.md`).
+Committed workflow `state_id` priorities for this repository are documented in **ADR-0013** (`docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md`).
 
 ### Inputs
 
 - **Default:** runs observation inline (same as `rgd observe`) unless:
 - `--observation-file FILE` points to a JSON observation document, or
 - **stdin** JSON when `-` is passed as file (optional convention).
+- Runtime gate statuses from `.reinguard/runtime/gates/*.json` are merged into
+  the evaluation signal map as `gates.<gate-id>.*` before state resolution.
 
 ### Output
 
@@ -202,6 +209,8 @@ Evaluates `type: route` rules using:
 
 - `--observation-file` (required unless default live observe)
 - `--state-file` optional prior `state eval` JSON (merged into signals as `state` key)
+- Runtime gate statuses from `.reinguard/runtime/gates/*.json` (merged as
+  `gates.<gate-id>.*` before route evaluation)
 
 ### Output
 
@@ -224,7 +233,48 @@ Like `state` / `route` commands, this loads `reinguard.yaml` and `control/**/*.y
 `--config-dir` (or the repo’s `.reinguard`). Built-in guards (for example `merge-readiness`)
 run only after declarative resolution succeeds when `control/guards/*.yaml` contains rules with
 matching `guard_id`; if there are no rules for that id, the built-in runs without a resolution
-step (backward compatible).
+step (backward compatible). Runtime gate statuses are also merged into the flat
+signal map as `gates.<gate-id>.*`.
+
+## `rgd gate`
+
+Runtime gate artifacts live under `.reinguard/runtime/gates/` and are validated
+against the embedded `gate-artifact.json` schema. These artifacts are
+**gitignored operational state**, not Semantics content.
+
+### `rgd gate record <gate-id>`
+
+Records one validated gate artifact for the current branch HEAD.
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `--status` | yes | Top-level gate outcome: `pass` or `fail` |
+| `--checks-file` | no | JSON array of check objects with fields `id`, `status`, and optional `summary`; check `status` may be `pass`, `fail`, or `skipped` |
+
+The command attaches:
+
+- current `head_sha`
+- current branch name
+- `recorded_at` (RFC3339 UTC)
+- `schema_version`
+
+It refuses to record on a detached HEAD.
+
+### `rgd gate status <gate-id>`
+
+Derives the effective status for the current checkout:
+
+| Status | Meaning |
+|--------|---------|
+| `missing` | No artifact file exists for the gate |
+| `invalid` | The artifact is unreadable or schema-invalid |
+| `stale` | The artifact branch / `head_sha` does not match the current checkout, or current git identity cannot be determined |
+| `fail` | The artifact is fresh and its recorded top-level status is `fail` |
+| `pass` | The artifact is fresh and its recorded top-level status is `pass` |
+
+### `rgd gate show <gate-id>`
+
+Prints the validated raw artifact JSON.
 
 ### `merge-readiness` (built-in)
 
@@ -249,6 +299,11 @@ Evaluates merge signals. All conditions must be true for `ok == true`:
 
 All signals fail closed on missing or invalid values (guard returns `ok: false`).
 
+`merge-readiness` is a deterministic merge gate only for the signals above.
+It does **not** prove that non-thread findings from the current PR review
+cycle have been dispositioned; review-closure completeness remains a
+procedure / policy responsibility.
+
 ### Output
 
 JSON `{ "guard_id": "merge-readiness", "ok": true|false, "reason": "..." }`
@@ -265,7 +320,7 @@ copied into the manifest as-is. **`rgd knowledge index`** does not walk `when` b
 YAML parse; **`rgd config validate`** applies the same static checks as for control rules’
 `when`: registered `eval:` names, known `op` values (see `internal/match`), required operands per
 `op`, `eval: constant` requires `params.value` as boolean, and every `path` must start with
-`git.`, `github.`, `state.`, or `$` / `$.` (quantifier scope). `knowledge index` rejects **duplicate triggers** (case-insensitive) and missing `when`.
+`git.`, `github.`, `state.`, `gates.`, or `$` / `$.` (quantifier scope). `knowledge index` rejects **duplicate triggers** (case-insensitive) and missing `when`.
 
 After editing knowledge metadata in front matter, run this command and commit the
 updated manifest so `rgd config validate` freshness checks pass.
@@ -296,7 +351,12 @@ If evaluating `when` fails (e.g. malformed clause), the entry is **still include
 Runs the default pipeline: **observe → state eval → knowledge filter → route select → guard eval
 (merge-readiness) → operational context JSON**.
 
-After state resolution, `state.kind`, `state.state_id`, and `state.rule_id` are merged into the flat signal map; **knowledge `entries`** are then filtered with `match.Eval` per entry `when`. Route and guard steps use the same flat map as before; they do not see route/guard outcomes inside `when` (avoids circularity).
+Runtime gate statuses are merged into the flat signal map first as
+`gates.<gate-id>.*`. After state resolution, `state.kind`, `state.state_id`,
+and `state.rule_id` are merged into the same flat signal map; **knowledge
+`entries`** are then filtered with `match.Eval` per entry `when`. Route and
+guard steps use that flat map; they do not see route/guard outcomes inside
+`when` (avoids circularity).
 
 - **`--observation-file FILE`**: if set, skips live `observe` and uses the
   given observation document JSON as input (same shape as `rgd observe` stdout).
@@ -319,7 +379,10 @@ present, against embedded JSON Schemas. Also **builds enabled observation provid
 errors. **Deprecated** configuration keys (marked in JSON Schema) emit **warnings
 on stderr** but still exit **0** when validation succeeds.
 
-**`when` clauses (ADR-0002):** Control rules and knowledge manifest entries are checked with the same static validator: unknown `eval:` names, unknown `op` strings, missing required keys per `op` (e.g. `eq` needs `path` and `value`), `eval: constant` requires `params.value` (boolean), and `path` strings must use allowed roots (`git.`, `github.`, `state.`, or `$` / `$.` for nested quantifier clauses). Named evaluators: `rgd config validate` rejects unknown `eval:` names against the built-in registry. To list built-ins, call `evaluator.DefaultRegistry().ListRegistered()` from Go (sorted names), or see `internal/evaluator/`.
+`config validate` does **not** validate `.reinguard/runtime/`; runtime gate
+artifacts use the dedicated `rgd gate` schema and commands instead.
+
+**`when` clauses (ADR-0002):** Control rules and knowledge manifest entries are checked with the same static validator: unknown `eval:` names, unknown `op` strings, missing required keys per `op` (e.g. `eq` needs `path` and `value`), `eval: constant` requires `params.value` (boolean), and `path` strings must use allowed roots (`git.`, `github.`, `state.`, `gates.`, or `$` / `$.` for nested quantifier clauses). Named evaluators: `rgd config validate` rejects unknown `eval:` names against the built-in registry. To list built-ins, call `evaluator.DefaultRegistry().ListRegistered()` from Go (sorted names), or see `internal/evaluator/`.
 
 **`schema_version` vs this binary (ADR-0008):** `reinguard.yaml` declares a
 semver `schema_version` synchronized with embedded JSON Schemas. This `rgd`

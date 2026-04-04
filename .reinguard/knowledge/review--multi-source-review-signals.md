@@ -26,7 +26,8 @@ Normative disposition and resolve rules stay in `.reinguard/policy/review--conse
 |-------|---------|-----------------|
 | **blocking** | Must clear before merge consideration (policy + branch protection) | Failing required checks; formal `CHANGES_REQUESTED`; unresolved review threads that need disposition |
 | **actionable** | Should classify and reply (or fix) in this PR | Inline review comments; bot threads; human review threads |
-| **informational** | Context only unless it contains a concrete finding | Clean-bill summaries; duplicate notices; meta comments |
+| **duplicate_suppressed** | CodeRabbit re-detected an issue but did not post a new thread (`♻️ Duplicate comments (N)` in the review body); treat as actionable content, not noise | `github.reviews.bot_review_diagnostics.duplicate_findings_detected`; per-bot `cr_duplicate_findings_count` when `enrich` includes `coderabbit` |
+| **informational** | Context only unless it contains a concrete finding | Clean-bill summaries; meta comments without new findings |
 
 ## Source kinds
 
@@ -44,6 +45,8 @@ When two sources flag the **same** issue:
 1. Pick a **primary thread** (prefer the earliest inline thread with a stable anchor).
 2. Apply **one** disposition category for that issue; on secondary threads reply briefly: **Duplicate of** `<location or thread>` + same disposition label.
 3. Do not leave contradictory dispositions across threads for the same root cause.
+
+**CodeRabbit “Duplicate comments” (bot-side dedup)** is different from agent-side dedupe above: the bot may **suppress** reposting a thread while still listing the finding in the review summary body. That usually means the finding was **not** fixed after the prior thread was resolved — use `duplicate_findings_detected` / `cr_duplicate_findings_count` from observation and follow `review-address` § **0.5**.
 
 ## Priority when multiple classes fire
 
@@ -73,4 +76,4 @@ Control plane states live under `.reinguard/control/states/workflow.yaml`. Human
 - `.reinguard/policy/review--consensus-protocol.md` — normative disposition and resolve rules
 - `.reinguard/knowledge/review--bot-operations.md` — CodeRabbit / Codex mechanics
 - `.reinguard/knowledge/review--github-thread-api.md` — REST vs GraphQL for `isResolved`
-- `docs/adr/0013-fsm-v1-workflow-states.md` — state catalog and Adapter mapping
+- `docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md` — state catalog and Adapter mapping

@@ -29,6 +29,27 @@ func (coderabbitEnrichment) Enrich(commentBody string) map[string]any {
 	return out
 }
 
+// EnrichReviewBody parses CodeRabbit PullRequestReview.summary bodies (e.g. duplicate-comment notices).
+func (coderabbitEnrichment) EnrichReviewBody(reviewBody string) map[string]any {
+	n := parseCoderabbitDuplicateCount(reviewBody)
+	if n <= 0 {
+		return nil
+	}
+	return map[string]any{"cr_duplicate_findings_count": n}
+}
+
+// parseCoderabbitDuplicateCount extracts N from a "♻️ Duplicate comments (N)" line in a review body.
+func parseCoderabbitDuplicateCount(body string) int {
+	if m := reCRDuplicateComments.FindStringSubmatch(body); len(m) >= 2 {
+		n, err := strconv.Atoi(m[1])
+		if err != nil || n < 0 {
+			return 0
+		}
+		return n
+	}
+	return 0
+}
+
 // ClassifyStatus applies CodeRabbit-aware rules on top of generic substring flags.
 func (coderabbitEnrichment) ClassifyStatus(m map[string]any) string {
 	if signalBool(m, "contains_rate_limit") {
@@ -60,10 +81,12 @@ func (coderabbitEnrichment) ClassifyStatus(m map[string]any) string {
 
 // Heuristic markers for CodeRabbit "Review Status" / walkthrough issue comments (best-effort).
 var (
-	reCRReviewCompleted  = regexp.MustCompile(`(?i)(review\s+completed|✅\s*completed|status[:\s\*]*\s*✅|\*\*status\*\*[^\n]*(complete|finished|done))`)
-	reCRReviewClean      = regexp.MustCompile(`(?i)(no\s+issues\s+found|no\s+additional\s+issues\s+found)`)
-	reCRReviewProcessing = regexp.MustCompile(`(?i)(processing\s+new\s+changes|review\s+in\s+progress|\bin\s+progress\b|\*\*status\*\*[^\n]*(in\s+progress|pending|processing)|⏳\s*processing)`)
-	reCRWalkthrough      = regexp.MustCompile(`(?i)(^|\n)#{1,3}\s*[^\n]*(walkthrough|review\s+walkthrough)|\*\*walkthrough\*\*`)
+	// U+267B recycling symbol, optional U+FE0F variation selector (emoji presentation).
+	reCRDuplicateComments = regexp.MustCompile(`(?i)(?:\x{267B}\x{FE0F}?|\x{267B})\s*Duplicate\s+comments\s*\((\d+)\)`)
+	reCRReviewCompleted   = regexp.MustCompile(`(?i)(review\s+completed|✅\s*completed|status[:\s\*]*\s*✅|\*\*status\*\*[^\n]*(complete|finished|done))`)
+	reCRReviewClean       = regexp.MustCompile(`(?i)(no\s+issues\s+found|no\s+additional\s+issues\s+found)`)
+	reCRReviewProcessing  = regexp.MustCompile(`(?i)(processing\s+new\s+changes|review\s+in\s+progress|\bin\s+progress\b|\*\*status\*\*[^\n]*(in\s+progress|pending|processing)|⏳\s*processing)`)
+	reCRWalkthrough       = regexp.MustCompile(`(?i)(^|\n)#{1,3}\s*[^\n]*(walkthrough|review\s+walkthrough)|\*\*walkthrough\*\*`)
 )
 
 func parseCoderabbitReviewStatusMarkers(body string) map[string]any {
@@ -71,6 +94,7 @@ func parseCoderabbitReviewStatusMarkers(body string) map[string]any {
 	if reCRWalkthrough.MatchString(body) {
 		out["cr_walkthrough_present"] = true
 	}
+	// "No issues found" is a terminal clean result; other status markers do not add value after this.
 	if reCRReviewClean.MatchString(body) {
 		out["cr_review_processing"] = false
 		out["cr_review_completed_clean"] = true

@@ -31,6 +31,19 @@ func IsFailedTier(s string) bool {
 	}
 }
 
+func duplicateFindingsDetected(statusList []any) bool {
+	for _, elt := range statusList {
+		m, ok := elt.(map[string]any)
+		if !ok {
+			continue
+		}
+		if n, ok := intFromStatusMap(m, "cr_duplicate_findings_count"); ok && n > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // ComputeBotReviewDiagnostics aggregates per-bot status for required reviewers.
 // headSHA is the PR HEAD commit; when a required bot's review targets a different
 // commit, bot_review_stale is true. When no required bots are configured, all
@@ -40,6 +53,7 @@ func ComputeBotReviewDiagnostics(statusList []any, headSHA string) map[string]an
 	anyFailed := false
 	allReviewed := true
 	anyStale := false
+	duplicateFindings := duplicateFindingsDetected(statusList)
 
 	for _, elt := range statusList {
 		m, ok := elt.(map[string]any)
@@ -70,11 +84,12 @@ func ComputeBotReviewDiagnostics(statusList []any, headSHA string) map[string]an
 
 	if !sawRequired {
 		return map[string]any{
-			"bot_review_completed": true,
-			"bot_review_pending":   false,
-			"bot_review_terminal":  true,
-			"bot_review_failed":    false,
-			"bot_review_stale":     false,
+			"bot_review_completed":        true,
+			"bot_review_pending":          false,
+			"bot_review_terminal":         true,
+			"bot_review_failed":           false,
+			"bot_review_stale":            false,
+			"duplicate_findings_detected": duplicateFindings,
 		}
 	}
 
@@ -83,10 +98,28 @@ func ComputeBotReviewDiagnostics(statusList []any, headSHA string) map[string]an
 	pending := !terminal
 
 	return map[string]any{
-		"bot_review_completed": completed,
-		"bot_review_pending":   pending,
-		"bot_review_terminal":  terminal,
-		"bot_review_failed":    anyFailed,
-		"bot_review_stale":     anyStale,
+		"bot_review_completed":        completed,
+		"bot_review_pending":          pending,
+		"bot_review_terminal":         terminal,
+		"bot_review_failed":           anyFailed,
+		"bot_review_stale":            anyStale,
+		"duplicate_findings_detected": duplicateFindings,
+	}
+}
+
+func intFromStatusMap(m map[string]any, key string) (int, bool) {
+	v, ok := m[key]
+	if !ok {
+		return 0, false
+	}
+	switch n := v.(type) {
+	case int:
+		return n, true
+	case int64:
+		return int(n), true
+	case float64:
+		return int(n), true
+	default:
+		return 0, false
 	}
 }

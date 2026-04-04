@@ -27,6 +27,39 @@ Run the applicable subset before each push:
 **HS-NO-SKIP** applies: do not omit any applicable step without a
 documented exception (PR body or review disposition).
 
+## Required local AI review (before PR creation)
+
+After applicable HS-LOCAL-VERIFY steps pass and before `change-inspect`
+declares the change ready for `pr-create`, run the repository-local
+CodeRabbit gate from the repo root:
+
+```bash
+bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
+```
+
+- This is a **required pre-PR gate** for this repository; it does **not**
+  replace PR-based CodeRabbit review or merge consensus.
+- The script standardizes installation/authentication checks and executes
+  the CLI review against the repository's `.coderabbit.yaml`. On a rate
+  limit, it parses the cooldown **only from the latest rate-limit line in
+  that CLI run** (so earlier log text does not affect the wait), adds a
+  small **safety buffer** (default 30s; override with
+  `RATE_LIMIT_RETRY_BUFFER_SEC`), then retries the review **once**
+  automatically. If the cooldown cannot be parsed from that line, or a
+  second consecutive rate limit occurs, treat the gate as failed.
+- If the script cannot run (CLI missing, auth missing, second consecutive
+  rate limit after retry, execution error), treat that as a failed gate and
+  do not proceed to `pr-create`.
+- Review findings are dispositioned in `change-inspect` using the shared
+  four-category model from
+  `.reinguard/policy/review--disposition-categories.md`; do not
+  auto-dismiss them just because they came from the local CLI instead of
+  the PR bot. Handle one local CR output as a batch before rerunning the
+  CLI: classify every finding from that pass, fix every finding
+  dispositioned **Fixed** on the current branch, apply same-kind sweep
+  where the fix pattern repeats, then rerun the gate on the stabilized
+  head.
+
 ## Defensive implementation checks
 
 Before committing new or changed logic, verify:
@@ -74,6 +107,8 @@ Before hand-off (commit or PR creation), scan the diff for:
 
 - `.reinguard/policy/safety--agent-invariants.md` — HS-LOCAL-VERIFY, HS-NO-SKIP
 - `.reinguard/policy/coding--standards.md` — Change scope
+- `.reinguard/policy/review--disposition-categories.md` — shared
+  disposition vocabulary for review findings
 - `.reinguard/knowledge/testing--strategy.md` — Perspectives, Table-driven
 - `.reinguard/knowledge/testing--given-when-then.md` — GWT format
 - `.reinguard/knowledge/implementation--defensive-config-validation.md` — defensive patterns

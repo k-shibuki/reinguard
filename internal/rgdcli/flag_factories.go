@@ -44,6 +44,14 @@ func newStateFileFlag() *cli.StringFlag {
 	return &cli.StringFlag{Name: "state-file"}
 }
 
+func newGateStatusFlag() *cli.StringFlag {
+	return &cli.StringFlag{Name: "status", Required: true, Usage: "recorded gate status (pass or fail)"}
+}
+
+func newGateChecksFileFlag() *cli.StringFlag {
+	return &cli.StringFlag{Name: "checks-file", Usage: "JSON file containing gate check results"}
+}
+
 func newSchemaExportDirFlag() *cli.StringFlag {
 	return &cli.StringFlag{Name: "dir", Aliases: []string{"d"}, Value: "schema-export"}
 }

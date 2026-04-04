@@ -19,7 +19,7 @@ sense:
   - rgd context build
   - rgd observe github reviews
 act:
-  - Classify bot tier; backoff or re-trigger; escalate on repeated failure; re-observe.
+  - Classify bot tier; poll every 30s for up to 15m; backoff or re-trigger; escalate on repeated failure; re-observe.
 output:
   - Bot state summary; triggers used; next poll time or handoff to review-address.
 done_when: Required bots are terminal success or failure is dispositioned per bot docs; observation matches next FSM state.
@@ -31,6 +31,12 @@ escalate_when: Org policy blocks bot rerun; required bot persistently failed; ra
 ## Context
 
 Open `.reinguard/knowledge/review--bot-operations.md` for **CodeRabbit** and **Codex** specifics (logins, triggers, rate-limit recovery, `@coderabbitai review`, `@codex review`).
+
+This procedure governs **PR-side bot waiting** after PR creation. It does
+not replace the repository-local CodeRabbit CLI gate; that local gate
+remains a single blocking command in
+`.reinguard/procedure/change-inspect.md` /
+`.reinguard/procedure/pr-create.md`.
 
 If **open review threads** or formal **changes requested** also apply, run `.reinguard/procedure/review-address.md` **in parallel or first** — the workflow FSM prefers human-actionable review states over bot-wait states when both are true.
 
@@ -46,7 +52,7 @@ Use `knowledge.entries` (typically includes `review--bot-operations.md`, `review
 
 | `state_id` | Intent | First actions |
 |------------|--------|----------------|
-| `waiting_bot_run` | Required bot outcome not terminal | Poll `rgd observe github reviews`; wait typical window in `review--bot-operations.md`; avoid duplicate triggers unless policy allows. |
+| `waiting_bot_run` | Required bot outcome not terminal | Poll `rgd observe github reviews` every 30s for up to 15m; avoid duplicate triggers unless policy allows. |
 | `waiting_bot_rate_limited` | Bot hit quota | Parse wait from bot message; sleep + **one** retry path per `review--bot-operations.md`. |
 | `waiting_bot_paused` | Bot paused (e.g. commit threshold) | Follow vendor resume / `@coderabbitai review` when appropriate. |
 | `waiting_bot_failed` | Bot failed tier (incl. voided review) | Stabilize head; re-trigger per bot docs; if repeated failure, escalate. |
@@ -55,14 +61,18 @@ Use `knowledge.entries` (typically includes `review--bot-operations.md`, `review
 
 1. Run `rgd observe github reviews` (or full `rgd observe`) and confirm `github.reviews.bot_reviewer_status` / `bot_review_diagnostics` match the FSM state.
 2. Apply the **row** for your `state_id` above; use **only** PR conversation / documented triggers — do not rely on thread replies for Codex rerun.
-3. Re-run observation after the cool-down in `review--bot-operations.md`.
-4. When bots are terminal and review threads still exist, switch to `review-address.md`.
+3. For `waiting_bot_run`, poll every **30 seconds** for up to **15 minutes**. Stop immediately if the required bot becomes terminal, actionable review work appears, or the FSM should hand off to another procedure.
+4. For `waiting_bot_rate_limited`, follow the parsed cool-down and the one-retry recovery path from `review--bot-operations.md` instead of the generic 30-second cadence during the cool-down window.
+5. For the polling waits above, when the Adapter (the execution environment, such as Cursor) supports delegation, prefer a delegated wait owner instead of keeping the main agent in an inline sleep cycle.
+6. For a single active unit, prefer foreground-first delegated wait ownership so the delegated worker blocks until review state changes.
+7. Use the Adapter's configured bot-review wait template or wrapper when available; otherwise use the inline polling behavior described in steps 3-4.
+8. When bots are terminal and review threads still exist, switch to `review-address.md`.
 
 ## Output
 
 - Which bot(s) were waiting and why.
 - Triggers posted (verbatim command or comment body reference).
-- Next observation timestamp or handoff to `review-address` / `pr-merge`.
+- Next observation timestamp, elapsed polling window, or handoff to `review-address` / `pr-merge`.
 
 ## Guard
 

@@ -5,6 +5,12 @@
 # Usage: bash .reinguard/scripts/check-commit-msg.sh <commit-msg-file>
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=.reinguard/scripts/lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+# shellcheck source=.reinguard/scripts/lib/labels.sh
+source "$SCRIPT_DIR/lib/labels.sh"
+
 MSG_FILE="${1:?Usage: check-commit-msg.sh <commit-msg-file>}"
 
 # Strip comment lines and trailing whitespace
@@ -12,23 +18,17 @@ MSG=$(sed '/^#/d;/^$/d' "$MSG_FILE" | head -1)
 BODY=$(sed '/^#/d' "$MSG_FILE" | tail -n +2)
 
 if [[ -z "$MSG" ]]; then
-  echo "ERROR: Empty commit message." >&2
-  exit 1
+  fail_with "Empty commit message." 1
 fi
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LABELS_FILE="$SCRIPT_DIR/../labels.yaml"
+LABELS_FILE="$(require_labels_yaml "$SCRIPT_DIR")"
+require_command "yq" "yq is required for commit-msg validation. See CONTRIBUTING.md." 1
 
-if [[ ! -f "$LABELS_FILE" ]]; then
-  echo "ERROR: $LABELS_FILE not found." >&2
-  exit 1
+load_label_names "$LABELS_FILE" '[.categories[].labels[] | select(.commit_prefix == true)] | .[].name' COMMIT_TYPES
+if [[ ${#COMMIT_TYPES[@]} -eq 0 ]]; then
+  fail_with "No commit types found in $LABELS_FILE (commit_prefix: true labels missing)." 1
 fi
-if ! command -v yq >/dev/null 2>&1; then
-  echo "ERROR: yq is required for commit-msg validation. See CONTRIBUTING.md." >&2
-  exit 1
-fi
-
-TYPES=$(yq -r '[.categories[].labels[] | select(.commit_prefix == true)] | .[].name' "$LABELS_FILE" | paste -sd '|' -)
+TYPES="$(join_with_pipe "${COMMIT_TYPES[@]}")"
 PATTERN="^($TYPES)(\(.+\))?!?: .+"
 
 if ! echo "$MSG" | grep -Eq "$PATTERN"; then
