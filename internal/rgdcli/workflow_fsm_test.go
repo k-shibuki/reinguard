@@ -508,9 +508,14 @@ func writeWorkflowFSMConfig(t *testing.T) string {
 	t.Helper()
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
-	repoCfg := reinguardConfigDir(t)
-	copyWorkflowFSMFile(t, filepath.Join(repoCfg, "control", "states", "workflow.yaml"), filepath.Join(cfgDir, "control", "states", "workflow.yaml"))
-	copyWorkflowFSMFile(t, filepath.Join(repoCfg, "control", "routes", "workflow.yaml"), filepath.Join(cfgDir, "control", "routes", "workflow.yaml"))
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller")
+	}
+	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
+	repoReinguard := filepath.Join(root, ".reinguard")
+	copyWorkflowFSMFile(t, filepath.Join(repoReinguard, "control", "states", "workflow.yaml"), filepath.Join(cfgDir, "control", "states", "workflow.yaml"))
+	copyWorkflowFSMFile(t, filepath.Join(repoReinguard, "control", "routes", "workflow.yaml"), filepath.Join(cfgDir, "control", "routes", "workflow.yaml"))
 	return cfgDir
 }
 

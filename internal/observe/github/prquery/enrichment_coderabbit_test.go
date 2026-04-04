@@ -195,14 +195,42 @@ func TestCoderabbitEnrichment_noActionableCommentsClean(t *testing.T) {
 
 func TestCoderabbitEnrichment_reviewedHeadSHAFromRange(t *testing.T) {
 	t.Parallel()
-	e := coderabbitEnrichment{}
-	body := "Reviewing files that changed from the base of the PR and between [1c0a07a](https://example.com/1) and [4b680dbdeadbeef](https://example.com/2).\n"
-	got := e.Enrich(body)
-	if got == nil {
-		t.Fatal("got nil")
+	tests := []struct {
+		name    string
+		body    string
+		wantSHA string
+	}{
+		{
+			name:    "range_extracts_trailing_sha",
+			body:    "Reviewing files that changed from the base of the PR and between [1c0a07a](https://example.com/1) and [4b680dbdeadbeef](https://example.com/2).\n",
+			wantSHA: "4b680dbdeadbeef",
+		},
+		{
+			name:    "single_sha_does_not_match_range_pattern",
+			body:    "Reviewing files that changed from the base of the PR at [4b680dbdeadbeef](https://example.com/2).\n",
+			wantSHA: "",
+		},
 	}
-	sha, ok := got["cr_reviewed_head_sha"].(string)
-	if !ok || sha != "4b680dbdeadbeef" {
-		t.Fatalf("want cr_reviewed_head_sha=4b680dbdeadbeef, got %v", got)
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			e := coderabbitEnrichment{}
+			got := e.Enrich(tt.body)
+			if tt.wantSHA == "" {
+				if got != nil && got["cr_reviewed_head_sha"] != nil {
+					t.Fatalf("want no reviewed sha, got %v", got)
+				}
+				return
+			}
+			if got == nil {
+				t.Fatal("got nil")
+			}
+			sha, ok := got["cr_reviewed_head_sha"].(string)
+			if !ok || sha != tt.wantSHA {
+				t.Fatalf("want cr_reviewed_head_sha=%s, got %v", tt.wantSHA, got)
+			}
+		})
 	}
 }

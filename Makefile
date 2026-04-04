@@ -3,6 +3,11 @@
 # Policy/workflow scripts live under .reinguard/scripts/ — invoke with bash
 # (see .github/CONTRIBUTING.md); they are not wrapped here.
 # Run `make help` for targets.
+#
+# Use with-repo-local-state.sh so Go tooling caches (GOCACHE, golangci-lint)
+# and temp dirs stay under repo-local /.tmp/ (Cursor sandbox–friendly).
+
+REPO_LOCAL := bash .reinguard/scripts/with-repo-local-state.sh --
 
 .PHONY: help fmt vet test lint build check
 
@@ -14,17 +19,17 @@ fmt: ## go fmt ./...
 	go fmt ./...
 
 vet: ## go vet ./...
-	go vet ./...
+	$(REPO_LOCAL) go vet ./...
 
 test: ## go test ./... -race -count=1
-	go test ./... -race -count=1
+	$(REPO_LOCAL) go test ./... -race -count=1
 
 lint: ## golangci-lint (required for check; must be on PATH)
 	@if ! command -v golangci-lint >/dev/null 2>&1; then \
 		echo "golangci-lint not in PATH; see .github/CONTRIBUTING.md or rely on CI" >&2; \
 		exit 1; \
 	fi
-	golangci-lint run --timeout=5m ./...
+	$(REPO_LOCAL) golangci-lint run --timeout=5m ./...
 
 build: ## Build rgd binary to ./rgd
 	go build -o rgd ./cmd/rgd

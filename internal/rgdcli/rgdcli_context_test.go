@@ -146,6 +146,7 @@ exit 1
 	var buf bytes.Buffer
 	app := NewApp("test")
 	app.Writer = &buf
+	// When: context build runs from cwd while gh auth fails but local git identity is available
 	if err := app.Run([]string{"rgd", "context", "build", "--cwd", root}); err != nil {
 		t.Fatal(err)
 	}
@@ -153,6 +154,7 @@ exit 1
 	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
+	// Then: observation is degraded, state/route still resolve, and github.repository comes from local_git
 	assertObservationDegradedWithLocalGitHubRepo(t, out)
 }
 

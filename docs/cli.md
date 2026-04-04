@@ -185,8 +185,29 @@ Populated when the `reviews` facet runs (see `rgd observe github reviews`). Data
 | `review_decisions_approved` | number | Count with state `APPROVED`. |
 | `review_decisions_changes_requested` | number | Count with state `CHANGES_REQUESTED`. |
 | `review_decisions_truncated` | boolean | True if `latestReviews` reports `hasNextPage` (more than one page of decisions not fetched). |
-| `bot_reviewer_status` | array | One object per configured `bot_reviewers` entry (empty array if unset). Each object includes: `id`, `login`, `required`, `status` (classified string: `not_triggered`, `pending`, `completed`, `completed_clean`, `rate_limited`, `review_paused`, `review_failed`; `completed_clean` is used when an enrichment can prove a terminal clean result — e.g. CodeRabbit "No issues found" / "no actionable comments" in issue comments, with or without a `latestReviews` entry), `has_review`, `review_state` (from `latestReviews`, empty if none), `review_commit_sha` (commit OID from the latest review by this bot when present; otherwise, for `coderabbit` enrichment, may be filled from `cr_reviewed_head_sha` parsed from the bot comment body when CodeRabbit summarizes a base..head range), `latest_comment_at` (ISO8601 from newest matching PR comment in the fetched `comments(last: 50)` window, or empty), generic flags `contains_rate_limit`, `contains_review_paused`, `contains_review_failed` (substring checks on that comment body, case-insensitive), optional enrich fields (e.g. `rate_limit_remaining_seconds`, `cr_review_processing`, `cr_walkthrough_present`, `cr_reviewed_head_sha`, `cr_duplicate_findings_count` from `coderabbit` — duplicate count is parsed from the latest `PullRequestReview.body`, not issue comments). |
-| `bot_review_diagnostics` | object | `bot_review_completed`, `bot_review_pending`, `bot_review_terminal`, `bot_review_failed`, `bot_review_stale` (booleans) aggregate over **required** bots only. `bot_review_stale` is true when any required bot with a completed review targets a different commit than the PR HEAD SHA, or when `review_commit_sha` is empty or missing after review + enrichment fallback (fail-closed). Vacuously false when no required bots are configured. `duplicate_findings_detected` is true when **any** configured bot (required or optional) has `cr_duplicate_findings_count` > 0 in `bot_reviewer_status` (CodeRabbit re-listed findings under duplicate suppression without new threads). See ADR-0013. |
+| `bot_reviewer_status` | array | One object per configured `bot_reviewers` entry. See [Bot reviewer fields (detail)](#bot-reviewer-fields-detail) below. |
+| `bot_review_diagnostics` | object | Aggregated booleans over **required** bots only. See [Bot review diagnostics (detail)](#bot-review-diagnostics-detail) below. |
+
+#### Bot reviewer fields (detail)
+
+Each element of `bot_reviewer_status` includes:
+
+- **Identity and requirement:** `id`, `login`, `required`.
+- **`status`:** classified string — `not_triggered`, `pending`, `completed`, `completed_clean`, `rate_limited`, `review_paused`, `review_failed`. `completed_clean` applies when an enrichment can prove a terminal clean result (e.g. CodeRabbit “No issues found” / “no actionable comments” in issue comments), with or without a `latestReviews` entry.
+- **Review linkage:** `has_review`, `review_state` (from `latestReviews`, empty if none), `review_commit_sha` (OID from the latest review by this bot when present; for `coderabbit` enrichment, may be filled from `cr_reviewed_head_sha` parsed from the bot comment body when CodeRabbit summarizes a base..head range).
+- **Comment window:** `latest_comment_at` (ISO8601 from newest matching PR comment in the fetched `comments(last: 50)` window, or empty).
+- **Body substring flags (case-insensitive):** `contains_rate_limit`, `contains_review_paused`, `contains_review_failed`.
+- **Optional enrich fields** (e.g. `rate_limit_remaining_seconds`, `cr_review_processing`, `cr_walkthrough_present`, `cr_reviewed_head_sha`, `cr_duplicate_findings_count` for `coderabbit`). Duplicate count is parsed from the latest `PullRequestReview.body`, not issue comments.
+
+#### Bot review diagnostics (detail)
+
+Object keys:
+
+- **`bot_review_completed`**, **`bot_review_pending`**, **`bot_review_terminal`**, **`bot_review_failed`**, **`bot_review_stale`:** booleans aggregated over **required** bots only.
+- **`bot_review_stale` (fail-closed):** true when any **required** bot is considered to have completed a review but the effective review commit does not match the current PR head, **or** when a completed review is expected but `review_commit_sha` is still empty after `latestReviews` and CodeRabbit enrichment fallback. If no required bots are configured, `bot_review_stale` is vacuously false.
+- **`duplicate_findings_detected`:** true when **any** configured bot (required or optional) has `cr_duplicate_findings_count` > 0 in `bot_reviewer_status` (CodeRabbit re-listed findings under duplicate suppression without new threads).
+
+See ADR-0013.
 
 GraphQL failures for this query are reported as diagnostics with provider **`github.pr-query`** (non-fatal to other facets unless the whole provider degrades).
 

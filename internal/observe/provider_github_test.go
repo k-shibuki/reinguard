@@ -155,11 +155,12 @@ exit 1
 
 	p := NewGitHubProvider()
 	p.APIBase = srv.URL
-
+	// When: Collect runs against the repo with gh repo view failing but origin still resolvable
 	frag, err := p.Collect(context.Background(), Options{WorkDir: repoDir})
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: repository identity comes from origin and no repo_resolve_failed diagnostic is emitted
 	repoSignal, ok := frag.Signals["repository"].(map[string]any)
 	if !ok {
 		t.Fatalf("repository signal missing: %+v", frag)
@@ -288,10 +289,12 @@ exit 1
 	runGitCmd(t, repoDir, "remote", "add", "origin", "git@github.com:octocat/hello-world.git")
 
 	p := NewGitHubProvider()
+	// When: Collect runs while auth fails but local origin still identifies the repo
 	frag, err := p.Collect(context.Background(), Options{WorkDir: repoDir})
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: degraded auth_failed keeps repository identity from local_git
 	if !frag.Degraded || len(frag.Diagnostics) != 1 || frag.Diagnostics[0].Code != "auth_failed" {
 		t.Fatalf("%+v", frag)
 	}

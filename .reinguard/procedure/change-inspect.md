@@ -83,7 +83,8 @@ Normative script details: [`../policy/coding--preflight.md`](../policy/coding--p
 Run the repository-local CodeRabbit gate from the repo root:
 
 ```bash
-bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
+bash .reinguard/scripts/with-repo-local-state.sh --home-subdir cr-home -- \
+  bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
 ```
 
 If the CLI reports a rate limit, the script uses the **latest** rate-limit
@@ -137,9 +138,9 @@ If review closure is not yet complete for the current local review cycle:
    from that pass, fix every finding you will disposition **Fixed** on the
    current branch, and apply same-kind sweep for any fix pattern that
    extends beyond the exact commented line or file.
-3. Re-run applicable preflight steps (`go test`, `go vet`, `golangci-lint`, `pre-commit run markdownlint-cli2 --all-files`)
+3. Re-run applicable preflight steps (`go test`, `go vet`, `golangci-lint`, `bash .reinguard/scripts/with-repo-local-state.sh -- pre-commit run markdownlint-cli2 --all-files`)
 4. Commit the stabilized batch with `Refs: #<issue>`
-5. Re-run `bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit` on the stabilized head
+5. Re-run `bash .reinguard/scripts/with-repo-local-state.sh --home-subdir cr-home -- bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit` on the stabilized head
 6. Re-record the runtime gate for the stabilized head when this branch uses one (for example `rgd gate record local-verification --status pass`)
 7. Re-run inspection (go to step 2) until every finding in the current local review cycle is classified and closed per the shared policy
 

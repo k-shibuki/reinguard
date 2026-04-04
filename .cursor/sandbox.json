@@ -1,9 +1,16 @@
 {
+  "enableSharedBuildCache": true,
+  "additionalReadwritePaths": [".tmp"],
   "networkPolicy": {
     "allow": [
+      "api.github.com",
+      "github.com",
+      "*.github.com",
+      "proxy.golang.org",
+      "sum.golang.org",
+      "storage.googleapis.com",
       "ide.coderabbit.ai",
       "*.coderabbit.ai"
     ]
-  },
-  "enableSharedBuildCache": true
+  }
 }

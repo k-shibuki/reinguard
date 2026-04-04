@@ -143,12 +143,12 @@ If your org limits agent-posted `@codex`, have the human post that line.
 When Go code changed:
 
 - `go test ./...`
-- `go vet ./...`
-- `golangci-lint run`
+- `bash .reinguard/scripts/with-repo-local-state.sh -- go vet ./...`
+- `bash .reinguard/scripts/with-repo-local-state.sh -- golangci-lint run`
 
 When Markdown changed:
 
-- `pre-commit run markdownlint-cli2 --all-files`
+- `bash .reinguard/scripts/with-repo-local-state.sh -- pre-commit run markdownlint-cli2 --all-files`
 
 New commit with `Refs: #<issue>` (no amend+force-push on the PR head).
 

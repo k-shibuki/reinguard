@@ -33,7 +33,10 @@ func TokenFromGH(ctx context.Context, wd string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-func runGitCommand(ctx context.Context, wd string, args []string) (stdout, stderr []byte, err error) {
+// runGitCommand runs the git subprocess. Tests replace it for hermetic runs.
+var runGitCommand = runGitCommandImpl
+
+func runGitCommandImpl(ctx context.Context, wd string, args []string) (stdout, stderr []byte, err error) {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	if wd != "" {
 		cmd.Dir = wd

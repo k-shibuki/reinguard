@@ -48,4 +48,4 @@ vendor/
 .reinguard/runtime/
 
 # Workspace-local temporary caches (pre-commit workaround, etc.)
-.tmp/
+/.tmp/

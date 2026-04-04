@@ -118,6 +118,46 @@ func TestResolveGitHubRepoIdentity_ghErrorIncludesStderr(t *testing.T) {
 	}
 }
 
+func TestResolveGitHubRepoIdentity_runGitCommandStubbed(t *testing.T) {
+	dir := t.TempDir()
+	oldGit := runGitCommand
+	oldGH := runGHCommand
+	t.Cleanup(func() {
+		runGitCommand = oldGit
+		runGHCommand = oldGH
+	})
+	runGitCommand = func(ctx context.Context, wd string, args []string) ([]byte, []byte, error) {
+		want := []string{"config", "--get", "remote.origin.url"}
+		if len(args) != len(want) {
+			t.Fatalf("args len: got %v", args)
+		}
+		for i := range want {
+			if args[i] != want[i] {
+				t.Fatalf("args[%d]: got %q want %q", i, args[i], want[i])
+			}
+		}
+		if wd != dir {
+			t.Fatalf("unexpected wd: %q", wd)
+		}
+		return []byte("https://github.com/acme/widget.git\n"), nil, nil
+	}
+	runGHCommand = func(ctx context.Context, wd string, args []string) ([]byte, []byte, error) {
+		t.Fatal("gh should not be called when git remote resolves")
+		return nil, nil, nil
+	}
+
+	id, err := ResolveGitHubRepoIdentityFromWorkDir(context.Background(), dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id.Owner != "acme" || id.Name != "widget" {
+		t.Fatalf("owner/name: got %q %q", id.Owner, id.Name)
+	}
+	if id.Source != RepoIdentitySourceLocalGit {
+		t.Fatalf("source: got %q", id.Source)
+	}
+}
+
 func TestResolveGitHubRepoIdentity_localGitPreferredNoGhCall(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("git remote fixture uses Unix-oriented helpers elsewhere in this package")

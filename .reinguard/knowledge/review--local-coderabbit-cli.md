@@ -41,11 +41,27 @@ Normative script contract and rate-limit behavior for the gate are in
 
 ## Command
 
-From repo root:
+From repo root, run the gate with repo-local writable state:
 
 ```bash
-bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
+bash .reinguard/scripts/with-repo-local-state.sh --home-subdir cr-home -- \
+  bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
 ```
+
+This keeps CodeRabbit state and logs under repo-local `/.tmp/` instead of
+depending on `~/.coderabbit`.
+
+## Cursor sandbox note
+
+- In this repository, the local CodeRabbit gate is treated as an
+  **outside-sandbox** step.
+- The observed failure mode inside the Cursor sandbox is not ordinary DNS or
+  HTTPS reachability: normal HTTPS and TLS to `ide.coderabbit.ai` can succeed
+  while the Bun-based CLI still loops on WebSocket connection errors to
+  `wss://ide.coderabbit.ai/ws`.
+- Because this is a runtime / proxy-WebSocket limitation rather than a missing
+  allowlist entry, do not try to solve it by committing repo-level
+  CodeRabbit-specific entries to `.cursor/sandbox.json`.
 
 ## Supervised wait (aligned cadence with PR-side)
 

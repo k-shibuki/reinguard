@@ -31,6 +31,7 @@ providers:
     enabled: true
 `
 
+// Git + GitHub providers enabled for context-build tests that need both local and remote-style signals.
 const testFixtureReinguardGitAndGitHub = `schema_version: "0.6.0"
 default_branch: main
 providers:
