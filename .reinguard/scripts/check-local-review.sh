@@ -202,12 +202,9 @@ extract_rate_limit_seconds() {
 heartbeat_pause() {
   local seconds="$1"
   # Avoid PATH-resolved `sleep` so retry tests observe only the explicit cooldown wait.
-  python - <<'PY' "$seconds"
-import sys
-import time
-
-time.sleep(float(sys.argv[1]))
-PY
+  # `command -p` searches the default utility PATH (not the current $PATH), so scripttest
+  # stubs prepended to PATH do not intercept these waits.
+  command -p sleep "$seconds"
 }
 
 run_supervised_review() {
@@ -230,8 +227,8 @@ run_supervised_review() {
     if ! kill -0 "$cr_pid" 2>/dev/null; then
       break
     fi
-    # Sleep in short chunks (Python `heartbeat_pause`, not PATH `sleep`) so a fast exit
-    # is noticed without waiting a full heartbeat; keeps scripttest sleep stubs accurate.
+    # Sleep in short chunks (`command -p sleep` via heartbeat_pause) so a fast exit is
+    # noticed without waiting a full heartbeat; keeps scripttest sleep stubs accurate.
     local slept=0
     while [[ $slept -lt $LOCAL_CR_HEARTBEAT_SEC ]] && kill -0 "$cr_pid" 2>/dev/null; do
       heartbeat_pause 1
