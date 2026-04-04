@@ -3,16 +3,17 @@ id: procedure-pr-create
 purpose: Create a PR targeting main with template compliance and CI gates.
 applies_to:
   state_ids:
-    - working_no_pr
+    - ready_for_pr
   route_ids: []
 reads:
   - ../../.github/PULL_REQUEST_TEMPLATE.md
   - ../policy/commit--format.md
   - ../policy/workflow--pr-discipline.md
+  - ../knowledge/review--local-coderabbit-cli.md
 sense:
   - gh pr checks
 act:
-  - Confirm change-inspect; push; check-pr-policy; create PR; await ci-pass.
+  - Confirm change-inspect and fresh pr-readiness; push; check-pr-policy; create PR; await ci-pass.
 output:
   - PR URL, checks snapshot.
 done_when: PR exists on main base; ci-pass success before merge consideration.
@@ -28,12 +29,15 @@ escalate_when: gate-policy or branch protection cannot be satisfied without main
 - [`../policy/workflow--pr-discipline.md`](../policy/workflow--pr-discipline.md) § **PR body updates** — multiline `gh api` pitfalls (gate-policy)
 - [`check-pr-policy.sh`](../scripts/check-pr-policy.sh) (local pre-flight mirroring `gate-policy` CI)
 - [`../policy/review--disposition-categories.md`](../policy/review--disposition-categories.md) — pre-PR disposition vocabulary used by `change-inspect`
+- [`../knowledge/review--local-coderabbit-cli.md`](../knowledge/review--local-coderabbit-cli.md) — pre-PR local CodeRabbit CLI vs PR-side review (this procedure ends before PR-side `wait-bot-review` polling)
 
 **Already in context** (always-active Adapter rule): HS-* codes, catalogs, workflow & commit policy.
 
 **Normal starting point:** enter this procedure immediately after a clean
-`change-inspect` on the current branch head. If that inspection evidence
-is missing or predates the latest commit, return to `change-inspect`
+`change-inspect` on the current branch head **and** a fresh
+`rgd gate status pr-readiness` result of `pass`. If that inspection
+evidence is missing, if the gate is `missing` / `invalid` / `stale` / `fail`,
+or if the gate result predates the latest commit, return to `change-inspect`
 before continuing. This local CLI gate is a **pre-PR** check and is
 separate from the PR bot review that runs after PR creation.
 
@@ -49,11 +53,11 @@ separate from the PR bot review that runs after PR creation.
    `review--disposition-categories.md`; required local CodeRabbit CLI review
    completed; commit structure clean (or already restructured per
    **Commit organization** in [`.reinguard/procedure/implement.md`](implement.md)).
-2. If `change-inspect` evidence is missing or was produced before the
-   latest commit on the feature branch, return to `change-inspect` on the
-   latest head. Refresh the local gate there as required; do not treat a
-   standalone `check-local-review.sh` rerun as sufficient
-   self-inspection evidence.
+2. Confirm `rgd gate status pr-readiness` on the current branch head returns
+   `pass`. If it returns `missing`, `invalid`, `stale`, or `fail`, return to
+   `change-inspect` on the latest head and refresh the gate there; do not
+   treat a standalone `rgd gate record` retry as sufficient self-inspection
+   evidence.
 3. Push: `git push -u origin HEAD` (after **HS-LOCAL-VERIFY**).
 4. **Pre-flight PR policy** (before `gh pr create`): fill the template into a file, then run from repo root:
 

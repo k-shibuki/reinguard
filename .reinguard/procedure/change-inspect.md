@@ -10,6 +10,7 @@ reads:
   - ../policy/review--consensus-protocol.md
   - ../policy/coding--preflight.md
   - ../policy/coding--standards.md
+  - ../knowledge/review--local-coderabbit-cli.md
 sense:
   - rgd context build
   - git diff
@@ -34,6 +35,7 @@ merge, or restructure commits (commit organization is `implement` step 7).
 - [`../policy/review--consensus-protocol.md`](../policy/review--consensus-protocol.md) — shared review-closure model; PR-only thread mechanics remain downstream
 - [`../policy/coding--preflight.md`](../policy/coding--preflight.md) — prerequisite; meta-verify its obligations were met
 - [`../policy/coding--standards.md`](../policy/coding--standards.md) § **Change scope** — same-kind sweep across code, `.reinguard/`, `.cursor/`
+- [`../knowledge/review--local-coderabbit-cli.md`](../knowledge/review--local-coderabbit-cli.md) — pre-PR local CodeRabbit CLI gate (foreground wait, not PR-side polling)
 - [`../../AGENTS.md`](../../AGENTS.md) — review guidelines
 
 **Already in context** (always-active Adapter rule): HS-* codes, catalogs, workflow & commit policy.
@@ -76,6 +78,8 @@ Dimension 7 (PR template substance) is deferred to `pr-create`, which fills and 
 
 ### 3. Run required local CodeRabbit review
 
+Normative script details: [`../policy/coding--preflight.md`](../policy/coding--preflight.md) § Required local AI review. Scope vs PR-side bot review: [`../knowledge/review--local-coderabbit-cli.md`](../knowledge/review--local-coderabbit-cli.md).
+
 Run the repository-local CodeRabbit gate from the repo root:
 
 ```bash
@@ -87,6 +91,10 @@ line in that run to parse the cooldown, adds a **safety buffer**, then
 retries the review **once** (`--retry-on-rate-limit`). Treat
 installation/authentication/execution failures, unparsed cooldown, or a
 second consecutive rate limit, as a failed gate and do not proceed.
+While the command is running, treat sparse output or a long cooldown sleep as
+normal for this gate. Do not kill and restart the process unless you have
+positive evidence that it exited, crashed, or violated the documented retry
+contract.
 If the branch uses a runtime verification gate such as `local-verification`,
 record or refresh it on the reviewed head after the required local checks
 pass, for example:
@@ -137,17 +145,25 @@ If a finding is dispositioned **Acknowledged**, record the follow-up Issue
 or equally explicit deferred-work contract in the inspection output so the
 PR handoff is auditable.
 
-### 7. Declare readiness
+### 7. Record PR readiness and declare readiness
 
 When inspection shows review closure complete for the current local review
-cycle, including local CodeRabbit findings on the latest head: declare
-**ready for PR creation**. Proceed to `pr-create`.
+cycle, including local CodeRabbit findings on the latest head: record or
+refresh the runtime gate that proves the branch is ready for PR creation on
+the inspected HEAD, for example:
+
+```bash
+rgd gate record pr-readiness --status pass
+```
+
+Then declare **ready for PR creation**. Proceed to `pr-create`.
 
 ## Output
 
 - Dimension-by-dimension Pass/Fail with disposition ledger
 - Local CodeRabbit review status: completed / gate failed, plus finding summary
 - Commit structure assessment: clean / restructured / deferred with explicit `Acknowledged` contract
+- PR-readiness gate status: recorded / refreshed / not recorded with reason
 - Fix commits (if any): SHA + what changed
 - Final status: **Ready for PR creation** or **Findings remain** (with list)
 

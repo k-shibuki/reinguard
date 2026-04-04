@@ -3,6 +3,7 @@ package rgdcli
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -352,4 +353,143 @@ func TestRunRouteSelect_workflowFSM_resolvesRoute(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRunStateEval_workflowFSM_readyForPRFromGate(t *testing.T) {
+	t.Parallel()
+	// Given/When/Then: actual workflow rules see a passing pr-readiness gate as ready_for_pr
+	repo := initGitRepoForGateCLI(t)
+	cfgDir := writeWorkflowFSMConfig(t)
+	obsPath := filepath.Join(t.TempDir(), "obs.json")
+	writeFile(t, obsPath, []byte(`{
+  "signals": {
+    "git": {"detached_head": false},
+    "github": {
+      "pull_requests": {"pr_exists_for_branch": false}
+    }
+  },
+  "degraded": false
+}`))
+
+	var recordBuf bytes.Buffer
+	recordApp := NewApp("record")
+	recordApp.Writer = &recordBuf
+	if err := recordApp.Run([]string{
+		"rgd", "gate", "record",
+		"--config-dir", cfgDir,
+		"--cwd", repo,
+		"--status", "pass",
+		"pr-readiness",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	var stateBuf bytes.Buffer
+	stateApp := NewApp("state")
+	stateApp.Writer = &stateBuf
+	if err := stateApp.Run([]string{
+		"rgd", "state", "eval",
+		"--config-dir", cfgDir,
+		"--cwd", repo,
+		"--observation-file", obsPath,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var out map[string]any
+	if err := json.Unmarshal(stateBuf.Bytes(), &out); err != nil {
+		t.Fatalf("json: %v raw=%s", err, stateBuf.String())
+	}
+	if out["state_id"] != "ready_for_pr" {
+		t.Fatalf("state_id=%v want ready_for_pr", out["state_id"])
+	}
+
+	statePath := filepath.Join(t.TempDir(), "state.json")
+	writeFile(t, statePath, stateBuf.Bytes())
+	var routeBuf bytes.Buffer
+	routeApp := NewApp("route")
+	routeApp.Writer = &routeBuf
+	if err := routeApp.Run([]string{
+		"rgd", "route", "select",
+		"--config-dir", cfgDir,
+		"--cwd", repo,
+		"--observation-file", obsPath,
+		"--state-file", statePath,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var routeOut map[string]any
+	if err := json.Unmarshal(routeBuf.Bytes(), &routeOut); err != nil {
+		t.Fatalf("json: %v raw=%s", err, routeBuf.String())
+	}
+	if routeOut["route_id"] != "user-implement" {
+		t.Fatalf("route_id=%v want user-implement", routeOut["route_id"])
+	}
+}
+
+func TestRunStateEval_workflowFSM_stalePrReadinessFallsBackToWorkingNoPR(t *testing.T) {
+	t.Parallel()
+	// Given/When/Then: a stale pr-readiness artifact must not keep the branch in ready_for_pr
+	repo := initGitRepoForGateCLI(t)
+	cfgDir := writeWorkflowFSMConfig(t)
+	obsPath := filepath.Join(t.TempDir(), "obs.json")
+	writeFile(t, obsPath, []byte(`{
+  "signals": {
+    "git": {"detached_head": false},
+    "github": {
+      "pull_requests": {"pr_exists_for_branch": false}
+    }
+  },
+  "degraded": false
+}`))
+
+	recordApp := NewApp("record")
+	recordApp.Writer = io.Discard
+	if err := recordApp.Run([]string{
+		"rgd", "gate", "record",
+		"--config-dir", cfgDir,
+		"--cwd", repo,
+		"--status", "pass",
+		"pr-readiness",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	runGitForGateCLI(t, repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "advance")
+
+	var stateBuf bytes.Buffer
+	stateApp := NewApp("state")
+	stateApp.Writer = &stateBuf
+	if err := stateApp.Run([]string{
+		"rgd", "state", "eval",
+		"--config-dir", cfgDir,
+		"--cwd", repo,
+		"--observation-file", obsPath,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var out map[string]any
+	if err := json.Unmarshal(stateBuf.Bytes(), &out); err != nil {
+		t.Fatalf("json: %v raw=%s", err, stateBuf.String())
+	}
+	if out["state_id"] != "working_no_pr" {
+		t.Fatalf("state_id=%v want working_no_pr", out["state_id"])
+	}
+}
+
+func writeWorkflowFSMConfig(t *testing.T) string {
+	t.Helper()
+	cfgDir := t.TempDir()
+	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
+	repoCfg := reinguardConfigDir(t)
+	copyWorkflowFSMFile(t, filepath.Join(repoCfg, "control", "states", "workflow.yaml"), filepath.Join(cfgDir, "control", "states", "workflow.yaml"))
+	copyWorkflowFSMFile(t, filepath.Join(repoCfg, "control", "routes", "workflow.yaml"), filepath.Join(cfgDir, "control", "routes", "workflow.yaml"))
+	return cfgDir
+}
+
+func copyWorkflowFSMFile(t *testing.T, src, dst string) {
+	t.Helper()
+	data, err := os.ReadFile(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, dst, data)
 }

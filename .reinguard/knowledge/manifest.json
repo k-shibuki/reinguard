@@ -160,7 +160,7 @@
     {
       "id": "review-bot-operations",
       "path": ".reinguard/knowledge/review--bot-operations.md",
-      "description": "Bot reviewer trigger, detection, timing, rate-limit recovery, and re-review procedures",
+      "description": "PR-side bot review — trigger, detection, timing, rate-limit recovery, re-review (not pre-PR local CLI)",
       "triggers": [
         "bot review trigger",
         "bot review detection",
@@ -236,6 +236,40 @@
         "op": "eq",
         "path": "github.pull_requests.pr_exists_for_branch",
         "value": true
+      }
+    },
+    {
+      "id": "review-local-coderabbit-cli",
+      "path": ".reinguard/knowledge/review--local-coderabbit-cli.md",
+      "description": "Pre-PR local CodeRabbit CLI gate (check-local-review.sh) — foreground wait, rate limits; distinct from PR-side bot review",
+      "triggers": [
+        "check-local-review",
+        "local CodeRabbit",
+        "pre-PR review",
+        "local CLI gate",
+        "change-inspect CodeRabbit"
+      ],
+      "when": {
+        "and": [
+          {
+            "op": "eq",
+            "path": "git.detached_head",
+            "value": false
+          },
+          {
+            "or": [
+              {
+                "op": "eq",
+                "path": "github.pull_requests.pr_exists_for_branch",
+                "value": false
+              },
+              {
+                "op": "not_exists",
+                "path": "github.pull_requests.pr_exists_for_branch"
+              }
+            ]
+          }
+        ]
       }
     },
     {
@@ -381,6 +415,31 @@
         "coverage target",
         "table-driven",
         "test perspectives"
+      ],
+      "when": {
+        "or": [
+          {
+            "op": "exists",
+            "path": "git.branch"
+          },
+          {
+            "op": "exists",
+            "path": "github.repository.owner"
+          }
+        ]
+      }
+    },
+    {
+      "id": "workflow-state-gate-guard-extension",
+      "path": ".reinguard/knowledge/workflow--state-gate-guard-extension.md",
+      "description": "Checklist when adding or changing FSM states, routes, runtime gates, guards, knowledge surfacing, and tests",
+      "triggers": [
+        "state gate guard extension",
+        "add state_id",
+        "add runtime gate",
+        "FSM wiring",
+        "workflow_fsm_test",
+        "control states yaml"
       ],
       "when": {
         "or": [

@@ -45,8 +45,23 @@ Until `rgd observe` fully covers every workflow signal, **Adapter** guidance for
 ## Authoring rules for new review knowledge
 
 - Keep each file atomic — see [`.reinguard/README.md` § Atomicity](../README.md#atomicity).
-- Use required front matter: `id`, `description`, `triggers` (non-empty, unique case-insensitively), **`when`** (match when this entry should surface — e.g. PR-scoped review docs use `github.pull_requests.pr_exists_for_branch`).
+- Use required front matter: `id`, `description`, `triggers` (non-empty, unique case-insensitively), **`when`** (match when this entry should surface — e.g. PR-scoped review docs use `github.pull_requests.pr_exists_for_branch` **true**; pre-PR local tooling docs may use `github.pull_requests.pr_exists_for_branch` **false** or equivalent `git.*` scope). Match expressions use the same clause shape as control rules ([ADR-0002](../../docs/adr/0002-spec-driven-evaluation.md)); do not abbreviate to bare `path: value` outside a clause object.
 - Prefer stable guidance over PR-specific details or evidence-only snapshots.
+
+Minimal `eq` example (PR open for the current branch):
+
+```yaml
+when:
+  op: eq
+  path: github.pull_requests.pr_exists_for_branch
+  value: true
+```
+
+Compound clauses (`and` / `or`) — see the front matter of this file (lines 10–16) or `.reinguard/knowledge/review--local-coderabbit-cli.md` for a pre-PR `and` example.
+
+## FSM / gate / guard extensions
+
+When adding or changing `state_id` rules, routes, runtime gates, or guard wiring, use the operational checklist in [`workflow--state-gate-guard-extension.md`](workflow--state-gate-guard-extension.md) and the durable rules in ADR-0013 / ADR-0014 (see also [`docs/cli.md`](../../docs/cli.md) § Authors: extending State / Gate / Guard).
 
 ## Review/update loop
 
