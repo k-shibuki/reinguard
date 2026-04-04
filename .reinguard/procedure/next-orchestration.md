@@ -72,6 +72,7 @@ After approval, the agent **must** drive toward **Per-unit Definition of Done** 
 
 - Asking whether to continue, which option to take, or “should I do X next” (including soft closers that function as a gate).
 - Stopping with only a roadmap while DoD remains unmet when the agent could still act.
+- **Implicit stop (forbidden).** Ending the turn, “handing off,” or treating work as complete **without** (a) Per-unit Definition of Done satisfied **or** (b) an **allowed stop** (below) **with explicit evidence** is prohibited. **Do not** infer completion from habit, a “natural” break, “reasonable” end-of-message, residual uncertainty, long CI or bot wait, or a user-facing “next steps” summary. If the mapped procedure still applies or the next loop iteration is the same Sense → Route → Act → Refresh path, **continue** until DoD or an allowed stop. Naming the violation does not satisfy the contract — only DoD or an allowed stop does.
 
 **Allowed stops:**
 

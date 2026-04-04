@@ -58,6 +58,8 @@ After **Sense** and **Route**, present the full-path proposal **exactly once** p
 
 After approval, **always** follow [`.reinguard/procedure/next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md) § **Post-approval execution contract** and § **Loop semantics**: drive to Per-unit DoD **without** user prompts that gate progress between iterations.
 
+**No implicit stop:** Do not end the run because a status summary or external wait “feels done.” Only **Per-unit Definition of Done**, or an **allowed stop with evidence** per `next-orchestration.md` § Post-approval execution contract (including **Implicit stop (forbidden)**), counts as completion.
+
 Loop (summary): **Sense** (`rgd context build`) → **Route** (ADR-0013 § 4; same rules as § Route above) → run mapped procedure(s) → **Refresh** context after material changes — per `next-orchestration.md`.
 
 **Output (for agents):** After each `rgd context build` in the loop, emit a short paragraph: `state_id` / `route_id` / guard summary and which procedure(s) ran or are next (iteration label optional, e.g. “Pass 2”). **Final:** DoD satisfied with evidence, or allowed stop with evidence (`next-orchestration.md` § Post-approval execution contract).
