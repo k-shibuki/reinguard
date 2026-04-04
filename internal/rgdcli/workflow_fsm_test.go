@@ -268,6 +268,32 @@ var workflowFSMScenarioFixtures = []struct {
 		wantRouteID: "user-wait-bot-failed",
 	},
 	{
+		name: "bot_stale",
+		observation: `{
+  "signals": {
+    "git": {"detached_head": false},
+    "github": {
+      "pull_requests": {"pr_exists_for_branch": true},
+      "reviews": {
+        "review_threads_unresolved": 0,
+        "review_decisions_changes_requested": 0,
+        "bot_reviewer_status": [],
+        "bot_review_diagnostics": {
+          "bot_review_stale": true,
+          "bot_review_failed": false,
+          "bot_review_completed": true,
+          "bot_review_pending": false,
+          "bot_review_terminal": true
+        }
+      }
+    }
+  },
+  "degraded": false
+}`,
+		wantStateID: "waiting_bot_stale",
+		wantRouteID: "user-wait-bot-stale",
+	},
+	{
 		name: "bot_reviewing",
 		observation: `{
   "signals": {

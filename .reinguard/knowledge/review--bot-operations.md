@@ -104,7 +104,7 @@ If the branch is updated while CodeRabbit is reviewing, CR may post
 ## Rate-Limit Recovery
 
 1. Detect: PR comment from bot containing "Rate limit exceeded"
-2. Parse wait time from the message (minutes + seconds + 30s buffer)
+2. **Cool-down duration:** when `signals.github.reviews.bot_reviewer_status[].rate_limit_remaining_seconds` is present (CodeRabbit enrichment), use it as the primary sleep budget (add any buffer your policy requires) instead of re-parsing the comment body. Otherwise parse wait time from the **latest** bot issue comment (minutes + seconds + 30s buffer).
 3. Sleep, re-trigger same reviewer
 4. Second rate limit → treat as timed out (max 1 recovery)
 
@@ -129,6 +129,6 @@ Deduplicate when both reviewers flag the same issue.
 - `.reinguard/knowledge/review--local-coderabbit-cli.md` — pre-PR local CLI gate only
 - `.reinguard/policy/review--consensus-protocol.md` — disposition, resolve, consensus
 - `.reinguard/policy/safety--agent-invariants.md` § **HS-REVIEW-RESOLVE**
-- `.reinguard/procedure/wait-bot-review.md` — FSM routes `user-wait-bot-*` (quota, pause, failed, run)
+- `.reinguard/procedure/wait-bot-review.md` — FSM routes `user-wait-bot-*` (quota, pause, failed, stale, run)
 - `.reinguard/procedure/review-address.md` — thread disposition and multi-source triage
 - `.reinguard/knowledge/review--multi-source-review-signals.md` — inbox model across sources

@@ -37,6 +37,7 @@ The table below is a **Cursor-facing heuristic** (when `state.kind` is `resolved
 | `waiting_bot_rate_limited` | `.reinguard/procedure/wait-bot-review.md` |
 | `waiting_bot_paused` | `.reinguard/procedure/wait-bot-review.md` |
 | `waiting_bot_failed` | `.reinguard/procedure/wait-bot-review.md` |
+| `waiting_bot_stale` | `.reinguard/procedure/wait-bot-review.md` |
 | `merge_ready` | `.reinguard/procedure/pr-merge.md` |
 
 **Dirty working tree + `review-address`:** When `observation.signals.git.working_tree_clean` is `false` and the resolved procedure is `review-address`, run **Step 0** in that procedure first (`change-inspect` → commit → refresh context). See `.reinguard/knowledge/review--incremental-fix-flow.md`.

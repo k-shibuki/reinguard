@@ -30,6 +30,7 @@ wins** among matching rules (ADR-0004). `state_id` values:
 | `waiting_bot_rate_limited` | Required bot `status` is `rate_limited` | `op: any` on `github.reviews.bot_reviewer_status` with `$.required` and `$.status` |
 | `waiting_bot_paused` | Required bot `status` is `review_paused` | Same pattern |
 | `waiting_bot_failed` | Any required bot in failed tier (aggregate) | `github.reviews.bot_review_diagnostics.bot_review_failed` |
+| `waiting_bot_stale` | Required bot completed review on a different HEAD | `bot_review_diagnostics.bot_review_stale` true and PR exists. **Priority vs `waiting_bot_rate_limited`:** state rule `rate_limited` (priority 10) wins over `bot_stale` (priority 13) when both could match — cool down / quota recovery must finish before treating stale re-trigger as the primary action. |
 | `waiting_bot_run` | Waiting on required bot outcome | `bot_review_diagnostics.bot_review_pending` and PR exists |
 | `merge_ready` | Coarse merge gate (clean tree, CI, threads, decisions) | Aligns with `merge-readiness` guard signals |
 | `waiting_ci` | PR open; no thread/decision work; CI or mergeability not satisfied | Threads 0, changes 0, working tree clean; `ci_status` != `success` **or** `merge_state_status` != `clean` |
@@ -75,6 +76,7 @@ after state resolution (same mechanism as `rgd route select` with merged state).
 | `user-wait-ci` | `waiting_ci` | `review-address` (checks / mergeability) |
 | `user-address-review` | `unresolved_threads`, `changes_requested` | `review-address` |
 | `user-wait-bot-failed` | `waiting_bot_failed` | `wait-bot-review` |
+| `user-wait-bot-stale` | `waiting_bot_stale` | `wait-bot-review` |
 | `user-wait-bot-run` | `waiting_bot_run` | `wait-bot-review` |
 | `user-wait-bot-quota` | `waiting_bot_rate_limited` | `wait-bot-review` |
 | `user-wait-bot-paused` | `waiting_bot_paused` | `wait-bot-review` |
@@ -105,7 +107,7 @@ primary `route_id` in `rgd route select` output. Alternatives appear in
 | `waiting_ci` | `.reinguard/procedure/review-address.md` |
 | `unresolved_threads` | `.reinguard/procedure/review-address.md` |
 | `changes_requested` | `.reinguard/procedure/review-address.md` |
-| `waiting_bot_rate_limited` / `waiting_bot_paused` / `waiting_bot_failed` / `waiting_bot_run` | `.reinguard/procedure/wait-bot-review.md` (+ `review--bot-operations.md` in `knowledge.entries`) |
+| `waiting_bot_rate_limited` / `waiting_bot_paused` / `waiting_bot_failed` / `waiting_bot_stale` / `waiting_bot_run` | `.reinguard/procedure/wait-bot-review.md` (+ `review--bot-operations.md` in `knowledge.entries`) |
 | `merge_ready` | `.reinguard/procedure/pr-merge.md` |
 
 Self-inspection before PR creation remains `.reinguard/procedure/change-inspect.md`;

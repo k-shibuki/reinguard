@@ -60,8 +60,17 @@ rules:
       value: waiting_bot_failed
 
   - type: route
-    id: route_wait_bot_run
+    id: route_wait_bot_stale
     priority: 25
+    route_id: user-wait-bot-stale
+    when:
+      op: eq
+      path: state.state_id
+      value: waiting_bot_stale
+
+  - type: route
+    id: route_wait_bot_run
+    priority: 26
     route_id: user-wait-bot-run
     when:
       op: eq
@@ -70,7 +79,7 @@ rules:
 
   - type: route
     id: route_wait_bot_quota
-    priority: 26
+    priority: 27
     route_id: user-wait-bot-quota
     when:
       op: eq
@@ -79,7 +88,7 @@ rules:
 
   - type: route
     id: route_wait_bot_paused
-    priority: 27
+    priority: 28
     route_id: user-wait-bot-paused
     when:
       op: eq
@@ -88,7 +97,7 @@ rules:
 
   - type: route
     id: route_merge
-    priority: 28
+    priority: 29
     route_id: user-merge
     when:
       op: eq
