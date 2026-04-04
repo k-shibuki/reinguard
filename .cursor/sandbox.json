@@ -5,8 +5,5 @@
       "*.coderabbit.ai"
     ]
   },
-  "additionalReadwritePaths": [
-    "/home/statuser/.cache"
-  ],
   "enableSharedBuildCache": true
 }
