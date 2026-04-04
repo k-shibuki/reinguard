@@ -118,6 +118,21 @@ func TestComputeBotReviewDiagnostics_duplicateFindingsOptionalOnlyNoRequired(t *
 	}
 }
 
+func TestComputeBotReviewDiagnostics_duplicateFindingsZeroCount(t *testing.T) {
+	t.Parallel()
+	got := ComputeBotReviewDiagnostics([]any{
+		map[string]any{
+			"required":                    true,
+			"status":                      BotStatusCompleted,
+			"review_commit_sha":           "abc123",
+			"cr_duplicate_findings_count": 0,
+		},
+	}, "abc123")
+	if got["duplicate_findings_detected"].(bool) {
+		t.Fatalf("want duplicate_findings_detected=false for zero count, got %+v", got)
+	}
+}
+
 func TestComputeBotReviewDiagnostics_duplicateFindingsOnOptionalBot(t *testing.T) {
 	t.Parallel()
 	// Given: optional bot with duplicate findings in review summary (observation still surfaces it).
