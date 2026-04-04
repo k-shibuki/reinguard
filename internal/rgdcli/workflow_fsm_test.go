@@ -3,6 +3,7 @@ package rgdcli
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -442,6 +443,7 @@ func TestRunStateEval_workflowFSM_stalePrReadinessFallsBackToWorkingNoPR(t *test
 }`))
 
 	recordApp := NewApp("record")
+	recordApp.Writer = io.Discard
 	if err := recordApp.Run([]string{
 		"rgd", "gate", "record",
 		"--config-dir", cfgDir,
