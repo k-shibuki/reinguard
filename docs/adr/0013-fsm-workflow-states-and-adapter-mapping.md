@@ -155,6 +155,7 @@ Operational checklist (files, validation commands, knowledge surfacing): see `.r
 
 - ADR-0002 (match / `when`)
 - ADR-0004 (priority resolution)
+- ADR-0014 (runtime gate artifacts and `gates.<id>.*`)
 - ADR-0011 (control plane layout, `procedure/`)
 - `docs/cli.md` (signal paths)
 - Issue #72 (P2-3 deliverable)

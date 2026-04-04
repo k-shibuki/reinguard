@@ -235,6 +235,16 @@ func TestSplitGitHubRemotePath_supportsHTTPSPath(t *testing.T) {
 	}
 }
 
+func TestSplitNameWithOwner_trimsPartWhitespace(t *testing.T) {
+	owner, name, err := splitNameWithOwner("acme / widget")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if owner != "acme" || name != "widget" {
+		t.Fatalf("owner/name: got %q %q", owner, name)
+	}
+}
+
 func runGitCmd(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)

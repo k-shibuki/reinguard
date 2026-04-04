@@ -51,10 +51,15 @@ func runGitCommandImpl(ctx context.Context, wd string, args []string) (stdout, s
 func splitNameWithOwner(raw string) (owner, name string, err error) {
 	s := strings.TrimSpace(raw)
 	parts := strings.Split(s, "/")
-	if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
+	if len(parts) != 2 {
 		return "", "", fmt.Errorf("unexpected nameWithOwner %q", s)
 	}
-	return parts[0], parts[1], nil
+	owner = strings.TrimSpace(parts[0])
+	name = strings.TrimSpace(parts[1])
+	if owner == "" || name == "" {
+		return "", "", fmt.Errorf("unexpected nameWithOwner %q", s)
+	}
+	return owner, name, nil
 }
 
 func splitGitHubRemotePath(path string) (owner, name string, err error) {
