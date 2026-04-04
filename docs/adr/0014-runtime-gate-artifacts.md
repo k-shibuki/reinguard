@@ -74,4 +74,5 @@ Operational checklist: `.reinguard/knowledge/workflow--state-gate-guard-extensio
 - ADR-0003 (pull-based, stateless invocation)
 - ADR-0008 (schema versioning)
 - ADR-0011 (semantic control plane structure)
+- ADR-0013 (FSM state catalog and Adapter mapping)
 - Issue #97
