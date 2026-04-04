@@ -102,6 +102,22 @@ func TestComputeBotReviewDiagnostics_optionalIgnoredForAggregate(t *testing.T) {
 	}
 }
 
+func TestComputeBotReviewDiagnostics_duplicateFindingsOptionalOnlyNoRequired(t *testing.T) {
+	t.Parallel()
+	// Given: no required bots; optional bot reports duplicate findings in review summary.
+	// When:  vacuous completion branch runs (sawRequired == false).
+	// Then:  duplicate_findings_detected still surfaces for triage.
+	got := ComputeBotReviewDiagnostics([]any{
+		map[string]any{"required": false, "status": BotStatusCompleted, "cr_duplicate_findings_count": 2},
+	}, "abc123")
+	if got["bot_review_completed"].(bool) != true {
+		t.Fatalf("vacuous completion expected: %+v", got)
+	}
+	if got["duplicate_findings_detected"].(bool) != true {
+		t.Fatalf("want duplicate_findings_detected=true in no-required branch, got %+v", got)
+	}
+}
+
 func TestComputeBotReviewDiagnostics_duplicateFindingsOnOptionalBot(t *testing.T) {
 	t.Parallel()
 	// Given: optional bot with duplicate findings in review summary (observation still surfaces it).

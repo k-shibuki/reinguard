@@ -12,6 +12,7 @@ Review routing for touched areas is defined in **[`CODEOWNERS`](CODEOWNERS)**.
 - **golangci-lint**: optional locally; CI runs it on every PR.
 - **Bash**: **4.3+** — required for `.reinguard/scripts/lib/labels.sh` (`local -n`), used by `check-pr-policy.sh` and related policy scripts. The default `/bin/bash` on macOS is 3.2; install a newer Bash (e.g. `brew install bash`) and invoke scripts with `bash` from your PATH.
 - **`yq`**: **[mikefarah/yq](https://github.com/mikefarah/yq) v4** — required for local runs of `.reinguard/scripts/check-commit-msg.sh`, `check-pr-policy.sh`, `check-issue-policy.sh`, and for `.reinguard/scripts/sync-issue-templates.sh` (CI installs a pinned binary in workflows for the script integration suite).
+- **Label `name` values** in [`.reinguard/labels.yaml`](../.reinguard/labels.yaml): keep each name **regex-safe** for POSIX extended-regex matching (avoid raw `()`, `+`, `*`, `.`, `?`, `[`, `]`, `^`, `$`, `|`, `\`). `check-pr-policy.sh` joins type labels into the PR title pattern.
 - **`jq`**: required for `.reinguard/scripts/sync-issue-templates.sh` when not using test-only overrides.
 - **`gh`**: required only when using commands that call the GitHub API (e.g.
   `rgd observe github`, or live observation in `rgd state eval` / `rgd context build`
