@@ -64,7 +64,8 @@ func (coderabbitEnrichment) ClassifyStatus(m map[string]any) string {
 	if v, ok := m["cr_review_processing"].(bool); ok && v {
 		return BotStatusPending
 	}
-	if signalBool(m, "has_review") && signalBool(m, "cr_review_completed_clean") {
+	// Terminal clean without a GitHub Review (issue-comment-only completion, e.g. "no actionable comments").
+	if signalBool(m, "cr_review_completed_clean") {
 		return BotStatusCompletedClean
 	}
 	if signalBool(m, "has_review") {
@@ -84,13 +85,25 @@ var (
 	// U+267B recycling symbol, optional U+FE0F variation selector (emoji presentation).
 	reCRDuplicateComments = regexp.MustCompile(`(?i)(?:\x{267B}\x{FE0F}?|\x{267B})\s*Duplicate\s+comments\s*\((\d+)\)`)
 	reCRReviewCompleted   = regexp.MustCompile(`(?i)(review\s+completed|✅\s*completed|status[:\s\*]*\s*✅|\*\*status\*\*[^\n]*(complete|finished|done))`)
-	reCRReviewClean       = regexp.MustCompile(`(?i)(no\s+issues\s+found|no\s+additional\s+issues\s+found)`)
+	reCRReviewClean       = regexp.MustCompile(`(?i)(no\s+issues\s+found|no\s+additional\s+issues\s+found|no\s+actionable\s+comments)`)
+	// Second bracketed SHA is the reviewed head when CodeRabbit summarizes a commit range in PR comments.
+	reCRReviewedHeadRange = regexp.MustCompile(`(?i)between\s+\[([0-9a-f]{7,40})\]\([^)]*\)\s+and\s+\[([0-9a-f]{7,40})\]\(`)
 	reCRReviewProcessing  = regexp.MustCompile(`(?i)(processing\s+new\s+changes|review\s+in\s+progress|\bin\s+progress\b|\*\*status\*\*[^\n]*(in\s+progress|pending|processing)|⏳\s*processing)`)
 	reCRWalkthrough       = regexp.MustCompile(`(?i)(^|\n)#{1,3}\s*[^\n]*(walkthrough|review\s+walkthrough)|\*\*walkthrough\*\*`)
 )
 
+func parseCoderabbitReviewedHeadSHA(body string) string {
+	if m := reCRReviewedHeadRange.FindStringSubmatch(body); len(m) >= 3 {
+		return strings.ToLower(strings.TrimSpace(m[2]))
+	}
+	return ""
+}
+
 func parseCoderabbitReviewStatusMarkers(body string) map[string]any {
 	out := make(map[string]any)
+	if sha := parseCoderabbitReviewedHeadSHA(body); sha != "" {
+		out["cr_reviewed_head_sha"] = sha
+	}
 	if reCRWalkthrough.MatchString(body) {
 		out["cr_walkthrough_present"] = true
 	}

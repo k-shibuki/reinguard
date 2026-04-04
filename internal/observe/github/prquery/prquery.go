@@ -469,6 +469,16 @@ func allBotsSeen(seen map[string]bool, want map[string]struct{}) bool {
 
 // reviewFailedFromComment detects terminal bot failure cues in PR timeline comments,
 // including head-moved / voided review messages documented in review--bot-operations.md.
+// applyReviewCommitSHAFromCoderabbitComment sets review_commit_sha from cr_reviewed_head_sha
+// when GraphQL did not return a review (comment-only CodeRabbit completion).
+func applyReviewCommitSHAFromCoderabbitComment(status map[string]any) {
+	if strings.TrimSpace(signalString(status, "review_commit_sha")) == "" {
+		if s := strings.TrimSpace(signalString(status, "cr_reviewed_head_sha")); s != "" {
+			status["review_commit_sha"] = s
+		}
+	}
+}
+
 func reviewFailedFromComment(lower string) bool {
 	if strings.Contains(lower, "review failed") {
 		return true
@@ -545,6 +555,7 @@ func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNo
 				status[k] = v
 			}
 		}
+		applyReviewCommitSHAFromCoderabbitComment(status)
 		status["status"] = ClassifyBotStatus(status, br.Enrich)
 		out = append(out, status)
 	}

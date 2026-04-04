@@ -166,6 +166,9 @@ func TestCoderabbitEnrichment_ClassifyStatus_order(t *testing.T) {
 	if g := e.ClassifyStatus(map[string]any{"cr_review_processing": true}); g != BotStatusPending {
 		t.Fatalf("got %q", g)
 	}
+	if g := e.ClassifyStatus(map[string]any{"cr_review_completed_clean": true}); g != BotStatusCompletedClean {
+		t.Fatalf("got %q", g)
+	}
 	if g := e.ClassifyStatus(map[string]any{"has_review": true, "cr_review_completed_clean": true}); g != BotStatusCompletedClean {
 		t.Fatalf("got %q", g)
 	}
@@ -174,5 +177,32 @@ func TestCoderabbitEnrichment_ClassifyStatus_order(t *testing.T) {
 	}
 	if g := e.ClassifyStatus(map[string]any{"cr_walkthrough_present": true, "latest_comment_at": "2026-01-01T00:00:00Z"}); g != BotStatusPending {
 		t.Fatalf("got %q", g)
+	}
+}
+
+func TestCoderabbitEnrichment_noActionableCommentsClean(t *testing.T) {
+	t.Parallel()
+	e := coderabbitEnrichment{}
+	got := e.Enrich("No actionable comments were generated in the recent review.\n")
+	if got == nil {
+		t.Fatal("got nil")
+	}
+	clean, ok := got["cr_review_completed_clean"].(bool)
+	if !ok || !clean {
+		t.Fatalf("want cr_review_completed_clean=true, got %v", got)
+	}
+}
+
+func TestCoderabbitEnrichment_reviewedHeadSHAFromRange(t *testing.T) {
+	t.Parallel()
+	e := coderabbitEnrichment{}
+	body := "Reviewing files that changed from the base of the PR and between [1c0a07a](https://example.com/1) and [4b680dbdeadbeef](https://example.com/2).\n"
+	got := e.Enrich(body)
+	if got == nil {
+		t.Fatal("got nil")
+	}
+	sha, ok := got["cr_reviewed_head_sha"].(string)
+	if !ok || sha != "4b680dbdeadbeef" {
+		t.Fatalf("want cr_reviewed_head_sha=4b680dbdeadbeef, got %v", got)
 	}
 }

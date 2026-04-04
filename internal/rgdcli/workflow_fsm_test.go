@@ -17,7 +17,36 @@ func reinguardConfigDir(t *testing.T) string {
 		t.Fatal("runtime.Caller")
 	}
 	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
-	return filepath.Join(root, ".reinguard")
+	src := filepath.Join(root, ".reinguard")
+	dst := filepath.Join(t.TempDir(), ".reinguard")
+	if err := copyTree(t, src, dst); err != nil {
+		t.Fatalf("copy .reinguard: %v", err)
+	}
+	// Isolate FSM scenario tests from developer-local pr-readiness artifacts (pass would force ready_for_pr).
+	_ = os.Remove(filepath.Join(dst, "runtime", "gates", "pr-readiness.json"))
+	return dst
+}
+
+func copyTree(t *testing.T, src, dst string) error {
+	t.Helper()
+	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		out := filepath.Join(dst, rel)
+		if info.IsDir() {
+			return os.MkdirAll(out, 0o755)
+		}
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(out, b, info.Mode().Perm())
+	})
 }
 
 // workflowFSMScenarioFixtures pairs observation JSON with expected state_id and route_id (ADR-0013).
