@@ -91,10 +91,12 @@ line in that run to parse the cooldown, adds a **safety buffer**, then
 retries the review **once** (`--retry-on-rate-limit`). Treat
 installation/authentication/execution failures, unparsed cooldown, or a
 second consecutive rate limit, as a failed gate and do not proceed.
-While the command is running, treat sparse output or a long cooldown sleep as
-normal for this gate. Do not kill and restart the process unless you have
-positive evidence that it exited, crashed, or violated the documented retry
-contract.
+While the command is running, treat sparse **stdout** from the CLI as normal;
+the script prints **stderr heartbeats** every **30 seconds** and enforces a
+**20-minute** wall-clock cap per attempt (defaults: `LOCAL_CR_HEARTBEAT_SEC`,
+`LOCAL_CR_MAX_WAIT_SEC` — see `coding--preflight.md` and
+`review--local-coderabbit-cli.md`). Do not kill the subprocess unless you have
+positive evidence of a crash or hang **beyond** that supervisor limit.
 If the branch uses a runtime verification gate such as `local-verification`,
 record or refresh it on the reviewed head after the required local checks
 pass, for example:

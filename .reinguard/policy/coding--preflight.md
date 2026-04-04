@@ -47,10 +47,11 @@ bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
   `RATE_LIMIT_RETRY_BUFFER_SEC`), then retries the review **once**
   automatically. If the cooldown cannot be parsed from that line, or a
   second consecutive rate limit occurs, treat the gate as failed.
-- This local CLI gate is allowed to run for a long time. Sparse output while
-  the CLI is reviewing, or while it is sleeping for a parsed cooldown, is not
-  a failure condition by itself and must not be treated as a hang without
-  positive evidence.
+- The script supervises each `coderabbit review` attempt: stderr **heartbeat**
+  every **30 seconds** (default `LOCAL_CR_HEARTBEAT_SEC=30`) and a **20-minute**
+  wall-clock maximum per attempt (default `LOCAL_CR_MAX_WAIT_SEC=1200`), aligned
+  with PR-side bot wait cadence in `review--bot-operations.md`. Sparse **stdout**
+  while the CLI works is not a failure by itself.
 - If the script cannot run (CLI missing, auth missing, second consecutive
   rate limit after retry, execution error), treat that as a failed gate and
   do not proceed to `pr-create`.

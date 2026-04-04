@@ -83,13 +83,13 @@ If the branch is updated while CodeRabbit is reviewing, CR may post
 |---|---|---|
 | Typical completion | 2–7 min | 1–7 min |
 | Polling interval | 30 s | 30 s |
-| Polling window | 15 min | 15 min |
+| Polling window | 20 min | 20 min |
 
 ### Polling model
 
 - Use this polling model for **PR-side bot review waits** only
   (`.reinguard/procedure/wait-bot-review.md` after PR creation).
-- Poll every **30 seconds** for up to **15 minutes**.
+- Poll every **30 seconds** for up to **20 minutes**.
 - Exit early as soon as the required bot becomes terminal, review threads
   that need classification or reply appear, or the state changes to a
   different FSM route such as `review-address`.
