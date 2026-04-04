@@ -56,7 +56,7 @@ Use `knowledge.entries` (typically includes `review--bot-operations.md`, `review
 | `state_id` | Intent | First actions |
 |------------|--------|----------------|
 | `waiting_bot_run` | Required bot outcome not terminal | Poll `rgd observe github reviews` every 30s for up to 20m; avoid duplicate triggers unless policy allows. |
-| `waiting_bot_rate_limited` | Bot hit quota | Prefer `rate_limit_remaining_seconds` from `bot_reviewer_status` when present; else parse wait from the latest bot message; sleep + **one** retry path per `review--bot-operations.md`. |
+| `waiting_bot_rate_limited` | Bot hit quota | Prefer `rate_limit_remaining_seconds` from `bot_reviewer_status` when present; else parse wait from the **selected status comment** body (tied to `status_comment_at` / `status_comment_source`, not `latest_comment_at` alone); sleep + **one** retry path per `review--bot-operations.md`. |
 | `waiting_bot_paused` | Bot paused (e.g. commit threshold) | Follow vendor resume / `@coderabbitai review` when appropriate. |
 | `waiting_bot_failed` | Bot failed tier (incl. voided review) | Stabilize head; re-trigger per bot docs; if repeated failure, escalate. |
 | `waiting_bot_stale` | Review is stale (head moved) | Re-trigger `@coderabbitai review`; if already triggered, poll for completion. |
@@ -67,7 +67,7 @@ Use `knowledge.entries` (typically includes `review--bot-operations.md`, `review
 2. Apply the **row** for your `state_id` above; use **only** PR conversation / documented triggers — do not rely on thread replies for Codex rerun.
 3. For `waiting_bot_stale`, the required bot completed its review on a **previous** HEAD. Re-trigger review per bot docs (same re-trigger path as `waiting_bot_failed` when head moved) and poll until terminal or a different FSM state applies.
 4. For `waiting_bot_run`, poll every **30 seconds** for up to **20 minutes**. Stop immediately if the required bot becomes terminal, actionable review work appears, or the FSM should hand off to another procedure.
-5. For `waiting_bot_rate_limited`, follow the cool-down from `rate_limit_remaining_seconds` when the observation provides it; otherwise use the parsed wait from the message and the one-retry recovery path from `review--bot-operations.md` instead of the generic 30-second cadence during the cool-down window.
+5. For `waiting_bot_rate_limited`, follow the cool-down from `rate_limit_remaining_seconds` when the observation provides it; otherwise use the parsed wait from the **selected status comment** (same `status_comment_at` / `status_comment_source` as in Act step 1) and the one-retry recovery path from `review--bot-operations.md` instead of the generic 30-second cadence during the cool-down window.
 6. For the polling waits above, when the Adapter (the execution environment, such as Cursor) supports delegation, prefer a delegated wait owner instead of keeping the main agent in an inline sleep cycle.
 7. For a single active unit, prefer foreground-first delegated wait ownership so the delegated worker blocks until review state changes.
 8. Use the Adapter's configured bot-review wait template or wrapper when available; otherwise use the inline polling behavior described in steps 4-5.
