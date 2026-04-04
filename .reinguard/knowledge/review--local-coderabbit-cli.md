@@ -74,6 +74,10 @@ depending on `~/.coderabbit`.
   mechanism: subprocess supervision vs `rgd observe` / GitHub polling).
 - Built-in **rate-limit retry** remains: one automatic retry when
   `--retry-on-rate-limit` is set and the CLI reports a parseable cooldown.
+  The wait is **`parsed_cooldown_seconds + RATE_LIMIT_RETRY_BUFFER_SEC`**
+  (default buffer **30s**). PR-side CodeRabbit recovery uses the same
+  **`cooldown + 30s`** rule before `@coderabbitai review`; see
+  `review--bot-operations.md` § Rate-Limit Recovery.
 - Sparse **stdout** from the CLI while it works is **normal**; heartbeats go to
   **stderr** so transcripts stay readable.
 - Only terminal outcomes change control flow: success, explicit CLI failure,
