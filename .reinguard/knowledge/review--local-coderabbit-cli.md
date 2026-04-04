@@ -48,7 +48,7 @@ bash .reinguard/scripts/with-repo-local-state.sh --home-subdir cr-home -- \
   bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
 ```
 
-This keeps CodeRabbit state and logs under repo-local `/.tmp/` instead of
+This keeps CodeRabbit state and logs under repo-local `.tmp/` instead of
 depending on `~/.coderabbit`.
 
 ## Cursor sandbox note

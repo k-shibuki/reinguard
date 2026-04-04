@@ -142,7 +142,7 @@ If your org limits agent-posted `@codex`, have the human post that line.
 
 When Go code changed:
 
-- `go test ./...`
+- `bash .reinguard/scripts/with-repo-local-state.sh -- go test ./...`
 - `bash .reinguard/scripts/with-repo-local-state.sh -- go vet ./...`
 - `bash .reinguard/scripts/with-repo-local-state.sh -- golangci-lint run`
 

@@ -20,7 +20,7 @@ etc.); details delegated to Knowledge documents where noted.
 
 Run the applicable subset before each push:
 
-- **Go code changed**: `bash .reinguard/scripts/with-repo-local-state.sh -- go test ./... -race`, same wrapper for `go vet ./...` and `golangci-lint run` (keeps caches under repo-local `/.tmp/`)
+- **Go code changed**: `bash .reinguard/scripts/with-repo-local-state.sh -- go test ./... -race`, same wrapper for `go vet ./...` and `golangci-lint run` (keeps caches under repo-local `.tmp/`)
 - **Markdown changed**: `bash .reinguard/scripts/with-repo-local-state.sh -- pre-commit run markdownlint-cli2 --all-files` (pinned hook version from `.pre-commit-config.yaml`; no ad-hoc `npx @latest` installs)
 - **Config / schemas / knowledge changed**: `rgd config validate` from repo root
 
@@ -41,7 +41,7 @@ bash .reinguard/scripts/with-repo-local-state.sh --home-subdir cr-home -- \
 - This is a **required pre-PR gate** for this repository; it does **not**
   replace PR-based CodeRabbit review or merge consensus.
 - In this environment, writable tool state should stay under repo-local
-  `/.tmp/` via `.reinguard/scripts/with-repo-local-state.sh` so file/cache
+  `.tmp/` via `.reinguard/scripts/with-repo-local-state.sh` so file/cache
   access does not depend on `~/.cache`, `~/.coderabbit`, or other user-home
   locations.
 - The local CodeRabbit CLI still remains an **outside-sandbox** verification
