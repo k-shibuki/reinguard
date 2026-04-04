@@ -35,8 +35,9 @@ Open `.reinguard/knowledge/review--bot-operations.md` for **PR-side** **CodeRabb
 This procedure governs **PR-side bot waiting** after PR creation. The
 repository-local CodeRabbit CLI gate (`check-local-review.sh`) runs **one**
 `coderabbit review` subprocess per attempt with a supervisor (stderr heartbeat
-every 30s, max 20 minutes per attempt by default); it is not the same loop as
-this procedure. See `.reinguard/knowledge/review--local-coderabbit-cli.md`.
+every 30s, max 20 minutes per attempt by default); it is a single blocking gate
+in `change-inspect` / `pr-create` only and is not this polling loop. See
+`.reinguard/knowledge/review--local-coderabbit-cli.md`.
 
 If **open review threads** or formal **changes requested** also apply, run `.reinguard/procedure/review-address.md` **in parallel or first** — the workflow FSM prefers human-actionable review states over bot-wait states when both are true.
 

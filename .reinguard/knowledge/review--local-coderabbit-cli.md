@@ -59,9 +59,9 @@ depending on `~/.coderabbit`.
   HTTPS reachability: normal HTTPS and TLS to `ide.coderabbit.ai` can succeed
   while the Bun-based CLI still loops on WebSocket connection errors to
   `wss://ide.coderabbit.ai/ws`.
-- Because this is a runtime / proxy-WebSocket limitation rather than a missing
-  allowlist entry, do not try to solve it by committing repo-level
-  CodeRabbit-specific entries to `.cursor/sandbox.json`.
+- Repo-level `.cursor/sandbox.json` may list portable hostnames; WebSocket or
+  proxy limits can still block the CLI inside the sandbox. See
+  `.reinguard/policy/cursor-sandbox.md`.
 
 ## Supervised wait (aligned cadence with PR-side)
 
@@ -81,6 +81,9 @@ depending on `~/.coderabbit`.
   consecutive rate limit (per policy).
 - Do not kill the subprocess without positive evidence of hang beyond the
   supervisor limit; the supervisor already bounds worst-case wait.
+- This is a **foreground wait**: a long run or cooldown sleep is **not** failure
+  by itself without positive evidence of exit, crash, or script contract
+  violation.
 
 ## Related
 

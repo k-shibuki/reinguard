@@ -48,8 +48,8 @@ bash .reinguard/scripts/with-repo-local-state.sh --home-subdir cr-home -- \
   step in practice because the observed failure mode inside the Cursor sandbox
   is a Bun/WebSocket proxy limitation, not a writable-path problem. Repo-level
   `.cursor/sandbox.json` constraints are normative in
-  `.reinguard/policy/cursor-sandbox.md` (do not commit user-specific paths or
-  CodeRabbit-specific network allowlist entries for this gate).
+  `.reinguard/policy/cursor-sandbox.md` (do not commit user-specific absolute
+  paths; portable `networkPolicy.allow` entries are documented there).
 - The script standardizes installation/authentication checks and executes
   the CLI review against the repository's `.coderabbit.yaml`. On a rate
   limit, it parses the cooldown **only from the latest rate-limit line in
@@ -62,7 +62,8 @@ bash .reinguard/scripts/with-repo-local-state.sh --home-subdir cr-home -- \
   every **30 seconds** (default `LOCAL_CR_HEARTBEAT_SEC=30`) and a **20-minute**
   wall-clock maximum per attempt (default `LOCAL_CR_MAX_WAIT_SEC=1200`), aligned
   with PR-side bot wait cadence in `review--bot-operations.md`. Sparse **stdout**
-  while the CLI works is not a failure by itself.
+  while the CLI works, or a long cooldown sleep, is not a failure by itself and
+  must not be treated as a hang without positive evidence.
 - If the script cannot run (CLI missing, auth missing, second consecutive
   rate limit after retry, execution error), treat that as a failed gate and
   do not proceed to `pr-create`.
