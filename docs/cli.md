@@ -121,6 +121,23 @@ is applied at a higher-level command that interprets evaluation.
 
 The GitHub client retries **429** responses with limited exponential backoff.
 
+### Local-first vs remote-only (GitHub provider)
+
+Observation splits **local-first** data (no GitHub API) from **remote-only** data (REST/GraphQL via `gh auth token`, ADR-0006):
+
+- **Local-first:** `signals.github.repository` — `owner` and `name` are resolved from `git config remote.origin.url` when it points at **github.com** (SSH or HTTPS). Optional `identity_source` is `local_git` or `gh_repo_view` (fallback when origin is missing or not a standard GitHub host). Branch-level facts live under `signals.git` (git provider).
+- **Remote-only:** issues, pull-requests, CI, reviews, mergeability, and other API-backed facets. Failures attach diagnostics (e.g. `github.issues`, `auth_failed`) and set `degraded` while **keeping** local-first fields when they were collected.
+
+In restricted environments (e.g. sandboxes where `gh repo view` or GraphQL returns **Forbidden**), identity from **origin** may still succeed so `context build` can resolve `state` / `route` from git + repository identity even when remote facets are unavailable.
+
+### `signals.github.repository` (GitHub provider)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `owner` | string | Repository owner (user or org). |
+| `name` | string | Repository name. |
+| `identity_source` | string | `local_git` (from `remote.origin.url`) or `gh_repo_view` (fallback). |
+
 ### `signals.git` (git provider)
 
 | Field | Type | Description |

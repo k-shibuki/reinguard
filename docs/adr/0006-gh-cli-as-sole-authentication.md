@@ -38,6 +38,8 @@ This ADR does not prescribe HTTP vs GraphQL for individual calls; see API
 strategy in implementation. It only fixes **how credentials are
 obtained**.
 
+**Repository identity** (which GitHub `owner/name` the working tree is associated with) is **not** tied to this credential path: it is resolved **local-first** from `git` (`remote.origin.url` for github.com), with `gh repo view` as a fallback when needed. Authentication remains **`gh auth token`** for all HTTP/GitHub API observation.
+
 ## Consequences
 
 - **Easier**: Single authentication story; no parallel token plumbing in

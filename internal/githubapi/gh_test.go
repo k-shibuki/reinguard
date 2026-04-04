@@ -3,6 +3,9 @@ package githubapi
 import (
 	"context"
 	"errors"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -49,8 +52,10 @@ func TestTokenFromGH_errorIncludesStderr(t *testing.T) {
 	}
 }
 
-func TestRepoFromGH_success(t *testing.T) {
-	// Given: stub repo view JSON query output
+func TestResolveGitHubRepoIdentity_ghRepoViewWhenNoOrigin(t *testing.T) {
+	// Given: stub repo view JSON query output (no origin in repo — gh path used)
+	dir := t.TempDir()
+	runGitCmd(t, dir, "init")
 	old := runGHCommand
 	t.Cleanup(func() { runGHCommand = old })
 	runGHCommand = func(ctx context.Context, wd string, args []string) ([]byte, []byte, error) {
@@ -65,49 +70,135 @@ func TestRepoFromGH_success(t *testing.T) {
 		}
 		return []byte("acme/widget\n"), nil, nil
 	}
-	// When: RepoFromGH runs
-	owner, name, err := RepoFromGH(context.Background(), "")
+	// When
+	id, err := ResolveGitHubRepoIdentityFromWorkDir(context.Background(), dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Then: owner and repo name split
-	if owner != "acme" || name != "widget" {
-		t.Fatalf("owner/name: got %q %q", owner, name)
+	// Then
+	if id.Owner != "acme" || id.Name != "widget" {
+		t.Fatalf("owner/name: got %q %q", id.Owner, id.Name)
+	}
+	if id.Source != RepoIdentitySourceGHRepoView {
+		t.Fatalf("source: got %q", id.Source)
 	}
 }
 
-func TestRepoFromGH_unexpectedNameWithOwner(t *testing.T) {
-	// Given: malformed nameWithOwner string from gh
+func TestResolveGitHubRepoIdentity_unexpectedNameWithOwner(t *testing.T) {
+	dir := t.TempDir()
+	runGitCmd(t, dir, "init")
 	old := runGHCommand
 	t.Cleanup(func() { runGHCommand = old })
 	runGHCommand = func(ctx context.Context, wd string, args []string) ([]byte, []byte, error) {
 		return []byte("not-a-slash-separated-owner\n"), nil, nil
 	}
-	// When: RepoFromGH runs
-	_, _, err := RepoFromGH(context.Background(), "")
+	_, err := ResolveGitHubRepoIdentityFromWorkDir(context.Background(), dir)
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	// Then: parse error
 	if !strings.Contains(err.Error(), "unexpected nameWithOwner") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
-func TestRepoFromGH_errorIncludesStderr(t *testing.T) {
-	// Given: gh failure with stderr
+func TestResolveGitHubRepoIdentity_ghErrorIncludesStderr(t *testing.T) {
+	dir := t.TempDir()
+	runGitCmd(t, dir, "init")
 	old := runGHCommand
 	t.Cleanup(func() { runGHCommand = old })
 	runGHCommand = func(ctx context.Context, wd string, args []string) ([]byte, []byte, error) {
 		return nil, []byte("permission denied\n"), errors.New("exit 1")
 	}
-	// When: RepoFromGH runs
-	_, _, err := RepoFromGH(context.Background(), "")
+	_, err := ResolveGitHubRepoIdentityFromWorkDir(context.Background(), dir)
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	// Then: stderr surfaced in error
 	if !strings.Contains(err.Error(), "permission denied") {
 		t.Fatalf("expected stderr in error: %v", err)
+	}
+}
+
+func TestResolveGitHubRepoIdentity_localGitPreferredNoGhCall(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("git remote fixture uses Unix-oriented helpers elsewhere in this package")
+	}
+	var ghCalls int
+	old := runGHCommand
+	t.Cleanup(func() { runGHCommand = old })
+	runGHCommand = func(ctx context.Context, wd string, args []string) ([]byte, []byte, error) {
+		ghCalls++
+		return nil, nil, errors.New("gh should not be needed when origin resolves")
+	}
+
+	dir := t.TempDir()
+	runGitCmd(t, dir, "init")
+	runGitCmd(t, dir, "remote", "add", "origin", "git@github.com:acme/widget.git")
+
+	id, err := ResolveGitHubRepoIdentityFromWorkDir(context.Background(), dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ghCalls != 0 {
+		t.Fatalf("expected gh not called, got %d calls", ghCalls)
+	}
+	if id.Owner != "acme" || id.Name != "widget" {
+		t.Fatalf("owner/name: got %q %q", id.Owner, id.Name)
+	}
+	if id.Source != RepoIdentitySourceLocalGit {
+		t.Fatalf("source: got %q", id.Source)
+	}
+}
+
+func TestResolveGitHubRepoIdentity_bothFailMessage(t *testing.T) {
+	old := runGHCommand
+	t.Cleanup(func() { runGHCommand = old })
+	runGHCommand = func(ctx context.Context, wd string, args []string) ([]byte, []byte, error) {
+		return nil, []byte("permission denied\n"), errors.New("exit 1")
+	}
+
+	dir := t.TempDir()
+	runGitCmd(t, dir, "init")
+
+	_, err := ResolveGitHubRepoIdentityFromWorkDir(context.Background(), dir)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "permission denied") || !strings.Contains(err.Error(), "local git:") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRepoFromGH_matchesResolve(t *testing.T) {
+	dir := t.TempDir()
+	runGitCmd(t, dir, "init")
+	old := runGHCommand
+	t.Cleanup(func() { runGHCommand = old })
+	runGHCommand = func(ctx context.Context, wd string, args []string) ([]byte, []byte, error) {
+		return []byte("acme/widget\n"), nil, nil
+	}
+	o, n, err := RepoFromGH(context.Background(), dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if o != "acme" || n != "widget" {
+		t.Fatalf("got %q %q", o, n)
+	}
+}
+
+func TestSplitGitHubRemotePath_supportsHTTPSPath(t *testing.T) {
+	owner, name, err := splitGitHubRemotePath("/acme/widget.git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if owner != "acme" || name != "widget" {
+		t.Fatalf("owner/name: got %q %q", owner, name)
+	}
+}
+
+func runGitCmd(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git %v in %s: %v %s", args, filepath.Base(dir), err, string(out))
 	}
 }

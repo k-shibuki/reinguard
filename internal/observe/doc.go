@@ -24,4 +24,16 @@
 // ADR-0003 (pull-based, stateless CLI observation), ADR-0005 (no agent-internal
 // observation paths), ADR-0006 (GitHub via gh for the GitHub provider), ADR-0009
 // (provider registry and configuration).
+//
+// # Local-first vs remote-only boundaries
+//
+// Local-first (subprocess git / parsed remote; no GitHub API): GitHub repository identity
+// (owner/name) from remote.origin.url when it targets github.com; branch, HEAD, working tree,
+// stash, upstream ahead/behind (git provider).
+//
+// Remote-only (GitHub REST/GraphQL via gh auth token per ADR-0006): issue counts, PR data,
+// CI combined status, review threads, bot enrichment, mergeability.
+//
+// When remote facets fail (auth, network, sandbox blocks), the engine keeps local-first
+// signals (e.g. signals.github.repository) and attaches diagnostics; degraded is set.
 package observe

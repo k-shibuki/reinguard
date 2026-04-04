@@ -199,6 +199,17 @@ extract_rate_limit_seconds() {
 
 # Run one `coderabbit review` with wall-clock cap and periodic stderr heartbeats.
 # Does not restart the CLI on an interval; one subprocess per attempt (same contract as before).
+heartbeat_pause() {
+  local seconds="$1"
+  # Avoid PATH-resolved `sleep` so retry tests observe only the explicit cooldown wait.
+  python - <<'PY' "$seconds"
+import sys
+import time
+
+time.sleep(float(sys.argv[1]))
+PY
+}
+
 run_supervised_review() {
   local outfile rc start_ts now elapsed cr_pid
   outfile="$(mktemp)"
@@ -216,7 +227,7 @@ run_supervised_review() {
       return 124
     fi
     echo "Local CodeRabbit review still running (${elapsed}s / ${LOCAL_CR_MAX_WAIT_SEC}s max)..." >&2
-    sleep "$LOCAL_CR_HEARTBEAT_SEC"
+    heartbeat_pause "$LOCAL_CR_HEARTBEAT_SEC"
   done
   wait "$cr_pid"
   rc=$?
