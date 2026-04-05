@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/k-shibuki/reinguard/internal/githubapi"
 )
@@ -297,8 +298,8 @@ func TestCollect_latestReviewsTruncated(t *testing.T) {
 func TestCollect_botReviewer_rateLimitAndEnrich(t *testing.T) {
 	t.Parallel()
 	// Given: bot reviewer comments contain a CodeRabbit rate-limit message with enrich enabled.
-	// When:  Collect computes bot_reviewer_status.
-	// Then:  contains_rate_limit=true, rate_limit_remaining_seconds is populated, status=rate_limited.
+	// When:  Collect computes bot_reviewer_status at the same instant as the status comment updatedAt.
+	// Then:  contains_rate_limit=true, rate_limit_remaining_seconds equals parsed body duration, status=rate_limited.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := map[string]any{
 			"data": map[string]any{
@@ -338,7 +339,8 @@ func TestCollect_botReviewer_rateLimitAndEnrich(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
 	bots := []BotReviewer{{ID: "coderabbit", Login: "coderabbitai[bot]", Required: true, Enrich: []string{"coderabbit"}}}
-	_, rev, err := Collect(context.Background(), c, "o", "r", 1, bots)
+	obsAt := time.Date(2026, 3, 27, 12, 0, 0, 0, time.UTC)
+	_, rev, err := CollectWithOptions(context.Background(), c, "o", "r", 1, bots, &CollectOptions{Now: &obsAt})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -359,6 +361,111 @@ func TestCollect_botReviewer_rateLimitAndEnrich(t *testing.T) {
 	diag := rev["bot_review_diagnostics"].(map[string]any)
 	if diag["bot_review_failed"].(bool) != true || diag["bot_review_pending"].(bool) != false {
 		t.Fatalf("diag: %+v", diag)
+	}
+}
+
+func TestCollect_botReviewer_rateLimitAgeAdjustsRemaining(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"data": map[string]any{
+				"repository": map[string]any{
+					"pullRequest": map[string]any{
+						"state": "OPEN", "isDraft": false, "title": "t",
+						"mergeable": "UNKNOWN", "mergeStateStatus": "UNKNOWN",
+						"baseRefName": "main", "headRefOid": "x",
+						"labels":                  map[string]any{"nodes": []any{}},
+						"closingIssuesReferences": map[string]any{"nodes": []any{}},
+						"latestReviews": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false},
+							"nodes":    []any{},
+						},
+						"comments": map[string]any{
+							"nodes": []map[string]any{
+								{
+									"author":    map[string]any{"login": "coderabbitai[bot]"},
+									"body":      "Rate limit exceeded. Please try again in 2 minutes and 5 seconds",
+									"updatedAt": "2026-03-27T12:00:00Z",
+								},
+							},
+						},
+						"reviewThreads": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false},
+							"nodes":    []any{},
+						},
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	bots := []BotReviewer{{ID: "coderabbit", Login: "coderabbitai[bot]", Required: true, Enrich: []string{"coderabbit"}}}
+	// 60s after status comment: 125 - 60 = 65
+	obsAt := time.Date(2026, 3, 27, 12, 1, 0, 0, time.UTC)
+	_, rev, err := CollectWithOptions(context.Background(), c, "o", "r", 1, bots, &CollectOptions{Now: &obsAt})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := rev["bot_reviewer_status"].([]any)[0].(map[string]any)
+	if m["rate_limit_remaining_seconds"].(int) != 65 {
+		t.Fatalf("want 65 remaining, got %+v", m)
+	}
+}
+
+func TestCollect_botReviewer_rateLimitAgeClampsToZero(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"data": map[string]any{
+				"repository": map[string]any{
+					"pullRequest": map[string]any{
+						"state": "OPEN", "isDraft": false, "title": "t",
+						"mergeable": "UNKNOWN", "mergeStateStatus": "UNKNOWN",
+						"baseRefName": "main", "headRefOid": "x",
+						"labels":                  map[string]any{"nodes": []any{}},
+						"closingIssuesReferences": map[string]any{"nodes": []any{}},
+						"latestReviews": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false},
+							"nodes":    []any{},
+						},
+						"comments": map[string]any{
+							"nodes": []map[string]any{
+								{
+									"author":    map[string]any{"login": "coderabbitai[bot]"},
+									"body":      "Rate limit exceeded. Please try again in 2 minutes and 5 seconds",
+									"updatedAt": "2026-03-27T12:00:00Z",
+								},
+							},
+						},
+						"reviewThreads": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false},
+							"nodes":    []any{},
+						},
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	bots := []BotReviewer{{ID: "coderabbit", Login: "coderabbitai[bot]", Required: true, Enrich: []string{"coderabbit"}}}
+	obsAt := time.Date(2026, 3, 27, 12, 10, 0, 0, time.UTC)
+	_, rev, err := CollectWithOptions(context.Background(), c, "o", "r", 1, bots, &CollectOptions{Now: &obsAt})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := rev["bot_reviewer_status"].([]any)[0].(map[string]any)
+	if m["rate_limit_remaining_seconds"].(int) != 0 {
+		t.Fatalf("want 0 remaining, got %+v", m)
 	}
 }
 

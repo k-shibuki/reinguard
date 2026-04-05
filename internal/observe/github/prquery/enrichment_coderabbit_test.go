@@ -9,6 +9,14 @@ func TestCoderabbitEnrichment_tryAgainMinutesSeconds(t *testing.T) {
 	assertSeconds(t, got, 330)
 }
 
+func TestCoderabbitEnrichment_pleaseWaitMinutesSeconds(t *testing.T) {
+	t.Parallel()
+	e := coderabbitEnrichment{}
+	body := "> [!WARNING]\n> ## Rate limit exceeded\n> Please wait **19 minutes and 47 seconds** before requesting another review.\n"
+	got := e.Enrich(body)
+	assertSeconds(t, got, 19*60+47)
+}
+
 func TestCoderabbitEnrichment_oneMinute(t *testing.T) {
 	t.Parallel()
 	e := coderabbitEnrichment{}

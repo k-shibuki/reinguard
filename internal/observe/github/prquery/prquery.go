@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/k-shibuki/reinguard/internal/githubapi"
 )
@@ -186,10 +187,22 @@ type reviewThreadsConn struct {
 	} `json:"pageInfo"`
 }
 
+// CollectOptions configures optional behavior for CollectWithOptions.
+type CollectOptions struct {
+	// Now is the observation wall time used to age-adjust rate_limit_remaining_seconds
+	// against status_comment_at. If nil, time.Now() is used.
+	Now *time.Time
+}
+
 // Collect returns pull-request detail fields to merge into signals.github.pull_requests and
 // the inner map for signals.github.reviews. pullDetail is nil when there is nothing to merge.
 // reviewsInner is always non-nil when err is nil (empty maps on PR≤0 or missing PR).
 func Collect(ctx context.Context, c *githubapi.Client, owner, repo string, prNumber int, bots []BotReviewer) (pullDetail map[string]any, reviewsInner map[string]any, err error) {
+	return CollectWithOptions(ctx, c, owner, repo, prNumber, bots, nil)
+}
+
+// CollectWithOptions is like Collect but accepts optional opts (e.g. fixed clock for tests).
+func CollectWithOptions(ctx context.Context, c *githubapi.Client, owner, repo string, prNumber int, bots []BotReviewer, opts *CollectOptions) (pullDetail map[string]any, reviewsInner map[string]any, err error) {
 	if c == nil {
 		return nil, nil, fmt.Errorf("nil client")
 	}
@@ -204,6 +217,10 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo string, prNum
 	if firstPR == nil {
 		return nil, reviewsInner, nil
 	}
+	now := time.Now()
+	if opts != nil && opts.Now != nil {
+		now = opts.Now.UTC()
+	}
 	pullDetail = buildPullDetail(firstPR)
 	decisions := buildReviewDecisions(firstPR.LatestReviews)
 	for k, v := range decisions {
@@ -216,7 +233,7 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo string, prNum
 	if err != nil {
 		return nil, nil, err
 	}
-	statusList := buildBotReviewerStatus(firstPR, bots, commentNodes)
+	statusList := buildBotReviewerStatus(firstPR, bots, commentNodes, now)
 	reviewsInner["bot_reviewer_status"] = statusList
 	var headSHA string
 	if firstPR.HeadRefOid != nil {
@@ -524,6 +541,53 @@ func commentMaxTier(body string, enrichNames []string) int {
 	return genericIssueCommentMaxTier(body)
 }
 
+// adjustRateLimitRemainingForStatusCommentAge replaces rate_limit_remaining_seconds with
+// max(0, parsed_from_body - elapsed_since_status_comment_at). The parsed duration in the
+// comment body is relative to the selected status comment's updatedAt (status_comment_at).
+// When CodeRabbit edits an issue comment in place, GitHub advances updatedAt; the next
+// observation uses the new body and new status_comment_at, so the cooldown re-anchors.
+func adjustRateLimitRemainingForStatusCommentAge(status map[string]any, now time.Time) {
+	raw, ok := status["rate_limit_remaining_seconds"]
+	if !ok || raw == nil {
+		return
+	}
+	parsed, ok := coerceInt(raw)
+	if !ok || parsed < 0 {
+		return
+	}
+	sat, _ := status["status_comment_at"].(string)
+	sat = strings.TrimSpace(sat)
+	if sat == "" {
+		return
+	}
+	t, err := time.Parse(time.RFC3339, sat)
+	if err != nil {
+		return
+	}
+	elapsed := int(now.Sub(t.UTC()).Seconds())
+	if elapsed < 0 {
+		elapsed = 0
+	}
+	rem := parsed - elapsed
+	if rem < 0 {
+		rem = 0
+	}
+	status["rate_limit_remaining_seconds"] = rem
+}
+
+func coerceInt(v any) (int, bool) {
+	switch x := v.(type) {
+	case int:
+		return x, true
+	case int64:
+		return int(x), true
+	case float64:
+		return int(x), true
+	default:
+		return 0, false
+	}
+}
+
 // selectStatusCommentForLogin picks the PR issue comment whose body drives bot status
 // (contains_* and issue-comment enrichment). It prefers the highest semantic tier, then the
 // newest updatedAt within that tier, so an edited Review Status comment is not shadowed by a
@@ -568,7 +632,7 @@ func selectStatusCommentForLogin(nodes []prCommentNode, wantLogin string, enrich
 	return best.Body, best.UpdatedAt, "status_marker"
 }
 
-func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNodes []prCommentNode) []any {
+func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNodes []prCommentNode, now time.Time) []any {
 	if len(bots) == 0 {
 		return []any{}
 	}
@@ -634,6 +698,7 @@ func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNo
 				status[k] = v
 			}
 		}
+		adjustRateLimitRemainingForStatusCommentAge(status, now)
 		applyReviewCommitSHAFromCoderabbitComment(status)
 		status["status"] = ClassifyBotStatus(status, br.Enrich)
 		out = append(out, status)

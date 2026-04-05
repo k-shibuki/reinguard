@@ -150,17 +150,22 @@ func parseCoderabbitReviewStatusMarkers(body string) map[string]any {
 	return out
 }
 
-// Matches: "try again in 5 minutes and 30 seconds", "try again in 1 minute", "in 2 minutes and 15 seconds"
+// Matches: "try again in 5 minutes and 30 seconds", "try again in 1 minute", "in 2 minutes and 15 seconds",
+// and GitHub issue-comment forms like "Please wait **19 minutes and 47 seconds**".
 var (
-	reTryAgainMinutesSeconds = regexp.MustCompile(`(?i)try\s+again\s+in\s+(\d+)\s*minutes?(?:\s+and\s+(\d+)\s*seconds?)?`)
-	reInMinutesSeconds       = regexp.MustCompile(`(?i)in\s+(\d+)\s*minutes?(?:\s+and\s+(\d+)\s*seconds?)?`)
-	reSecondsOnly            = regexp.MustCompile(`(?i)(?:try\s+again\s+)?in\s+(\d+)\s*seconds?`)
+	reTryAgainMinutesSeconds   = regexp.MustCompile(`(?i)try\s+again\s+in\s+(\d+)\s*minutes?(?:\s+and\s+(\d+)\s*seconds?)?`)
+	reInMinutesSeconds         = regexp.MustCompile(`(?i)in\s+(\d+)\s*minutes?(?:\s+and\s+(\d+)\s*seconds?)?`)
+	rePleaseWaitMinutesSeconds = regexp.MustCompile(`(?i)please\s+wait\s+\*?\*?(\d+)\s*minutes?(?:\s+and\s+(\d+)\s*seconds?)?`)
+	reSecondsOnly              = regexp.MustCompile(`(?i)(?:try\s+again\s+)?in\s+(\d+)\s*seconds?`)
 )
 
 func parseCoderabbitRateLimitSeconds(body string) int {
 	body = strings.TrimSpace(body)
 	if body == "" {
 		return 0
+	}
+	if m := rePleaseWaitMinutesSeconds.FindStringSubmatch(body); len(m) >= 2 {
+		return minutesSecondsToTotal(m[1], subOrEmpty(m, 2))
 	}
 	if m := reTryAgainMinutesSeconds.FindStringSubmatch(body); len(m) >= 2 {
 		return minutesSecondsToTotal(m[1], subOrEmpty(m, 2))
