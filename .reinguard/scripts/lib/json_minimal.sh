@@ -19,6 +19,7 @@ json_escape() {
   value=${value//\"/\\\"}
   value=${value//$'\n'/\\n}
   value=${value//$'\r'/}
+  value=${value//$'\t'/\\t}
   printf '%s' "$value"
 }
 

@@ -237,6 +237,7 @@ func TestAdapterRgdNextResumeScript_FinishValidatesTerminalReason(t *testing.T) 
 			startOut, err := runBashScript(t, repo, script, nil,
 				"start",
 				"--branch", "feature/104",
+				"--issue", "104",
 			)
 			if err != nil {
 				t.Fatalf("start: %v\n%s", err, startOut)

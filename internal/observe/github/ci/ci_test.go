@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os/exec"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/k-shibuki/reinguard/internal/githubapi"
@@ -91,9 +92,14 @@ func TestCollect_usesHeadSHAOverride(t *testing.T) {
 	// Given: git repo with HEAD and an explicit override SHA
 	dir := t.TempDir()
 	gitInit(t, dir)
-	var requestedPath string
+	var (
+		mu            sync.Mutex
+		requestedPath string
+	)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
 		requestedPath = r.URL.Path
+		mu.Unlock()
 		_, _ = w.Write([]byte(`{"state":"pending"}`))
 	}))
 	t.Cleanup(srv.Close)
@@ -107,8 +113,11 @@ func TestCollect_usesHeadSHAOverride(t *testing.T) {
 	if len(warns) != 0 {
 		t.Fatalf("%v", warns)
 	}
-	if !strings.Contains(requestedPath, override) {
-		t.Fatalf("path=%q want override %q", requestedPath, override)
+	mu.Lock()
+	path := requestedPath
+	mu.Unlock()
+	if !strings.Contains(path, override) {
+		t.Fatalf("path=%q want override %q", path, override)
 	}
 	// Then: the API request and emitted signal both use the override SHA
 	cimap, ok := m["ci"].(map[string]any)

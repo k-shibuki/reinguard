@@ -240,6 +240,50 @@ func TestCollect_onePage_threadsAndDetail(t *testing.T) {
 	default:
 		t.Fatalf("thread: %+v", thread)
 	}
+	if thread["is_outdated"] != true {
+		t.Fatalf("is_outdated: %+v", thread)
+	}
+	if thread["path"] != "internal/rgdcli/rgdcli.go" {
+		t.Fatalf("path: %+v", thread)
+	}
+	if thread["body"] != "please update scope" {
+		t.Fatalf("body: %+v", thread)
+	}
+	if thread["author"] != "coderabbitai[bot]" {
+		t.Fatalf("author: %+v", thread)
+	}
+	wantSHA := "0123456789abcdef0123456789abcdef01234567"
+	origSHA := "89abcdef0123456789abcdef0123456789abcdef"
+	if got := thread["commit_sha"]; got != wantSHA {
+		t.Fatalf("commit_sha: got %v want %q", got, wantSHA)
+	}
+	if got := thread["original_commit_sha"]; got != origSHA {
+		t.Fatalf("original_commit_sha: got %v want %q", got, origSHA)
+	}
+	switch ln := thread["line"].(type) {
+	case int:
+		if ln != 42 {
+			t.Fatalf("line: %d", ln)
+		}
+	case float64:
+		if int(ln) != 42 {
+			t.Fatalf("line: %v", ln)
+		}
+	default:
+		t.Fatalf("line type: %T", thread["line"])
+	}
+	switch oln := thread["original_line"].(type) {
+	case int:
+		if oln != 40 {
+			t.Fatalf("original_line: %d", oln)
+		}
+	case float64:
+		if int(oln) != 40 {
+			t.Fatalf("original_line: %v", oln)
+		}
+	default:
+		t.Fatalf("original_line type: %T", thread["original_line"])
+	}
 }
 
 func TestCollect_reviewThreadsPaginationIncomplete(t *testing.T) {
