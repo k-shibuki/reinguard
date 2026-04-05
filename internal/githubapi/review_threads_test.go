@@ -8,6 +8,7 @@ import (
 )
 
 func TestReplyToPullRequestThread(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		stub    func(ctx context.Context, wd string, stdin []byte, args []string) ([]byte, []byte, error)
 		name    string
@@ -118,6 +119,14 @@ func TestResolveReviewThread(t *testing.T) {
 			},
 		},
 		{
+			name:    "given null thread when resolving then explicit error",
+			thread:  "THREAD_node_id",
+			wantErr: "not found in response",
+			stub: func(ctx context.Context, wd string, args []string) ([]byte, []byte, error) {
+				return []byte(`{"data":{"resolveReviewThread":{"thread":null}}}`), nil, nil
+			},
+		},
+		{
 			name:    "given graphql errors when resolving then fail closed",
 			thread:  "THREAD_node_id",
 			wantErr: "permission denied",
@@ -129,9 +138,11 @@ func TestResolveReviewThread(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Given: a stubbed gh GraphQL transport
-			old := runGHCommand
-			t.Cleanup(func() { runGHCommand = old })
-			runGHCommand = tt.stub
+			if tt.stub != nil {
+				old := runGHCommand
+				t.Cleanup(func() { runGHCommand = old })
+				runGHCommand = tt.stub
+			}
 
 			// When: the helper resolves the requested thread
 			err := ResolveReviewThread(context.Background(), tt.wd, tt.thread)

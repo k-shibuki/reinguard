@@ -498,8 +498,8 @@ transport fields and shells out to `gh api`.
 | `--commit-sha` | yes | Full 40-character commit SHA |
 | `--path` | yes | Review comment file path |
 | `--line` | yes | Review comment line number |
-| `--body` | one of body/body-file | Inline reply body |
-| `--body-file` | one of body/body-file | File containing the reply body |
+| `--body` | mutually exclusive; one required | Inline reply body |
+| `--body-file` | mutually exclusive; one required | File containing the reply body |
 | `--cwd` | no | Working directory for `gh` |
 
 Payload matches the repository’s PR review transport contract:

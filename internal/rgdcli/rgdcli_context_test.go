@@ -187,8 +187,11 @@ func TestRunContextBuild_rejectsScopeFlagsWithObservationFile(t *testing.T) {
 			err := app.Run(args)
 
 			// Then: command rejects the scope override because the observation is already fixed
-			if err == nil || !strings.Contains(err.Error(), "--branch/--pr cannot be used with --observation-file") {
-				t.Fatalf("got %v", err)
+			if err == nil {
+				t.Fatal("expected error when using --observation-file with scope flags, got nil")
+			}
+			if !strings.Contains(err.Error(), "--branch/--pr cannot be used with --observation-file") {
+				t.Fatalf("expected error containing '--branch/--pr cannot be used with --observation-file', got: %v", err)
 			}
 		})
 	}

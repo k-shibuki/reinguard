@@ -104,9 +104,7 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir stri
 		}
 		prForBranch = true
 		prNum = pull.Number
-		if scope.RequestedBranch == "" {
-			scope.EffectiveBranch = strings.TrimSpace(pull.Head.Ref)
-		}
+		scope.EffectiveBranch = strings.TrimSpace(pull.Head.Ref)
 	case branch != "":
 		if scope.RequestedBranch != "" {
 			scope.Selection = SelectionExplicitBranch

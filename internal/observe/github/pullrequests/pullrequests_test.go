@@ -359,3 +359,56 @@ func TestCollect_explicitBranchWithoutMatchingPROmitsResolution(t *testing.T) {
 		t.Fatalf("scope=%+v", scope)
 	}
 }
+
+func TestCollect_explicitPRWinsOverRequestedBranchForEffectiveBranch(t *testing.T) {
+	t.Parallel()
+	// Given: local repo on main, explicit PR number, and a different explicit branch override
+	dir := t.TempDir()
+	run(t, "git", dir, "init")
+	run(t, "git", dir, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "init")
+	run(t, "git", dir, "branch", "-M", "main")
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/search/issues":
+			_, _ = w.Write([]byte(`{"total_count":1,"items":[{"number":18}]}`))
+		case "/repos/o/r/pulls/18":
+			_, _ = w.Write([]byte(`{"number":18,"state":"open","head":{"ref":"feature/scoped"}}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "tok", BaseURL: srv.URL}
+	// When: Collect runs with both explicit selectors
+	m, scope, warns, err := Collect(context.Background(), c, "o", "r", dir, ScopeOptions{
+		Branch:   "feature/ignored",
+		PRNumber: 18,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warns) != 0 {
+		t.Fatalf("%v", warns)
+	}
+
+	// Then: explicit PR selection wins and current_branch follows the PR head ref
+	pr, ok := m["pull_requests"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected pull_requests map, got %T", m["pull_requests"])
+	}
+	if pr["current_branch"] != "feature/scoped" || pr["pr_number_for_branch"].(int) != 18 {
+		t.Fatalf("pull_requests=%+v", pr)
+	}
+	observed, ok := pr["observed_scope"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected observed_scope map, got %T", pr["observed_scope"])
+	}
+	if observed["requested_branch"] != "feature/ignored" || observed["effective_branch"] != "feature/scoped" {
+		t.Fatalf("observed_scope=%+v", observed)
+	}
+	if scope.Selection != SelectionExplicitPR || scope.EffectiveBranch != "feature/scoped" {
+		t.Fatalf("scope=%+v", scope)
+	}
+}

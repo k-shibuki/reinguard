@@ -47,19 +47,24 @@ func reviewWorkDir(c *cli.Context) (string, error) {
 func reviewBodyFromFlags(wd string, c *cli.Context) (string, error) {
 	inline := c.String("body")
 	path := c.String("body-file")
+	hasInline := inline != ""
+	hasPath := path != ""
 	switch {
-	case strings.TrimSpace(inline) != "" && strings.TrimSpace(path) != "":
+	case hasInline && hasPath:
 		return "", fmt.Errorf("--body and --body-file are mutually exclusive")
-	case strings.TrimSpace(inline) != "":
+	case hasInline:
+		if strings.TrimSpace(inline) == "" {
+			return "", fmt.Errorf("--body must be non-empty")
+		}
 		return inline, nil
-	case strings.TrimSpace(path) != "":
+	case hasPath:
 		data, err := os.ReadFile(resolveInputPath(wd, path))
 		if err != nil {
 			return "", err
 		}
 		body := string(data)
 		if strings.TrimSpace(body) == "" {
-			return "", fmt.Errorf("body file must be non-empty")
+			return "", fmt.Errorf("--body-file must be non-empty")
 		}
 		return body, nil
 	default:

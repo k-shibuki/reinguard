@@ -75,22 +75,25 @@ func ResolveReviewThread(ctx context.Context, wd, threadID string) error {
 		return fmt.Errorf("gh api resolve review thread: %w (stderr: %s)", err, strings.TrimSpace(string(stderr)))
 	}
 	var resp struct {
-		Errors []struct {
-			Message string `json:"message"`
-		} `json:"errors"`
 		Data struct {
 			ResolveReviewThread struct {
-				Thread struct {
+				Thread *struct {
 					IsResolved bool `json:"isResolved"`
 				} `json:"thread"`
 			} `json:"resolveReviewThread"`
 		} `json:"data"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
 	}
 	if err := json.Unmarshal(stdout, &resp); err != nil {
 		return fmt.Errorf("parse resolve response: %w", err)
 	}
 	if len(resp.Errors) > 0 {
 		return fmt.Errorf("graphql error: %s", resp.Errors[0].Message)
+	}
+	if resp.Data.ResolveReviewThread.Thread == nil {
+		return fmt.Errorf("thread %s not found in response", threadID)
 	}
 	if !resp.Data.ResolveReviewThread.Thread.IsResolved {
 		return fmt.Errorf("thread %s was not resolved", threadID)
