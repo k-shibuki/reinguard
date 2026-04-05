@@ -146,6 +146,18 @@ providers: []
 `))
 	subject := Subject{HeadSHA: currentHeadForTest(t, repo), Branch: currentBranchForTest(t, repo)}
 	recordedAt := time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC).Format(time.RFC3339)
+	now := time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC)
+
+	// And: pr-readiness still rejects missing local-verification (negative control for this config)
+	_, errNeg := Record(context.Background(), cfgDir, repo, "pr-readiness", StatusPass, Producer{
+		Procedure: "change-inspect",
+		Tool:      "rgd gate record",
+	}, nil, []Check{
+		{ID: "review-closure", Status: StatusPass, Summary: "all local findings classified and closed"},
+	}, now)
+	if errNeg == nil || !strings.Contains(errNeg.Error(), "local-verification") {
+		t.Fatalf("expected missing local-verification failure, got %v", errNeg)
+	}
 
 	// When: Record pr-readiness with only local-verification as upstream proof
 	_, err := Record(context.Background(), cfgDir, repo, "pr-readiness", StatusPass, Producer{
@@ -160,7 +172,7 @@ providers: []
 		},
 	}, []Check{
 		{ID: "review-closure", Status: StatusPass, Summary: "all local findings classified and closed"},
-	}, time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC))
+	}, now)
 	// Then: success without local-coderabbit input proof
 	if err != nil {
 		t.Fatalf("expected optional pre-PR AI review proof to be skippable, got %v", err)
