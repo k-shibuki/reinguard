@@ -131,6 +131,7 @@ func TestCollect_usesHeadSHAOverride(t *testing.T) {
 
 func TestCollect_whitespaceHeadSHAOverrideFallsBackToHEAD(t *testing.T) {
 	t.Parallel()
+	// Given: a git repo with HEAD and a whitespace-only override (treated as empty)
 	dir := t.TempDir()
 	gitInit(t, dir)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -138,7 +139,7 @@ func TestCollect_whitespaceHeadSHAOverrideFallsBackToHEAD(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
-
+	// When: Collect runs with whitespace-only override
 	m, warns, err := Collect(context.Background(), c, "o", "r", dir, "   ")
 	if err != nil {
 		t.Fatal(err)
@@ -157,6 +158,7 @@ func TestCollect_whitespaceHeadSHAOverrideFallsBackToHEAD(t *testing.T) {
 	if cimap["head_sha"] != head {
 		t.Fatalf("want head_sha %q from git HEAD, got %+v", head, cimap)
 	}
+	// Then: CI signals use the local HEAD SHA, not a remote override
 }
 
 func gitInit(t *testing.T, dir string) {

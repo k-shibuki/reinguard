@@ -216,10 +216,11 @@ func (p *GitHubProvider) Collect(ctx context.Context, opts Options) (Fragment, e
 	var prNum int
 	prLookupOK := true
 	var prHeadSHA string
+	explicitScope := opts.Scope.PRNumber > 0 || strings.TrimSpace(opts.Scope.Branch) != ""
+	needScopedCIHead := wantFacet("ci") && explicitScope
 	p.githubCollectIssues(ctx, client, owner, repo, wantFacet("issues"), signals, &diags, &degraded)
 	p.githubCollectPullRequestsAndPRNum(ctx, client, owner, repo, opts, wantFacet, signals, appendWarnings, &diags, &degraded, &prNum, &prLookupOK)
-	prHeadSHA = p.githubCollectPRGraph(ctx, client, owner, repo, prNum, wantFacet("pull-requests"), wantFacet("reviews"), wantFacet("ci"), prLookupOK, signals, &diags, &degraded, opts)
-	explicitScope := opts.Scope.PRNumber > 0 || strings.TrimSpace(opts.Scope.Branch) != ""
+	prHeadSHA = p.githubCollectPRGraph(ctx, client, owner, repo, prNum, wantFacet("pull-requests"), wantFacet("reviews"), needScopedCIHead, prLookupOK, signals, &diags, &degraded, opts)
 	if wantFacet("ci") && explicitScope && strings.TrimSpace(prHeadSHA) == "" {
 		degraded = true
 		diags = append(diags, Diagnostic{
@@ -255,7 +256,9 @@ func (*GitHubProvider) githubCollectIssues(ctx context.Context, client *githubap
 }
 
 func (*GitHubProvider) githubCollectPullRequestsAndPRNum(ctx context.Context, client *githubapi.Client, owner, repo string, opts Options, wantFacet func(string) bool, signals map[string]any, appendWarnings func(string, []string), diags *[]Diagnostic, degraded *bool, prNum *int, prLookupOK *bool) {
-	if !wantFacet("pull-requests") && !wantFacet("reviews") && !wantFacet("ci") {
+	explicitScope := opts.Scope.PRNumber > 0 || strings.TrimSpace(opts.Scope.Branch) != ""
+	needPRForCI := wantFacet("ci") && explicitScope
+	if !wantFacet("pull-requests") && !wantFacet("reviews") && !needPRForCI {
 		return
 	}
 	m, _, warns, err := pullrequests.Collect(ctx, client, owner, repo, opts.WorkDir, pullrequests.ScopeOptions{
@@ -325,7 +328,10 @@ func (p *GitHubProvider) githubCollectPRGraph(ctx context.Context, client *githu
 	if wantRev {
 		mergeSignals(signals, map[string]any{"reviews": revInner})
 	}
-	return headSHA
+	if wantCI {
+		return headSHA
+	}
+	return ""
 }
 
 func mergeSignals(dst map[string]any, src map[string]any) {
