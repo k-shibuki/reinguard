@@ -216,7 +216,7 @@ func RunKnowledgePack(c *cli.Context) error {
 	if !loaded.KnowledgePresent || loaded.Knowledge == nil {
 		return writeJSON(c.App.Writer, map[string]any{"entries": []config.KnowledgeManifestEntry{}})
 	}
-	useSig := c.String("observation-file") != ""
+	useSig := c.String("observation-file") != "" || c.IsSet("branch") || c.IsSet("pr")
 	var flat map[string]any
 	if useSig {
 		loadOpts, lerr := loadSignalsOpts(c, wd)

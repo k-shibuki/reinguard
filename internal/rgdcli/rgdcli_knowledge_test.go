@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -147,6 +148,29 @@ func TestRunKnowledgePack_observationFileAndQueryUnion(t *testing.T) {
 	// Then: both entries returned (OR union of when match and trigger match)
 	if len(out.Entries) != 2 {
 		t.Fatalf("want OR union, got %s", buf.String())
+	}
+}
+
+func TestRunKnowledgePack_rejectsInvalidScopePR(t *testing.T) {
+	t.Parallel()
+	// Given: knowledge pack with --pr 0 (invalid) — scope validation must run without --observation-file.
+	cfgDir := t.TempDir()
+	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
+	if err := os.Mkdir(filepath.Join(cfgDir, "knowledge"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(cfgDir, "knowledge", "manifest.json"), []byte(`{
+  "schema_version": "0.6.0",
+  "entries": []
+}`))
+	app := NewApp("t")
+	app.Writer = &bytes.Buffer{}
+	err := app.Run([]string{"rgd", "knowledge", "pack", "--config-dir", cfgDir, "--pr", "0"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "--pr must be greater than 0") {
+		t.Fatalf("got %v", err)
 	}
 }
 

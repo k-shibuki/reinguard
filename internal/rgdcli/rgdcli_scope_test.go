@@ -76,6 +76,11 @@ func TestParseObserveScopeFlags(t *testing.T) {
 			pr:            -1,
 			wantErrSubstr: "--pr must be greater than 0",
 		},
+		{
+			name:          "given whitespace branch then error",
+			branch:        "   ",
+			wantErrSubstr: "--branch must be non-empty",
+		},
 	}
 	for _, tc := range tests {
 		tc := tc

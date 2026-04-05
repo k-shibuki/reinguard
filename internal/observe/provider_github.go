@@ -219,7 +219,24 @@ func (p *GitHubProvider) Collect(ctx context.Context, opts Options) (Fragment, e
 	p.githubCollectIssues(ctx, client, owner, repo, wantFacet("issues"), signals, &diags, &degraded)
 	p.githubCollectPullRequestsAndPRNum(ctx, client, owner, repo, opts, wantFacet, signals, appendWarnings, &diags, &degraded, &prNum, &prLookupOK)
 	prHeadSHA = p.githubCollectPRGraph(ctx, client, owner, repo, prNum, wantFacet("pull-requests"), wantFacet("reviews"), wantFacet("ci"), prLookupOK, signals, &diags, &degraded, opts)
-	p.githubCollectCI(ctx, client, owner, repo, opts.WorkDir, prHeadSHA, wantFacet("ci"), signals, appendWarnings, &diags, &degraded)
+	explicitScope := opts.Scope.PRNumber > 0 || strings.TrimSpace(opts.Scope.Branch) != ""
+	if wantFacet("ci") && explicitScope && strings.TrimSpace(prHeadSHA) == "" {
+		degraded = true
+		diags = append(diags, Diagnostic{
+			Severity: "error",
+			Message:  "scoped CI collection could not resolve the selected head SHA",
+			Provider: "github.ci",
+			Code:     "scoped_head_unresolved",
+		})
+		mergeSignals(signals, map[string]any{
+			"ci": map[string]any{
+				"ci_status": "unknown",
+				"head_sha":  "",
+			},
+		})
+	} else {
+		p.githubCollectCI(ctx, client, owner, repo, opts.WorkDir, prHeadSHA, wantFacet("ci"), signals, appendWarnings, &diags, &degraded)
+	}
 
 	return Fragment{Signals: signals, Diagnostics: diags, Degraded: degraded}, nil
 }

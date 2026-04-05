@@ -471,16 +471,28 @@ func buildReviewInboxEntry(thread reviewThreadNode) map[string]any {
 	putReviewInboxInt(entry, "root_comment_id", root.DatabaseID)
 	putReviewInboxString(entry, "body", root.Body)
 	putReviewInboxString(entry, "path", root.Path)
-	putReviewInboxOptionalInt(entry, "line", root.Line)
+	linePtr := root.Line
+	if linePtr == nil {
+		linePtr = root.OriginalLine
+	}
+	putReviewInboxOptionalInt(entry, "line", linePtr)
 	putReviewInboxOptionalInt(entry, "original_line", root.OriginalLine)
-	putReviewInboxOptionalInt(entry, "start_line", root.StartLine)
+	startPtr := root.StartLine
+	if startPtr == nil {
+		startPtr = root.OriginalStartLine
+	}
+	putReviewInboxOptionalInt(entry, "start_line", startPtr)
 	putReviewInboxOptionalInt(entry, "original_start_line", root.OriginalStartLine)
 	if root.Author != nil {
 		putReviewInboxString(entry, "author", root.Author.Login)
 	}
-	if root.Commit != nil {
-		putReviewInboxString(entry, "commit_sha", root.Commit.Oid)
+	var commitOid string
+	if root.Commit != nil && strings.TrimSpace(root.Commit.Oid) != "" {
+		commitOid = root.Commit.Oid
+	} else if root.OriginalCommit != nil {
+		commitOid = root.OriginalCommit.Oid
 	}
+	putReviewInboxString(entry, "commit_sha", commitOid)
 	if root.OriginalCommit != nil {
 		putReviewInboxString(entry, "original_commit_sha", root.OriginalCommit.Oid)
 	}

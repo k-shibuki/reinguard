@@ -51,7 +51,7 @@ func FilterBySignals(entries []config.KnowledgeManifestEntry, signals map[string
 }
 
 // FilterUnion applies signal-based filtering when useSignalFilter is true, then combines with query filtering using OR (union by entry id).
-// When useSignalFilter is false (no --observation-file for pack), all entries pass the signal branch (D3).
+// When useSignalFilter is false (no observation signals for pack: no file and no live scope flags), all entries pass the signal branch (D3).
 // Empty query skips the query branch for union purposes.
 func FilterUnion(entries []config.KnowledgeManifestEntry, signals map[string]any, useSignalFilter bool, query string) (result []config.KnowledgeManifestEntry, warnings []string) {
 	q := strings.TrimSpace(query)

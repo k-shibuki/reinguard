@@ -2,6 +2,7 @@ package observe
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -483,6 +484,95 @@ func TestGitHubProviderFactory_botReviewers_blankID(t *testing.T) {
 				t.Fatalf("got %v", err)
 			}
 		})
+	}
+}
+
+//nolint:gocyclo // integration-style stub server + fake gh setup
+func TestGitHubProvider_Collect_explicitBranchNoPR_failClosedCI(t *testing.T) {
+	// Given: explicit --branch scope with no matching open PR (prNum stays 0) and local HEAD sha present.
+	// When:  Collect runs CI facet.
+	// Then:  CI must not fall back to the local checkout SHA; signals report unknown + scoped_head_unresolved.
+	if runtime.GOOS == "windows" {
+		t.Skip("fake gh executable is a Unix #!/bin/sh script")
+	}
+	tmp := t.TempDir()
+	ghBin := filepath.Join(tmp, "gh")
+	script := `#!/bin/sh
+if [ "$1" = "auth" ] && [ "$2" = "token" ]; then
+  echo testtoken
+  exit 0
+fi
+if [ "$1" = "repo" ] && [ "$2" = "view" ]; then
+  echo "octocat/hello-world"
+  exit 0
+fi
+exit 1
+`
+	if err := os.WriteFile(ghBin, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", tmp+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	repoDir := t.TempDir()
+	runGitCmd(t, repoDir, "init")
+	runGitCmd(t, repoDir, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "init")
+	shaBytes, err := exec.Command("git", "-C", repoDir, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	localHead := strings.TrimSpace(string(shaBytes))
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/search/issues":
+			_, _ = w.Write([]byte(`{"total_count": 0}`))
+		case r.URL.Path == "/repos/octocat/hello-world/pulls":
+			_, _ = w.Write([]byte(`[]`))
+		case strings.HasPrefix(r.URL.Path, "/repos/octocat/hello-world/commits/") && strings.HasSuffix(r.URL.Path, "/status"):
+			t.Errorf("unexpected CI status fetch for local HEAD %q (fail-closed should skip CI)", r.URL.Path)
+			http.Error(w, "unexpected", http.StatusInternalServerError)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	p := NewGitHubProvider()
+	p.APIBase = srv.URL
+
+	frag, err := p.Collect(context.Background(), Options{
+		WorkDir: repoDir,
+		Scope:   Scope{Branch: "no-matching-pr-branch"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !frag.Degraded {
+		t.Fatalf("expected degraded, got %+v", frag.Diagnostics)
+	}
+	var foundScoped bool
+	for _, d := range frag.Diagnostics {
+		if d.Code == "scoped_head_unresolved" {
+			foundScoped = true
+			break
+		}
+	}
+	if !foundScoped {
+		t.Fatalf("missing scoped_head_unresolved: %+v", frag.Diagnostics)
+	}
+	gitHub := frag.Signals
+	if gitHub == nil {
+		t.Fatal("nil github signals")
+	}
+	ci, _ := gitHub["ci"].(map[string]any)
+	if ci == nil {
+		t.Fatalf("missing ci: %+v", gitHub)
+	}
+	if got := fmt.Sprint(ci["ci_status"]); got != "unknown" {
+		t.Fatalf("ci_status: got %q", got)
+	}
+	if got := fmt.Sprint(ci["head_sha"]); got != "" {
+		t.Fatalf("head_sha: got %q want empty (not local %s)", got, localHead)
 	}
 }
 
