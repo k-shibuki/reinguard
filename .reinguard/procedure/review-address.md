@@ -6,6 +6,7 @@ applies_to:
     - pr_open
     - waiting_ci
     - unresolved_threads
+    - non_thread_findings_pending
     - changes_requested
   route_ids:
     - user-monitor-pr

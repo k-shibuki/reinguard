@@ -91,7 +91,7 @@ Each `providers[]` entry may include `options` (object). Built-in factories cons
 | Provider `id` | Key | Type | Description |
 |---------------|-----|------|-------------|
 | `github` | `api_base` | string | Optional GitHub REST API root override (e.g. `httptest` or a host whose REST root is `https://HOST/api/v3`); GraphQL uses `https://api.github.com/graphql` by default and maps `.../api/v3` → `.../api/graphql` for that Enterprise Server shape; leading/trailing space trimmed |
-| `github` | `bot_reviewers` | array | Optional. Each element: `id` (string, required, `^[a-z0-9_]+$`, unique), `login` (string, required), `required` (boolean, required — whether this bot participates in aggregate diagnostics), `enrich` (optional string array of built-in enrichment names). Drives `signals.github.reviews.bot_reviewer_status` and `bot_review_diagnostics`. Unknown `enrich` names fail `rgd config validate` / provider build. Built-in enrichments: `coderabbit` (rate-limit seconds, CodeRabbit Review Status markers, duplicate-comment count from `PullRequestReview.body`, `StatusClassifier`). |
+| `github` | `bot_reviewers` | array | Optional. Each element: `id` (string, required, `^[a-z0-9_]+$`, unique), `login` (string, required), `required` (boolean, required — whether this bot participates in aggregate diagnostics), `enrich` (optional string array of built-in enrichment names). Drives `signals.github.reviews.bot_reviewer_status` and `bot_review_diagnostics`. Unknown `enrich` names fail `rgd config validate` / provider build. Built-in enrichments: `coderabbit` (rate-limit seconds, CodeRabbit Review Status markers, review-body and conversation-comment markers per `docs/cli.md`, `StatusClassifier`). |
 
 The `git` provider accepts `options` for forward compatibility; keys are currently unused.
 
@@ -206,6 +206,16 @@ The **pull-requests** facet always includes REST-derived fields for the current 
 | `closing_issue_numbers` | number array | Linked issues from `closingIssuesReferences` (first page, up to 20). |
 | `observed_scope` | object | Scope metadata for intent checks. See [Observed scope fields (detail)](#observed-scope-fields-detail) below. |
 
+### `signals.github.ci` (GitHub provider, ci facet)
+
+Populated when the **ci** facet runs. Uses the observed head commit SHA (from git `HEAD`, an explicit scoped override, or the resolved PR head when scoped).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ci_status` | string | Lowercased rollup from `GET /repos/{owner}/{repo}/commits/{sha}/status` (`state` field), or `unknown` when the SHA cannot be resolved. |
+| `head_sha` | string | Commit SHA used for status and check-run queries. |
+| `check_runs` | array | Check runs from `GET /repos/{owner}/{repo}/commits/{sha}/check-runs` (first page, `per_page=100`). Each element is an object with `name` (string), `status` (string, lowercased), and `conclusion` (string lowercased when present, or JSON `null` while the run has not finished). No check output bodies are included. If the request fails, the array is empty and a warning is recorded. |
+
 ### `signals.github.reviews` (GitHub provider, reviews facet)
 
 Populated when the `reviews` facet runs (see `rgd observe github reviews`). Data comes from a unified GraphQL **PR context** query: `reviewThreads` (`isResolved`), `latestReviews`, and optional PR issue `comments` for configured `bot_reviewers` (ADR-0012).
@@ -220,6 +230,7 @@ Populated when the `reviews` facet runs (see `rgd observe github reviews`). Data
 | `review_decisions_approved` | number | Count with state `APPROVED`. |
 | `review_decisions_changes_requested` | number | Count with state `CHANGES_REQUESTED`. |
 | `review_decisions_truncated` | boolean | True if `latestReviews` reports `hasNextPage` (more than one page of decisions not fetched). |
+| `conversation_comments` | array | PR issue comments merged for observation (GraphQL `pullRequest.comments` window, including backward paging for configured bots). Each element has `author` (login string, when present), `body` (string), and `updated_at` (ISO8601 from GraphQL `updatedAt`). |
 | `bot_reviewer_status` | array | One object per configured `bot_reviewers` entry. See [Bot reviewer fields (detail)](#bot-reviewer-fields-detail) below. |
 | `bot_review_diagnostics` | object | Aggregated booleans over **required** bots only. See [Bot review diagnostics (detail)](#bot-review-diagnostics-detail) below. |
 
@@ -267,7 +278,7 @@ Each element of `bot_reviewer_status` includes:
 - **Comment window:** `latest_comment_at` (ISO8601 from the **newest** matching PR issue comment by `updatedAt` in the fetched `comments(last: 100)` window, or empty).
 - **Status source:** `status_comment_at` (ISO8601) and `status_comment_source` (`status_marker` \| `fallback_latest`) identify which issue comment body was used for substring flags and issue-comment enrichment. The builder picks a **status-bearing** comment using semantic **tier** (terminal clean/completed > rate limit > paused > failure cues > other CodeRabbit markers), then the newest `updatedAt` within the winning tier—so an edited Review Status comment is not shadowed by a later short acknowledgment, and a newer terminal-clean comment supersedes an older rate-limit body on another comment.
 - **Body substring flags (case-insensitive):** `contains_rate_limit`, `contains_review_paused`, `contains_review_failed`. These flags are computed from the **selected status comment** body above, not from `latest_comment_at` alone. `contains_rate_limit` false does not prove quota cleared globally; it means the selected status body no longer contains the substring (e.g. superseded by a higher-tier completion comment).
-- **Optional enrich fields** (e.g. `rate_limit_remaining_seconds`, `cr_review_processing`, `cr_walkthrough_present`, `cr_reviewed_head_sha`, `cr_duplicate_findings_count` for `coderabbit`). Duplicate count is parsed from the latest `PullRequestReview.body`, not issue comments.
+- **Optional enrich fields** (e.g. `rate_limit_remaining_seconds`, `cr_review_processing`, `cr_walkthrough_present`, `cr_reviewed_head_sha` for `coderabbit`). From **`PullRequestReview.body`** (latest review for the bot): `cr_duplicate_findings_count`, `cr_actionable_comments_count`, `cr_outside_diff_comments_count` when matching documented markers (see tests in `internal/observe/github/prquery/enrichment_coderabbit_test.go`). From **PR issue comments** for the bot: `cr_finding_conversation_comments_count` counts comments whose body is **not** classified as a known non-finding shape (same tier / marker exclusions as `CoderabbitIssueCommentMaxTier` / status markers — tier `0` only counts toward findings).
 - **`rate_limit_remaining_seconds` (PR / `rgd observe`):** first, seconds are parsed from the **selected status comment** body (same patterns as the local CLI cooldown parser). Then **`max(0, parsed_seconds − elapsed_seconds)`** where **`elapsed_seconds`** is the wall time from **`status_comment_at`** (the selected comment’s `updatedAt`) to the **observation time** when `rgd` built the signal. So a body that says “wait 19 minutes and 47 seconds” is interpreted as that much time **from the comment update**, not from an arbitrary later read. If CodeRabbit **edits** that issue comment in place, GitHub advances `updatedAt`; the next fetch uses the new body and new **`status_comment_at`**, so the cooldown **re-anchors** to the edit time.
 - **PR recovery after `rate_limited`:** before posting `@coderabbitai review`, wait **`cooldown_sec + 30`** where **`cooldown_sec`** is **`rate_limit_remaining_seconds`** from the observation JSON (already age-adjusted as above when enrichment is enabled), or else seconds parsed from the **selected status comment** body and aged manually using **`status_comment_at`** the same way. The **30**-second tail matches the local CLI default **`RATE_LIMIT_RETRY_BUFFER_SEC`** in `.reinguard/scripts/check-local-review.sh` (same contract as `--retry-on-rate-limit`). Normative detail: `.reinguard/knowledge/review--bot-operations.md` § Rate-Limit Recovery.
 
@@ -278,6 +289,7 @@ Object keys:
 - **`bot_review_completed`**, **`bot_review_pending`**, **`bot_review_terminal`**, **`bot_review_failed`**, **`bot_review_stale`:** booleans aggregated over **required** bots only.
 - **`bot_review_stale` (fail-closed):** true when any **required** bot is considered to have completed a review but the effective review commit does not match the current PR head, **or** when a completed review is expected but `review_commit_sha` is still empty after `latestReviews` and CodeRabbit enrichment fallback. If no required bots are configured, `bot_review_stale` is vacuously false.
 - **`duplicate_findings_detected`:** true when **any** configured bot (required or optional) has `cr_duplicate_findings_count` > 0 in `bot_reviewer_status` (CodeRabbit re-listed findings under duplicate suppression without new threads).
+- **`non_thread_findings_present`:** true when **any required** bot has any of `cr_actionable_comments_count`, `cr_outside_diff_comments_count`, `cr_duplicate_findings_count`, or `cr_finding_conversation_comments_count` greater than zero in `bot_reviewer_status`. When no required bots are configured, this is vacuously false.
 
 See ADR-0013.
 
@@ -407,16 +419,18 @@ Evaluates merge signals. All conditions must be true for `ok == true`:
 | 5 | `github.reviews.bot_review_diagnostics.bot_review_terminal` | `== true` | required bot review not terminal |
 | 6 | `github.reviews.bot_review_diagnostics.bot_review_failed` | `== false` | required bot review failed |
 | 7 | `github.reviews.bot_review_diagnostics.bot_review_stale` | `== false` | required bot review is stale or missing review commit SHA |
-| 8 | `github.reviews.review_decisions_changes_requested` | `== 0` | changes requested: N |
-| 9 | `github.reviews.pagination_incomplete` | `== false` | review thread pagination incomplete |
-| 10 | `github.reviews.review_decisions_truncated` | `== false` | review decisions truncated |
+| 8 | `github.reviews.bot_review_diagnostics.non_thread_findings_present` | `== false` | non-thread review findings present for a required bot |
+| 9 | `github.reviews.review_decisions_changes_requested` | `== 0` | changes requested: N |
+| 10 | `github.reviews.pagination_incomplete` | `== false` | review thread pagination incomplete |
+| 11 | `github.reviews.review_decisions_truncated` | `== false` | review decisions truncated |
 
 All signals fail closed on missing or invalid values (guard returns `ok: false`).
 
-`merge-readiness` is a deterministic merge gate only for the signals above.
-It does **not** prove that non-thread findings from the current PR review
-cycle have been dispositioned; review-closure completeness remains a
-procedure / policy responsibility.
+`merge-readiness` is a deterministic merge gate for the signals above,
+including **`non_thread_findings_present`** (derived from CodeRabbit enrichment
+counts — see `bot_review_diagnostics`). Formal human review closure and
+disposition semantics remain policy / procedure responsibilities beyond these
+platform facts.
 
 ### Output
 

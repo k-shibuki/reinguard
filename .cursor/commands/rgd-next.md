@@ -55,6 +55,7 @@ The table below is a **Cursor-facing heuristic** (when `state.kind` is `resolved
 | `pr_open` | `.reinguard/procedure/review-address.md` (residual monitor) |
 | `waiting_ci` | `.reinguard/procedure/review-address.md` (checks / mergeability) |
 | `unresolved_threads` | `.reinguard/procedure/review-address.md` (thread disposition) |
+| `non_thread_findings_pending` | `.reinguard/procedure/review-address.md` (non-thread findings / inbox) |
 | `changes_requested` | `.reinguard/procedure/review-address.md` (formal “Request changes” on the PR) |
 | `waiting_bot_run` | `.reinguard/procedure/wait-bot-review.md` (+ `review--bot-operations.md` from `knowledge.entries`) |
 | `waiting_bot_rate_limited` | `.reinguard/procedure/wait-bot-review.md` |

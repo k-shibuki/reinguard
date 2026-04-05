@@ -101,3 +101,11 @@ reflect unresolved **threads**, not raw comment row counts.
 - ADR-0008 (schema versioning)
 - ADR-0009 (observation engine)
 - `.reinguard/knowledge/review--github-thread-api.md`
+
+## Amendment (2026-04, Issue #105)
+
+Non-thread review findings use **documented, deterministic** CodeRabbit enrichment
+fields on `bot_reviewer_status` and aggregate `bot_review_diagnostics.non_thread_findings_present`,
+plus `signals.github.reviews.conversation_comments` and `signals.github.ci.check_runs`.
+Fact vs derived semantics and merge-guard wiring are documented in `docs/cli.md`;
+no semantic disposition is selected in Go beyond declared markers and counts.

@@ -25,10 +25,11 @@ func TestEvalWithRules(t *testing.T) {
 			"pagination_incomplete":              false,
 			"review_decisions_truncated":         false,
 			"bot_review_diagnostics": map[string]any{
-				"bot_review_pending":  false,
-				"bot_review_terminal": true,
-				"bot_review_failed":   false,
-				"bot_review_stale":    false,
+				"bot_review_pending":          false,
+				"bot_review_terminal":         true,
+				"bot_review_failed":           false,
+				"bot_review_stale":            false,
+				"non_thread_findings_present": false,
 			},
 		}
 	}

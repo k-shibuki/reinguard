@@ -12,15 +12,21 @@ import (
 	"github.com/k-shibuki/reinguard/internal/githubapi"
 )
 
+func ciTestHandlerEmptyCheckRuns(w http.ResponseWriter, r *http.Request) {
+	if strings.Contains(r.URL.Path, "/check-runs") {
+		_, _ = w.Write([]byte(`{"check_runs":[]}`))
+		return
+	}
+	_, _ = w.Write([]byte(`{"state":"success"}`))
+}
+
 func TestCollect_status(t *testing.T) {
 	t.Parallel()
 	// Given: git repo with HEAD and API returning commit status success
 	dir := t.TempDir()
 	gitInit(t, dir)
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"state":"success"}`))
-	}))
+	srv := httptest.NewServer(http.HandlerFunc(ciTestHandlerEmptyCheckRuns))
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
 	// When: Collect runs
@@ -42,6 +48,40 @@ func TestCollect_status(t *testing.T) {
 	// Then: ci_status success, no warnings
 	if st != "success" {
 		t.Fatalf("%v", cimap)
+	}
+	if _, ok := cimap["check_runs"].([]any); !ok {
+		t.Fatalf("expected check_runs: %+v", cimap)
+	}
+}
+
+func TestCollect_checkRunsMapping(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	gitInit(t, dir)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/check-runs") {
+			_, _ = w.Write([]byte(`{"check_runs":[{"name":"ci","status":"completed","conclusion":"success"}]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"state":"success"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	m, warns, err := Collect(context.Background(), c, "o", "r", dir, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warns) != 0 {
+		t.Fatalf("%v", warns)
+	}
+	cimap := m["ci"].(map[string]any)
+	runs := cimap["check_runs"].([]any)
+	if len(runs) != 1 {
+		t.Fatalf("runs=%+v", runs)
+	}
+	rm := runs[0].(map[string]any)
+	if rm["name"] != "ci" || rm["status"] != "completed" || rm["conclusion"] != "success" {
+		t.Fatalf("%+v", rm)
 	}
 }
 
@@ -92,10 +132,10 @@ func TestCollect_statusEndpointUsesOwnerRepoArguments(t *testing.T) {
 	// Given: a fork PR scenario — CI statuses live on the head repository
 	dir := t.TempDir()
 	gitInit(t, dir)
-	var sawPath string
+	var sawPaths []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		sawPath = r.URL.Path
-		_, _ = w.Write([]byte(`{"state":"success"}`))
+		sawPaths = append(sawPaths, r.URL.Path)
+		ciTestHandlerEmptyCheckRuns(w, r)
 	}))
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
@@ -108,9 +148,18 @@ func TestCollect_statusEndpointUsesOwnerRepoArguments(t *testing.T) {
 	if len(warns) != 0 {
 		t.Fatalf("%v", warns)
 	}
-	// Then: the status request targets /repos/fork-owner/fork-repo/commits/{sha}/status
-	if !strings.Contains(sawPath, "/repos/fork-owner/fork-repo/commits/"+head+"/status") {
-		t.Fatalf("path=%q", sawPath)
+	// Then: status and check-runs requests target the head fork repo
+	var sawStatus, sawCheckRuns bool
+	for _, p := range sawPaths {
+		if strings.Contains(p, "/repos/fork-owner/fork-repo/commits/"+head+"/status") {
+			sawStatus = true
+		}
+		if strings.Contains(p, "/repos/fork-owner/fork-repo/commits/"+head+"/check-runs") {
+			sawCheckRuns = true
+		}
+	}
+	if !sawStatus || !sawCheckRuns {
+		t.Fatalf("paths=%v", sawPaths)
 	}
 	cimap, ok := m["ci"].(map[string]any)
 	if !ok {
@@ -134,6 +183,10 @@ func TestCollect_usesHeadSHAOverride(t *testing.T) {
 		mu.Lock()
 		requestedPath = r.URL.Path
 		mu.Unlock()
+		if strings.Contains(r.URL.Path, "/check-runs") {
+			_, _ = w.Write([]byte(`{"check_runs":[]}`))
+			return
+		}
 		_, _ = w.Write([]byte(`{"state":"pending"}`))
 	}))
 	t.Cleanup(srv.Close)
@@ -168,9 +221,7 @@ func TestCollect_whitespaceHeadSHAOverrideFallsBackToHEAD(t *testing.T) {
 	// Given: a git repo with HEAD and a whitespace-only override (treated as empty)
 	dir := t.TempDir()
 	gitInit(t, dir)
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(`{"state":"success"}`))
-	}))
+	srv := httptest.NewServer(http.HandlerFunc(ciTestHandlerEmptyCheckRuns))
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
 	// When: Collect runs with whitespace-only override

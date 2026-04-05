@@ -54,6 +54,7 @@ func (mergeReadinessGuard) Eval(sigs map[string]any) MergeReadinessResult {
 // github.reviews.bot_review_diagnostics.bot_review_terminal must be true (fail closed when missing),
 // github.reviews.bot_review_diagnostics.bot_review_failed must be false (fail closed when missing),
 // github.reviews.bot_review_diagnostics.bot_review_stale must be false (fail closed when missing),
+// github.reviews.bot_review_diagnostics.non_thread_findings_present must be false (fail closed when missing),
 // github.reviews.review_decisions_changes_requested must be zero (fail closed when missing),
 // github.reviews.pagination_incomplete must be false (fail closed when missing), and
 // github.reviews.review_decisions_truncated must be false (fail closed when missing).
@@ -150,6 +151,14 @@ func checkBotReviewDiagnostics(sigs map[string]any) string {
 	}
 	if botStale {
 		return "required bot review is stale or missing review commit SHA"
+	}
+
+	nonThread, hasNonThread := signals.GetBool(sigs, "github.reviews.bot_review_diagnostics.non_thread_findings_present")
+	if !hasNonThread {
+		return "missing github.reviews.bot_review_diagnostics.non_thread_findings_present (fail closed)"
+	}
+	if nonThread {
+		return "non-thread review findings present for a required bot"
 	}
 	return ""
 }

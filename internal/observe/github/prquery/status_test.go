@@ -25,6 +25,9 @@ func TestComputeBotReviewDiagnostics_vacuousNoRequired(t *testing.T) {
 	if g, ok := got["duplicate_findings_detected"].(bool); !ok || g {
 		t.Fatalf("duplicate_findings_detected should be false for vacuous: %+v", got)
 	}
+	if g, ok := got["non_thread_findings_present"].(bool); !ok || g {
+		t.Fatalf("non_thread_findings_present should be false for vacuous: %+v", got)
+	}
 }
 
 func TestComputeBotReviewDiagnostics_requiredPending(t *testing.T) {
@@ -130,6 +133,29 @@ func TestComputeBotReviewDiagnostics_duplicateFindingsZeroCount(t *testing.T) {
 	}, "abc123")
 	if got["duplicate_findings_detected"].(bool) {
 		t.Fatalf("want duplicate_findings_detected=false for zero count, got %+v", got)
+	}
+}
+
+func TestComputeBotReviewDiagnostics_nonThreadFindingsRequired(t *testing.T) {
+	t.Parallel()
+	got := ComputeBotReviewDiagnostics([]any{
+		map[string]any{
+			"required": true, "status": BotStatusCompleted, "review_commit_sha": "abc123",
+			"cr_actionable_comments_count": 1,
+		},
+	}, "abc123")
+	if got["non_thread_findings_present"].(bool) != true {
+		t.Fatalf("want non_thread_findings_present=true: %+v", got)
+	}
+}
+
+func TestComputeBotReviewDiagnostics_nonThreadFindingsOptionalOnly(t *testing.T) {
+	t.Parallel()
+	got := ComputeBotReviewDiagnostics([]any{
+		map[string]any{"required": false, "status": BotStatusCompleted, "cr_outside_diff_comments_count": 3},
+	}, "abc123")
+	if got["non_thread_findings_present"].(bool) {
+		t.Fatalf("optional bot should not set aggregate non-thread flag: %+v", got)
 	}
 }
 

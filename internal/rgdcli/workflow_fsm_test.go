@@ -150,6 +150,31 @@ var workflowFSMScenarioFixtures = []struct {
 		wantRouteID: "user-address-review",
 	},
 	{
+		name: "non_thread_findings_pending",
+		observation: `{
+  "signals": {
+    "git": {"detached_head": false, "working_tree_clean": true},
+    "github": {
+      "pull_requests": {"pr_exists_for_branch": true, "merge_state_status": "clean"},
+      "ci": {"ci_status": "success"},
+      "reviews": {
+        "review_threads_unresolved": 0,
+        "pagination_incomplete": false,
+        "review_decisions_changes_requested": 0,
+        "review_decisions_truncated": false,
+        "bot_reviewer_status": [],
+        "bot_review_diagnostics": {
+          "non_thread_findings_present": true
+        }
+      }
+    }
+  },
+  "degraded": false
+}`,
+		wantStateID: "non_thread_findings_pending",
+		wantRouteID: "user-address-review",
+	},
+	{
 		name: "merge_ready",
 		observation: `{
   "signals": {
@@ -165,7 +190,14 @@ var workflowFSMScenarioFixtures = []struct {
         "pagination_incomplete": false,
         "review_decisions_changes_requested": 0,
         "review_decisions_truncated": false,
-        "bot_reviewer_status": []
+        "bot_reviewer_status": [],
+        "bot_review_diagnostics": {
+          "bot_review_pending": false,
+          "bot_review_terminal": true,
+          "bot_review_failed": false,
+          "bot_review_stale": false,
+          "non_thread_findings_present": false
+        }
       }
     }
   },

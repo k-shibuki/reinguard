@@ -29,13 +29,27 @@ func (coderabbitEnrichment) Enrich(commentBody string) map[string]any {
 	return out
 }
 
-// EnrichReviewBody parses CodeRabbit PullRequestReview.summary bodies (e.g. duplicate-comment notices).
+// EnrichReviewBody parses CodeRabbit PullRequestReview.summary bodies (duplicate notices,
+// actionable/outside-diff counts). See docs/cli.md for marker shapes.
 func (coderabbitEnrichment) EnrichReviewBody(reviewBody string) map[string]any {
-	n := parseCoderabbitDuplicateCount(reviewBody)
-	if n <= 0 {
+	body := strings.TrimSpace(reviewBody)
+	if body == "" {
 		return nil
 	}
-	return map[string]any{"cr_duplicate_findings_count": n}
+	out := make(map[string]any)
+	if n := parseCoderabbitDuplicateCount(body); n > 0 {
+		out["cr_duplicate_findings_count"] = n
+	}
+	if n := parseCoderabbitActionableCommentsCount(body); n > 0 {
+		out["cr_actionable_comments_count"] = n
+	}
+	if n := parseCoderabbitOutsideDiffCommentsCount(body); n > 0 {
+		out["cr_outside_diff_comments_count"] = n
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // parseCoderabbitDuplicateCount extracts N from a "♻️ Duplicate comments (N)" line in a review body.
@@ -48,6 +62,40 @@ func parseCoderabbitDuplicateCount(body string) int {
 		return n
 	}
 	return 0
+}
+
+// parseCoderabbitActionableCommentsCount extracts N from lines like "Actionable review comments (N)".
+func parseCoderabbitActionableCommentsCount(body string) int {
+	if m := reCRActionableComments.FindStringSubmatch(body); len(m) >= 2 {
+		n, err := strconv.Atoi(m[1])
+		if err != nil || n < 0 {
+			return 0
+		}
+		return n
+	}
+	return 0
+}
+
+// parseCoderabbitOutsideDiffCommentsCount extracts N from outside-diff-range summary sections.
+func parseCoderabbitOutsideDiffCommentsCount(body string) int {
+	if m := reCROutsideDiffComments.FindStringSubmatch(body); len(m) >= 2 {
+		n, err := strconv.Atoi(m[1])
+		if err != nil || n < 0 {
+			return 0
+		}
+		return n
+	}
+	return 0
+}
+
+// IsCoderabbitFindingConversationComment reports whether a PR issue-comment body should count
+// toward cr_finding_conversation_comments_count: non-empty and not matching exclusion patterns
+// used for status / walkthrough (CoderabbitIssueCommentMaxTier == 0).
+func IsCoderabbitFindingConversationComment(body string) bool {
+	if strings.TrimSpace(body) == "" {
+		return false
+	}
+	return CoderabbitIssueCommentMaxTier(body) == 0
 }
 
 // ClassifyStatus applies CodeRabbit-aware rules on top of generic substring flags.
@@ -83,9 +131,11 @@ func (coderabbitEnrichment) ClassifyStatus(m map[string]any) string {
 // Heuristic markers for CodeRabbit "Review Status" / walkthrough issue comments (best-effort).
 var (
 	// U+267B recycling symbol, optional U+FE0F variation selector (emoji presentation).
-	reCRDuplicateComments = regexp.MustCompile(`(?i)(?:\x{267B}\x{FE0F}?|\x{267B})\s*Duplicate\s+comments\s*\((\d+)\)`)
-	reCRReviewCompleted   = regexp.MustCompile(`(?i)(review\s+completed|✅\s*completed|status[:\s\*]*\s*✅|\*\*status\*\*[^\n]*(complete|finished|done))`)
-	reCRReviewClean       = regexp.MustCompile(`(?i)(no\s+issues\s+found|no\s+additional\s+issues\s+found|no\s+actionable\s+comments)`)
+	reCRDuplicateComments   = regexp.MustCompile(`(?i)(?:\x{267B}\x{FE0F}?|\x{267B})\s*Duplicate\s+comments\s*\((\d+)\)`)
+	reCRActionableComments  = regexp.MustCompile(`(?i)Actionable\s+review\s+comments\s*\((\d+)\)`)
+	reCROutsideDiffComments = regexp.MustCompile(`(?i)(?:comments?\s+)?outside\s+(?:of\s+)?the\s+diff(?:\s+range)?[^\n]*\((\d+)\)`)
+	reCRReviewCompleted     = regexp.MustCompile(`(?i)(review\s+completed|✅\s*completed|status[:\s\*]*\s*✅|\*\*status\*\*[^\n]*(complete|finished|done))`)
+	reCRReviewClean         = regexp.MustCompile(`(?i)(no\s+issues\s+found|no\s+additional\s+issues\s+found|no\s+actionable\s+comments)`)
 	// Second bracketed SHA is the reviewed head when CodeRabbit summarizes a commit range in PR comments.
 	reCRReviewedHeadRange = regexp.MustCompile(`(?i)between\s+\[([0-9a-f]{7,40})\]\([^)]*\)\s+and\s+\[([0-9a-f]{7,40})\]\(`)
 	// Single-SHA form: "... at [deadbeef...](url)" (comment-only summaries).

@@ -44,6 +44,41 @@ func duplicateFindingsDetected(statusList []any) bool {
 	return false
 }
 
+// nonThreadFindingsPresentForRequiredBots is true when any required bot has a positive
+// actionable, outside-diff, duplicate, or finding-conversation count (Issue #105).
+func nonThreadFindingsPresentForRequiredBots(statusList []any) bool {
+	for _, elt := range statusList {
+		m, ok := elt.(map[string]any)
+		if !ok {
+			continue
+		}
+		req, ok := m["required"].(bool)
+		if !ok || !req {
+			continue
+		}
+		if nonThreadFindingsPresentForStatus(m) {
+			return true
+		}
+	}
+	return false
+}
+
+func nonThreadFindingsPresentForStatus(m map[string]any) bool {
+	a := intFromStatusMapOrZero(m, "cr_actionable_comments_count")
+	o := intFromStatusMapOrZero(m, "cr_outside_diff_comments_count")
+	d := intFromStatusMapOrZero(m, "cr_duplicate_findings_count")
+	f := intFromStatusMapOrZero(m, "cr_finding_conversation_comments_count")
+	return a > 0 || o > 0 || d > 0 || f > 0
+}
+
+func intFromStatusMapOrZero(m map[string]any, key string) int {
+	n, ok := intFromStatusMap(m, key)
+	if !ok {
+		return 0
+	}
+	return n
+}
+
 // ComputeBotReviewDiagnostics aggregates per-bot status for required reviewers.
 // headSHA is the PR HEAD commit; when a required bot's review targets a different
 // commit, bot_review_stale is true. When no required bots are configured, all
@@ -54,6 +89,7 @@ func ComputeBotReviewDiagnostics(statusList []any, headSHA string) map[string]an
 	allReviewed := true
 	anyStale := false
 	duplicateFindings := duplicateFindingsDetected(statusList)
+	nonThreadFindings := nonThreadFindingsPresentForRequiredBots(statusList)
 
 	for _, elt := range statusList {
 		m, ok := elt.(map[string]any)
@@ -90,6 +126,7 @@ func ComputeBotReviewDiagnostics(statusList []any, headSHA string) map[string]an
 			"bot_review_failed":           false,
 			"bot_review_stale":            false,
 			"duplicate_findings_detected": duplicateFindings,
+			"non_thread_findings_present": nonThreadFindings,
 		}
 	}
 
@@ -104,6 +141,7 @@ func ComputeBotReviewDiagnostics(statusList []any, headSHA string) map[string]an
 		"bot_review_failed":           anyFailed,
 		"bot_review_stale":            anyStale,
 		"duplicate_findings_detected": duplicateFindings,
+		"non_thread_findings_present": nonThreadFindings,
 	}
 }
 

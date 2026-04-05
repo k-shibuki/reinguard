@@ -165,6 +165,55 @@ func TestCoderabbitEnrichment_EnrichReviewBody(t *testing.T) {
 	}
 }
 
+func TestCoderabbitEnrichment_EnrichReviewBody_actionableAndOutside(t *testing.T) {
+	t.Parallel()
+	e := coderabbitEnrichment{}
+	body := "Actionable review comments (2)\nComments outside the diff range (1)\n"
+	got := e.EnrichReviewBody(body)
+	if got == nil {
+		t.Fatal("got nil")
+	}
+	if n, ok := got["cr_actionable_comments_count"].(int); !ok || n != 2 {
+		t.Fatalf("got %v", got)
+	}
+	if n, ok := got["cr_outside_diff_comments_count"].(int); !ok || n != 1 {
+		t.Fatalf("got %v", got)
+	}
+}
+
+func TestParseCoderabbitActionableCommentsCount(t *testing.T) {
+	t.Parallel()
+	if n := parseCoderabbitActionableCommentsCount("Actionable review comments (4)"); n != 4 {
+		t.Fatalf("got %d", n)
+	}
+	if n := parseCoderabbitActionableCommentsCount("no actionable line"); n != 0 {
+		t.Fatalf("got %d", n)
+	}
+}
+
+func TestParseCoderabbitOutsideDiffCommentsCount(t *testing.T) {
+	t.Parallel()
+	if n := parseCoderabbitOutsideDiffCommentsCount("Comments outside the diff range (3)"); n != 3 {
+		t.Fatalf("got %d", n)
+	}
+	if n := parseCoderabbitOutsideDiffCommentsCount("outside the diff (2)"); n != 2 {
+		t.Fatalf("got %d", n)
+	}
+}
+
+func TestIsCoderabbitFindingConversationComment(t *testing.T) {
+	t.Parallel()
+	if !IsCoderabbitFindingConversationComment("Please fix the nil dereference in handler.go.") {
+		t.Fatal("generic tier-0 body should count as finding-shaped")
+	}
+	if IsCoderabbitFindingConversationComment("No issues found.\n") {
+		t.Fatal("terminal clean marker is excluded")
+	}
+	if IsCoderabbitFindingConversationComment("### Walkthrough\n") {
+		t.Fatal("walkthrough is excluded")
+	}
+}
+
 func TestCoderabbitIssueCommentMaxTier_decisiveStatusesShareTierSix(t *testing.T) {
 	t.Parallel()
 	cases := []string{

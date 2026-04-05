@@ -298,6 +298,7 @@ func CollectWithOptions(ctx context.Context, c *githubapi.Client, owner, repo st
 	if err != nil {
 		return nil, nil, err
 	}
+	reviewsInner["conversation_comments"] = buildConversationCommentsReadModel(commentNodes)
 	statusList := buildBotReviewerStatus(firstPR, bots, commentNodes, now)
 	reviewsInner["bot_reviewer_status"] = statusList
 	var headSHA string
@@ -366,6 +367,7 @@ func emptyReviewsInner() map[string]any {
 		"review_threads_unresolved":          0,
 		"pagination_incomplete":              false,
 		"review_inbox":                       []any{},
+		"conversation_comments":              []any{},
 		"review_decisions_total":             0,
 		"review_decisions_approved":          0,
 		"review_decisions_changes_requested": 0,
@@ -377,6 +379,7 @@ func emptyReviewsInner() map[string]any {
 			"bot_review_terminal":         true,
 			"bot_review_failed":           false,
 			"duplicate_findings_detected": false,
+			"non_thread_findings_present": false,
 		},
 	}
 }
@@ -448,6 +451,45 @@ func mergeableToSignal(gql string) string {
 	default:
 		return "unknown"
 	}
+}
+
+func buildConversationCommentsReadModel(nodes []prCommentNode) []any {
+	out := make([]any, 0, len(nodes))
+	for _, n := range nodes {
+		entry := map[string]any{"body": n.Body}
+		if n.Author != nil && strings.TrimSpace(n.Author.Login) != "" {
+			entry["author"] = strings.TrimSpace(n.Author.Login)
+		}
+		if strings.TrimSpace(n.UpdatedAt) != "" {
+			entry["updated_at"] = n.UpdatedAt
+		}
+		out = append(out, entry)
+	}
+	return out
+}
+
+func applyCoderabbitFindingConversationCountIfNeeded(status map[string]any, enrich []string, nodes []prCommentNode, login string) {
+	if !hasCoderabbitEnrich(enrich) {
+		return
+	}
+	status["cr_finding_conversation_comments_count"] = countCoderabbitFindingConversationComments(nodes, login)
+}
+
+func countCoderabbitFindingConversationComments(nodes []prCommentNode, wantLogin string) int {
+	key := normalizeGitHubActorLogin(wantLogin)
+	var n int
+	for _, cn := range nodes {
+		if cn.Author == nil {
+			continue
+		}
+		if normalizeGitHubActorLogin(cn.Author.Login) != key {
+			continue
+		}
+		if IsCoderabbitFindingConversationComment(cn.Body) {
+			n++
+		}
+	}
+	return n
 }
 
 func buildReviewDecisions(lr *latestReviewsConn) map[string]any {
@@ -849,6 +891,7 @@ func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNo
 				status[k] = v
 			}
 		}
+		applyCoderabbitFindingConversationCountIfNeeded(status, br.Enrich, nodes, login)
 		adjustRateLimitRemainingForStatusCommentAge(status, now)
 		applyReviewCommitSHAFromCoderabbitComment(status)
 		status["status"] = ClassifyBotStatus(status, br.Enrich)
