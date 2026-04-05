@@ -137,6 +137,11 @@ When adding or changing FSM wiring, keep these touchpoints consistent:
 
 **Guards vs states:** `guard eval` outputs (e.g. built-in `merge-readiness`) are **not** `state_id` values. FSM states may *align* with guard signals (e.g. `merge_ready` with merge-readiness); wiring belongs in `control/states/*.yaml` and this ADR, not by conflating guard JSON with state without explicit rules.
 
+**Adapter-local resume artifacts:** approval continuity for an already approved
+Execute path (ADR-0015) is **not** a workflow state. Do not model it as a new
+`state_id`, `route_id`, guard input, or `gates.<id>` signal. The FSM continues
+to describe repository / platform workflow position only.
+
 Operational checklist (files, validation commands, knowledge surfacing): see `.reinguard/knowledge/workflow--state-gate-guard-extension.md` (ADR-0010 knowledge atom).
 
 ## Consequences

@@ -57,6 +57,13 @@ Normative contract: [`.reinguard/procedure/next-orchestration.md`](../../.reingu
 
 After that approval, the agent’s **only** permitted **chat** output is the **final report**: Per-unit Definition of Done satisfied with evidence, or an **allowed stop** with evidence (see `next-orchestration.md` § Post-approval execution contract and § Output). Iteration summaries, guard checks, and procedure progress are **agent-internal** (tool logs, internal notes) and **do not** appear in chat. The agent still follows § Loop semantics and mapped procedures; lack of per-iteration chat is not an excuse to skip Sense → Route → Act → Refresh.
 
+Cursor may persist an Adapter-local resume artifact under repo-local `.tmp/`
+using `.reinguard/scripts/adapter-rgd-next-resume.sh` (ADR-0015): `start`
+before the approval gate (`pending_approval`), then `approve` after the user
+approves Execute. That artifact exists only to decide **resume vs fresh run**
+on a later chat turn; it is **not** substrate state and must not be surfaced
+through `rgd context build`, FSM rules, guards, or `gates.<id>.*`.
+
 ### Evidence targets
 
 - Until `rgd observe` ships, see [`evidence-temporary.mdc`](evidence-temporary.mdc) for GitHub observation (`gh` / `git` read-only).
