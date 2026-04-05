@@ -378,7 +378,7 @@ func validateConfiguredPRReadinessGate(art Artifact, roles config.RuntimeGateRol
 		return nil
 	}
 	requiredInputs := map[string]bool{}
-	for _, roleName := range roles.PRReadiness.PassRequiresRoles {
+	for _, roleName := range config.DerefPassRequiresRoles(roles.PRReadiness.PassRequiresRoles) {
 		role := runtimeGateRoleByName(roles, roleName)
 		if strings.TrimSpace(role.GateID) == "" {
 			continue

@@ -38,7 +38,7 @@ func DefaultRuntimeGateRoles() RuntimeGateRolesSpec {
 			GateID:             "pr-readiness",
 			ProducerProcedures: []string{"change-inspect"},
 			PassCheckIDs:       []string{"review-closure"},
-			PassRequiresRoles:  []string{RuntimeGateRoleLocalVerification, RuntimeGateRolePrePRAIReview},
+			PassRequiresRoles:  prReadinessDefaultPassRequiresRoles(),
 		},
 	}
 }
@@ -65,13 +65,27 @@ func mergeRuntimeGateRole(base, override RuntimeGateRoleSpec) RuntimeGateRoleSpe
 	if trimmed := cloneTrimmedNonEmpty(override.PassCheckIDs); len(trimmed) > 0 {
 		base.PassCheckIDs = trimmed
 	}
-	if trimmed := cloneTrimmedNonEmpty(override.PassRequiresRoles); len(trimmed) > 0 {
-		base.PassRequiresRoles = trimmed
+	if override.PassRequiresRoles != nil {
+		trimmed := cloneTrimmedNonEmpty(*override.PassRequiresRoles)
+		base.PassRequiresRoles = &trimmed
 	}
 	if override.Required != nil {
 		base.Required = boolPtr(*override.Required)
 	}
 	return base
+}
+
+func prReadinessDefaultPassRequiresRoles() *[]string {
+	s := []string{RuntimeGateRoleLocalVerification, RuntimeGateRolePrePRAIReview}
+	return &s
+}
+
+// DerefPassRequiresRoles returns the slice for a pass_requires_roles pointer field.
+func DerefPassRequiresRoles(p *[]string) []string {
+	if p == nil {
+		return nil
+	}
+	return *p
 }
 
 func boolPtr(v bool) *bool {
@@ -137,7 +151,7 @@ func validateRuntimeGateRoles(root *Root, pathHint string) error {
 		}
 	}
 
-	for i, roleName := range roles.PRReadiness.PassRequiresRoles {
+	for i, roleName := range DerefPassRequiresRoles(roles.PRReadiness.PassRequiresRoles) {
 		if !slices.Contains(validPRReadinessPassRequiresRoles, roleName) {
 			return fmt.Errorf("config: workflow.runtime_gate_roles.pr_readiness.pass_requires_roles[%d] %q is invalid in %s", i, roleName, pathHint)
 		}

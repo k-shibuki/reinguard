@@ -260,6 +260,22 @@ func TestIsCoderabbitFindingConversationComment(t *testing.T) {
 	if IsCoderabbitFindingConversationComment("### Walkthrough\n") {
 		t.Fatal("walkthrough is excluded")
 	}
+	// Operational / status PR comments share tier 6 with CoderabbitIssueCommentMaxTier; they must not
+	// inflate finding_conversation_comments_count (merge-readiness non-thread signal).
+	ops := []string{
+		"Rate limit exceeded. Please try again in 5 minutes and 30 seconds",
+		"Currently processing new changes in this PR. This may take a few minutes, please wait...",
+		"Review paused until you comment.",
+		"Review failed: head commit changed.",
+	}
+	for _, body := range ops {
+		if IsCoderabbitFindingConversationComment(body) {
+			t.Fatalf("operational body should be excluded: %q", body)
+		}
+		if CoderabbitIssueCommentMaxTier(body) != 6 {
+			t.Fatalf("sanity: want tier 6 for operational sample: %q", body)
+		}
+	}
 }
 
 func TestCoderabbitIssueCommentMaxTier_decisiveStatusesShareTierSix(t *testing.T) {

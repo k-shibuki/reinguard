@@ -366,6 +366,9 @@ func RunGateRecord(c *cli.Context, gateID string) error {
 	if err != nil {
 		return err
 	}
+	if len(checks) == 0 {
+		return fmt.Errorf("gate record: at least one check entry is required (provide --checks-file with a JSON array of checks)")
+	}
 	inputs, err := loadGateInputsFile(wd, c.String("inputs-file"))
 	if err != nil {
 		return err

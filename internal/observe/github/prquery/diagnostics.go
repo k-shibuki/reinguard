@@ -68,6 +68,9 @@ func nonThreadFindingsPresentForStatus(m map[string]any) bool {
 	o := intFromStatusMapOrZeroAny(m, "outside_diff_findings_count", "cr_outside_diff_comments_count")
 	d := intFromStatusMapOrZeroAny(m, "duplicate_findings_count", "cr_duplicate_findings_count")
 	f := intFromStatusMapOrZeroAny(m, "finding_conversation_comments_count", "cr_finding_conversation_comments_count")
+	// f is a raw count of bot-authored issue comments classified as finding-shaped (see
+	// IsCoderabbitFindingConversationComment). It does not subtract later human disposition replies;
+	// closure for those uses the consensus protocol (PR conversation disposition), not this aggregate alone.
 	return a > 0 || o > 0 || d > 0 || f > 0
 }
 

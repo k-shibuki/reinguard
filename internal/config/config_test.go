@@ -980,6 +980,32 @@ func assertReinguardControlCatalogWorkflowEntries(t *testing.T, reinguardDir str
 	}
 }
 
+func TestEffectiveRuntimeGateRoles_explicitEmptyPassRequiresRoles(t *testing.T) {
+	t.Parallel()
+	// Given: explicit empty pass_requires_roles for pr_readiness in YAML
+	cfg := `schema_version: "0.6.0"
+default_branch: main
+workflow:
+  runtime_gate_roles:
+    local_verification:
+      gate_id: local-verification
+    pre_pr_ai_review:
+      gate_id: local-coderabbit
+    pr_readiness:
+      gate_id: pr-readiness
+      pass_requires_roles: []
+providers: []
+`
+	var root Root
+	if err := yaml.Unmarshal([]byte(cfg), &root); err != nil {
+		t.Fatal(err)
+	}
+	got := root.EffectiveRuntimeGateRoles().PRReadiness.PassRequiresRoles
+	if got == nil || len(*got) != 0 {
+		t.Fatalf("want explicit empty pass_requires_roles, got %#v", got)
+	}
+}
+
 func writeFile(t *testing.T, path string, data []byte) {
 	t.Helper()
 	if err := os.WriteFile(path, data, 0o644); err != nil {

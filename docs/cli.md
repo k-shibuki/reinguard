@@ -214,7 +214,7 @@ Populated when the **ci** facet runs. Uses the observed head commit SHA (from gi
 |-------|------|-------------|
 | `ci_status` | string | Lowercased rollup from `GET /repos/{owner}/{repo}/commits/{sha}/status` (`state` field), or `unknown` when the SHA cannot be resolved. |
 | `head_sha` | string | Commit SHA used for status and check-run queries. |
-| `check_runs` | array | Check runs from `GET /repos/{owner}/{repo}/commits/{sha}/check-runs` (first page, `per_page=100`). Each element is an object with `name` (string), `status` (string, lowercased), and `conclusion` (string lowercased when present, or JSON `null` while the run has not finished). No check output bodies are included. If the request fails, the array is empty and a warning is recorded. |
+| `check_runs` | array | Check runs from `GET /repos/{owner}/{repo}/commits/{sha}/check-runs` (first page, `per_page=100`). Each element is an object with `name` (string), `status` (string, lowercased), and `conclusion` (string lowercased when present, or JSON `null` while the run has not finished). No check output bodies are included. If the request fails, the array is empty and a warning is recorded. When GitHub reports `total_count` greater than the number of returned runs, observation records a **truncation warning** (for example `github ci: check-runs response truncated (100 of N)`); treat rollup and `check_runs` as potentially incomplete for that head. |
 
 ### `signals.github.reviews` (GitHub provider, reviews facet)
 
@@ -378,7 +378,7 @@ Records one validated gate artifact for the current branch HEAD.
 | `--status` | yes | Top-level gate outcome: `pass` or `fail` |
 | `--producer-procedure` | yes | Procedure that is recording the proof (for example `implement` or `change-inspect`) |
 | `--producer-tool` | no | Recording tool identifier. Defaults to `rgd gate record` |
-| `--checks-file` | no | JSON array of check objects with fields `id`, `status`, required `summary`, and optional `evidence`; check `status` may be `pass`, `fail`, or `skipped` |
+| `--checks-file` | yes | JSON array of check objects with fields `id`, `status`, required `summary`, and optional `evidence`; check `status` may be `pass`, `fail`, or `skipped`. At least one check entry is required; the command rejects an empty array. |
 | `--inputs-file` | no | JSON array of upstream gate proof objects (`gate_id`, `status`, `subject`, `recorded_at`) |
 | `--input-gate` | no | Repeatable shortcut: copy one **fresh passing** stored gate artifact into `inputs[]` |
 

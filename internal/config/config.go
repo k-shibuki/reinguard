@@ -38,11 +38,13 @@ type RuntimeGateRolesSpec struct {
 
 // RuntimeGateRoleSpec binds one semantic gate role to a concrete gate artifact contract.
 type RuntimeGateRoleSpec struct {
-	GateID             string   `yaml:"gate_id,omitempty" json:"gate_id,omitempty"`
-	Required           *bool    `yaml:"required,omitempty" json:"required,omitempty"`
-	ProducerProcedures []string `yaml:"producer_procedures,omitempty" json:"producer_procedures,omitempty"`
-	PassCheckIDs       []string `yaml:"pass_check_ids,omitempty" json:"pass_check_ids,omitempty"`
-	PassRequiresRoles  []string `yaml:"pass_requires_roles,omitempty" json:"pass_requires_roles,omitempty"`
+	Required *bool `yaml:"required,omitempty" json:"required,omitempty"`
+	// PassRequiresRoles is optional in YAML: nil means "inherit default"; a non-nil pointer,
+	// including to an empty slice, means an explicit override (empty clears upstream roles).
+	PassRequiresRoles  *[]string `yaml:"pass_requires_roles,omitempty" json:"pass_requires_roles,omitempty"`
+	GateID             string    `yaml:"gate_id,omitempty" json:"gate_id,omitempty"`
+	ProducerProcedures []string  `yaml:"producer_procedures,omitempty" json:"producer_procedures,omitempty"`
+	PassCheckIDs       []string  `yaml:"pass_check_ids,omitempty" json:"pass_check_ids,omitempty"`
 }
 
 // ProviderSpec is one observation provider entry.
