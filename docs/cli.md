@@ -54,6 +54,8 @@ rgd guard eval <guard-id> [flags...]
 rgd knowledge index
 rgd knowledge pack [--query STRING] [--observation-file FILE]
 rgd context build [--observation-file FILE]
+rgd review reply-thread --pr N --in-reply-to ID --commit-sha SHA --path FILE --line N (--body TEXT | --body-file FILE)
+rgd review resolve-thread --thread-id ID
 rgd ensure-labels
 rgd labels list [--category TYPE]
 rgd labels sync [--dry-run]
@@ -100,6 +102,36 @@ Subcommands filter which facets run inside the GitHub provider for faster target
 Runs configured providers (from `reinguard.yaml`) unless a subcommand
 narrows scope. Emits one **observation document** JSON object (see schema
 `observation-document.json`).
+
+### Explicit GitHub PR scope
+
+Live observation commands accept optional GitHub scope flags:
+
+| Flag | Description |
+|------|-------------|
+| `--branch BRANCH` | Observe GitHub PR linkage for `BRANCH` instead of the checked-out branch. |
+| `--pr N` | Observe GitHub pull-request / review / CI facets for pull request `N`. |
+
+Precedence:
+
+1. `--pr` wins for PR-scoped GitHub facets.
+2. Otherwise `--branch` wins over the checked-out branch.
+3. Otherwise live observation uses the local checkout branch.
+
+If both `--pr` and `--branch` are set, `--branch` does **not** change PR-scoped
+facets: observation still follows the pull request `N` and its head ref. The
+CLI may still record `requested_branch` in `observed_scope` for visibility;
+effective branch and CI head follow the resolved PR.
+
+Whenever `--pr` is set, `signals.github.pull_requests.current_branch` tracks
+the PR head branch. `observed_scope.local_branch_at_collect` always records
+the local checkout at collect time (independent of `--branch` / `--pr`), so you
+can tell which working tree produced the run.
+
+`--branch` / `--pr` are **live-observe only**. They are rejected when
+`--observation-file` is set on higher-level commands (`state eval`,
+`route select`, `knowledge pack`, `context build`) because the scope is
+already fixed by the saved observation document.
 
 ### Observation document fields (reinguard-native)
 
@@ -159,18 +191,20 @@ The **pull-requests** facet always includes REST-derived fields for the current 
 | Field | Type | Description |
 |-------|------|-------------|
 | `open_count` | number | Open PR count for the repo (REST search). |
-| `current_branch` | string | Current git branch name (empty if detached). |
-| `pr_exists_for_branch` | boolean | Whether an open PR exists whose head matches the current branch. |
-| `pr_number_for_branch` | number | That PR’s number, or `0`. |
+| `current_branch` | string | Effective branch used for PR observation. Defaults to the checked-out branch; with `--branch` (and no `--pr`), the requested branch; with `--pr` (regardless of `--branch`), the PR head branch. |
+| `pr_exists_for_branch` | boolean | Whether an open PR exists for the effective scope (resolved branch or explicit `--pr`). |
+| `pr_number_for_branch` | number | Resolved PR number for the effective scope, or `0`. |
 | `state` | string | GraphQL PR state lowercased: `open`, `closed`, `merged`. |
 | `draft` | boolean | Draft flag. |
 | `title` | string | PR title. |
 | `base_ref` | string | Base branch name (`baseRefName`). |
+| `head_ref` | string | PR head branch name (`headRefName`). |
 | `head_sha` | string | Head commit OID. |
 | `mergeable` | string | `mergeable`, `conflicting`, or `unknown` (from GraphQL `mergeable`). |
 | `merge_state_status` | string | GraphQL `mergeStateStatus` lowercased (e.g. `clean`, `dirty`, `blocked`, `unstable`, `behind`). |
 | `labels` | string array | Label names (first page, up to 20). |
 | `closing_issue_numbers` | number array | Linked issues from `closingIssuesReferences` (first page, up to 20). |
+| `observed_scope` | object | Scope metadata for intent checks. See [Observed scope fields (detail)](#observed-scope-fields-detail) below. |
 
 ### `signals.github.reviews` (GitHub provider, reviews facet)
 
@@ -181,12 +215,47 @@ Populated when the `reviews` facet runs (see `rgd observe github reviews`). Data
 | `review_threads_total` | number | Threads fetched for the current PR after pagination (or up to the engine page cap). |
 | `review_threads_unresolved` | number | Threads where `isResolved` is false. Used by `merge-readiness`. |
 | `pagination_incomplete` | boolean | True if not all thread pages could be read (e.g. pagination capped). |
+| `review_inbox` | array | Unresolved thread records for agent action. See [Review inbox fields (detail)](#review-inbox-fields-detail) below. |
 | `review_decisions_total` | number | Count of nodes returned from `latestReviews` (latest decision per reviewer). |
 | `review_decisions_approved` | number | Count with state `APPROVED`. |
 | `review_decisions_changes_requested` | number | Count with state `CHANGES_REQUESTED`. |
 | `review_decisions_truncated` | boolean | True if `latestReviews` reports `hasNextPage` (more than one page of decisions not fetched). |
 | `bot_reviewer_status` | array | One object per configured `bot_reviewers` entry. See [Bot reviewer fields (detail)](#bot-reviewer-fields-detail) below. |
 | `bot_review_diagnostics` | object | Aggregated booleans over **required** bots only. See [Bot review diagnostics (detail)](#bot-review-diagnostics-detail) below. |
+
+#### Observed scope fields (detail)
+
+`pull_requests.observed_scope` may include:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `local_branch_at_collect` | string | Checked-out local branch when the command ran (empty if detached). |
+| `selection` | string | Scope selection mode: `current_branch`, `explicit_branch`, `explicit_pr`, or `none` when neither a local branch nor an explicit scope could drive PR observation. |
+| `requested_branch` | string | Explicit `--branch` value when provided. |
+| `requested_pr_number` | number | Explicit `--pr` value when provided. |
+| `effective_branch` | string | Branch that drove PR observation after precedence rules were applied. |
+| `resolved_pr_number` | number | PR number selected for the effective scope, or `0`. |
+| `pr_head_branch` | string | Head branch returned by the resolved PR, when available. |
+| `pr_head_sha` | string | Head SHA returned by the resolved PR, when available. |
+
+#### Review inbox fields (detail)
+
+Each element of `review_inbox` represents one unresolved GitHub review thread.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `thread_id` | string | GraphQL review thread node id (`resolveReviewThread` input). |
+| `root_comment_id` | number | Root review comment database id (`in_reply_to` for REST replies). |
+| `is_outdated` | boolean | Thread outdated state from GraphQL. |
+| `body` | string | Root review comment body when available. |
+| `author` | string | Root review comment author login when available. |
+| `path` | string | Anchored file path for the root review comment. |
+| `line` | number | Anchored line number when available. |
+| `original_line` | number | Original line number from the root review comment when available. |
+| `start_line` | number | Multi-line start line when available. |
+| `original_start_line` | number | Original multi-line start line when available. |
+| `commit_sha` | string | Commit SHA on the root review comment when available. |
+| `original_commit_sha` | string | Original commit SHA on the root review comment when available. |
 
 #### Bot reviewer fields (detail)
 
@@ -225,7 +294,9 @@ Committed workflow `state_id` priorities for this repository are documented in *
 - **Default:** runs observation inline (same as `rgd observe`) unless:
 - `--observation-file FILE` points to a JSON observation document, or
 - **stdin** JSON when `-` is passed as file (optional convention).
-- Runtime gate statuses from `.reinguard/runtime/gates/*.json` are merged into
+- `--branch BRANCH` / `--pr N` use the same live GitHub scope rules as
+  [`rgd observe`](#explicit-github-pr-scope) when `--observation-file` is not set.
+- Runtime gate statuses from `.reinguard/local/gates/*.json` are merged into
   the evaluation signal map as `gates.<gate-id>.*` before state resolution.
 
 ### Output
@@ -250,7 +321,9 @@ Evaluates `type: route` rules using:
 
 - `--observation-file` (required unless default live observe)
 - `--state-file` optional prior `state eval` JSON (merged into signals as `state` key)
-- Runtime gate statuses from `.reinguard/runtime/gates/*.json` (merged as
+- `--branch BRANCH` / `--pr N` for live observation only (same precedence as
+  [`rgd observe`](#explicit-github-pr-scope))
+- Runtime gate statuses from `.reinguard/local/gates/*.json` (merged as
   `gates.<gate-id>.*` before route evaluation)
 
 ### Output
@@ -279,7 +352,7 @@ signal map as `gates.<gate-id>.*`.
 
 ## `rgd gate`
 
-Runtime gate artifacts live under `.reinguard/runtime/gates/` and are validated
+Runtime gate artifacts live under `.reinguard/local/gates/` and are validated
 against the embedded `gate-artifact.json` schema. These artifacts are
 **gitignored operational state**, not Semantics content.
 
@@ -382,6 +455,7 @@ Every committed manifest entry includes `when` (schema-required). Repo-relative 
 |------|-------------|
 | `--query` | Optional. Case-insensitive substring match against each entry’s `triggers`. |
 | `--observation-file FILE` | Optional. Observation JSON (same shape as `rgd observe` stdout). When set, the file’s `signals` object is flattened first, and entries are kept only if `when` matches that flat signal map (not state-resolved; use `context build` for `state.*` paths in `when`). |
+| `--branch BRANCH` / `--pr N` | Optional for live observation only; same precedence as [`rgd observe`](#explicit-github-pr-scope). Rejected with `--observation-file`. |
 
 **Selection when `--observation-file` is set:** entries included if `when` matches **or** `--query` matches triggers (OR union by `id`). When `--observation-file` is omitted, `--query` remains the only filter; with an empty query, all entries are returned.
 
@@ -402,6 +476,10 @@ guard steps use that flat map; they do not see route/guard outcomes inside
 - **`--observation-file FILE`**: if set, skips live `observe` and uses the
   given observation document JSON as input (same shape as `rgd observe` stdout).
   Useful for tests and golden fixtures.
+- **`--branch BRANCH` / `--pr N`**: when live observation runs, pass explicit
+  GitHub PR scope into the observe step using the same precedence as
+  [`rgd observe`](#explicit-github-pr-scope). Rejected with
+  `--observation-file`.
 
 The `knowledge` object in the output has **`entries`** (same shape as
 `rgd knowledge pack` stdout), not `paths` (ADR-0010).
@@ -412,6 +490,39 @@ default chain when not using `--observation-file`.
 The `state` field is the state-resolution **Result** (same JSON shape as `rgd state eval` stdout).
 The `routes` array contains one route-resolution **Result** (same shape as `rgd route select` stdout,
 including `route_candidates` when applicable). See `pkg/schema/operational-context.json` (`resolutionResult`).
+
+## `rgd review reply-thread`
+
+Thin transport for one threaded PR review reply. This command does **not**
+classify findings or enforce consensus policy; it only validates required
+transport fields and shells out to `gh api`.
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `--pr` | yes | Pull request number |
+| `--in-reply-to` | yes | Root review comment database id |
+| `--commit-sha` | yes | Full 40-character commit SHA |
+| `--path` | yes | Review comment file path |
+| `--line` | yes | Review comment line number |
+| `--body` | mutually exclusive; one required | Inline reply body |
+| `--body-file` | mutually exclusive; one required | File containing the reply body |
+| `--cwd` | no | Working directory for `gh` |
+
+Payload matches the repository’s PR review transport contract:
+`POST repos/{owner}/{repo}/pulls/{N}/comments` with `body`, `in_reply_to`,
+`commit_id`, `path`, and `line`.
+
+## `rgd review resolve-thread`
+
+Thin transport for `resolveReviewThread` after consensus.
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `--thread-id` | yes | GraphQL review thread node id |
+| `--cwd` | no | Working directory for `gh` |
+
+The command shells out to `gh api graphql` with a single
+`resolveReviewThread` mutation.
 
 ### Authors: extending State / Gate / Guard
 
@@ -427,7 +538,7 @@ present, against embedded JSON Schemas. Also **builds enabled observation provid
 errors. **Deprecated** configuration keys (marked in JSON Schema) emit **warnings
 on stderr** but still exit **0** when validation succeeds.
 
-`config validate` does **not** validate `.reinguard/runtime/`; runtime gate
+`config validate` does **not** validate `.reinguard/local/`; runtime gate
 artifacts use the dedicated `rgd gate` schema and commands instead.
 
 **`when` clauses (ADR-0002):** Control rules and knowledge manifest entries are checked with the same static validator: unknown `eval:` names, unknown `op` strings, missing required keys per `op` (e.g. `eq` needs `path` and `value`), `eval: constant` requires `params.value` (boolean), and `path` strings must use allowed roots (`git.`, `github.`, `state.`, `gates.`, or `$` / `$.` for nested quantifier clauses). Named evaluators: `rgd config validate` rejects unknown `eval:` names against the built-in registry. To list built-ins, call `evaluator.DefaultRegistry().ListRegistered()` from Go (sorted names), or see `internal/evaluator/`.

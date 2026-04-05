@@ -215,10 +215,29 @@ func (p *GitHubProvider) Collect(ctx context.Context, opts Options) (Fragment, e
 
 	var prNum int
 	prLookupOK := true
+	var prHeadSHA string
+	explicitScope := opts.Scope.PRNumber > 0 || strings.TrimSpace(opts.Scope.Branch) != ""
+	needScopedCIHead := wantFacet("ci") && explicitScope
 	p.githubCollectIssues(ctx, client, owner, repo, wantFacet("issues"), signals, &diags, &degraded)
-	p.githubCollectPullRequestsAndPRNum(ctx, client, owner, repo, opts.WorkDir, wantFacet, signals, appendWarnings, &diags, &degraded, &prNum, &prLookupOK)
-	p.githubCollectCI(ctx, client, owner, repo, opts.WorkDir, wantFacet("ci"), signals, appendWarnings, &diags, &degraded)
-	p.githubCollectPRGraph(ctx, client, owner, repo, prNum, wantFacet("pull-requests"), wantFacet("reviews"), prLookupOK, signals, &diags, &degraded)
+	p.githubCollectPullRequestsAndPRNum(ctx, client, owner, repo, opts, wantFacet, signals, appendWarnings, &diags, &degraded, &prNum, &prLookupOK)
+	prHeadSHA, ciStatusOwner, ciStatusRepo := p.githubCollectPRGraph(ctx, client, owner, repo, prNum, wantFacet("pull-requests"), wantFacet("reviews"), needScopedCIHead, prLookupOK, signals, &diags, &degraded, opts)
+	if wantFacet("ci") && explicitScope && strings.TrimSpace(prHeadSHA) == "" {
+		degraded = true
+		diags = append(diags, Diagnostic{
+			Severity: "error",
+			Message:  "scoped CI collection could not resolve the selected head SHA",
+			Provider: "github.ci",
+			Code:     "scoped_head_unresolved",
+		})
+		mergeSignals(signals, map[string]any{
+			"ci": map[string]any{
+				"ci_status": "unknown",
+				"head_sha":  "",
+			},
+		})
+	} else {
+		p.githubCollectCI(ctx, client, owner, repo, opts.WorkDir, prHeadSHA, ciStatusOwner, ciStatusRepo, wantFacet("ci"), signals, appendWarnings, &diags, &degraded)
+	}
 
 	return Fragment{Signals: signals, Diagnostics: diags, Degraded: degraded}, nil
 }
@@ -236,11 +255,16 @@ func (*GitHubProvider) githubCollectIssues(ctx context.Context, client *githubap
 	mergeSignals(signals, m)
 }
 
-func (*GitHubProvider) githubCollectPullRequestsAndPRNum(ctx context.Context, client *githubapi.Client, owner, repo, workDir string, wantFacet func(string) bool, signals map[string]any, appendWarnings func(string, []string), diags *[]Diagnostic, degraded *bool, prNum *int, prLookupOK *bool) {
-	if !wantFacet("pull-requests") && !wantFacet("reviews") {
+func (*GitHubProvider) githubCollectPullRequestsAndPRNum(ctx context.Context, client *githubapi.Client, owner, repo string, opts Options, wantFacet func(string) bool, signals map[string]any, appendWarnings func(string, []string), diags *[]Diagnostic, degraded *bool, prNum *int, prLookupOK *bool) {
+	explicitScope := opts.Scope.PRNumber > 0 || strings.TrimSpace(opts.Scope.Branch) != ""
+	needPRForCI := wantFacet("ci") && explicitScope
+	if !wantFacet("pull-requests") && !wantFacet("reviews") && !needPRForCI {
 		return
 	}
-	m, warns, err := pullrequests.Collect(ctx, client, owner, repo, workDir)
+	m, _, warns, err := pullrequests.Collect(ctx, client, owner, repo, opts.WorkDir, pullrequests.ScopeOptions{
+		Branch:   opts.Scope.Branch,
+		PRNumber: opts.Scope.PRNumber,
+	})
 	if err != nil {
 		*prLookupOK = false
 		*degraded = true
@@ -257,11 +281,15 @@ func (*GitHubProvider) githubCollectPullRequestsAndPRNum(ctx context.Context, cl
 	}
 }
 
-func (*GitHubProvider) githubCollectCI(ctx context.Context, client *githubapi.Client, owner, repo, workDir string, want bool, signals map[string]any, appendWarnings func(string, []string), diags *[]Diagnostic, degraded *bool) {
+func (*GitHubProvider) githubCollectCI(ctx context.Context, client *githubapi.Client, baseOwner, baseRepo, workDir, headSHA string, statusOwner, statusRepo string, want bool, signals map[string]any, appendWarnings func(string, []string), diags *[]Diagnostic, degraded *bool) {
 	if !want {
 		return
 	}
-	m, warns, err := ci.Collect(ctx, client, owner, repo, workDir)
+	repoOwner, repoName := strings.TrimSpace(statusOwner), strings.TrimSpace(statusRepo)
+	if repoOwner == "" || repoName == "" {
+		repoOwner, repoName = baseOwner, baseRepo
+	}
+	m, warns, err := ci.Collect(ctx, client, repoOwner, repoName, workDir, headSHA)
 	if err != nil {
 		*degraded = true
 		*diags = append(*diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github.ci"})
@@ -271,35 +299,56 @@ func (*GitHubProvider) githubCollectCI(ctx context.Context, client *githubapi.Cl
 	mergeSignals(signals, m)
 }
 
-func (p *GitHubProvider) githubCollectPRGraph(ctx context.Context, client *githubapi.Client, owner, repo string, prNum int, wantPull, wantRev bool, prLookupOK bool, signals map[string]any, diags *[]Diagnostic, degraded *bool) {
-	if !wantPull && !wantRev {
-		return
+// headRepoForCIStatus returns the owner and repo for GET .../commits/{sha}/status.
+// Fork PRs report statuses on the head repository; same-repo PRs match base owner/repo.
+func headRepoForCIStatus(pullDetail map[string]any, baseOwner, baseRepo string) (string, string) {
+	statusOwner, statusRepo := baseOwner, baseRepo
+	if ho, ok := pullDetail["head_repo_owner"].(string); ok && strings.TrimSpace(ho) != "" {
+		if hn, ok := pullDetail["head_repo_name"].(string); ok && strings.TrimSpace(hn) != "" {
+			return strings.TrimSpace(ho), strings.TrimSpace(hn)
+		}
+	}
+	return statusOwner, statusRepo
+}
+
+func (p *GitHubProvider) githubCollectPRGraph(ctx context.Context, client *githubapi.Client, owner, repo string, prNum int, wantPull, wantRev, wantCI bool, prLookupOK bool, signals map[string]any, diags *[]Diagnostic, degraded *bool, opts Options) (headSHA string, statusOwner string, statusRepo string) {
+	if !wantPull && !wantRev && !wantCI {
+		return "", "", ""
 	}
 	if !prLookupOK || prNum <= 0 {
-		return
+		return "", "", ""
 	}
 	pullDetail, revInner, err := prquery.Collect(ctx, client, owner, repo, prNum, p.BotReviewers)
 	if err != nil {
 		*degraded = true
 		*diags = append(*diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github.pr-query"})
-		return
+		return "", "", ""
 	}
+	headSHA, _ = pullDetail["head_sha"].(string)
+	headRef, _ := pullDetail["head_ref"].(string)
+	statusOwner, statusRepo = headRepoForCIStatus(pullDetail, owner, repo)
 	if wantPull && len(pullDetail) > 0 {
 		if existing, ok := signals["pull_requests"].(map[string]any); ok {
 			for k, v := range pullDetail {
 				existing[k] = v
 			}
+			updateObservedScope(existing, opts, prNum, headRef, headSHA)
 		} else {
 			pm := make(map[string]any, len(pullDetail))
 			for k, v := range pullDetail {
 				pm[k] = v
 			}
+			updateObservedScope(pm, opts, prNum, headRef, headSHA)
 			signals["pull_requests"] = pm
 		}
 	}
 	if wantRev {
 		mergeSignals(signals, map[string]any{"reviews": revInner})
 	}
+	if wantCI {
+		return headSHA, statusOwner, statusRepo
+	}
+	return "", "", ""
 }
 
 func mergeSignals(dst map[string]any, src map[string]any) {
@@ -322,5 +371,24 @@ func intFromMap(m map[string]any, key string) int {
 		return int(x)
 	default:
 		return 0
+	}
+}
+
+func updateObservedScope(prMap map[string]any, opts Options, prNum int, headRef, headSHA string) {
+	raw, ok := prMap["observed_scope"].(map[string]any)
+	if !ok {
+		raw = map[string]any{}
+		prMap["observed_scope"] = raw
+	}
+	raw["resolved_pr_number"] = prNum
+	if headRef != "" {
+		raw["pr_head_branch"] = headRef
+		if opts.Scope.PRNumber > 0 {
+			prMap["current_branch"] = headRef
+			raw["effective_branch"] = headRef
+		}
+	}
+	if headSHA != "" {
+		raw["pr_head_sha"] = headSHA
 	}
 }

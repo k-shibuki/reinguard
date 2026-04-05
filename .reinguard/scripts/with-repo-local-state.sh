@@ -40,7 +40,6 @@ mkdir -p \
   "$STATE_ROOT/go-build-cache" \
   "$STATE_ROOT/golangci-lint-cache"
 
-export REINGUARD_LOCAL_STATE_ROOT="$STATE_ROOT"
 # Do not set TMPDIR to a path under the repo root: Go's t.TempDir() would then
 # fall inside this git work tree and break tests that expect a non-git directory.
 export XDG_CACHE_HOME="$STATE_ROOT/xdg-cache"

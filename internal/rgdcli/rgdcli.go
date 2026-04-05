@@ -21,6 +21,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/k-shibuki/reinguard/internal/config"
@@ -99,6 +100,10 @@ func RunObserve(c *cli.Context, gitHubFacet string, providerOverride []string) e
 		}
 		root = config.Root{SchemaVersion: loaded.Root.SchemaVersion, DefaultBranch: loaded.Root.DefaultBranch, Providers: ps}
 	}
+	branch, prNumber, err := parseObserveScopeFlags(c, false)
+	if err != nil {
+		return err
+	}
 	engine, err := observe.NewEngineFromConfig(root.Providers)
 	if err != nil {
 		return err
@@ -108,6 +113,7 @@ func RunObserve(c *cli.Context, gitHubFacet string, providerOverride []string) e
 		Serial:      c.Bool("serial"),
 		ProviderIDs: providerOverride,
 		GitHubFacet: gitHubFacet,
+		Scope:       observe.Scope{Branch: branch, PRNumber: prNumber},
 	}
 	signals, diags, deg, err := engine.Collect(context.Background(), &root, opts)
 	if err != nil {
@@ -128,7 +134,11 @@ func RunStateEval(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	sig, diags, deg, err := observe.LoadSignalsFileOrCollect(context.Background(), &loaded.Root, loadSignalsOpts(c, wd))
+	loadOpts, err := loadSignalsOpts(c, wd)
+	if err != nil {
+		return err
+	}
+	sig, diags, deg, err := observe.LoadSignalsFileOrCollect(context.Background(), &loaded.Root, loadOpts)
 	if err != nil {
 		return err
 	}
@@ -159,7 +169,11 @@ func RunRouteSelect(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	sig, diags, deg, err := observe.LoadSignalsFileOrCollect(context.Background(), &loaded.Root, loadSignalsOpts(c, wd))
+	loadOpts, err := loadSignalsOpts(c, wd)
+	if err != nil {
+		return err
+	}
+	sig, diags, deg, err := observe.LoadSignalsFileOrCollect(context.Background(), &loaded.Root, loadOpts)
 	if err != nil {
 		return err
 	}
@@ -202,10 +216,14 @@ func RunKnowledgePack(c *cli.Context) error {
 	if !loaded.KnowledgePresent || loaded.Knowledge == nil {
 		return writeJSON(c.App.Writer, map[string]any{"entries": []config.KnowledgeManifestEntry{}})
 	}
-	useSig := c.String("observation-file") != ""
+	useSig := c.String("observation-file") != "" || c.IsSet("branch") || c.IsSet("pr")
 	var flat map[string]any
 	if useSig {
-		sig, _, _, lerr := observe.LoadSignalsFileOrCollect(context.Background(), &loaded.Root, loadSignalsOpts(c, wd))
+		loadOpts, lerr := loadSignalsOpts(c, wd)
+		if lerr != nil {
+			return lerr
+		}
+		sig, _, _, lerr := observe.LoadSignalsFileOrCollect(context.Background(), &loaded.Root, loadOpts)
 		if lerr != nil {
 			return lerr
 		}
@@ -237,7 +255,11 @@ func RunContextBuild(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	sig, diags, deg, err := observe.LoadSignalsFileOrCollect(context.Background(), &loaded.Root, loadSignalsOpts(c, wd))
+	loadOpts, err := loadSignalsOpts(c, wd)
+	if err != nil {
+		return err
+	}
+	sig, diags, deg, err := observe.LoadSignalsFileOrCollect(context.Background(), &loaded.Root, loadOpts)
 	if err != nil {
 		return err
 	}
@@ -458,12 +480,38 @@ func loadChecksFile(wd, path string) ([]gate.Check, error) {
 	return checks, nil
 }
 
-func loadSignalsOpts(c *cli.Context, wd string) observe.LoadSignalsOptions {
-	opts := observe.LoadSignalsOptions{WorkDir: wd, Serial: c.Bool("serial")}
+func loadSignalsOpts(c *cli.Context, wd string) (observe.LoadSignalsOptions, error) {
+	branch, prNumber, err := parseObserveScopeFlags(c, c.String("observation-file") != "")
+	if err != nil {
+		return observe.LoadSignalsOptions{}, err
+	}
+	opts := observe.LoadSignalsOptions{
+		WorkDir:  wd,
+		Branch:   branch,
+		PRNumber: prNumber,
+		Serial:   c.Bool("serial"),
+	}
 	if p := c.String("observation-file"); p != "" {
 		opts.ObservationPath = resolveInputPath(wd, p)
 	}
-	return opts
+	return opts, nil
+}
+
+func parseObserveScopeFlags(c *cli.Context, observationFileSet bool) (branch string, prNumber int, err error) {
+	branch = strings.TrimSpace(c.String("branch"))
+	if c.IsSet("branch") && branch == "" {
+		return "", 0, fmt.Errorf("--branch must be non-empty")
+	}
+	if c.IsSet("pr") {
+		prNumber = c.Int("pr")
+		if prNumber <= 0 {
+			return "", 0, fmt.Errorf("--pr must be greater than 0")
+		}
+	}
+	if observationFileSet && (branch != "" || prNumber > 0) {
+		return "", 0, fmt.Errorf("--branch/--pr cannot be used with --observation-file")
+	}
+	return branch, prNumber, nil
 }
 
 func writeJSON(w io.Writer, v any) error {
@@ -654,6 +702,8 @@ func NewApp(version string) *cli.App {
 					Usage: "evaluate state rules",
 					Flags: []cli.Flag{
 						newObservationFileFlag(),
+						newBranchFlag(),
+						newPRNumberFlag(),
 						newSerialFlag(),
 						newCwdFlag(),
 						newConfigDirFlag(),
@@ -673,6 +723,8 @@ func NewApp(version string) *cli.App {
 					Flags: []cli.Flag{
 						newObservationFileFlag(),
 						newStateFileFlag(),
+						newBranchFlag(),
+						newPRNumberFlag(),
 						newSerialFlag(),
 						newCwdFlag(),
 						newConfigDirFlag(),
@@ -700,6 +752,8 @@ func NewApp(version string) *cli.App {
 						newConfigDirFlag(),
 						newKnowledgeQueryFlag(),
 						newObservationFileFlag(),
+						newBranchFlag(),
+						newPRNumberFlag(),
 					},
 					Action: RunKnowledgePack,
 				},
@@ -717,6 +771,8 @@ func NewApp(version string) *cli.App {
 						newCwdFlag(),
 						newConfigDirFlag(),
 						newObservationFileFlag(),
+						newBranchFlag(),
+						newPRNumberFlag(),
 					},
 					Action: RunContextBuild,
 				},
@@ -794,6 +850,24 @@ func NewApp(version string) *cli.App {
 						}
 						return RunGuardEval(c, c.Args().First())
 					},
+				},
+			},
+		},
+		{
+			Name:  "review",
+			Usage: "pull request review transport helpers",
+			Subcommands: []*cli.Command{
+				{
+					Name:   "reply-thread",
+					Usage:  "post a threaded pull-request review reply",
+					Flags:  reviewReplyThreadFlags(),
+					Action: runReviewReplyThread,
+				},
+				{
+					Name:   "resolve-thread",
+					Usage:  "resolve a pull-request review thread",
+					Flags:  reviewResolveThreadFlags(),
+					Action: runReviewResolveThread,
 				},
 			},
 		},

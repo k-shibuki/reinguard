@@ -111,7 +111,12 @@ func TestCollect_onePage_threadsAndDetail(t *testing.T) {
 						"mergeable":        "MERGEABLE",
 						"mergeStateStatus": "CLEAN",
 						"baseRefName":      "main",
+						"headRefName":      "feat/scoped",
 						"headRefOid":       "abc123",
+						"headRepository": map[string]any{
+							"name":  "reinguard",
+							"owner": map[string]any{"login": "forkowner"},
+						},
 						"labels": map[string]any{
 							"nodes": []map[string]any{{"name": "feat"}},
 						},
@@ -131,8 +136,42 @@ func TestCollect_onePage_threadsAndDetail(t *testing.T) {
 						"reviewThreads": map[string]any{
 							"pageInfo": map[string]any{"hasNextPage": false, "endCursor": ""},
 							"nodes": []map[string]any{
-								{"isResolved": true},
-								{"isResolved": false},
+								{
+									"id":         "THREAD_1",
+									"isResolved": true,
+									"isOutdated": false,
+									"comments": map[string]any{
+										"nodes": []map[string]any{
+											{
+												"databaseId": 101,
+												"body":       "resolved",
+												"path":       "a.go",
+												"line":       1,
+											},
+										},
+									},
+								},
+								{
+									"id":         "THREAD_2",
+									"isResolved": false,
+									"isOutdated": true,
+									"comments": map[string]any{
+										"nodes": []map[string]any{
+											{
+												"databaseId":   202,
+												"body":         "please update scope",
+												"path":         "internal/rgdcli/rgdcli.go",
+												"line":         42,
+												"originalLine": 40,
+												"author":       map[string]any{"login": "coderabbitai[bot]"},
+												"commit":       map[string]any{"oid": "0123456789abcdef0123456789abcdef01234567"},
+												"originalCommit": map[string]any{
+													"oid": "89abcdef0123456789abcdef0123456789abcdef",
+												},
+											},
+										},
+									},
+								},
 							},
 						},
 					},
@@ -155,6 +194,12 @@ func TestCollect_onePage_threadsAndDetail(t *testing.T) {
 	}
 	if pull["mergeable"].(string) != "mergeable" {
 		t.Fatalf("mergeable: %+v", pull)
+	}
+	if pull["head_ref"].(string) != "feat/scoped" {
+		t.Fatalf("pull: %+v", pull)
+	}
+	if pull["head_repo_owner"].(string) != "forkowner" || pull["head_repo_name"].(string) != "reinguard" {
+		t.Fatalf("head repository: %+v", pull)
 	}
 	labels := pull["labels"].([]any)
 	if len(labels) != 1 || labels[0].(string) != "feat" {
@@ -181,6 +226,70 @@ func TestCollect_onePage_threadsAndDetail(t *testing.T) {
 	}
 	if rev["review_decisions_total"].(int) != 2 || rev["review_decisions_approved"].(int) != 1 || rev["review_decisions_changes_requested"].(int) != 1 {
 		t.Fatalf("decisions: %+v", rev)
+	}
+	inbox := rev["review_inbox"].([]any)
+	if len(inbox) != 1 {
+		t.Fatalf("review_inbox: %+v", rev)
+	}
+	thread := inbox[0].(map[string]any)
+	if thread["thread_id"] != "THREAD_2" {
+		t.Fatalf("thread: %+v", thread)
+	}
+	switch id := thread["root_comment_id"].(type) {
+	case int:
+		if id != 202 {
+			t.Fatalf("want root_comment_id 202, got %d", id)
+		}
+	case float64:
+		if int(id) != 202 {
+			t.Fatalf("want root_comment_id 202, got %v", id)
+		}
+	default:
+		t.Fatalf("thread: %+v", thread)
+	}
+	if thread["is_outdated"] != true {
+		t.Fatalf("is_outdated: %+v", thread)
+	}
+	if thread["path"] != "internal/rgdcli/rgdcli.go" {
+		t.Fatalf("path: %+v", thread)
+	}
+	if thread["body"] != "please update scope" {
+		t.Fatalf("body: %+v", thread)
+	}
+	if thread["author"] != "coderabbitai[bot]" {
+		t.Fatalf("author: %+v", thread)
+	}
+	wantSHA := "0123456789abcdef0123456789abcdef01234567"
+	origSHA := "89abcdef0123456789abcdef0123456789abcdef"
+	if got := thread["commit_sha"]; got != wantSHA {
+		t.Fatalf("commit_sha: got %v want %q", got, wantSHA)
+	}
+	if got := thread["original_commit_sha"]; got != origSHA {
+		t.Fatalf("original_commit_sha: got %v want %q", got, origSHA)
+	}
+	switch ln := thread["line"].(type) {
+	case int:
+		if ln != 42 {
+			t.Fatalf("line: %d", ln)
+		}
+	case float64:
+		if int(ln) != 42 {
+			t.Fatalf("line: %v", ln)
+		}
+	default:
+		t.Fatalf("line type: %T", thread["line"])
+	}
+	switch oln := thread["original_line"].(type) {
+	case int:
+		if oln != 40 {
+			t.Fatalf("original_line: %d", oln)
+		}
+	case float64:
+		if int(oln) != 40 {
+			t.Fatalf("original_line: %v", oln)
+		}
+	default:
+		t.Fatalf("original_line type: %T", thread["original_line"])
 	}
 }
 

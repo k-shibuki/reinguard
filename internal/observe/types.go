@@ -25,12 +25,22 @@ type Provider interface {
 	Collect(ctx context.Context, opts Options) (Fragment, error)
 }
 
+// Scope selects an explicit GitHub PR/branch target for one collect run.
+// Zero values mean "infer from the current working directory". When both fields are set,
+// PRNumber takes precedence for PR-scoped GitHub facets.
+type Scope struct {
+	Branch   string
+	PRNumber int
+}
+
 // Options configure a collect run: working directory, optional GitHub facet filter, default
-// branch from config, optional provider ID restriction, and serial vs parallel execution.
+// branch from config, optional provider ID restriction, explicit PR/branch scope, and serial
+// vs parallel execution.
 type Options struct {
+	ProviderIDs   []string
 	WorkDir       string
 	GitHubFacet   string
 	DefaultBranch string
-	ProviderIDs   []string
+	Scope         Scope
 	Serial        bool
 }

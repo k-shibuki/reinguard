@@ -31,7 +31,7 @@ when:
 
 ## Adding or changing a runtime **gate** (`gate_id`)
 
-1. [ ] Document producer procedure(s) (`rgd gate record <gate-id>` after verification) and consumer(s) (`rgd gate status`, FSM `gates.<gate-id>.*`).
+1. [ ] Document producer procedure(s) (`rgd gate record <gate-id>` after verification) and consumer(s) (`rgd gate status`, FSM `gates.<gate-id>.*`). On-disk files: `.reinguard/local/gates/<gate-id>.json` (gitignored).
 2. [ ] Update ADR-0014 extension contract if semantics are new or changed.
 3. [ ] Update `.reinguard/control/states/*.yaml` / `routes/*.yaml` if FSM rules reference `gates.<gate-id>`.
 4. [ ] Update ADR-0013 § State catalog / Adapter mapping if a new `state_id` or mapping is introduced.

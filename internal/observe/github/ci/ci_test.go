@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os/exec"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/k-shibuki/reinguard/internal/githubapi"
@@ -23,7 +24,7 @@ func TestCollect_status(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
 	// When: Collect runs
-	m, warns, err := Collect(context.Background(), c, "o", "r", dir)
+	m, warns, err := Collect(context.Background(), c, "o", "r", dir, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +56,7 @@ func TestCollect_http500(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
 	// When: Collect runs
-	_, _, err := Collect(context.Background(), c, "o", "r", dir)
+	_, _, err := Collect(context.Background(), c, "o", "r", dir, "")
 	// Then: error mentions 500
 	if err == nil || !strings.Contains(err.Error(), "500") {
 		t.Fatalf("got %v", err)
@@ -68,7 +69,7 @@ func TestCollect_nonGitWorkDir(t *testing.T) {
 	dir := t.TempDir()
 	c := &githubapi.Client{HTTP: http.DefaultClient, Token: "t", BaseURL: "http://unused.invalid"}
 	// When: Collect runs
-	m, warns, err := Collect(context.Background(), c, "o", "r", dir)
+	m, warns, err := Collect(context.Background(), c, "o", "r", dir, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,6 +85,114 @@ func TestCollect_nonGitWorkDir(t *testing.T) {
 	if !ok || st != "unknown" {
 		t.Fatalf("ci_status=%v (%T)", cimap["ci_status"], cimap["ci_status"])
 	}
+}
+
+func TestCollect_statusEndpointUsesOwnerRepoArguments(t *testing.T) {
+	t.Parallel()
+	// Given: a fork PR scenario — CI statuses live on the head repository
+	dir := t.TempDir()
+	gitInit(t, dir)
+	var sawPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sawPath = r.URL.Path
+		_, _ = w.Write([]byte(`{"state":"success"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	head := "abcd0123456789abcdef0123456789abcdef01"
+	// When: Collect is called with head repo owner/name (not the base repo)
+	m, warns, err := Collect(context.Background(), c, "fork-owner", "fork-repo", dir, head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warns) != 0 {
+		t.Fatalf("%v", warns)
+	}
+	// Then: the status request targets /repos/fork-owner/fork-repo/commits/{sha}/status
+	if !strings.Contains(sawPath, "/repos/fork-owner/fork-repo/commits/"+head+"/status") {
+		t.Fatalf("path=%q", sawPath)
+	}
+	cimap, ok := m["ci"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected ci map, got %T", m["ci"])
+	}
+	if cimap["head_sha"] != head {
+		t.Fatalf("ci=%+v", cimap)
+	}
+}
+
+func TestCollect_usesHeadSHAOverride(t *testing.T) {
+	t.Parallel()
+	// Given: git repo with HEAD and an explicit override SHA
+	dir := t.TempDir()
+	gitInit(t, dir)
+	var (
+		mu            sync.Mutex
+		requestedPath string
+	)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		requestedPath = r.URL.Path
+		mu.Unlock()
+		_, _ = w.Write([]byte(`{"state":"pending"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	override := "0123456789abcdef0123456789abcdef01234567"
+	// When: Collect runs with the override
+	m, warns, err := Collect(context.Background(), c, "o", "r", dir, override)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warns) != 0 {
+		t.Fatalf("%v", warns)
+	}
+	mu.Lock()
+	path := requestedPath
+	mu.Unlock()
+	if !strings.Contains(path, override) {
+		t.Fatalf("path=%q want override %q", path, override)
+	}
+	// Then: the API request and emitted signal both use the override SHA
+	cimap, ok := m["ci"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected ci map, got %T", m["ci"])
+	}
+	if cimap["head_sha"] != override {
+		t.Fatalf("ci=%+v", cimap)
+	}
+}
+
+func TestCollect_whitespaceHeadSHAOverrideFallsBackToHEAD(t *testing.T) {
+	t.Parallel()
+	// Given: a git repo with HEAD and a whitespace-only override (treated as empty)
+	dir := t.TempDir()
+	gitInit(t, dir)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"state":"success"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	// When: Collect runs with whitespace-only override
+	m, warns, err := Collect(context.Background(), c, "o", "r", dir, "   ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warns) != 0 {
+		t.Fatalf("%v", warns)
+	}
+	cimap, ok := m["ci"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected ci map, got %T", m["ci"])
+	}
+	head, err := headSHA(context.Background(), dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cimap["head_sha"] != head {
+		t.Fatalf("want head_sha %q from git HEAD, got %+v", head, cimap)
+	}
+	// Then: CI signals use the local HEAD SHA, not a remote override
 }
 
 func gitInit(t *testing.T, dir string) {

@@ -56,6 +56,11 @@ Before the approval gate, present:
 
 ## Approval gate
 
+The Adapter may persist a **`pending_approval`** artifact before this gate and
+transition it to **`active`** after explicit approval (ADR-0015; see
+[`.cursor/commands/rgd-next.md`](../../.cursor/commands/rgd-next.md) § Propose /
+§ Execute).
+
 Present **once**:
 
 - (a) **Unit identity** — Issue #, PR # (if any), branch name.
@@ -79,6 +84,11 @@ After approval, the agent **must** drive toward **Per-unit Definition of Done** 
 - **Hard Stops** (**HS-***) in [`../policy/safety--agent-invariants.md`](../policy/safety--agent-invariants.md).
 - **Genuine cannot proceed** — missing credentials, org enforcement, unrecoverable GitHub block — report with **evidence** and stop.
 - **Tooling / session limits** — chat session ended, tooling unavailable, or context limits make further tool use impossible **in this session**. Long CI or bot duration is **not** an excuse to exit the path; follow the mapped procedure. On tooling/session limits only, **resume the same approved path** on the next turn **without** re-opening the approval gate (unless the user revokes or changes scope).
+
+Adapters may persist this approval continuity locally so the next turn can
+resume the same approved path. Such persistence is **Adapter-local** and must
+not be promoted into substrate workflow state, routes, guards, or
+`gates.<id>.*` signals (ADR-0015).
 
 ## Loop semantics (after approval)
 

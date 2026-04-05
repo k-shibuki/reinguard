@@ -21,6 +21,14 @@ func newSerialFlag() *cli.BoolFlag {
 	return &cli.BoolFlag{Name: "serial", Usage: "run observation providers sequentially"}
 }
 
+func newBranchFlag() *cli.StringFlag {
+	return &cli.StringFlag{Name: "branch", Usage: "observe GitHub PR scope for this branch instead of the local checkout"}
+}
+
+func newPRNumberFlag() *cli.IntFlag {
+	return &cli.IntFlag{Name: "pr", Usage: "observe GitHub facets for this pull request number"}
+}
+
 func newFailOnNonResolvedFlag() *cli.BoolFlag {
 	return &cli.BoolFlag{
 		Name:  "fail-on-non-resolved",
@@ -58,7 +66,14 @@ func newSchemaExportDirFlag() *cli.StringFlag {
 
 // observeFlags returns flags for any observe-shaped command.
 func observeFlags() []cli.Flag {
-	return []cli.Flag{newSerialFlag(), newCwdFlag(), newConfigDirFlag(), newFailOnNonResolvedFlag()}
+	return []cli.Flag{
+		newSerialFlag(),
+		newCwdFlag(),
+		newConfigDirFlag(),
+		newBranchFlag(),
+		newPRNumberFlag(),
+		newFailOnNonResolvedFlag(),
+	}
 }
 
 // Root-only clones of urfave's default HelpFlag / VersionFlag. The library keeps

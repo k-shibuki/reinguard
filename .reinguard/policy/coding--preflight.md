@@ -20,7 +20,7 @@ etc.); details delegated to Knowledge documents where noted.
 
 Run the applicable subset before each push:
 
-- **Go code changed**: `bash .reinguard/scripts/with-repo-local-state.sh -- go test ./... -race`, same wrapper for `go vet ./...` and `golangci-lint run` (keeps caches under repo-local `.tmp/`)
+- **Go code changed**: `bash .reinguard/scripts/with-repo-local-state.sh -- go test ./... -race`, same wrapper for `go vet ./...` and `golangci-lint run` (keeps caches under repo-local `/.tmp/`, not under `.reinguard/local/`)
 - **Markdown changed**: `bash .reinguard/scripts/with-repo-local-state.sh -- pre-commit run markdownlint-cli2 --all-files` (pinned hook version from `.pre-commit-config.yaml`; no ad-hoc `npx @latest` installs)
 - **Config / schemas / knowledge changed**: `rgd config validate` from repo root
 

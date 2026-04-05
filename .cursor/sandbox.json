@@ -1,6 +1,6 @@
 {
   "enableSharedBuildCache": true,
-  "additionalReadwritePaths": [".tmp"],
+  "additionalReadwritePaths": [".tmp", ".reinguard/local"],
   "networkPolicy": {
     "allow": [
       "api.github.com",
