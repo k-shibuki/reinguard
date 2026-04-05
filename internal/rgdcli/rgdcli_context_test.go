@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -156,6 +157,40 @@ exit 1
 	}
 	// Then: observation is degraded, state/route still resolve, and github.repository comes from local_git
 	assertObservationDegradedWithLocalGitHubRepo(t, out)
+}
+
+func TestRunContextBuild_rejectsScopeFlagsWithObservationFile(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{name: "pr", args: []string{"--pr", "104"}},
+		{name: "branch", args: []string{"--branch", "feat/test"}},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			// Given: minimal config and a pre-built observation file
+			cfgDir := t.TempDir()
+			writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
+			writeFile(t, filepath.Join(cfgDir, "control", "states", "default.yaml"), []byte(testFixtureRulesStateIdle))
+			writeFile(t, filepath.Join(cfgDir, "control", "routes", "default.yaml"), []byte(testFixtureControlRoutesNext))
+			obsPath := filepath.Join(t.TempDir(), "observation.json")
+			writeFile(t, obsPath, []byte(`{"schema_version":"0.6.0","signals":{"git":{"branch":"main"}},"degraded":false}`))
+
+			// When: context build runs with --observation-file and a scope flag
+			app := NewApp("test")
+			args := append([]string{"rgd", "context", "build", "--config-dir", cfgDir, "--observation-file", obsPath}, tc.args...)
+			err := app.Run(args)
+
+			// Then: command rejects the scope override because the observation is already fixed
+			if err == nil || !strings.Contains(err.Error(), "--branch/--pr cannot be used with --observation-file") {
+				t.Fatalf("got %v", err)
+			}
+		})
+	}
 }
 
 func assertObservationDegradedWithLocalGitHubRepo(t *testing.T, out map[string]any) {

@@ -111,6 +111,7 @@ func TestCollect_onePage_threadsAndDetail(t *testing.T) {
 						"mergeable":        "MERGEABLE",
 						"mergeStateStatus": "CLEAN",
 						"baseRefName":      "main",
+						"headRefName":      "feat/scoped",
 						"headRefOid":       "abc123",
 						"labels": map[string]any{
 							"nodes": []map[string]any{{"name": "feat"}},
@@ -131,8 +132,42 @@ func TestCollect_onePage_threadsAndDetail(t *testing.T) {
 						"reviewThreads": map[string]any{
 							"pageInfo": map[string]any{"hasNextPage": false, "endCursor": ""},
 							"nodes": []map[string]any{
-								{"isResolved": true},
-								{"isResolved": false},
+								{
+									"id":         "THREAD_1",
+									"isResolved": true,
+									"isOutdated": false,
+									"comments": map[string]any{
+										"nodes": []map[string]any{
+											{
+												"databaseId": 101,
+												"body":       "resolved",
+												"path":       "a.go",
+												"line":       1,
+											},
+										},
+									},
+								},
+								{
+									"id":         "THREAD_2",
+									"isResolved": false,
+									"isOutdated": true,
+									"comments": map[string]any{
+										"nodes": []map[string]any{
+											{
+												"databaseId":   202,
+												"body":         "please update scope",
+												"path":         "internal/rgdcli/rgdcli.go",
+												"line":         42,
+												"originalLine": 40,
+												"author":       map[string]any{"login": "coderabbitai[bot]"},
+												"commit":       map[string]any{"oid": "0123456789abcdef0123456789abcdef01234567"},
+												"originalCommit": map[string]any{
+													"oid": "89abcdef0123456789abcdef0123456789abcdef",
+												},
+											},
+										},
+									},
+								},
 							},
 						},
 					},
@@ -155,6 +190,9 @@ func TestCollect_onePage_threadsAndDetail(t *testing.T) {
 	}
 	if pull["mergeable"].(string) != "mergeable" {
 		t.Fatalf("mergeable: %+v", pull)
+	}
+	if pull["head_ref"].(string) != "feat/scoped" {
+		t.Fatalf("pull: %+v", pull)
 	}
 	labels := pull["labels"].([]any)
 	if len(labels) != 1 || labels[0].(string) != "feat" {
@@ -181,6 +219,14 @@ func TestCollect_onePage_threadsAndDetail(t *testing.T) {
 	}
 	if rev["review_decisions_total"].(int) != 2 || rev["review_decisions_approved"].(int) != 1 || rev["review_decisions_changes_requested"].(int) != 1 {
 		t.Fatalf("decisions: %+v", rev)
+	}
+	inbox := rev["review_inbox"].([]any)
+	if len(inbox) != 1 {
+		t.Fatalf("review_inbox: %+v", rev)
+	}
+	thread := inbox[0].(map[string]any)
+	if thread["thread_id"] != "THREAD_2" || thread["root_comment_id"].(int) != 202 {
+		t.Fatalf("thread: %+v", thread)
 	}
 }
 

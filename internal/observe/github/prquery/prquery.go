@@ -29,6 +29,7 @@ const prContextQuery = `query PRContext($owner: String!, $name: String!, $number
       mergeable @include(if: $includeDetail)
       mergeStateStatus @include(if: $includeDetail)
       baseRefName @include(if: $includeDetail)
+      headRefName @include(if: $includeDetail)
       headRefOid @include(if: $includeDetail)
       labels(first: 20) @include(if: $includeDetail) {
         nodes { name }
@@ -64,7 +65,23 @@ const prContextQuery = `query PRContext($owner: String!, $name: String!, $number
           endCursor
         }
         nodes {
+          id
           isResolved
+          isOutdated
+          comments(first: 1) {
+            nodes {
+              databaseId
+              body
+              path
+              line
+              originalLine
+              startLine
+              originalStartLine
+              author { login }
+              commit { oid }
+              originalCommit { oid }
+            }
+          }
         }
       }
     }
@@ -110,6 +127,7 @@ type prPullRequestNode struct {
 	Mergeable               *string            `json:"mergeable"`
 	MergeStateStatus        *string            `json:"mergeStateStatus"`
 	BaseRefName             *string            `json:"baseRefName"`
+	HeadRefName             *string            `json:"headRefName"`
 	HeadRefOid              *string            `json:"headRefOid"`
 	Labels                  *labelsConn        `json:"labels"`
 	ClosingIssuesReferences *closingIssuesConn `json:"closingIssuesReferences"`
@@ -178,13 +196,43 @@ type prCommentsPageResponse struct {
 
 //nolint:govet // fieldalignment: keep aligned with GraphQL response shape
 type reviewThreadsConn struct {
-	Nodes []struct {
-		IsResolved bool `json:"isResolved"`
-	} `json:"nodes"`
+	Nodes    []reviewThreadNode `json:"nodes"`
 	PageInfo struct {
 		HasNextPage bool   `json:"hasNextPage"`
 		EndCursor   string `json:"endCursor"`
 	} `json:"pageInfo"`
+}
+
+//nolint:govet // fieldalignment: GraphQL response shape
+type reviewThreadNode struct {
+	ID         string                    `json:"id"`
+	IsResolved bool                      `json:"isResolved"`
+	IsOutdated bool                      `json:"isOutdated"`
+	Comments   *reviewThreadCommentsConn `json:"comments"`
+}
+
+type reviewThreadCommentsConn struct {
+	Nodes []reviewThreadCommentNode `json:"nodes"`
+}
+
+//nolint:govet // fieldalignment: GraphQL response shape
+type reviewThreadCommentNode struct {
+	DatabaseID        int    `json:"databaseId"`
+	Body              string `json:"body"`
+	Path              string `json:"path"`
+	Line              *int   `json:"line"`
+	OriginalLine      *int   `json:"originalLine"`
+	StartLine         *int   `json:"startLine"`
+	OriginalStartLine *int   `json:"originalStartLine"`
+	Author            *struct {
+		Login string `json:"login"`
+	} `json:"author"`
+	Commit *struct {
+		Oid string `json:"oid"`
+	} `json:"commit"`
+	OriginalCommit *struct {
+		Oid string `json:"oid"`
+	} `json:"originalCommit"`
 }
 
 // CollectOptions configures optional behavior for CollectWithOptions.
@@ -210,7 +258,7 @@ func CollectWithOptions(ctx context.Context, c *githubapi.Client, owner, repo st
 	if prNumber <= 0 {
 		return nil, reviewsInner, nil
 	}
-	firstPR, total, unresolved, incomplete, err := paginatePRContext(ctx, c, owner, repo, prNumber)
+	firstPR, inbox, total, unresolved, incomplete, err := paginatePRContext(ctx, c, owner, repo, prNumber)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -229,6 +277,10 @@ func CollectWithOptions(ctx context.Context, c *githubapi.Client, owner, repo st
 	reviewsInner["review_threads_total"] = total
 	reviewsInner["review_threads_unresolved"] = unresolved
 	reviewsInner["pagination_incomplete"] = incomplete
+	if inbox == nil {
+		inbox = []any{}
+	}
+	reviewsInner["review_inbox"] = inbox
 	commentNodes, err := mergeCommentNodesForBots(ctx, c, owner, repo, prNumber, firstPR.Comments, bots)
 	if err != nil {
 		return nil, nil, err
@@ -243,7 +295,7 @@ func CollectWithOptions(ctx context.Context, c *githubapi.Client, owner, repo st
 	return pullDetail, reviewsInner, nil
 }
 
-func paginatePRContext(ctx context.Context, c *githubapi.Client, owner, repo string, prNumber int) (firstPR *prPullRequestNode, total, unresolved int, incomplete bool, err error) {
+func paginatePRContext(ctx context.Context, c *githubapi.Client, owner, repo string, prNumber int) (firstPR *prPullRequestNode, inbox []any, total, unresolved int, incomplete bool, err error) {
 	var cursor any
 	for page := 0; page < maxReviewThreadPages; page++ {
 		includeDetail := page == 0
@@ -256,10 +308,10 @@ func paginatePRContext(ctx context.Context, c *githubapi.Client, owner, repo str
 		}
 		var data prContextResponse
 		if err := c.PostGraphQL(ctx, prContextQuery, vars, &data); err != nil {
-			return nil, 0, 0, false, err
+			return nil, nil, 0, 0, false, err
 		}
 		if data.Repository == nil || data.Repository.PullRequest == nil {
-			return nil, 0, 0, false, nil
+			return nil, nil, 0, 0, false, nil
 		}
 		pr := data.Repository.PullRequest
 		if includeDetail {
@@ -273,6 +325,9 @@ func paginatePRContext(ctx context.Context, c *githubapi.Client, owner, repo str
 			total++
 			if !n.IsResolved {
 				unresolved++
+			}
+			if entry := buildReviewInboxEntry(n); entry != nil {
+				inbox = append(inbox, entry)
 			}
 		}
 		if !rt.PageInfo.HasNextPage {
@@ -289,7 +344,7 @@ func paginatePRContext(ctx context.Context, c *githubapi.Client, owner, repo str
 		}
 		cursor = end
 	}
-	return firstPR, total, unresolved, incomplete, nil
+	return firstPR, inbox, total, unresolved, incomplete, nil
 }
 
 func emptyReviewsInner() map[string]any {
@@ -297,6 +352,7 @@ func emptyReviewsInner() map[string]any {
 		"review_threads_total":               0,
 		"review_threads_unresolved":          0,
 		"pagination_incomplete":              false,
+		"review_inbox":                       []any{},
 		"review_decisions_total":             0,
 		"review_decisions_approved":          0,
 		"review_decisions_changes_requested": 0,
@@ -325,6 +381,9 @@ func buildPullDetail(pr *prPullRequestNode) map[string]any {
 	}
 	if pr.BaseRefName != nil {
 		m["base_ref"] = *pr.BaseRefName
+	}
+	if pr.HeadRefName != nil {
+		m["head_ref"] = *pr.HeadRefName
 	}
 	if pr.HeadRefOid != nil {
 		m["head_sha"] = *pr.HeadRefOid
@@ -391,6 +450,56 @@ func buildReviewDecisions(lr *latestReviewsConn) map[string]any {
 	out["review_decisions_changes_requested"] = changes
 	out["review_decisions_truncated"] = lr.PageInfo.HasNextPage
 	return out
+}
+
+func buildReviewInboxEntry(thread reviewThreadNode) map[string]any {
+	if thread.IsResolved {
+		return nil
+	}
+	entry := map[string]any{
+		"thread_id":   strings.TrimSpace(thread.ID),
+		"is_resolved": thread.IsResolved,
+		"is_outdated": thread.IsOutdated,
+	}
+	if thread.Comments == nil || len(thread.Comments.Nodes) == 0 {
+		return entry
+	}
+	root := thread.Comments.Nodes[0]
+	putReviewInboxInt(entry, "root_comment_id", root.DatabaseID)
+	putReviewInboxString(entry, "body", root.Body)
+	putReviewInboxString(entry, "path", root.Path)
+	putReviewInboxOptionalInt(entry, "line", root.Line)
+	putReviewInboxOptionalInt(entry, "original_line", root.OriginalLine)
+	putReviewInboxOptionalInt(entry, "start_line", root.StartLine)
+	putReviewInboxOptionalInt(entry, "original_start_line", root.OriginalStartLine)
+	if root.Author != nil {
+		putReviewInboxString(entry, "author", root.Author.Login)
+	}
+	if root.Commit != nil {
+		putReviewInboxString(entry, "commit_sha", root.Commit.Oid)
+	}
+	if root.OriginalCommit != nil {
+		putReviewInboxString(entry, "original_commit_sha", root.OriginalCommit.Oid)
+	}
+	return entry
+}
+
+func putReviewInboxInt(entry map[string]any, key string, value int) {
+	if value > 0 {
+		entry[key] = value
+	}
+}
+
+func putReviewInboxOptionalInt(entry map[string]any, key string, value *int) {
+	if value != nil {
+		entry[key] = *value
+	}
+}
+
+func putReviewInboxString(entry map[string]any, key, value string) {
+	if trimmed := strings.TrimSpace(value); trimmed != "" {
+		entry[key] = trimmed
+	}
 }
 
 // normalizeGitHubActorLogin maps login variants to one comparison key. GitHub App bots

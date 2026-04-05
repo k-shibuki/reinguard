@@ -39,6 +39,11 @@ Adopt a **hybrid observation model**:
    state, post comments, or merge PRs. Parallel invocations are independent
    (ADR-0003).
 
+   Review-thread reply / resolve transport, when provided by `rgd`, lives in
+   a **separate explicit command namespace** outside `observe`. Those commands
+   may validate inputs and forward to `gh`, but they do not change the
+   side-effect-free contract of observation itself.
+
 4. **GitHub authentication** — GitHub-backed providers obtain credentials
    only via **`gh auth token`** (or documented equivalent invocation of
    the GitHub CLI), per ADR-0006. No parallel “env-only” token path in

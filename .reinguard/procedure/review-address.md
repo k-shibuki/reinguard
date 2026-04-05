@@ -58,7 +58,10 @@ rgd observe github reviews
 
 Use aggregate review / CI signals from observation JSON where helpful.
 
-**Thread-level work:** `rgd observe github reviews` does not replace per-thread `isResolved` enumeration — use `gh api` / GraphQL per knowledge from `rgd context build` / `knowledge.entries` (or the optional `knowledge pack --observation-file … --query "review"` pass) (see `review--github-thread-api.md`).
+**Thread-level work:** prefer the structured `signals.github.reviews.review_inbox`
+from `rgd observe github reviews` / `rgd context build` for actionable thread
+records. Use GraphQL enumeration from review knowledge only as a fallback when
+you need evidence outside the surfaced inbox (see `review--github-thread-api.md`).
 
 **When `state_id` is `waiting_ci` (`user-wait-ci`):** no open thread or formal changes-request work is implied by the FSM. Focus on **`gh pr checks`**, **`ci-pass`**, and mergeability (`gh pr view`); fix failing jobs or wait for pending checks. Re-run `rgd context build` after pushes.
 
@@ -66,7 +69,7 @@ Use aggregate review / CI signals from observation JSON where helpful.
 
 - GitHub **Files changed** → each review thread; root comment **CodeRabbit**, **Codex / chatgpt-codex-connector**, or human.
 - `gh pr view <N> --comments` and `gh pr checks <N>` — failing checks vs review findings.
-- Inline threads: `gh api repos/{owner}/{repo}/pulls/<N>/comments` until `rgd observe` covers this workflow.
+- Inline threads: prefer `review_inbox` + `rgd review reply-thread` / `rgd review resolve-thread`; fall back to raw `gh api` only for cases not yet covered.
 - **Outside diff range / non-inline bot findings** — per review knowledge from context / pack: do **not** treat "zero unresolved threads" as "no review work left." Collect summary bodies, PR conversation, Checks text. Classify and disposition like inline threads; without comment id, post a **PR conversation comment** (quote + disposition), then `@coderabbitai review` when budget/rules allow.
 
 ## Act
@@ -123,13 +126,13 @@ never `Tracked in` the PR’s `Closes` target).
 
 ### 3. Reply on every thread and disposition every non-thread finding
 
-For each **pull review comment** (file/line thread), post a disposition reply (**Fixed** / **By design** / **False positive** / **Acknowledged**) as a **threaded reply** (`gh api POST repos/{owner}/{repo}/pulls/<N>/comments` with `in_reply_to=<root_comment_database_id>`).
+For each **pull review comment** (file/line thread), post a disposition reply (**Fixed** / **By design** / **False positive** / **Acknowledged**) as a **threaded reply**. Prefer `rgd review reply-thread --pr <N> --in-reply-to <root_comment_id> --commit-sha <sha> --path <file> --line <line> --body-file <reply.md>` using the anchor fields surfaced in `review_inbox`.
 A generic PR body or issue-style comment **does not** substitute for a thread reply.
 For **outside-diff / summary-only** findings (see Context) with no anchor id, a **targeted PR conversation comment** (quote + disposition) is the correct substitute — not silence. Outside-diff-range findings from the current review cycle MUST be dispositioned even if the code predates this PR (`HS-NO-DISMISS`). See `review--consensus-protocol.md` § **Non-thread findings**.
 
 ### 4. CodeRabbit threads
 
-Follow [`../policy/review--consensus-protocol.md`](../policy/review--consensus-protocol.md) § **CodeRabbit Resolution Gate** (do **not** `resolve` until consensus evidence). After you push fixes, **incremental auto-review** often runs on its own (`.coderabbit.yaml`). If it does not (pause threshold, skip, or you need a guaranteed pass), trigger a new review cycle with a **PR conversation comment**:
+Follow [`../policy/review--consensus-protocol.md`](../policy/review--consensus-protocol.md) § **CodeRabbit Resolution Gate** (do **not** `resolve` until consensus evidence). When consensus is satisfied, prefer `rgd review resolve-thread --thread-id <thread_id>` using the `review_inbox` record. After you push fixes, **incremental auto-review** often runs on its own (`.coderabbit.yaml`). If it does not (pause threshold, skip, or you need a guaranteed pass), trigger a new review cycle with a **PR conversation comment**:
 `gh pr comment <N> --body "@coderabbitai review"`
 (budget and skip rules: paths from `knowledge.entries` after `rgd context build`, or optional `knowledge pack --observation-file … --query "review"`.)
 

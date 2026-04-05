@@ -6,17 +6,32 @@ import (
 	"fmt"
 	"net/url"
 	"os/exec"
+	"regexp"
 	"strings"
 )
 
 // runGHCommand runs the GitHub CLI subprocess. Tests replace it for hermetic runs.
 var runGHCommand = runGHCommandImpl
+var runGHCommandWithInput = runGHCommandWithInputImpl
 
 func runGHCommandImpl(ctx context.Context, wd string, args []string) (stdout, stderr []byte, err error) {
 	cmd := exec.CommandContext(ctx, "gh", args...)
 	if wd != "" {
 		cmd.Dir = wd
 	}
+	var outBuf, errBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
+	err = cmd.Run()
+	return outBuf.Bytes(), errBuf.Bytes(), err
+}
+
+func runGHCommandWithInputImpl(ctx context.Context, wd string, stdin []byte, args []string) (stdout, stderr []byte, err error) {
+	cmd := exec.CommandContext(ctx, "gh", args...)
+	if wd != "" {
+		cmd.Dir = wd
+	}
+	cmd.Stdin = bytes.NewReader(stdin)
 	var outBuf, errBuf bytes.Buffer
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf
@@ -139,4 +154,13 @@ func RepoFromGH(ctx context.Context, wd string) (owner, name string, err error) 
 		return "", "", err
 	}
 	return id.Owner, id.Name, nil
+}
+
+var fullSHARe = regexp.MustCompile(`^[0-9a-fA-F]{40}$`)
+
+func validateFullSHA(sha string) error {
+	if !fullSHARe.MatchString(strings.TrimSpace(sha)) {
+		return fmt.Errorf("commit SHA must be a full 40-character hex string")
+	}
+	return nil
 }

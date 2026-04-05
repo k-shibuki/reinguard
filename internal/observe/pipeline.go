@@ -15,7 +15,13 @@ type LoadSignalsOptions struct {
 	// When empty, Collect runs against the repository.
 	ObservationPath string
 	WorkDir         string
-	Serial          bool
+	// Branch observes GitHub PR linkage for a specific branch.
+	// When empty, live collection uses the checked-out branch.
+	Branch string
+	// PRNumber observes GitHub PR-scoped facets for a specific pull request.
+	// When zero, live collection does not force a PR number.
+	PRNumber int
+	Serial   bool
 }
 
 // LoadSignalsFileOrCollect reads observation JSON from ObservationPath when set (signals,
@@ -38,7 +44,11 @@ func LoadSignalsFileOrCollect(ctx context.Context, root *config.Root, opts LoadS
 	if err != nil {
 		return nil, nil, false, err
 	}
-	return engine.Collect(ctx, root, Options{WorkDir: opts.WorkDir, Serial: opts.Serial})
+	return engine.Collect(ctx, root, Options{
+		WorkDir: opts.WorkDir,
+		Scope:   Scope{Branch: opts.Branch, PRNumber: opts.PRNumber},
+		Serial:  opts.Serial,
+	})
 }
 
 // ParseObservationJSON decodes a saved observation document (signals, diagnostics, degraded).

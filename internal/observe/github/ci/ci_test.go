@@ -23,7 +23,7 @@ func TestCollect_status(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
 	// When: Collect runs
-	m, warns, err := Collect(context.Background(), c, "o", "r", dir)
+	m, warns, err := Collect(context.Background(), c, "o", "r", dir, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestCollect_http500(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
 	// When: Collect runs
-	_, _, err := Collect(context.Background(), c, "o", "r", dir)
+	_, _, err := Collect(context.Background(), c, "o", "r", dir, "")
 	// Then: error mentions 500
 	if err == nil || !strings.Contains(err.Error(), "500") {
 		t.Fatalf("got %v", err)
@@ -68,7 +68,7 @@ func TestCollect_nonGitWorkDir(t *testing.T) {
 	dir := t.TempDir()
 	c := &githubapi.Client{HTTP: http.DefaultClient, Token: "t", BaseURL: "http://unused.invalid"}
 	// When: Collect runs
-	m, warns, err := Collect(context.Background(), c, "o", "r", dir)
+	m, warns, err := Collect(context.Background(), c, "o", "r", dir, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,6 +83,40 @@ func TestCollect_nonGitWorkDir(t *testing.T) {
 	// Then: warning and ci_status unknown
 	if !ok || st != "unknown" {
 		t.Fatalf("ci_status=%v (%T)", cimap["ci_status"], cimap["ci_status"])
+	}
+}
+
+func TestCollect_usesHeadSHAOverride(t *testing.T) {
+	t.Parallel()
+	// Given: git repo with HEAD and an explicit override SHA
+	dir := t.TempDir()
+	gitInit(t, dir)
+	var requestedPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestedPath = r.URL.Path
+		_, _ = w.Write([]byte(`{"state":"pending"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	override := "0123456789abcdef0123456789abcdef01234567"
+	// When: Collect runs with the override
+	m, warns, err := Collect(context.Background(), c, "o", "r", dir, override)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warns) != 0 {
+		t.Fatalf("%v", warns)
+	}
+	if !strings.Contains(requestedPath, override) {
+		t.Fatalf("path=%q want override %q", requestedPath, override)
+	}
+	// Then: the API request and emitted signal both use the override SHA
+	cimap, ok := m["ci"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected ci map, got %T", m["ci"])
+	}
+	if cimap["head_sha"] != override {
+		t.Fatalf("ci=%+v", cimap)
 	}
 }
 

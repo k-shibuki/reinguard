@@ -12,6 +12,14 @@ Single Cursor entry for workflow procedures: use **substrate** output to pick Se
 
    If `rgd` is not on `PATH`, from repo root: `go run ./cmd/rgd context build` (same flags).
 
+   When the user names a PR number, prefer scoped observation:
+
+   ```bash
+   rgd context build --pr <N>
+   ```
+
+   (or `go run ./cmd/rgd context build --pr <N>` from repo root).
+
 2. Parse stdout JSON:
    - `state.state_id`, `state.kind`
    - `routes[0].kind`, `routes[0].route_id` (when `routes[0].kind` is `resolved`)

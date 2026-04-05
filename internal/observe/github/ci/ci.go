@@ -19,13 +19,19 @@ type combinedStatus struct {
 	State string `json:"state"`
 }
 
-// Collect returns a coarse CI rollup for HEAD of the current branch.
-func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir string) (map[string]any, []string, error) {
+// Collect returns a coarse CI rollup for the observed head SHA.
+// If headSHAOverride is non-empty after trimming, it is used directly; otherwise the
+// SHA is determined via git rev-parse HEAD in workDir.
+func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir, headSHAOverride string) (map[string]any, []string, error) {
 	if c == nil {
 		return nil, nil, fmt.Errorf("nil client")
 	}
 	var warnings []string
-	sha, err := headSHA(ctx, workDir)
+	sha := strings.TrimSpace(headSHAOverride)
+	var err error
+	if sha == "" {
+		sha, err = headSHA(ctx, workDir)
+	}
 	if err != nil {
 		warnings = append(warnings, err.Error())
 		return map[string]any{
