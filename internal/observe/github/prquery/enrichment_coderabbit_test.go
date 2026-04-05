@@ -168,6 +168,38 @@ func TestCoderabbitEnrichment_EnrichReviewBody(t *testing.T) {
 	}
 }
 
+func TestCoderabbitEnrichment_Enrich_providerNeutralIssueCommentAliases(t *testing.T) {
+	t.Parallel()
+	e := coderabbitEnrichment{}
+	// Body triggers reviewed head SHA + in-progress processing; assert normalized keys only.
+	body := "Reviewing files between [1c0a07a](https://example.com/1) and [4b680dbdeadbeef](https://example.com/2).\n" +
+		"Currently processing new changes in this PR.\n"
+	got := e.Enrich(body)
+	if got == nil {
+		t.Fatal("got nil")
+	}
+	if v, ok := got["review_processing"].(bool); !ok || !v {
+		t.Fatalf("want review_processing=true, got %+v", got)
+	}
+	if sha, ok := got["reviewed_head_sha"].(string); !ok || sha != "4b680dbdeadbeef" {
+		t.Fatalf("want reviewed_head_sha, got %+v", got)
+	}
+}
+
+func TestCoderabbitEnrichment_ClassifyStatus_providerNeutralAliases(t *testing.T) {
+	t.Parallel()
+	e := coderabbitEnrichment{}
+	if g := e.ClassifyStatus(map[string]any{"review_processing": true}); g != BotStatusPending {
+		t.Fatalf("ClassifyStatus(review_processing)= %q want %q", g, BotStatusPending)
+	}
+	if g := e.ClassifyStatus(map[string]any{"review_completed_clean": true}); g != BotStatusCompletedClean {
+		t.Fatalf("ClassifyStatus(review_completed_clean)= %q want %q", g, BotStatusCompletedClean)
+	}
+	if g := e.ClassifyStatus(map[string]any{"walkthrough_present": true, "latest_comment_at": ""}); g != BotStatusPending {
+		t.Fatalf("ClassifyStatus(walkthrough_present)= %q want %q", g, BotStatusPending)
+	}
+}
+
 func TestCoderabbitEnrichment_EnrichReviewBody_actionableAndOutside(t *testing.T) {
 	t.Parallel()
 	e := coderabbitEnrichment{}

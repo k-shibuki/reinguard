@@ -37,6 +37,10 @@ func duplicateFindingsDetected(statusList []any) bool {
 		if !ok {
 			continue
 		}
+		req, ok := m["required"].(bool)
+		if !ok || !req {
+			continue
+		}
 		if n, ok := intFromStatusMapAny(m, "duplicate_findings_count", "cr_duplicate_findings_count"); ok && n > 0 {
 			return true
 		}

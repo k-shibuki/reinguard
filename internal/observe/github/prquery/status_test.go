@@ -109,15 +109,15 @@ func TestComputeBotReviewDiagnostics_duplicateFindingsOptionalOnlyNoRequired(t *
 	t.Parallel()
 	// Given: no required bots; optional bot reports duplicate findings in review summary.
 	// When:  vacuous completion branch runs (sawRequired == false).
-	// Then:  duplicate_findings_detected still surfaces for triage.
+	// Then:  duplicate_findings_detected is false (aggregate aligns with required-bot-only semantics).
 	got := ComputeBotReviewDiagnostics([]any{
 		map[string]any{"required": false, "status": BotStatusCompleted, "duplicate_findings_count": 2},
 	}, "abc123", false)
 	if got["bot_review_completed"].(bool) != true {
 		t.Fatalf("vacuous completion expected: %+v", got)
 	}
-	if got["duplicate_findings_detected"].(bool) != true {
-		t.Fatalf("want duplicate_findings_detected=true in no-required branch, got %+v", got)
+	if got["duplicate_findings_detected"].(bool) {
+		t.Fatalf("want duplicate_findings_detected=false when only optional bots report duplicates, got %+v", got)
 	}
 }
 
@@ -226,16 +226,30 @@ func TestComputeBotReviewDiagnostics_conversationIncompleteOptionalOnly(t *testi
 
 func TestComputeBotReviewDiagnostics_duplicateFindingsOnOptionalBot(t *testing.T) {
 	t.Parallel()
-	// Given: optional bot with duplicate findings in review summary (observation still surfaces it).
+	// Given: optional bot reports duplicates; required bot does not.
+	// Then: duplicate_findings_detected is false (required-bot-only aggregate).
 	got := ComputeBotReviewDiagnostics([]any{
 		map[string]any{"required": false, "status": BotStatusCompleted, "duplicate_findings_count": 2},
 		map[string]any{"required": true, "status": BotStatusCompleted, "review_commit_sha": "abc123"},
 	}, "abc123", false)
-	if got["duplicate_findings_detected"].(bool) != true {
-		t.Fatalf("want duplicate_findings_detected=true, got %+v", got)
+	if got["duplicate_findings_detected"].(bool) {
+		t.Fatalf("want duplicate_findings_detected=false when only optional has duplicates, got %+v", got)
 	}
 	if got["bot_review_completed"].(bool) != true {
 		t.Fatalf("required bot still completed: %+v", got)
+	}
+}
+
+func TestComputeBotReviewDiagnostics_duplicateFindingsRequiredBot(t *testing.T) {
+	t.Parallel()
+	got := ComputeBotReviewDiagnostics([]any{
+		map[string]any{
+			"required": true, "status": BotStatusCompleted, "review_commit_sha": "abc123",
+			"duplicate_findings_count": 1,
+		},
+	}, "abc123", false)
+	if got["duplicate_findings_detected"].(bool) != true {
+		t.Fatalf("want duplicate_findings_detected=true for required bot, got %+v", got)
 	}
 }
 
