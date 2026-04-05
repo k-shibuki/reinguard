@@ -241,7 +241,7 @@ func TestLoadSignals_injectsDerivedStatuses(t *testing.T) {
 	}
 	writeFile(t, path, []byte(`{"bad":true}`))
 
-	// When: LoadSignals scans runtime gate artifacts
+	// When: LoadSignals scans local gate artifacts
 	got, err := LoadSignals(context.Background(), cfgDir, repo)
 	if err != nil {
 		t.Fatal(err)

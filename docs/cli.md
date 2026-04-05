@@ -296,7 +296,7 @@ Committed workflow `state_id` priorities for this repository are documented in *
 - **stdin** JSON when `-` is passed as file (optional convention).
 - `--branch BRANCH` / `--pr N` use the same live GitHub scope rules as
   [`rgd observe`](#explicit-github-pr-scope) when `--observation-file` is not set.
-- Runtime gate statuses from `.reinguard/runtime/gates/*.json` are merged into
+- Runtime gate statuses from `.reinguard/local/gates/*.json` are merged into
   the evaluation signal map as `gates.<gate-id>.*` before state resolution.
 
 ### Output
@@ -323,7 +323,7 @@ Evaluates `type: route` rules using:
 - `--state-file` optional prior `state eval` JSON (merged into signals as `state` key)
 - `--branch BRANCH` / `--pr N` for live observation only (same precedence as
   [`rgd observe`](#explicit-github-pr-scope))
-- Runtime gate statuses from `.reinguard/runtime/gates/*.json` (merged as
+- Runtime gate statuses from `.reinguard/local/gates/*.json` (merged as
   `gates.<gate-id>.*` before route evaluation)
 
 ### Output
@@ -352,7 +352,7 @@ signal map as `gates.<gate-id>.*`.
 
 ## `rgd gate`
 
-Runtime gate artifacts live under `.reinguard/runtime/gates/` and are validated
+Runtime gate artifacts live under `.reinguard/local/gates/` and are validated
 against the embedded `gate-artifact.json` schema. These artifacts are
 **gitignored operational state**, not Semantics content.
 
@@ -538,7 +538,7 @@ present, against embedded JSON Schemas. Also **builds enabled observation provid
 errors. **Deprecated** configuration keys (marked in JSON Schema) emit **warnings
 on stderr** but still exit **0** when validation succeeds.
 
-`config validate` does **not** validate `.reinguard/runtime/`; runtime gate
+`config validate` does **not** validate `.reinguard/local/`; runtime gate
 artifacts use the dedicated `rgd gate` schema and commands instead.
 
 **`when` clauses (ADR-0002):** Control rules and knowledge manifest entries are checked with the same static validator: unknown `eval:` names, unknown `op` strings, missing required keys per `op` (e.g. `eq` needs `path` and `value`), `eval: constant` requires `params.value` (boolean), and `path` strings must use allowed roots (`git.`, `github.`, `state.`, `gates.`, or `$` / `$.` for nested quantifier clauses). Named evaluators: `rgd config validate` rejects unknown `eval:` names against the built-in registry. To list built-ins, call `evaluator.DefaultRegistry().ListRegistered()` from Go (sorted names), or see `internal/evaluator/`.

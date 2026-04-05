@@ -14,8 +14,10 @@ if ! git rev-parse --show-toplevel >/dev/null 2>&1; then
 fi
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-STATE_ROOT="${REINGUARD_LOCAL_STATE_ROOT:-$REPO_ROOT/.tmp}"
-ARTIFACT_DIR="$STATE_ROOT/adapter/rgd-next"
+# Adapter-local state under .reinguard/local (not tool caches in .tmp/).
+# REINGUARD_LOCAL_DIR overrides the root (for tests); default is $REPO_ROOT/.reinguard/local
+LOCAL_ROOT="${REINGUARD_LOCAL_DIR:-$REPO_ROOT/.reinguard/local}"
+ARTIFACT_DIR="$LOCAL_ROOT/adapter/rgd-next"
 ARTIFACT_PATH="$ARTIFACT_DIR/execute-resume.json"
 
 artifact_branch=""

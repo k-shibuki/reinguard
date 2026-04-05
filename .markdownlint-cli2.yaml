@@ -13,3 +13,4 @@ config:
 ignores:
   - "node_modules/**"
   - "vendor/**"
+  - ".reinguard/local/**"

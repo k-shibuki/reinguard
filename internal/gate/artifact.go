@@ -1,4 +1,4 @@
-// Package gate records and evaluates runtime gate artifacts under .reinguard/runtime/gates.
+// Package gate records and evaluates runtime gate artifacts under .reinguard/local/gates.
 package gate
 
 import (
@@ -68,14 +68,14 @@ type StatusResult struct {
 	RecordedAt string `json:"recorded_at,omitempty"`
 }
 
-// RuntimeDir returns the runtime directory under the resolved config directory.
-func RuntimeDir(cfgDir string) string {
-	return filepath.Join(cfgDir, "runtime")
+// LocalDir returns the local operational state directory under the resolved config directory.
+func LocalDir(cfgDir string) string {
+	return filepath.Join(cfgDir, "local")
 }
 
-// GatesDir returns the runtime gate directory under the resolved config directory.
+// GatesDir returns the gate artifacts directory under the resolved config directory.
 func GatesDir(cfgDir string) string {
-	return filepath.Join(RuntimeDir(cfgDir), "gates")
+	return filepath.Join(LocalDir(cfgDir), "gates")
 }
 
 // ValidateGateID rejects blank or unsafe gate identifiers.

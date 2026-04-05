@@ -35,7 +35,7 @@ wins** among matching rules (ADR-0004). `state_id` values:
 | `merge_ready` | Coarse merge gate (clean tree, CI, threads, decisions) | Aligns with `merge-readiness` guard signals |
 | `waiting_ci` | PR open; no thread/decision work; CI or mergeability not satisfied | Threads 0, changes 0, working tree clean; `ci_status` != `success` **or** `merge_state_status` != `clean` |
 | `pr_open` | PR exists; residual (e.g. dirty working tree) | `github.pull_requests.pr_exists_for_branch` true |
-| `ready_for_pr` | No PR exists, and `pr-readiness` is fresh and passing | `pr_exists_for_branch` false (or missing) and `gates.pr-readiness.status == pass`; `pr-readiness` is the runtime gate recorded by `.reinguard/procedure/change-inspect.md` per ADR-0014, keeping PR readiness mechanically visible without a dedicated route vocabulary |
+| `ready_for_pr` | No PR exists, and `pr-readiness` is fresh and passing | `pr_exists_for_branch` false (or missing) and `gates.pr-readiness.status == pass`; `pr-readiness` is the runtime gate recorded by `.reinguard/procedure/change-inspect.md` per ADR-0014 (artifact under `.reinguard/local/gates/`), keeping PR readiness mechanically visible without a dedicated route vocabulary |
 | `working_no_pr` | No PR for branch (or PR facet absent); residual before PR readiness is proven | `pr_exists_for_branch` false or path missing, with `ready_for_pr` using a lower numeric `priority` than `working_no_pr` so it wins when the gate condition matches |
 
 **Bot status tiers** (per-element `status` in `bot_reviewer_status`):

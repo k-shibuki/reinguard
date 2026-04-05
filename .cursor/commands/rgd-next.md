@@ -75,6 +75,8 @@ After **Sense** and **Route**, record the Adapter-local **proposal** artifact fo
 bash .reinguard/scripts/adapter-rgd-next-resume.sh start --branch <branch> [--issue <N>] [--pr <N>] [--summary TEXT]
 ```
 
+Persistent JSON defaults to `.reinguard/local/adapter/rgd-next/execute-resume.json` (ADR-0015).
+
 This writes `status: "pending_approval"` until the user approves Execute (next section).
 
 1. Trace forward from the current `state_id` using [ADR-0013 § 4](../../docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md) through **Per-unit Definition of Done** in [`.reinguard/procedure/next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md).

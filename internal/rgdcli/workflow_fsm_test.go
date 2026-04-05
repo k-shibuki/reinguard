@@ -23,7 +23,7 @@ func reinguardConfigDir(t *testing.T) string {
 		t.Fatalf("copy .reinguard: %v", err)
 	}
 	// Isolate FSM scenario tests from developer-local pr-readiness artifacts (pass would force ready_for_pr).
-	_ = os.Remove(filepath.Join(dst, "runtime", "gates", "pr-readiness.json"))
+	_ = os.Remove(filepath.Join(dst, "local", "gates", "pr-readiness.json"))
 	return dst
 }
 

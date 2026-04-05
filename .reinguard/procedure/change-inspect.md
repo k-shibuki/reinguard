@@ -99,7 +99,8 @@ the script prints **stderr heartbeats** every **30 seconds** and enforces a
 `review--local-coderabbit-cli.md`). Do not kill the subprocess unless you have
 positive evidence of a crash or hang **beyond** that supervisor limit, or that
 the process exited, crashed, or violated the documented retry contract.
-If the branch uses a runtime verification gate such as `local-verification`,
+If the branch uses a runtime verification gate such as `local-verification`
+(artifacts under `.reinguard/local/gates/` per ADR-0014),
 record or refresh it on the reviewed head after the required local checks
 pass, for example:
 
@@ -142,7 +143,7 @@ If review closure is not yet complete for the current local review cycle:
 3. Re-run applicable preflight steps (`go test`, `go vet`, `golangci-lint`, `bash .reinguard/scripts/with-repo-local-state.sh -- pre-commit run markdownlint-cli2 --all-files`)
 4. Commit the stabilized batch with `Refs: #<issue>`
 5. Re-run `bash .reinguard/scripts/with-repo-local-state.sh --home-subdir cr-home -- bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit` on the stabilized head
-6. Re-record the runtime gate for the stabilized head when this branch uses one (for example `rgd gate record --status pass local-verification`)
+6. Re-record the gate artifact for the stabilized head when this branch uses one (for example `rgd gate record --status pass local-verification`; files under `.reinguard/local/gates/`)
 7. Re-run inspection (go to step 2) until every finding in the current local review cycle is classified and closed per the shared policy
 
 If a finding is dispositioned **Acknowledged**, record the follow-up Issue
@@ -153,7 +154,7 @@ PR handoff is auditable.
 
 When inspection shows review closure complete for the current local review
 cycle, including local CodeRabbit findings on the latest head: record or
-refresh the runtime gate that proves the branch is ready for PR creation on
+refresh the gate artifact (`.reinguard/local/gates/`) that proves the branch is ready for PR creation on
 the inspected HEAD, for example:
 
 ```bash

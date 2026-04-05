@@ -18,7 +18,7 @@ but it must not become a workflow brain or execute arbitrary repository scripts.
 
 ## Decision
 
-1. Introduce **runtime gate artifacts** under `.reinguard/runtime/gates/`.
+1. Introduce **runtime gate artifacts** under `.reinguard/local/gates/`.
    These are **gitignored, substrate-owned operational state**, not Semantics
    documents.
 2. Add `rgd gate` commands:
@@ -47,7 +47,7 @@ but it must not become a workflow brain or execute arbitrary repository scripts.
 
 When adding or changing a **runtime gate** (`gate_id`):
 
-1. **Semantics** — Document the gate’s purpose; **producer** procedure(s) that run `rgd gate record <gate-id>` after local verification; **consumer** procedure(s) or FSM rules that read `gates.<gate-id>.*` (e.g. `status`, `head_sha`). Keep recording out of versioned Semantics; artifacts stay under `.reinguard/runtime/gates/` (gitignored).
+1. **Semantics** — Document the gate’s purpose; **producer** procedure(s) that run `rgd gate record <gate-id>` after local verification; **consumer** procedure(s) or FSM rules that read `gates.<gate-id>.*` (e.g. `status`, `head_sha`). Keep recording out of versioned Semantics; artifacts stay under `.reinguard/local/gates/` (gitignored).
 2. **FSM** — If `state eval` or `route select` references `gates.<gate-id>`, update `.reinguard/control/states/*.yaml` and/or `.reinguard/control/routes/*.yaml` and **ADR-0013** (state catalog and Adapter mapping).
 3. **Freshness** — Procedures must treat `rgd gate status` outcomes per Decision §4: `stale` / `missing` / `invalid` are not proof of the current HEAD; consumers return to the producer procedure or re-verify before proceeding.
 4. **Schema** — Artifacts validate against the embedded gate schema; new top-level fields require ADR-0008 / schema versioning, not ad-hoc files.
@@ -56,6 +56,13 @@ When adding or changing a **runtime gate** (`gate_id`):
 `rgd` still does not execute gate verification commands; recording remains procedure-owned.
 
 Operational checklist: `.reinguard/knowledge/workflow--state-gate-guard-extension.md`.
+
+## Migration note
+
+Gate files on disk moved from `.reinguard/runtime/gates/` to
+`.reinguard/local/gates/` (breaking). Rationale: consolidate reinguard-owned
+local state under `.reinguard/local/` and reserve `/.tmp/` for tool caches only.
+Re-run `rgd gate record <gate-id>` on the current HEAD after upgrading `rgd`.
 
 ## Consequences
 

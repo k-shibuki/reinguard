@@ -29,9 +29,9 @@ orchestration state, not repository workflow position.
 ## Decision
 
 1. Introduce an **Adapter-local execute resume artifact** for `rgd-next`.
-2. The artifact lives under the repo-local temporary state root (`.tmp/`
-   by default, or `REINGUARD_LOCAL_STATE_ROOT` when set by
-   `with-repo-local-state.sh`).
+2. The artifact lives under `.reinguard/local/adapter/rgd-next/` (gitignored).
+   Optional override: set `REINGUARD_LOCAL_DIR` to the desired `.reinguard/local`
+   equivalent root (for example in tests).
 3. The artifact is **Adapter-owned**, not substrate-owned:
    - it must not be merged into `rgd context build`
    - it must not become `gates.<id>.*`
@@ -54,6 +54,13 @@ orchestration state, not repository workflow position.
 6. Terminality remains evidence-based per `next-orchestration.md`. The
    artifact is a durable record of the Adapter contract, not an authority
    that overrides procedure semantics.
+
+## Migration note
+
+Previously the resume file defaulted under `.tmp/adapter/rgd-next/` (and
+`REINGUARD_LOCAL_STATE_ROOT` from `with-repo-local-state.sh`). It now defaults
+to `.reinguard/local/adapter/rgd-next/execute-resume.json` so Adapter state is
+not mixed with workspace tool caches under `/.tmp/`.
 
 ## Consequences
 

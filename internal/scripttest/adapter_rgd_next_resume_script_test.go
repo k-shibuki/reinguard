@@ -113,7 +113,7 @@ func TestAdapterRgdNextResumeScript_Lifecycle(t *testing.T) {
 	// When: the adapter records progress and then a terminal allowed stop
 	got := runResumeLifecycleStatus(t, repo, script)
 
-	// Then: the artifact is stored under repo-local .tmp and remains auditable
+	// Then: the artifact is stored under repo-local .reinguard/local and remains auditable
 	if got.Status != "allowed_stop" || got.ResumeEligible {
 		t.Fatalf("status = %+v", got)
 	}
@@ -126,7 +126,7 @@ func TestAdapterRgdNextResumeScript_Lifecycle(t *testing.T) {
 	if got.Terminal.Reason != "tooling_session_limit" || got.Terminal.Summary != "context limit reached" {
 		t.Fatalf("terminal = %+v", got.Terminal)
 	}
-	wantPath := filepath.Join(repo, ".tmp", "adapter", "rgd-next", "execute-resume.json")
+	wantPath := filepath.Join(repo, ".reinguard", "local", "adapter", "rgd-next", "execute-resume.json")
 	if got.ArtifactPath != wantPath {
 		t.Fatalf("artifact_path = %q, want %q", got.ArtifactPath, wantPath)
 	}
@@ -175,7 +175,7 @@ func TestAdapterRgdNextResumeScript_StatusInvalidForMalformedArtifact(t *testing
 	script := scriptPath(t, "adapter-rgd-next-resume.sh")
 	repo := setupLocalReviewRepo(t)
 	renameBranch(t, repo, "feature/104")
-	artifactPath := filepath.Join(repo, ".tmp", "adapter", "rgd-next", "execute-resume.json")
+	artifactPath := filepath.Join(repo, ".reinguard", "local", "adapter", "rgd-next", "execute-resume.json")
 	if err := os.MkdirAll(filepath.Dir(artifactPath), 0o755); err != nil {
 		t.Fatal(err)
 	}

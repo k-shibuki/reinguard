@@ -44,8 +44,8 @@ vendor/
 # Cached mikefarah yq (sync-issue-templates.sh)
 .reinguard/scripts/.bin/
 
-# Runtime gate artifacts (substrate-owned operational state)
-.reinguard/runtime/
+# Local operational state (substrate gates, adapter resume, scratch; gitignored)
+.reinguard/local/
 
-# Workspace-local temporary caches (pre-commit workaround, etc.)
+# Workspace-local temporary caches (pre-commit, Go/lint caches; not reinguard artifacts)
 /.tmp/

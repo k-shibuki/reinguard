@@ -36,7 +36,7 @@ Without explicit structure:
      (`.cursor/commands/rgd-next.md`); `cursor-plan` handles deep planning via
      `CreatePlan` only, embedding Issue-creation steps when issue-first
      (`.cursor/commands/cursor-plan.md`).
-   - `runtime/` — **gitignored operational state** written by the Substrate
+   - `local/` — **gitignored operational state** written by the Substrate
      when a bounded runtime contract explicitly allows it (for example runtime
      gate artifacts; see ADR-0014). This directory is **not** Semantics
      content, is not indexed as knowledge, and is not part of control-rule
@@ -58,7 +58,7 @@ Without explicit structure:
    - Must be followed as a norm → `policy/`
    - State / route / guard meaning in match YAML → `control/`
    - Repeatable agent procedure bound to state/route → `procedure/`
-   - Substrate operational state under bounded contract → `runtime/`
+   - Substrate operational state under bounded contract → `local/`
    - Client-specific bridge only (no SSOT prose) → Adapter layer (`.cursor/`)
 
 5. **Adapter layer** — `.cursor/` remains thin: bridge files and commands
@@ -76,7 +76,16 @@ Without explicit structure:
 - **Harder**: Downstream repos that used `.reinguard/rules/` must migrate
   paths (breaking layout change for configuration discovery)
 - **Harder**: `.reinguard/` now contains both Semantics content and an explicit
-  gitignored runtime enclave; tooling and docs must keep that boundary clear
+  gitignored local-state enclave; tooling and docs must keep that boundary clear
+
+## Migration note
+
+The on-disk directory for substrate-owned gate artifacts was renamed from
+`runtime/` to `local/` so that reinguard-owned local state (gates, Adapter
+resume, scratch) lives under one gitignored tree (`.reinguard/local/`) and
+stays distinct from workspace-relative tool caches (`.tmp/`). Existing
+`.reinguard/runtime/gates/*.json` files are not read; re-record with
+`rgd gate record` after updating `rgd`.
 
 ## Refs
 
