@@ -182,6 +182,15 @@ func parseCoderabbitReviewedHeadSHA(body string) string {
 // a stale rate limit loses to a newer clean bill, and a stale clean loses to a newer rate limit.
 // Walkthrough/SHA-only markers stay at a lower tier so they do not outrank decisive status lines.
 func CoderabbitIssueCommentMaxTier(body string) int {
+	// Boilerplate PR issue comments (summaries, walkthrough hosts, disposition bot replies).
+	// These are not actionable review findings; treat like other operational tier-6 traffic so
+	// finding_conversation_comments_count does not stay elevated after a disposition cycle.
+	if strings.Contains(body, "<!-- This is an auto-generated reply by CodeRabbit -->") {
+		return 6
+	}
+	if strings.Contains(body, "<!-- This is an auto-generated comment:") {
+		return 6
+	}
 	lower := strings.ToLower(body)
 	t := 0
 	if strings.Contains(lower, "rate limit") || parseCoderabbitRateLimitSeconds(body) > 0 {
