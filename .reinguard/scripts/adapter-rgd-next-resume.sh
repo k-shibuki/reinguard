@@ -28,6 +28,12 @@ artifact_status=""
 artifact_issue=""
 artifact_pr=""
 artifact_summary=""
+artifact_approved_head_sha=""
+artifact_approved_state=""
+artifact_approved_route=""
+artifact_ordered_remainder=""
+artifact_completion_condition=""
+artifact_proposal_fingerprint=""
 artifact_last_state=""
 artifact_last_route=""
 artifact_last_recorded_at=""
@@ -39,6 +45,25 @@ current_branch() {
   local branch
   branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
   printf '%s' "$branch"
+}
+
+current_head_sha() {
+  local sha
+  sha="$(git rev-parse HEAD 2>/dev/null || true)"
+  printf '%s' "$sha"
+}
+
+compute_proposal_fingerprint() {
+  printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n' \
+    "$artifact_branch" \
+    "$artifact_issue" \
+    "$artifact_pr" \
+    "$artifact_approved_head_sha" \
+    "$artifact_approved_state" \
+    "$artifact_approved_route" \
+    "$artifact_ordered_remainder" \
+    "$artifact_completion_condition" \
+    "$artifact_summary" | sha256sum | awk '{print $1}'
 }
 
 require_positive_integer() {
@@ -58,7 +83,7 @@ ensure_artifact_branch_matches_current() {
 }
 
 load_artifact() {
-  local raw last_iteration terminal
+  local raw approved_contract last_iteration terminal
   raw="$(<"$ARTIFACT_PATH")"
 
   artifact_branch="$(json_get_string "$raw" "branch")"
@@ -69,6 +94,14 @@ load_artifact() {
   artifact_issue="$(json_get_number "$raw" "issue_number")"
   artifact_pr="$(json_get_number "$raw" "pr_number")"
   artifact_summary="$(json_get_string "$raw" "summary")"
+
+  approved_contract="$(json_get_block "$raw" "approved_contract")"
+  artifact_approved_head_sha="$(json_get_string "$approved_contract" "head_sha")"
+  artifact_approved_state="$(json_get_string "$approved_contract" "state_id")"
+  artifact_approved_route="$(json_get_string "$approved_contract" "route_id")"
+  artifact_ordered_remainder="$(json_get_string "$approved_contract" "ordered_remainder")"
+  artifact_completion_condition="$(json_get_string "$approved_contract" "completion_condition")"
+  artifact_proposal_fingerprint="$(json_get_string "$approved_contract" "proposal_fingerprint")"
 
   last_iteration="$(json_get_block "$raw" "last_iteration")"
   artifact_last_state="$(json_get_string "$last_iteration" "state_id")"
@@ -101,7 +134,17 @@ write_artifact_file() {
     if [[ -n "$artifact_summary" ]]; then
       printf '  "summary": "%s",\n' "$(json_escape "$artifact_summary")"
     fi
-    printf '  "updated_at": "%s"' "$(json_escape "$artifact_updated_at")"
+    printf '  "updated_at": "%s",\n' "$(json_escape "$artifact_updated_at")"
+    printf '  "approved_contract": {\n'
+    printf '    "head_sha": "%s",\n' "$(json_escape "$artifact_approved_head_sha")"
+    printf '    "state_id": "%s",\n' "$(json_escape "$artifact_approved_state")"
+    if [[ -n "$artifact_approved_route" ]]; then
+      printf '    "route_id": "%s",\n' "$(json_escape "$artifact_approved_route")"
+    fi
+    printf '    "ordered_remainder": "%s",\n' "$(json_escape "$artifact_ordered_remainder")"
+    printf '    "completion_condition": "%s",\n' "$(json_escape "$artifact_completion_condition")"
+    printf '    "proposal_fingerprint": "%s"\n' "$(json_escape "$artifact_proposal_fingerprint")"
+    printf '  }'
     if [[ -n "$artifact_last_state" || -n "$artifact_terminal_reason" ]]; then
       printf ',\n'
     else
@@ -147,14 +190,14 @@ emit_status_json() {
     printf '  "current_branch": "%s",\n' "$(json_escape "$current")"
     printf '  "status": "%s",\n' "$(json_escape "$status")"
     printf '  "resume_eligible": %s' "$resume_eligible"
-    if [[ -n "$reason" || -n "$artifact_branch" || -n "$artifact_issue" || -n "$artifact_pr" || -n "$artifact_summary" || -n "$artifact_approval_at" || -n "$artifact_created_at" || -n "$artifact_updated_at" || -n "$artifact_last_state" || -n "$artifact_terminal_reason" ]]; then
+    if [[ -n "$reason" || -n "$artifact_branch" || -n "$artifact_issue" || -n "$artifact_pr" || -n "$artifact_summary" || -n "$artifact_approval_at" || -n "$artifact_created_at" || -n "$artifact_updated_at" || -n "$artifact_approved_head_sha" || -n "$artifact_last_state" || -n "$artifact_terminal_reason" ]]; then
       printf ',\n'
     else
       printf '\n'
     fi
     if [[ -n "$reason" ]]; then
       printf '  "reason": "%s"' "$(json_escape "$reason")"
-      if [[ -n "$artifact_branch" || -n "$artifact_issue" || -n "$artifact_pr" || -n "$artifact_summary" || -n "$artifact_approval_at" || -n "$artifact_created_at" || -n "$artifact_updated_at" || -n "$artifact_last_state" || -n "$artifact_terminal_reason" ]]; then
+      if [[ -n "$artifact_branch" || -n "$artifact_issue" || -n "$artifact_pr" || -n "$artifact_summary" || -n "$artifact_approval_at" || -n "$artifact_created_at" || -n "$artifact_updated_at" || -n "$artifact_approved_head_sha" || -n "$artifact_last_state" || -n "$artifact_terminal_reason" ]]; then
         printf ',\n'
       else
         printf '\n'
@@ -179,7 +222,17 @@ emit_status_json() {
       printf '  "created_at": "%s",\n' "$(json_escape "$artifact_created_at")"
     fi
     if [[ -n "$artifact_updated_at" ]]; then
-      printf '  "updated_at": "%s"' "$(json_escape "$artifact_updated_at")"
+      printf '  "updated_at": "%s",\n' "$(json_escape "$artifact_updated_at")"
+      printf '  "approved_contract": {\n'
+      printf '    "head_sha": "%s",\n' "$(json_escape "$artifact_approved_head_sha")"
+      printf '    "state_id": "%s",\n' "$(json_escape "$artifact_approved_state")"
+      if [[ -n "$artifact_approved_route" ]]; then
+        printf '    "route_id": "%s",\n' "$(json_escape "$artifact_approved_route")"
+      fi
+      printf '    "ordered_remainder": "%s",\n' "$(json_escape "$artifact_ordered_remainder")"
+      printf '    "completion_condition": "%s",\n' "$(json_escape "$artifact_completion_condition")"
+      printf '    "proposal_fingerprint": "%s"\n' "$(json_escape "$artifact_proposal_fingerprint")"
+      printf '  }'
       if [[ -n "$artifact_last_state" || -n "$artifact_terminal_reason" ]]; then
         printf ',\n'
       else
@@ -216,7 +269,7 @@ emit_status_json() {
 usage() {
   cat <<EOF2
 Usage:
-  $SCRIPT_NAME start --branch BRANCH [--issue N] [--pr N] [--summary TEXT]
+  $SCRIPT_NAME start --branch BRANCH --state-id ID --ordered-remainder TEXT --completion-condition TEXT [--route-id ID] [--issue N] [--pr N] [--summary TEXT]
   $SCRIPT_NAME approve
   $SCRIPT_NAME update --state-id ID [--route-id ID]
   $SCRIPT_NAME finish --status done|allowed_stop|revoked --reason REASON [--summary TEXT]
@@ -234,7 +287,7 @@ EOF2
 }
 
 start_cmd() {
-  local branch="" issue="" pr="" summary="" now
+  local branch="" state_id="" route_id="" ordered_remainder="" completion_condition="" issue="" pr="" summary="" now
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --branch)
@@ -245,6 +298,26 @@ start_cmd() {
       --issue)
         require_flag_value "--issue" "${2:-}" "--issue requires a positive integer"
         issue="$2"
+        shift 2
+        ;;
+      --state-id)
+        require_flag_value "--state-id" "${2:-}" "--state-id requires a non-empty value"
+        state_id="$2"
+        shift 2
+        ;;
+      --route-id)
+        require_flag_value "--route-id" "${2:-}" "--route-id requires a non-empty value"
+        route_id="$2"
+        shift 2
+        ;;
+      --ordered-remainder)
+        require_flag_value "--ordered-remainder" "${2:-}" "--ordered-remainder requires a non-empty value"
+        ordered_remainder="$2"
+        shift 2
+        ;;
+      --completion-condition)
+        require_flag_value "--completion-condition" "${2:-}" "--completion-condition requires a non-empty value"
+        completion_condition="$2"
         shift 2
         ;;
       --pr)
@@ -264,6 +337,9 @@ start_cmd() {
   done
 
   [[ -n "$branch" ]] || fail_with "--branch is required for start" 2
+  [[ -n "$state_id" ]] || fail_with "--state-id is required for start" 2
+  [[ -n "$ordered_remainder" ]] || fail_with "--ordered-remainder is required for start" 2
+  [[ -n "$completion_condition" ]] || fail_with "--completion-condition is required for start" 2
   [[ -z "$issue" ]] || require_positive_integer "--issue" "$issue"
   [[ -z "$pr" ]] || require_positive_integer "--pr" "$pr"
 
@@ -273,6 +349,13 @@ start_cmd() {
   artifact_issue="$issue"
   artifact_pr="$pr"
   artifact_summary="$summary"
+  artifact_approved_head_sha="$(current_head_sha)"
+  [[ -n "$artifact_approved_head_sha" ]] || fail_with "current HEAD SHA is unavailable" 2
+  artifact_approved_state="$state_id"
+  artifact_approved_route="$route_id"
+  artifact_ordered_remainder="$ordered_remainder"
+  artifact_completion_condition="$completion_condition"
+  artifact_proposal_fingerprint="$(compute_proposal_fingerprint)"
   artifact_approval_at=""
   artifact_created_at="$now"
   artifact_updated_at="$now"
@@ -397,6 +480,12 @@ status_cmd() {
   artifact_issue=""
   artifact_pr=""
   artifact_summary=""
+  artifact_approved_head_sha=""
+  artifact_approved_state=""
+  artifact_approved_route=""
+  artifact_ordered_remainder=""
+  artifact_completion_condition=""
+  artifact_proposal_fingerprint=""
   artifact_last_state=""
   artifact_last_route=""
   artifact_last_recorded_at=""
@@ -410,7 +499,7 @@ status_cmd() {
   fi
 
   raw="$(<"$ARTIFACT_PATH")"
-  for key in schema_version artifact_type command status branch created_at updated_at; do
+  for key in schema_version artifact_type command status branch created_at updated_at approved_contract; do
     if ! json_has_key "$raw" "$key"; then
       missing+=("$key")
     fi
@@ -421,6 +510,10 @@ status_cmd() {
   fi
 
   load_artifact
+  if [[ -z "$artifact_approved_head_sha" || -z "$artifact_approved_state" || -z "$artifact_ordered_remainder" || -z "$artifact_completion_condition" || -z "$artifact_proposal_fingerprint" ]]; then
+    emit_status_json "invalid" "false" "approved_contract is missing required fields"
+    return 0
+  fi
   if [[ "$(json_get_string "$raw" "artifact_type")" != "adapter_rgd_next_resume" || "$(json_get_string "$raw" "command")" != "rgd-next" ]]; then
     emit_status_json "invalid" "false" "unexpected artifact_type or command"
     return 0

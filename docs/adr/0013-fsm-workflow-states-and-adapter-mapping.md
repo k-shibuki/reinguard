@@ -36,7 +36,7 @@ wins** among matching rules (ADR-0004). `state_id` values:
 | `merge_ready` | Coarse merge gate (clean tree, CI, threads, decisions, bot diagnostics) | Rule includes `bot_review_diagnostics` alignment with the `merge-readiness` built-in (pending/terminal/failed/stale/non-thread), plus mergeability and CI success — see `.reinguard/control/states/workflow.yaml` |
 | `waiting_ci` | PR open; no thread/decision work; CI or mergeability not satisfied | Threads 0, changes 0, working tree clean; `ci_status` != `success` **or** `merge_state_status` != `clean` |
 | `pr_open` | PR exists; residual (e.g. dirty working tree) | `github.pull_requests.pr_exists_for_branch` true |
-| `ready_for_pr` | No PR exists, and `pr-readiness` is fresh and passing | `pr_exists_for_branch` false (or missing) and `gates.pr-readiness.status == pass`; `pr-readiness` is the runtime gate recorded by `.reinguard/procedure/change-inspect.md` per ADR-0014 (artifact under `.reinguard/local/gates/`), keeping PR readiness mechanically visible without a dedicated route vocabulary |
+| `ready_for_pr` | No PR exists, and `pr-readiness` is fresh and passing | `pr_exists_for_branch` false (or missing) and `gates.pr-readiness.status == pass`; `pr-readiness` is the runtime gate recorded by `.reinguard/procedure/change-inspect.md` per ADR-0014 (artifact under `.reinguard/local/gates/`). Its `pass` contract is proof-carrying: it must reference the fresh passing inputs required by `workflow.runtime_gate_roles.pr_readiness.pass_requires_roles` for the same subject. In this repository’s current default config, that means `local-verification` plus `local-coderabbit`, so the FSM can keep reading one gate without treating it as an opaque marker. |
 | `working_no_pr` | No PR for branch (or PR facet absent); residual before PR readiness is proven | `pr_exists_for_branch` false or path missing, with `ready_for_pr` using a lower numeric `priority` than `working_no_pr` so it wins when the gate condition matches |
 
 **Bot status tiers** (per-element `status` in `bot_reviewer_status`):
@@ -113,7 +113,9 @@ primary `route_id` in `rgd route select` output. Alternatives appear in
 | `merge_ready` | `.reinguard/procedure/pr-merge.md` |
 
 Self-inspection before PR creation remains `.reinguard/procedure/change-inspect.md`;
-it prepares `ready_for_pr` by recording the `pr-readiness` gate but is not
+it prepares `ready_for_pr` by recording the configured pre-PR AI review proof
+(default gate id: `local-coderabbit`) and then the proof-carrying
+`pr-readiness` gate, but is not
 itself a state-mapped procedure.
 Post-review learning: `.reinguard/procedure/internalize.md`.
 

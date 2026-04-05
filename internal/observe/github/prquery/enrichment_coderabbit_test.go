@@ -160,6 +160,9 @@ func TestCoderabbitEnrichment_EnrichReviewBody(t *testing.T) {
 	if n, ok := got["cr_duplicate_findings_count"].(int); !ok || n != 3 {
 		t.Fatalf("got %v", got)
 	}
+	if n, ok := got["duplicate_findings_count"].(int); !ok || n != 3 {
+		t.Fatalf("got %v", got)
+	}
 	if e.EnrichReviewBody("no duplicate section") != nil {
 		t.Fatal("want nil")
 	}
@@ -168,36 +171,81 @@ func TestCoderabbitEnrichment_EnrichReviewBody(t *testing.T) {
 func TestCoderabbitEnrichment_EnrichReviewBody_actionableAndOutside(t *testing.T) {
 	t.Parallel()
 	e := coderabbitEnrichment{}
-	body := "Actionable review comments (2)\nComments outside the diff range (1)\n"
-	got := e.EnrichReviewBody(body)
-	if got == nil {
-		t.Fatal("got nil")
+	//nolint:govet // test table readability over struct packing
+	tests := []struct {
+		name string
+		body string
+		want map[string]int
+	}{
+		{
+			name: "actionable_and_outside",
+			body: "Actionable review comments (2)\nComments outside the diff range (1)\n",
+			want: map[string]int{
+				"cr_actionable_comments_count": 2, "actionable_findings_count": 2,
+				"cr_outside_diff_comments_count": 1, "outside_diff_findings_count": 1,
+			},
+		},
 	}
-	if n, ok := got["cr_actionable_comments_count"].(int); !ok || n != 2 {
-		t.Fatalf("got %v", got)
-	}
-	if n, ok := got["cr_outside_diff_comments_count"].(int); !ok || n != 1 {
-		t.Fatalf("got %v", got)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := e.EnrichReviewBody(tt.body)
+			if got == nil {
+				t.Fatal("got nil")
+			}
+			for k, w := range tt.want {
+				n, ok := got[k].(int)
+				if !ok || n != w {
+					t.Fatalf("%s: got[%q]=%v want %d full=%+v", tt.name, k, got[k], w, got)
+				}
+			}
+		})
 	}
 }
 
 func TestParseCoderabbitActionableCommentsCount(t *testing.T) {
 	t.Parallel()
-	if n := parseCoderabbitActionableCommentsCount("Actionable review comments (4)"); n != 4 {
-		t.Fatalf("got %d", n)
+	tests := []struct {
+		name string
+		body string
+		want int
+	}{
+		{name: "empty", body: "", want: 0},
+		{name: "match", body: "Actionable review comments (4)", want: 4},
+		{name: "no_match", body: "no actionable line", want: 0},
+		{name: "zero", body: "Actionable review comments (0)", want: 0},
+		{name: "malformed", body: "Actionable review comments (x)", want: 0},
 	}
-	if n := parseCoderabbitActionableCommentsCount("no actionable line"); n != 0 {
-		t.Fatalf("got %d", n)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := parseCoderabbitActionableCommentsCount(tt.body); got != tt.want {
+				t.Fatalf("parseCoderabbitActionableCommentsCount(%q) = %d, want %d", tt.body, got, tt.want)
+			}
+		})
 	}
 }
 
 func TestParseCoderabbitOutsideDiffCommentsCount(t *testing.T) {
 	t.Parallel()
-	if n := parseCoderabbitOutsideDiffCommentsCount("Comments outside the diff range (3)"); n != 3 {
-		t.Fatalf("got %d", n)
+	tests := []struct {
+		name string
+		body string
+		want int
+	}{
+		{name: "canonical", body: "Comments outside the diff range (3)", want: 3},
+		{name: "short_form", body: "outside the diff (2)", want: 2},
+		{name: "no_match", body: "outside section missing", want: 0},
+		{name: "malformed", body: "Comments outside the diff range (x)", want: 0},
+		{name: "zero", body: "Comments outside the diff range (0)", want: 0},
 	}
-	if n := parseCoderabbitOutsideDiffCommentsCount("outside the diff (2)"); n != 2 {
-		t.Fatalf("got %d", n)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := parseCoderabbitOutsideDiffCommentsCount(tt.body); got != tt.want {
+				t.Fatalf("parseCoderabbitOutsideDiffCommentsCount(%q) = %d, want %d", tt.body, got, tt.want)
+			}
+		})
 	}
 }
 

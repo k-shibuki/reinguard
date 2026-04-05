@@ -10,6 +10,14 @@ import (
 )
 
 type resumeScriptStatus struct {
+	ApprovedContract struct {
+		HeadSHA             string `json:"head_sha"`
+		StateID             string `json:"state_id"`
+		RouteID             string `json:"route_id"`
+		OrderedRemainder    string `json:"ordered_remainder"`
+		CompletionCondition string `json:"completion_condition"`
+		ProposalFingerprint string `json:"proposal_fingerprint"`
+	} `json:"approved_contract"`
 	LastIteration struct {
 		StateID    string `json:"state_id"`
 		RouteID    string `json:"route_id"`
@@ -63,6 +71,10 @@ func TestAdapterRgdNextResumeScript_ProposalThenApprove(t *testing.T) {
 		"start",
 		"--branch", "feature/104",
 		"--issue", "104",
+		"--state-id", "working_no_pr",
+		"--route-id", "user-implement",
+		"--ordered-remainder", "implement -> change-inspect -> pr-create",
+		"--completion-condition", "Per-unit Definition of Done",
 	)
 	if err != nil {
 		t.Fatalf("start: %v\n%s", err, startOut)
@@ -90,6 +102,9 @@ func TestAdapterRgdNextResumeScript_ProposalThenApprove(t *testing.T) {
 	if active.Status != "active" || !active.ResumeEligible || active.ApprovalAt == "" {
 		t.Fatalf("expected active after approve, got %+v", active)
 	}
+	if active.ApprovedContract.StateID != "working_no_pr" || active.ApprovedContract.RouteID != "user-implement" {
+		t.Fatalf("approved_contract = %+v", active.ApprovedContract)
+	}
 }
 
 func TestAdapterRgdNextResumeScript_Lifecycle(t *testing.T) {
@@ -105,6 +120,10 @@ func TestAdapterRgdNextResumeScript_Lifecycle(t *testing.T) {
 		"--branch", "feature/104",
 		"--issue", "104",
 		"--summary", "approved execute path",
+		"--state-id", "working_no_pr",
+		"--route-id", "user-implement",
+		"--ordered-remainder", "implement -> change-inspect -> pr-create",
+		"--completion-condition", "Per-unit Definition of Done",
 	)
 	if err != nil {
 		t.Fatalf("start: %v\n%s", err, startOut)
@@ -119,6 +138,9 @@ func TestAdapterRgdNextResumeScript_Lifecycle(t *testing.T) {
 	}
 	if got.Branch != "feature/104" || got.IssueNumber != 104 {
 		t.Fatalf("identity = %+v", got)
+	}
+	if got.ApprovedContract.HeadSHA == "" || got.ApprovedContract.ProposalFingerprint == "" {
+		t.Fatalf("approved_contract = %+v", got.ApprovedContract)
 	}
 	if got.LastIteration.StateID != "waiting_ci" || got.LastIteration.RouteID != "user-wait-ci" {
 		t.Fatalf("last_iteration = %+v", got.LastIteration)
@@ -147,6 +169,10 @@ func TestAdapterRgdNextResumeScript_StatusStaleOnDetachedHead(t *testing.T) {
 		"start",
 		"--branch", "feature/104",
 		"--issue", "104",
+		"--state-id", "working_no_pr",
+		"--route-id", "user-implement",
+		"--ordered-remainder", "implement -> change-inspect -> pr-create",
+		"--completion-condition", "Per-unit Definition of Done",
 	)
 	if err != nil {
 		t.Fatalf("start: %v\n%s", err, startOut)
@@ -184,6 +210,10 @@ func TestAdapterRgdNextResumeScript_SummaryRoundTripWithQuotes(t *testing.T) {
 		"--branch", "feature/104",
 		"--issue", "104",
 		"--summary", summary,
+		"--state-id", "working_no_pr",
+		"--route-id", "user-implement",
+		"--ordered-remainder", "implement -> change-inspect -> pr-create",
+		"--completion-condition", "Per-unit Definition of Done",
 	)
 	if err != nil {
 		t.Fatalf("start: %v\n%s", err, startOut)
@@ -202,6 +232,18 @@ func TestAdapterRgdNextResumeScript_SummaryRoundTripWithQuotes(t *testing.T) {
 	if got != summary {
 		t.Fatalf("summary round-trip: got %q want %q", got, summary)
 	}
+	approvedContract, ok := artifact["approved_contract"].(map[string]any)
+	if !ok {
+		t.Fatalf("approved_contract missing in artifact: %+v", artifact)
+	}
+	orderedRemainder, ordOK := approvedContract["ordered_remainder"].(string)
+	if !ordOK || orderedRemainder == "" {
+		t.Fatalf("approved_contract.ordered_remainder missing or empty: %+v", artifact)
+	}
+	wantOrdered := "implement -> change-inspect -> pr-create"
+	if orderedRemainder != wantOrdered {
+		t.Fatalf("ordered_remainder: got %q want %q", orderedRemainder, wantOrdered)
+	}
 }
 
 func TestAdapterRgdNextResumeScript_StatusStaleOnBranchMismatch(t *testing.T) {
@@ -216,6 +258,10 @@ func TestAdapterRgdNextResumeScript_StatusStaleOnBranchMismatch(t *testing.T) {
 		"start",
 		"--branch", "feature/104",
 		"--issue", "104",
+		"--state-id", "working_no_pr",
+		"--route-id", "user-implement",
+		"--ordered-remainder", "implement -> change-inspect -> pr-create",
+		"--completion-condition", "Per-unit Definition of Done",
 	)
 	if err != nil {
 		t.Fatalf("start: %v\n%s", err, startOut)
@@ -314,6 +360,10 @@ func TestAdapterRgdNextResumeScript_FinishValidatesTerminalReason(t *testing.T) 
 				"start",
 				"--branch", "feature/104",
 				"--issue", "104",
+				"--state-id", "working_no_pr",
+				"--route-id", "user-implement",
+				"--ordered-remainder", "implement -> change-inspect -> pr-create",
+				"--completion-condition", "Per-unit Definition of Done",
 			)
 			if err != nil {
 				t.Fatalf("start: %v\n%s", err, startOut)

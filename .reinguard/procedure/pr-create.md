@@ -38,8 +38,15 @@ escalate_when: gate-policy or branch protection cannot be satisfied without main
 `rgd gate status pr-readiness` result of `pass`. If that inspection
 evidence is missing, if the gate is `missing` / `invalid` / `stale` / `fail`,
 or if the gate result predates the latest commit, return to `change-inspect`
-before continuing. This local CLI gate is a **pre-PR** check and is
-separate from the PR bot review that runs after PR creation.
+before continuing. `pr-readiness` is the authoritative pre-PR proof only
+because it must already carry the fresh inputs required by
+`workflow.runtime_gate_roles.pr_readiness.pass_requires_roles` for the same
+subject (see `.reinguard/reinguard.yaml` and `docs/cli.md`).
+In this repository’s current default config, that means `local-verification` and
+`local-coderabbit`. A hand-written `pass` without those inputs is invalid.
+
+This local CLI gate is a **pre-PR** check and is separate from the PR bot
+review that runs after PR creation.
 
 **Pre-flight:** on feature branch, `git status` clean; push latest commits.
 

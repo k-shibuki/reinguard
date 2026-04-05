@@ -28,7 +28,8 @@ type checkRunJSON struct {
 
 // checkRunsAPIResponse is the JSON shape of GET /repos/{owner}/{repo}/commits/{sha}/check-runs.
 type checkRunsAPIResponse struct {
-	CheckRuns []checkRunJSON `json:"check_runs"`
+	CheckRuns  []checkRunJSON `json:"check_runs"`
+	TotalCount int            `json:"total_count"`
 }
 
 // Collect returns a coarse CI rollup for the observed head SHA.
@@ -101,6 +102,10 @@ func fetchCheckRuns(ctx context.Context, c *githubapi.Client, owner, repo, sha s
 	if err := c.GetJSON(ctx, u, &resp); err != nil {
 		return nil, nil, err
 	}
+	var warns []string
+	if resp.TotalCount > len(resp.CheckRuns) {
+		warns = append(warns, fmt.Sprintf("github ci: check-runs response truncated (%d of %d)", len(resp.CheckRuns), resp.TotalCount))
+	}
 	out := make([]any, 0, len(resp.CheckRuns))
 	for _, cr := range resp.CheckRuns {
 		entry := map[string]any{
@@ -114,7 +119,7 @@ func fetchCheckRuns(ctx context.Context, c *githubapi.Client, owner, repo, sha s
 		}
 		out = append(out, entry)
 	}
-	return out, nil, nil
+	return out, warns, nil
 }
 
 // headSHA returns the current commit SHA from git rev-parse HEAD in wd.

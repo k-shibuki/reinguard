@@ -71,6 +71,9 @@ func readAndValidateRoot(dir string, rootSch *jsonschema.Schema) (Root, error) {
 	if err = validateDeclaredSchemaVersion(root.SchemaVersion, rootPath); err != nil {
 		return Root{}, err
 	}
+	if err = validateRuntimeGateRoles(&root, rootPath); err != nil {
+		return Root{}, err
+	}
 	if err := rejectLegacyRulesDir(dir); err != nil {
 		return Root{}, err
 	}

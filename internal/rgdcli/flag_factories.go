@@ -60,6 +60,22 @@ func newGateChecksFileFlag() *cli.StringFlag {
 	return &cli.StringFlag{Name: "checks-file", Usage: "JSON file containing gate check results"}
 }
 
+func newGateInputsFileFlag() *cli.StringFlag {
+	return &cli.StringFlag{Name: "inputs-file", Usage: "JSON file containing upstream gate proof inputs"}
+}
+
+func newGateInputGateFlag() *cli.StringSliceFlag {
+	return &cli.StringSliceFlag{Name: "input-gate", Usage: "fresh passing gate id to copy into inputs (repeatable)"}
+}
+
+func newGateProducerProcedureFlag() *cli.StringFlag {
+	return &cli.StringFlag{Name: "producer-procedure", Required: true, Usage: "procedure that recorded this gate artifact"}
+}
+
+func newGateProducerToolFlag() *cli.StringFlag {
+	return &cli.StringFlag{Name: "producer-tool", Value: "rgd gate record", Usage: "tool or command that recorded this gate artifact"}
+}
+
 func newSchemaExportDirFlag() *cli.StringFlag {
 	return &cli.StringFlag{Name: "dir", Aliases: []string{"d"}, Value: "schema-export"}
 }

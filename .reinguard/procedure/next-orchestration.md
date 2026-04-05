@@ -64,8 +64,17 @@ transition it to **`active`** after explicit approval (ADR-0015; see
 Present **once**:
 
 - (a) **Unit identity** — Issue #, PR # (if any), branch name.
+- (a2) **Current position** — proposed `state_id` / `route_id` and proposal
+  subject (`head_sha` if the Adapter persists one — same meaning as
+  `subject.head_sha` in runtime gate artifacts, ADR-0014 / ADR-0015)
 - (b) **Ordered remainder** — From current state through Per-unit Definition of Done.
 - (c) **Completion condition** — Per-unit Definition of Done (verbatim or by path).
+
+If the Adapter persists approval continuity, record the same contract —
+identity, ordered remainder, completion condition, and a deterministic
+proposal fingerprint (SHA-256 hex of the newline-terminated fields written by
+`adapter-rgd-next-resume.sh` `compute_proposal_fingerprint`, ADR-0015) — so the
+artifact can later answer **what was approved**.
 
 Obtain **explicit user approval** to execute through that completion condition. **No per-procedure re-approval** after this gate (except Hard Stops and genuine blocks below).
 

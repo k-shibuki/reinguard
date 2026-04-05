@@ -104,8 +104,11 @@ reflect unresolved **threads**, not raw comment row counts.
 
 ## Amendment (2026-04, Issue #105)
 
-Non-thread review findings use **documented, deterministic** CodeRabbit enrichment
-fields on `bot_reviewer_status` and aggregate `bot_review_diagnostics.non_thread_findings_present`,
+Non-thread review findings use **documented, deterministic** enrichment fields on
+`bot_reviewer_status` and aggregate `bot_review_diagnostics.non_thread_findings_present`,
 plus `signals.github.reviews.conversation_comments` and `signals.github.ci.check_runs`.
+Provider-specific plugins (for example CodeRabbit) may still emit legacy vendor
+keys, but merge/guard-facing semantics are documented in `docs/cli.md` using
+provider-neutral field meanings.
 Fact vs derived semantics and merge-guard wiring are documented in `docs/cli.md`;
 no semantic disposition is selected in Go beyond declared markers and counts.

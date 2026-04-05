@@ -80,7 +80,7 @@ rgd observe
 5. Same-kind sweep per coding--standards § Change scope before hand-off.
 6. **Preflight** per `coding--preflight.md` before commit/push.
 7. **Commit organization**: review the commit history (`git log origin/main..HEAD`) and organize into logical, self-contained commits where needed (interactive rebase, amend, or squash). Each commit should represent one coherent change. This step is the primary location for commit restructuring — `change-inspect` may *recommend* restructuring but does not execute it.
-8. When the branch passes local verification, commit organization is final, and the repository defines a runtime gate for it, record the result with `rgd gate record --status <pass|fail> <gate-id>` (for example `rgd gate record --status pass local-verification`) so future state rules can observe the verified handoff; artifacts live under `.reinguard/local/gates/` (ADR-0014). If Step 7 rewrites history afterward, re-run this step on the new HEAD.
+8. When the branch passes local verification, commit organization is final, and the repository defines a runtime gate for it, record the result with `rgd gate record --status <pass|fail> <gate-id>` plus proof metadata (producer + checks; for example `rgd gate record --status pass --producer-procedure implement --checks-file <local-verification-checks.json> local-verification`) so future state rules can observe the verified handoff; artifacts live under `.reinguard/local/gates/` (ADR-0014). If Step 7 rewrites history afterward, re-run this step on the new HEAD.
 
 ## Output
 

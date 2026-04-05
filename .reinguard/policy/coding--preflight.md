@@ -31,15 +31,18 @@ documented exception (PR body or review disposition).
 
 After applicable HS-LOCAL-VERIFY steps pass and before `change-inspect`
 declares the change ready for `pr-create`, run the repository-local
-CodeRabbit gate from the repo root, outside the Cursor sandbox:
+AI review gate from the repo root, outside the Cursor sandbox. In this
+repository’s current default config, that provider is CodeRabbit:
 
 ```bash
 bash .reinguard/scripts/with-repo-local-state.sh --home-subdir cr-home -- \
   bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
 ```
 
-- This is a **required pre-PR gate** for this repository; it does **not**
-  replace PR-based CodeRabbit review or merge consensus.
+- This is the repository’s current **required pre-PR AI review gate**; it does
+  **not** replace PR-based bot review or merge consensus. The workflow contract
+  is generic (`workflow.runtime_gate_roles.pre_pr_ai_review` in
+  `.reinguard/reinguard.yaml`); the default binding is CodeRabbit.
 - In this environment, writable tool state should stay under repo-local
   `.tmp/` via `.reinguard/scripts/with-repo-local-state.sh` so file/cache
   access does not depend on `~/.cache`, `~/.coderabbit`, or other user-home
@@ -67,6 +70,11 @@ bash .reinguard/scripts/with-repo-local-state.sh --home-subdir cr-home -- \
 - If the script cannot run (CLI missing, auth missing, second consecutive
   rate limit after retry, execution error), treat that as a failed gate and
   do not proceed to `pr-create`.
+- When the local CLI gate succeeds on the current HEAD, record a fresh runtime
+  proof for the configured **pre-PR AI review** gate role
+  (`workflow.runtime_gate_roles.pre_pr_ai_review`; default gate id:
+  `local-coderabbit`) for that same subject, including producer and check
+  evidence, before `pr-readiness` can become `pass` when that role is required.
 - Review findings are dispositioned in `change-inspect` using the shared
   four-category model from
   `.reinguard/policy/review--disposition-categories.md`; do not

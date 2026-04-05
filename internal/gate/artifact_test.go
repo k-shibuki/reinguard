@@ -13,14 +13,17 @@ import (
 
 func TestRecordAndShow_roundTrip(t *testing.T) {
 	t.Parallel()
-	// Given: a git repo on main and one passing gate payload
+	// Given: a git repo on main and one passing local-verification proof
 	repo := initGitRepo(t)
 	cfgDir := t.TempDir()
 	now := time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC)
 
 	// When: Record writes the artifact and Show reads it back
-	art, err := Record(context.Background(), cfgDir, repo, "local-verification", StatusPass, []Check{
-		{ID: "go-test", Status: StatusPass, Summary: "go test ./... -race"},
+	art, err := Record(context.Background(), cfgDir, repo, "local-verification", StatusPass, Producer{
+		Procedure: "implement",
+		Tool:      "rgd gate record",
+	}, nil, []Check{
+		{ID: "go-test", Status: StatusPass, Summary: "go test ./... -race", Evidence: "bash .reinguard/scripts/with-repo-local-state.sh -- go test ./... -race"},
 	}, now)
 	if err != nil {
 		t.Fatal(err)
@@ -40,8 +43,11 @@ func TestRecordAndShow_roundTrip(t *testing.T) {
 	if len(got.Checks) != 1 || got.Checks[0].ID != "go-test" {
 		t.Fatalf("checks=%+v", got.Checks)
 	}
-	if art.HeadSHA != got.HeadSHA || art.Branch != got.Branch {
+	if art.Subject.HeadSHA != got.Subject.HeadSHA || art.Subject.Branch != got.Subject.Branch {
 		t.Fatalf("record/show mismatch: wrote=%+v got=%+v", art, got)
+	}
+	if got.Producer.Procedure != "implement" || got.Producer.Tool != "rgd gate record" {
+		t.Fatalf("producer=%+v", got.Producer)
 	}
 }
 
@@ -50,8 +56,11 @@ func TestRecord_rejectsDetachedHEAD(t *testing.T) {
 	repo := initGitRepo(t)
 	runGit(t, repo, "checkout", "--detach", "HEAD")
 	cfgDir := t.TempDir()
-	_, err := Record(context.Background(), cfgDir, repo, "local-verification", StatusPass, []Check{
-		{ID: "go-test", Status: StatusPass},
+	_, err := Record(context.Background(), cfgDir, repo, "local-verification", StatusPass, Producer{
+		Procedure: "implement",
+		Tool:      "rgd gate record",
+	}, nil, []Check{
+		{ID: "go-test", Status: StatusPass, Summary: "go test ./..."},
 	}, time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC))
 	if err == nil {
 		t.Fatal("expected error on detached HEAD")
@@ -65,8 +74,11 @@ func TestRecord_rejectsInvalidArtifactStatus(t *testing.T) {
 	t.Parallel()
 	repo := initGitRepo(t)
 	cfgDir := t.TempDir()
-	_, err := Record(context.Background(), cfgDir, repo, "local-verification", "bogus", []Check{
-		{ID: "go-test", Status: StatusPass},
+	_, err := Record(context.Background(), cfgDir, repo, "local-verification", "bogus", Producer{
+		Procedure: "implement",
+		Tool:      "rgd gate record",
+	}, nil, []Check{
+		{ID: "go-test", Status: StatusPass, Summary: "go test ./..."},
 	}, time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC))
 	if err == nil {
 		t.Fatal("expected error for invalid status")
@@ -76,12 +88,93 @@ func TestRecord_rejectsInvalidArtifactStatus(t *testing.T) {
 	}
 }
 
+func TestRecord_rejectsPRReadinessWithoutUpstreamProofs(t *testing.T) {
+	t.Parallel()
+	// Given: a git repo with no prior local-verification proof recorded
+	repo := initGitRepo(t)
+	cfgDir := t.TempDir()
+	// When: Record pr-readiness without upstream input proofs
+	_, err := Record(context.Background(), cfgDir, repo, "pr-readiness", StatusPass, Producer{
+		Procedure: "change-inspect",
+		Tool:      "rgd gate record",
+	}, nil, []Check{
+		{ID: "review-closure", Status: StatusPass, Summary: "all local findings classified and closed"},
+	}, time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC))
+	// Then: error references missing local-verification proof
+	if err == nil {
+		t.Fatal("expected error for missing local proof inputs")
+	}
+	if !strings.Contains(err.Error(), "local-verification") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRecord_rejectsLocalCodeRabbitWithoutRequiredCheck(t *testing.T) {
+	t.Parallel()
+	// Given: a git repo with no prior gate artifacts
+	repo := initGitRepo(t)
+	cfgDir := t.TempDir()
+	// When: Record local-coderabbit without the required check id
+	_, err := Record(context.Background(), cfgDir, repo, "local-coderabbit", StatusPass, Producer{
+		Procedure: "change-inspect",
+		Tool:      "rgd gate record",
+	}, nil, []Check{
+		{ID: "review-closure", Status: StatusPass, Summary: "wrong check"},
+	}, time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC))
+	// Then: error references missing local-coderabbit-cli check
+	if err == nil {
+		t.Fatal("expected error for missing local-coderabbit proof check")
+	}
+	if !strings.Contains(err.Error(), "local-coderabbit-cli") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRecord_allowsPRReadinessWhenPrePRAIReviewOptional(t *testing.T) {
+	t.Parallel()
+	// Given: config with pre_pr_ai_review.required=false and local-verification proof inputs
+	repo := initGitRepo(t)
+	cfgDir := t.TempDir()
+	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(`schema_version: "0.6.0"
+default_branch: main
+workflow:
+  runtime_gate_roles:
+    pre_pr_ai_review:
+      gate_id: local-coderabbit
+      required: false
+providers: []
+`))
+	subject := Subject{HeadSHA: currentHeadForTest(t, repo), Branch: currentBranchForTest(t, repo)}
+	recordedAt := time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC).Format(time.RFC3339)
+
+	// When: Record pr-readiness with only local-verification as upstream proof
+	_, err := Record(context.Background(), cfgDir, repo, "pr-readiness", StatusPass, Producer{
+		Procedure: "change-inspect",
+		Tool:      "rgd gate record",
+	}, []Input{
+		{
+			GateID:     "local-verification",
+			Status:     StatusPass,
+			Subject:    subject,
+			RecordedAt: recordedAt,
+		},
+	}, []Check{
+		{ID: "review-closure", Status: StatusPass, Summary: "all local findings classified and closed"},
+	}, time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC))
+	// Then: success without local-coderabbit input proof
+	if err != nil {
+		t.Fatalf("expected optional pre-PR AI review proof to be skippable, got %v", err)
+	}
+}
+
 func TestStatus_classifiesArtifacts(t *testing.T) {
 	t.Parallel()
 	// Given/When/Then: gate status derives missing, invalid, stale, pass, and fail outcomes
 	repo := initGitRepo(t)
 	branch := currentBranchForTest(t, repo)
 	head := currentHeadForTest(t, repo)
+	subject := Subject{HeadSHA: head, Branch: branch}
+	producer := Producer{Procedure: "implement", Tool: "rgd gate record"}
 
 	tests := []struct {
 		name       string
@@ -122,10 +215,11 @@ func TestStatus_classifiesArtifacts(t *testing.T) {
 					SchemaVersion: "0.6.0",
 					GateID:        "other-gate",
 					Status:        StatusPass,
-					HeadSHA:       head,
-					Branch:        branch,
 					RecordedAt:    time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),
-					Checks:        []Check{{ID: "go-test", Status: StatusPass}},
+					Subject:       subject,
+					Producer:      producer,
+					Inputs:        []Input{},
+					Checks:        []Check{{ID: "go-test", Status: StatusPass, Summary: "go test ./..."}},
 				}))
 			},
 			wantStatus: StatusInvalid,
@@ -139,10 +233,11 @@ func TestStatus_classifiesArtifacts(t *testing.T) {
 					SchemaVersion: "0.6.0",
 					GateID:        "local-verification",
 					Status:        StatusPass,
-					HeadSHA:       head,
-					Branch:        "other-branch",
 					RecordedAt:    time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),
-					Checks:        []Check{},
+					Subject:       Subject{HeadSHA: head, Branch: "other-branch"},
+					Producer:      producer,
+					Inputs:        []Input{},
+					Checks:        []Check{{ID: "go-test", Status: StatusPass, Summary: "go test ./..."}},
 				})
 			},
 			wantStatus: StatusStale,
@@ -156,10 +251,11 @@ func TestStatus_classifiesArtifacts(t *testing.T) {
 					SchemaVersion: "0.6.0",
 					GateID:        "local-verification",
 					Status:        StatusPass,
-					HeadSHA:       "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-					Branch:        branch,
 					RecordedAt:    time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),
-					Checks:        []Check{},
+					Subject:       Subject{HeadSHA: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Branch: branch},
+					Producer:      producer,
+					Inputs:        []Input{},
+					Checks:        []Check{{ID: "go-test", Status: StatusPass, Summary: "go test ./..."}},
 				})
 			},
 			wantStatus: StatusStale,
@@ -173,10 +269,11 @@ func TestStatus_classifiesArtifacts(t *testing.T) {
 					SchemaVersion: "0.6.0",
 					GateID:        "local-verification",
 					Status:        StatusPass,
-					HeadSHA:       head,
-					Branch:        branch,
 					RecordedAt:    time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),
-					Checks:        []Check{},
+					Subject:       subject,
+					Producer:      producer,
+					Inputs:        []Input{},
+					Checks:        []Check{{ID: "go-test", Status: StatusPass, Summary: "go test ./..."}},
 				})
 			},
 			wantStatus: StatusPass,
@@ -189,13 +286,36 @@ func TestStatus_classifiesArtifacts(t *testing.T) {
 					SchemaVersion: "0.6.0",
 					GateID:        "local-verification",
 					Status:        StatusFail,
-					HeadSHA:       head,
-					Branch:        branch,
 					RecordedAt:    time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),
+					Subject:       subject,
+					Producer:      producer,
+					Inputs:        []Input{},
 					Checks:        []Check{{ID: "go-vet", Status: StatusFail, Summary: "go vet ./..."}},
 				})
 			},
 			wantStatus: StatusFail,
+		},
+		{
+			name:   "invalid contract",
+			gateID: "local-coderabbit",
+			prepare: func(t *testing.T, cfgDir string) {
+				path, err := ArtifactPath(cfgDir, "local-coderabbit")
+				if err != nil {
+					t.Fatal(err)
+				}
+				writeFile(t, path, marshalArtifactForTest(t, Artifact{
+					SchemaVersion: "0.6.0",
+					GateID:        "local-coderabbit",
+					Status:        StatusPass,
+					RecordedAt:    time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),
+					Subject:       subject,
+					Producer:      Producer{Procedure: "change-inspect", Tool: "rgd gate record"},
+					Inputs:        []Input{},
+					Checks:        []Check{{ID: "wrong-check", Status: StatusPass, Summary: "missing CR proof"}},
+				}))
+			},
+			wantStatus: StatusInvalid,
+			wantReason: "local-coderabbit-cli",
 		},
 	}
 
@@ -230,10 +350,11 @@ func TestLoadSignals_injectsDerivedStatuses(t *testing.T) {
 		SchemaVersion: "0.6.0",
 		GateID:        "local-verification",
 		Status:        StatusPass,
-		HeadSHA:       head,
-		Branch:        branch,
 		RecordedAt:    time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),
-		Checks:        []Check{},
+		Subject:       Subject{HeadSHA: head, Branch: branch},
+		Producer:      Producer{Procedure: "implement", Tool: "rgd gate record"},
+		Inputs:        []Input{},
+		Checks:        []Check{{ID: "go-test", Status: StatusPass, Summary: "go test ./..."}},
 	})
 	path, err := ArtifactPath(cfgDir, "pr-readiness")
 	if err != nil {
@@ -318,6 +439,9 @@ func writeArtifactForTest(t *testing.T, cfgDir string, art Artifact) {
 		t.Fatal(err)
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateArtifact(art); err != nil {
 		t.Fatal(err)
 	}
 	if err := writeArtifactFile(path, art); err != nil {

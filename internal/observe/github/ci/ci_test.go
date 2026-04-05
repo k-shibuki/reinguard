@@ -56,6 +56,7 @@ func TestCollect_status(t *testing.T) {
 
 func TestCollect_checkRunsMapping(t *testing.T) {
 	t.Parallel()
+	// Given: git repo with HEAD and API returning one completed check run
 	dir := t.TempDir()
 	gitInit(t, dir)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -67,6 +68,7 @@ func TestCollect_checkRunsMapping(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	// When: Collect runs
 	m, warns, err := Collect(context.Background(), c, "o", "r", dir, "")
 	if err != nil {
 		t.Fatal(err)
@@ -74,14 +76,90 @@ func TestCollect_checkRunsMapping(t *testing.T) {
 	if len(warns) != 0 {
 		t.Fatalf("%v", warns)
 	}
-	cimap := m["ci"].(map[string]any)
-	runs := cimap["check_runs"].([]any)
+	cimap, ok := m["ci"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected ci map, got %T", m["ci"])
+	}
+	runs, ok := cimap["check_runs"].([]any)
+	if !ok {
+		t.Fatalf("expected check_runs slice, got %T", cimap["check_runs"])
+	}
 	if len(runs) != 1 {
 		t.Fatalf("runs=%+v", runs)
 	}
-	rm := runs[0].(map[string]any)
+	rm, ok := runs[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected map for run[0], got %T", runs[0])
+	}
+	// Then: check run fields are preserved
 	if rm["name"] != "ci" || rm["status"] != "completed" || rm["conclusion"] != "success" {
 		t.Fatalf("%+v", rm)
+	}
+}
+
+func TestCollect_checkRunsFailureFallsBackToWarning(t *testing.T) {
+	t.Parallel()
+	// Given: check-runs endpoint errors but commit status succeeds
+	dir := t.TempDir()
+	gitInit(t, dir)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/check-runs") {
+			http.Error(w, "boom", http.StatusInternalServerError)
+			return
+		}
+		_, _ = w.Write([]byte(`{"state":"success"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	// When: Collect runs
+	m, warns, err := Collect(context.Background(), c, "o", "r", dir, "")
+	// Then: warning is recorded and check_runs is empty
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warns) == 0 {
+		t.Fatal("expected warning when check-runs fetch fails")
+	}
+	cimap, ok := m["ci"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected ci map, got %T", m["ci"])
+	}
+	runs, ok := cimap["check_runs"].([]any)
+	if !ok {
+		t.Fatalf("expected check_runs slice, got %T", cimap["check_runs"])
+	}
+	if len(runs) != 0 {
+		t.Fatalf("want empty check_runs, got %+v", runs)
+	}
+}
+
+func TestCollect_checkRunsTruncationWarning(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	gitInit(t, dir)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/check-runs") {
+			_, _ = w.Write([]byte(`{"total_count":2,"check_runs":[{"name":"ci","status":"completed","conclusion":"success"}]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"state":"success"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	m, warns, err := Collect(context.Background(), c, "o", "r", dir, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warns) != 1 || !strings.Contains(warns[0], "truncated") {
+		t.Fatalf("want truncation warning, got warns=%v", warns)
+	}
+	cimap, ok := m["ci"].(map[string]any)
+	if !ok {
+		t.Fatal("expected ci map")
+	}
+	runs := cimap["check_runs"].([]any)
+	if len(runs) != 1 {
+		t.Fatalf("runs=%+v", runs)
 	}
 }
 

@@ -95,7 +95,7 @@ When **true**, CodeRabbit’s latest `PullRequestReview` body listed one or more
 2. Classify and disposition each listed finding like any other review feedback (fix, or **Fixed** / **By design** / **False positive** / **Acknowledged** with threaded reply or PR conversation comment per [`../policy/review--consensus-protocol.md`](../policy/review--consensus-protocol.md) § **Non-thread findings** when there is no new thread id).
 3. Do **not** treat `review_threads_unresolved == 0` alone as “no review work” while `duplicate_findings_detected` is true.
 
-Per-bot count is also available as `cr_duplicate_findings_count` on the matching `bot_reviewer_status` entry when `enrich` includes `coderabbit`.
+Per-bot count is also available as `duplicate_findings_count` on the matching `bot_reviewer_status` entry. Current `coderabbit` enrichment also emits the legacy compatibility key `cr_duplicate_findings_count`.
 
 ### 1. Classify every finding in the current PR review cycle by correctness
 

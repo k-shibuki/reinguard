@@ -461,11 +461,50 @@ func TestRunStateEval_workflowFSM_readyForPRFromGate(t *testing.T) {
 	var recordBuf bytes.Buffer
 	recordApp := NewApp("record")
 	recordApp.Writer = &recordBuf
+	writeFile(t, filepath.Join(repo, "verify-checks.json"), []byte(`[
+  {"id":"go-test","status":"pass","summary":"go test ./... -race"}
+]`))
+	writeFile(t, filepath.Join(repo, "cr-checks.json"), []byte(`[
+  {"id":"local-coderabbit-cli","status":"pass","summary":"local CodeRabbit completed"}
+]`))
+	writeFile(t, filepath.Join(repo, "ready-checks.json"), []byte(`[
+  {"id":"review-closure","status":"pass","summary":"all local findings classified and closed"}
+]`))
 	if err := recordApp.Run([]string{
 		"rgd", "gate", "record",
 		"--config-dir", cfgDir,
 		"--cwd", repo,
 		"--status", "pass",
+		"--producer-procedure", "implement",
+		"--checks-file", "verify-checks.json",
+		"local-verification",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	recordApp2 := NewApp("record2")
+	recordApp2.Writer = io.Discard
+	if err := recordApp2.Run([]string{
+		"rgd", "gate", "record",
+		"--config-dir", cfgDir,
+		"--cwd", repo,
+		"--status", "pass",
+		"--producer-procedure", "change-inspect",
+		"--checks-file", "cr-checks.json",
+		"local-coderabbit",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	recordApp3 := NewApp("record3")
+	recordApp3.Writer = io.Discard
+	if err := recordApp3.Run([]string{
+		"rgd", "gate", "record",
+		"--config-dir", cfgDir,
+		"--cwd", repo,
+		"--status", "pass",
+		"--producer-procedure", "change-inspect",
+		"--checks-file", "ready-checks.json",
+		"--input-gate", "local-verification",
+		"--input-gate", "local-coderabbit",
 		"pr-readiness",
 	}); err != nil {
 		t.Fatal(err)
@@ -531,11 +570,50 @@ func TestRunStateEval_workflowFSM_stalePrReadinessFallsBackToWorkingNoPR(t *test
 
 	recordApp := NewApp("record")
 	recordApp.Writer = io.Discard
+	writeFile(t, filepath.Join(repo, "verify-checks.json"), []byte(`[
+  {"id":"go-test","status":"pass","summary":"go test ./... -race"}
+]`))
+	writeFile(t, filepath.Join(repo, "cr-checks.json"), []byte(`[
+  {"id":"local-coderabbit-cli","status":"pass","summary":"local CodeRabbit completed"}
+]`))
+	writeFile(t, filepath.Join(repo, "ready-checks.json"), []byte(`[
+  {"id":"review-closure","status":"pass","summary":"all local findings classified and closed"}
+]`))
 	if err := recordApp.Run([]string{
 		"rgd", "gate", "record",
 		"--config-dir", cfgDir,
 		"--cwd", repo,
 		"--status", "pass",
+		"--producer-procedure", "implement",
+		"--checks-file", "verify-checks.json",
+		"local-verification",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	recordApp2 := NewApp("record2")
+	recordApp2.Writer = io.Discard
+	if err := recordApp2.Run([]string{
+		"rgd", "gate", "record",
+		"--config-dir", cfgDir,
+		"--cwd", repo,
+		"--status", "pass",
+		"--producer-procedure", "change-inspect",
+		"--checks-file", "cr-checks.json",
+		"local-coderabbit",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	recordApp3 := NewApp("record3")
+	recordApp3.Writer = io.Discard
+	if err := recordApp3.Run([]string{
+		"rgd", "gate", "record",
+		"--config-dir", cfgDir,
+		"--cwd", repo,
+		"--status", "pass",
+		"--producer-procedure", "change-inspect",
+		"--checks-file", "ready-checks.json",
+		"--input-gate", "local-verification",
+		"--input-gate", "local-coderabbit",
 		"pr-readiness",
 	}); err != nil {
 		t.Fatal(err)

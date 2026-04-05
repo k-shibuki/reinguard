@@ -20,6 +20,9 @@ type BotReviewer struct {
 	Required bool
 }
 
+// enrichmentNameCoderabbit is the registered enrichment plugin id for CodeRabbit (reinguard.yaml enrich[]).
+const enrichmentNameCoderabbit = "coderabbit"
+
 const prContextQuery = `query PRContext($owner: String!, $name: String!, $number: Int!, $cursor: String, $includeDetail: Boolean!) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $number) {
@@ -294,18 +297,19 @@ func CollectWithOptions(ctx context.Context, c *githubapi.Client, owner, repo st
 		inbox = []any{}
 	}
 	reviewsInner["review_inbox"] = inbox
-	commentNodes, err := mergeCommentNodesForBots(ctx, c, owner, repo, prNumber, firstPR.Comments, bots)
+	commentNodes, conversationIncomplete, err := mergeCommentNodesForBots(ctx, c, owner, repo, prNumber, firstPR.Comments, bots)
 	if err != nil {
 		return nil, nil, err
 	}
 	reviewsInner["conversation_comments"] = buildConversationCommentsReadModel(commentNodes)
+	reviewsInner["conversation_comments_incomplete"] = conversationIncomplete
 	statusList := buildBotReviewerStatus(firstPR, bots, commentNodes, now)
 	reviewsInner["bot_reviewer_status"] = statusList
 	var headSHA string
 	if firstPR.HeadRefOid != nil {
 		headSHA = *firstPR.HeadRefOid
 	}
-	reviewsInner["bot_review_diagnostics"] = ComputeBotReviewDiagnostics(statusList, headSHA)
+	reviewsInner["bot_review_diagnostics"] = ComputeBotReviewDiagnostics(statusList, headSHA, conversationIncomplete)
 	return pullDetail, reviewsInner, nil
 }
 
@@ -368,6 +372,7 @@ func emptyReviewsInner() map[string]any {
 		"pagination_incomplete":              false,
 		"review_inbox":                       []any{},
 		"conversation_comments":              []any{},
+		"conversation_comments_incomplete":   false,
 		"review_decisions_total":             0,
 		"review_decisions_approved":          0,
 		"review_decisions_changes_requested": 0,
@@ -468,11 +473,29 @@ func buildConversationCommentsReadModel(nodes []prCommentNode) []any {
 	return out
 }
 
-func applyCoderabbitFindingConversationCountIfNeeded(status map[string]any, enrich []string, nodes []prCommentNode, login string) {
-	if !hasCoderabbitEnrich(enrich) {
+// applyFindingConversationCountIfNeeded sets finding-conversation counts from the first
+// configured enrichment that implements findingConversationCounter; later enrich[] names are ignored.
+func applyFindingConversationCountIfNeeded(status map[string]any, enrich []string, nodes []prCommentNode, login string) {
+	for _, name := range enrich {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		e, ok := enrichmentByNameLocked(name)
+		if !ok {
+			continue
+		}
+		counter, ok := e.(findingConversationCounter)
+		if !ok {
+			continue
+		}
+		count := counter.CountFindingConversationComments(nodes, login)
+		status["finding_conversation_comments_count"] = count
+		if name == enrichmentNameCoderabbit {
+			status["cr_finding_conversation_comments_count"] = count
+		}
 		return
 	}
-	status["cr_finding_conversation_comments_count"] = countCoderabbitFindingConversationComments(nodes, login)
 }
 
 func countCoderabbitFindingConversationComments(nodes []prCommentNode, wantLogin string) int {
@@ -594,14 +617,15 @@ func normalizeGitHubActorLogin(login string) string {
 	return strings.TrimSpace(s)
 }
 
-func mergeCommentNodesForBots(ctx context.Context, c *githubapi.Client, owner, repo string, prNumber int, seed *commentsConn, bots []BotReviewer) ([]prCommentNode, error) {
+func mergeCommentNodesForBots(ctx context.Context, c *githubapi.Client, owner, repo string, prNumber int, seed *commentsConn, bots []BotReviewer) ([]prCommentNode, bool, error) {
 	if len(bots) == 0 {
 		if seed == nil {
-			return nil, nil
+			return nil, false, nil
 		}
 		out := make([]prCommentNode, len(seed.Nodes))
 		copy(out, seed.Nodes)
-		return out, nil
+		incomplete := seed.PageInfo.HasPreviousPage
+		return out, incomplete, nil
 	}
 	want := make(map[string]struct{})
 	for _, br := range bots {
@@ -625,7 +649,7 @@ func mergeCommentNodesForBots(ctx context.Context, c *githubapi.Client, owner, r
 		}
 		conn, err := fetchPRCommentsPage(ctx, c, owner, repo, prNumber, before)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		if conn == nil {
 			break
@@ -635,7 +659,8 @@ func mergeCommentNodesForBots(ctx context.Context, c *githubapi.Client, owner, r
 		hasPrev = conn.PageInfo.HasPreviousPage
 		before = strings.TrimSpace(conn.PageInfo.StartCursor)
 	}
-	return merged, nil
+	// hasPrev means older comment pages exist beyond what we merged; counts may be partial.
+	return merged, hasPrev, nil
 }
 
 func fetchPRCommentsPage(ctx context.Context, c *githubapi.Client, owner, repo string, prNumber int, before string) (*commentsConn, error) {
@@ -677,10 +702,14 @@ func allBotsSeen(seen map[string]bool, want map[string]struct{}) bool {
 	return true
 }
 
-// applyReviewCommitSHAFromCoderabbitComment sets review_commit_sha from cr_reviewed_head_sha
-// when GraphQL did not return a review (comment-only CodeRabbit completion).
-func applyReviewCommitSHAFromCoderabbitComment(status map[string]any) {
+// applyReviewCommitSHAFromEnrichedComment sets review_commit_sha from an enriched reviewed head
+// when GraphQL did not return a review (comment-only bot completion).
+func applyReviewCommitSHAFromEnrichedComment(status map[string]any) {
 	if strings.TrimSpace(signalString(status, "review_commit_sha")) == "" {
+		if s := strings.TrimSpace(signalString(status, "reviewed_head_sha")); s != "" {
+			status["review_commit_sha"] = s
+			return
+		}
 		if s := strings.TrimSpace(signalString(status, "cr_reviewed_head_sha")); s != "" {
 			status["review_commit_sha"] = s
 		}
@@ -702,15 +731,6 @@ func reviewFailedFromComment(lower string) bool {
 	return false
 }
 
-func hasCoderabbitEnrich(enrichNames []string) bool {
-	for _, n := range enrichNames {
-		if strings.TrimSpace(n) == "coderabbit" {
-			return true
-		}
-	}
-	return false
-}
-
 // genericIssueCommentMaxTier assigns coarse tiers for non-CodeRabbit enrichment bots.
 func genericIssueCommentMaxTier(body string) int {
 	lower := strings.ToLower(body)
@@ -728,8 +748,20 @@ func genericIssueCommentMaxTier(body string) int {
 }
 
 func commentMaxTier(body string, enrichNames []string) int {
-	if hasCoderabbitEnrich(enrichNames) {
-		return CoderabbitIssueCommentMaxTier(body)
+	for _, name := range enrichNames {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		e, ok := enrichmentByNameLocked(name)
+		if !ok {
+			continue
+		}
+		tierer, ok := e.(issueCommentTierer)
+		if !ok {
+			continue
+		}
+		return tierer.CommentMaxTier(body)
 	}
 	return genericIssueCommentMaxTier(body)
 }
@@ -891,9 +923,9 @@ func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNo
 				status[k] = v
 			}
 		}
-		applyCoderabbitFindingConversationCountIfNeeded(status, br.Enrich, nodes, login)
+		applyFindingConversationCountIfNeeded(status, br.Enrich, nodes, login)
 		adjustRateLimitRemainingForStatusCommentAge(status, now)
-		applyReviewCommitSHAFromCoderabbitComment(status)
+		applyReviewCommitSHAFromEnrichedComment(status)
 		status["status"] = ClassifyBotStatus(status, br.Enrich)
 		out = append(out, status)
 	}

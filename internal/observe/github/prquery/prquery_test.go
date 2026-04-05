@@ -1034,7 +1034,7 @@ func TestCollect_reviewBodyDuplicateFindings(t *testing.T) {
 	t.Parallel()
 	// Given: CodeRabbit latest review body contains a Duplicate comments (N) summary line.
 	// When:  Collect runs with coderabbit enrichment.
-	// Then:  cr_duplicate_findings_count is set and duplicate_findings_detected is true.
+	// Then:  duplicate count is set on both normalized and legacy keys, and aggregate diagnostics fire.
 	dupBody := "**Actionable comments posted: 4**\n\n<details>\n<summary>♻️ Duplicate comments (2)</summary><blockquote>\n</blockquote></details>"
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := map[string]any{
@@ -1088,6 +1088,9 @@ func TestCollect_reviewBodyDuplicateFindings(t *testing.T) {
 		t.Fatalf("bot_reviewer_status len: %d, want 1", len(st))
 	}
 	m := st[0].(map[string]any)
+	if m["duplicate_findings_count"].(int) != 2 {
+		t.Fatalf("duplicate_findings_count: %+v", m)
+	}
 	if m["cr_duplicate_findings_count"].(int) != 2 {
 		t.Fatalf("cr_duplicate_findings_count: %+v", m)
 	}

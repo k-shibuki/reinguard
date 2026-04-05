@@ -231,6 +231,7 @@ Populated when the `reviews` facet runs (see `rgd observe github reviews`). Data
 | `review_decisions_changes_requested` | number | Count with state `CHANGES_REQUESTED`. |
 | `review_decisions_truncated` | boolean | True if `latestReviews` reports `hasNextPage` (more than one page of decisions not fetched). |
 | `conversation_comments` | array | PR issue comments merged for observation (GraphQL `pullRequest.comments` window, including backward paging for configured bots). Each element has `author` (login string, when present), `body` (string), and `updated_at` (ISO8601 from GraphQL `updatedAt`). |
+| `conversation_comments_incomplete` | boolean | True when older `pullRequest.comments` pages exist beyond what was merged (seed `hasPreviousPage` or backward paging stopped before the oldest page).<br>When true, finding-conversation counts and non-thread aggregates may be partial; `bot_review_diagnostics.non_thread_findings_present` is fail-closed **true** if any **required** bot is configured. |
 | `bot_reviewer_status` | array | One object per configured `bot_reviewers` entry. See [Bot reviewer fields (detail)](#bot-reviewer-fields-detail) below. |
 | `bot_review_diagnostics` | object | Aggregated booleans over **required** bots only. See [Bot review diagnostics (detail)](#bot-review-diagnostics-detail) below. |
 
@@ -274,11 +275,11 @@ Each element of `bot_reviewer_status` includes:
 
 - **Identity and requirement:** `id`, `login`, `required`.
 - **`status`:** classified string — `not_triggered`, `pending`, `completed`, `completed_clean`, `rate_limited`, `review_paused`, `review_failed`. `completed_clean` applies when an enrichment can prove a terminal clean result (e.g. CodeRabbit “No issues found” / “no actionable comments” in issue comments), with or without a `latestReviews` entry.
-- **Review linkage:** `has_review`, `review_state` (from `latestReviews`, empty if none), `review_commit_sha` (OID from the latest review by this bot when present; for `coderabbit` enrichment, may be filled from `cr_reviewed_head_sha` parsed from the bot comment body when CodeRabbit summarizes a base..head range).
+- **Review linkage:** `has_review`, `review_state` (from `latestReviews`, empty if none), `review_commit_sha` (OID from the latest review by this bot when present; enrichments may fill it from a provider-neutral `reviewed_head_sha` parsed from comment bodies when the bot reports review scope without a `latestReviews` node).
 - **Comment window:** `latest_comment_at` (ISO8601 from the **newest** matching PR issue comment by `updatedAt` in the fetched `comments(last: 100)` window, or empty).
 - **Status source:** `status_comment_at` (ISO8601) and `status_comment_source` (`status_marker` \| `fallback_latest`) identify which issue comment body was used for substring flags and issue-comment enrichment. The builder picks a **status-bearing** comment using semantic **tier** (terminal clean/completed > rate limit > paused > failure cues > other CodeRabbit markers), then the newest `updatedAt` within the winning tier—so an edited Review Status comment is not shadowed by a later short acknowledgment, and a newer terminal-clean comment supersedes an older rate-limit body on another comment.
 - **Body substring flags (case-insensitive):** `contains_rate_limit`, `contains_review_paused`, `contains_review_failed`. These flags are computed from the **selected status comment** body above, not from `latest_comment_at` alone. `contains_rate_limit` false does not prove quota cleared globally; it means the selected status body no longer contains the substring (e.g. superseded by a higher-tier completion comment).
-- **Optional enrich fields** (e.g. `rate_limit_remaining_seconds`, `cr_review_processing`, `cr_walkthrough_present`, `cr_reviewed_head_sha` for `coderabbit`). From **`PullRequestReview.body`** (latest review for the bot): `cr_duplicate_findings_count`, `cr_actionable_comments_count`, `cr_outside_diff_comments_count` when matching documented markers (see tests in `internal/observe/github/prquery/enrichment_coderabbit_test.go`). From **PR issue comments** for the bot: `cr_finding_conversation_comments_count` counts comments whose body is **not** classified as a known non-finding shape (same tier / marker exclusions as `CoderabbitIssueCommentMaxTier` / status markers — tier `0` only counts toward findings).
+- **Optional enrich fields** include provider-neutral status helpers such as `review_processing`, `walkthrough_present`, `review_completed_clean`, `reviewed_head_sha`, and finding counters such as `duplicate_findings_count`, `actionable_findings_count`, `outside_diff_findings_count`, and `finding_conversation_comments_count`. Provider-specific enrichments may also expose legacy vendor keys in parallel for compatibility (for example current `coderabbit`-prefixed fields).
 - **`rate_limit_remaining_seconds` (PR / `rgd observe`):** first, seconds are parsed from the **selected status comment** body (same patterns as the local CLI cooldown parser). Then **`max(0, parsed_seconds − elapsed_seconds)`** where **`elapsed_seconds`** is the wall time from **`status_comment_at`** (the selected comment’s `updatedAt`) to the **observation time** when `rgd` built the signal. So a body that says “wait 19 minutes and 47 seconds” is interpreted as that much time **from the comment update**, not from an arbitrary later read. If CodeRabbit **edits** that issue comment in place, GitHub advances `updatedAt`; the next fetch uses the new body and new **`status_comment_at`**, so the cooldown **re-anchors** to the edit time.
 - **PR recovery after `rate_limited`:** before posting `@coderabbitai review`, wait **`cooldown_sec + 30`** where **`cooldown_sec`** is **`rate_limit_remaining_seconds`** from the observation JSON (already age-adjusted as above when enrichment is enabled), or else seconds parsed from the **selected status comment** body and aged manually using **`status_comment_at`** the same way. The **30**-second tail matches the local CLI default **`RATE_LIMIT_RETRY_BUFFER_SEC`** in `.reinguard/scripts/check-local-review.sh` (same contract as `--retry-on-rate-limit`). Normative detail: `.reinguard/knowledge/review--bot-operations.md` § Rate-Limit Recovery.
 
@@ -288,8 +289,8 @@ Object keys:
 
 - **`bot_review_completed`**, **`bot_review_pending`**, **`bot_review_terminal`**, **`bot_review_failed`**, **`bot_review_stale`:** booleans aggregated over **required** bots only.
 - **`bot_review_stale` (fail-closed):** true when any **required** bot is considered to have completed a review but the effective review commit does not match the current PR head, **or** when a completed review is expected but `review_commit_sha` is still empty after `latestReviews` and CodeRabbit enrichment fallback. If no required bots are configured, `bot_review_stale` is vacuously false.
-- **`duplicate_findings_detected`:** true when **any** configured bot (required or optional) has `cr_duplicate_findings_count` > 0 in `bot_reviewer_status` (CodeRabbit re-listed findings under duplicate suppression without new threads).
-- **`non_thread_findings_present`:** true when **any required** bot has any of `cr_actionable_comments_count`, `cr_outside_diff_comments_count`, `cr_duplicate_findings_count`, or `cr_finding_conversation_comments_count` greater than zero in `bot_reviewer_status`. When no required bots are configured, this is vacuously false.
+- **`duplicate_findings_detected`:** true when **any** configured bot (required or optional) has `duplicate_findings_count` > 0 in `bot_reviewer_status` (for CodeRabbit this corresponds to the duplicate-comments summary in the review body).
+- **`non_thread_findings_present`:** true when **any required** bot has any of `actionable_findings_count`, `outside_diff_findings_count`, `duplicate_findings_count`, or `finding_conversation_comments_count` greater than zero in `bot_reviewer_status`, **or** when `conversation_comments_incomplete` is true and a required bot exists (fail-closed: partial comment history). When no required bots are configured, this is vacuously false (incomplete pagination alone does not set the flag). The name is intentionally **not** `bot_review_*`-prefixed: it is a derived aggregate over enrichment counts, not part of the `bot_review_pending` / `bot_review_terminal` / … lifecycle tuple.
 
 See ADR-0013.
 
@@ -375,16 +376,43 @@ Records one validated gate artifact for the current branch HEAD.
 | Flag | Required | Description |
 |------|----------|-------------|
 | `--status` | yes | Top-level gate outcome: `pass` or `fail` |
-| `--checks-file` | no | JSON array of check objects with fields `id`, `status`, and optional `summary`; check `status` may be `pass`, `fail`, or `skipped` |
+| `--producer-procedure` | yes | Procedure that is recording the proof (for example `implement` or `change-inspect`) |
+| `--producer-tool` | no | Recording tool identifier. Defaults to `rgd gate record` |
+| `--checks-file` | no | JSON array of check objects with fields `id`, `status`, required `summary`, and optional `evidence`; check `status` may be `pass`, `fail`, or `skipped` |
+| `--inputs-file` | no | JSON array of upstream gate proof objects (`gate_id`, `status`, `subject`, `recorded_at`) |
+| `--input-gate` | no | Repeatable shortcut: copy one **fresh passing** stored gate artifact into `inputs[]` |
 
 The command attaches:
 
-- current `head_sha`
-- current branch name
+- `subject.head_sha`
+- `subject.branch`
 - `recorded_at` (RFC3339 UTC)
 - `schema_version`
+- `producer`
+- `inputs[]`
 
 It refuses to record on a detached HEAD.
+
+Gate artifacts are **proof-carrying**, not bare status toggles. Common top-level
+fields are:
+
+- `subject` — the branch head the proof applies to
+- `producer` — which procedure / tool emitted the proof
+- `inputs[]` — upstream proofs consumed by this proof
+- `checks[]` — concrete check IDs and summaries for the proof itself
+
+Current repository contracts:
+
+- `local-verification`: HS-LOCAL-VERIFY proof for one subject
+- `workflow.runtime_gate_roles.pre_pr_ai_review`: repo-configured pre-PR AI
+  review proof role. In this repository’s current default config, the concrete
+  gate id is `local-coderabbit`, and `pass` requires
+  `checks[].id == "local-coderabbit-cli"` with `status == "pass"`
+- `pr-readiness`: review-closure proof for one subject; `pass` requires
+  `checks[].id == "review-closure"` with `status == "pass"` and fresh passing
+  `inputs[]` for every required role declared by
+  `workflow.runtime_gate_roles.pr_readiness.pass_requires_roles` (default here:
+  `local-verification` and `local-coderabbit`)
 
 ### `rgd gate status <gate-id>`
 

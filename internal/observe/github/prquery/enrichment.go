@@ -20,6 +20,13 @@ var (
 	}
 )
 
+func enrichmentByNameLocked(name string) (Enrichment, bool) {
+	enrichmentMu.RLock()
+	defer enrichmentMu.RUnlock()
+	e, ok := enrichmentByName[name]
+	return e, ok
+}
+
 // RegisterEnrichment adds an enrichment for validation and Collect. Used by tests.
 func RegisterEnrichment(e Enrichment) error {
 	if e == nil {
@@ -97,6 +104,18 @@ func applyEnrichments(body string, enrichNames []string) map[string]any {
 // reviewBodyEnricher parses PullRequestReview bodies (distinct from issue comments).
 type reviewBodyEnricher interface {
 	EnrichReviewBody(reviewBody string) map[string]any
+}
+
+// issueCommentTierer lets a plugin define which issue comments should drive status.
+type issueCommentTierer interface {
+	// CommentMaxTier returns an integer tier for body. Higher values mean the comment is more
+	// relevant for ordering or filtering; the numeric scale is defined by each enrichment plugin.
+	CommentMaxTier(body string) int
+}
+
+// findingConversationCounter counts finding-shaped PR conversation comments for one bot.
+type findingConversationCounter interface {
+	CountFindingConversationComments(nodes []prCommentNode, login string) int
 }
 
 func applyReviewBodyEnrichments(reviewBody string, enrichNames []string) map[string]any {

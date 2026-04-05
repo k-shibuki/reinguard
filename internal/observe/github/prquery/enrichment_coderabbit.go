@@ -38,12 +38,15 @@ func (coderabbitEnrichment) EnrichReviewBody(reviewBody string) map[string]any {
 	}
 	out := make(map[string]any)
 	if n := parseCoderabbitDuplicateCount(body); n > 0 {
+		out["duplicate_findings_count"] = n
 		out["cr_duplicate_findings_count"] = n
 	}
 	if n := parseCoderabbitActionableCommentsCount(body); n > 0 {
+		out["actionable_findings_count"] = n
 		out["cr_actionable_comments_count"] = n
 	}
 	if n := parseCoderabbitOutsideDiffCommentsCount(body); n > 0 {
+		out["outside_diff_findings_count"] = n
 		out["cr_outside_diff_comments_count"] = n
 	}
 	if len(out) == 0 {
@@ -98,6 +101,14 @@ func IsCoderabbitFindingConversationComment(body string) bool {
 	return CoderabbitIssueCommentMaxTier(body) == 0
 }
 
+func (coderabbitEnrichment) CountFindingConversationComments(nodes []prCommentNode, login string) int {
+	return countCoderabbitFindingConversationComments(nodes, login)
+}
+
+func (coderabbitEnrichment) CommentMaxTier(body string) int {
+	return CoderabbitIssueCommentMaxTier(body)
+}
+
 // ClassifyStatus applies CodeRabbit-aware rules on top of generic substring flags.
 func (coderabbitEnrichment) ClassifyStatus(m map[string]any) string {
 	if signalBool(m, "contains_rate_limit") {
@@ -112,14 +123,23 @@ func (coderabbitEnrichment) ClassifyStatus(m map[string]any) string {
 	if v, ok := m["cr_review_processing"].(bool); ok && v {
 		return BotStatusPending
 	}
+	if v, ok := m["review_processing"].(bool); ok && v {
+		return BotStatusPending
+	}
 	// Terminal clean without a GitHub Review (issue-comment-only completion, e.g. "no actionable comments").
 	if signalBool(m, "cr_review_completed_clean") {
+		return BotStatusCompletedClean
+	}
+	if signalBool(m, "review_completed_clean") {
 		return BotStatusCompletedClean
 	}
 	if signalBool(m, "has_review") {
 		return BotStatusCompleted
 	}
 	if signalBool(m, "cr_walkthrough_present") {
+		return BotStatusPending
+	}
+	if signalBool(m, "walkthrough_present") {
 		return BotStatusPending
 	}
 	if strings.TrimSpace(signalString(m, "latest_comment_at")) != "" {
@@ -194,22 +214,28 @@ func CoderabbitIssueCommentMaxTier(body string) int {
 func parseCoderabbitReviewStatusMarkers(body string) map[string]any {
 	out := make(map[string]any)
 	if sha := parseCoderabbitReviewedHeadSHA(body); sha != "" {
+		out["reviewed_head_sha"] = sha
 		out["cr_reviewed_head_sha"] = sha
 	}
 	if reCRWalkthrough.MatchString(body) {
+		out["walkthrough_present"] = true
 		out["cr_walkthrough_present"] = true
 	}
 	// "No issues found" is a terminal clean result; other status markers do not add value after this.
 	if reCRReviewClean.MatchString(body) {
+		out["review_processing"] = false
+		out["review_completed_clean"] = true
 		out["cr_review_processing"] = false
 		out["cr_review_completed_clean"] = true
 		return out
 	}
 	if reCRReviewCompleted.MatchString(body) {
+		out["review_processing"] = false
 		out["cr_review_processing"] = false
 		return out
 	}
 	if reCRReviewProcessing.MatchString(body) {
+		out["review_processing"] = true
 		out["cr_review_processing"] = true
 	}
 	return out

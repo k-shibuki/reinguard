@@ -37,7 +37,7 @@ func duplicateFindingsDetected(statusList []any) bool {
 		if !ok {
 			continue
 		}
-		if n, ok := intFromStatusMap(m, "cr_duplicate_findings_count"); ok && n > 0 {
+		if n, ok := intFromStatusMapAny(m, "duplicate_findings_count", "cr_duplicate_findings_count"); ok && n > 0 {
 			return true
 		}
 	}
@@ -64,15 +64,36 @@ func nonThreadFindingsPresentForRequiredBots(statusList []any) bool {
 }
 
 func nonThreadFindingsPresentForStatus(m map[string]any) bool {
-	a := intFromStatusMapOrZero(m, "cr_actionable_comments_count")
-	o := intFromStatusMapOrZero(m, "cr_outside_diff_comments_count")
-	d := intFromStatusMapOrZero(m, "cr_duplicate_findings_count")
-	f := intFromStatusMapOrZero(m, "cr_finding_conversation_comments_count")
+	a := intFromStatusMapOrZeroAny(m, "actionable_findings_count", "cr_actionable_comments_count")
+	o := intFromStatusMapOrZeroAny(m, "outside_diff_findings_count", "cr_outside_diff_comments_count")
+	d := intFromStatusMapOrZeroAny(m, "duplicate_findings_count", "cr_duplicate_findings_count")
+	f := intFromStatusMapOrZeroAny(m, "finding_conversation_comments_count", "cr_finding_conversation_comments_count")
 	return a > 0 || o > 0 || d > 0 || f > 0
 }
 
-func intFromStatusMapOrZero(m map[string]any, key string) int {
-	n, ok := intFromStatusMap(m, key)
+func hasRequiredBot(statusList []any) bool {
+	for _, elt := range statusList {
+		m, ok := elt.(map[string]any)
+		if !ok {
+			continue
+		}
+		if req, ok := m["required"].(bool); ok && req {
+			return true
+		}
+	}
+	return false
+}
+
+func aggregateNonThreadFindings(statusList []any, conversationCommentsIncomplete bool) bool {
+	n := nonThreadFindingsPresentForRequiredBots(statusList)
+	if conversationCommentsIncomplete {
+		return n || hasRequiredBot(statusList)
+	}
+	return n
+}
+
+func intFromStatusMapOrZeroAny(m map[string]any, keys ...string) int {
+	n, ok := intFromStatusMapAny(m, keys...)
 	if !ok {
 		return 0
 	}
@@ -83,13 +104,15 @@ func intFromStatusMapOrZero(m map[string]any, key string) int {
 // headSHA is the PR HEAD commit; when a required bot's review targets a different
 // commit, bot_review_stale is true. When no required bots are configured, all
 // flags reflect vacuous completion (nothing to wait on).
-func ComputeBotReviewDiagnostics(statusList []any, headSHA string) map[string]any {
+// When conversationCommentsIncomplete is true, non-thread counts may be partial;
+// non_thread_findings_present is fail-closed true if any required bot is configured.
+func ComputeBotReviewDiagnostics(statusList []any, headSHA string, conversationCommentsIncomplete bool) map[string]any {
 	var sawRequired bool
 	anyFailed := false
 	allReviewed := true
 	anyStale := false
 	duplicateFindings := duplicateFindingsDetected(statusList)
-	nonThreadFindings := nonThreadFindingsPresentForRequiredBots(statusList)
+	nonThreadFindings := aggregateNonThreadFindings(statusList, conversationCommentsIncomplete)
 
 	for _, elt := range statusList {
 		m, ok := elt.(map[string]any)
@@ -145,19 +168,20 @@ func ComputeBotReviewDiagnostics(statusList []any, headSHA string) map[string]an
 	}
 }
 
-func intFromStatusMap(m map[string]any, key string) (int, bool) {
-	v, ok := m[key]
-	if !ok {
-		return 0, false
+func intFromStatusMapAny(m map[string]any, keys ...string) (int, bool) {
+	for _, key := range keys {
+		v, ok := m[key]
+		if !ok {
+			continue
+		}
+		switch n := v.(type) {
+		case int:
+			return n, true
+		case int64:
+			return int(n), true
+		case float64:
+			return int(n), true
+		}
 	}
-	switch n := v.(type) {
-	case int:
-		return n, true
-	case int64:
-		return int(n), true
-	case float64:
-		return int(n), true
-	default:
-		return 0, false
-	}
+	return 0, false
 }

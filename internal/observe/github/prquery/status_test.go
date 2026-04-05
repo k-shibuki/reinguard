@@ -6,7 +6,7 @@ import (
 
 func TestComputeBotReviewDiagnostics_vacuousNoRequired(t *testing.T) {
 	t.Parallel()
-	got := ComputeBotReviewDiagnostics([]any{}, "abc123")
+	got := ComputeBotReviewDiagnostics([]any{}, "abc123", false)
 	if g, ok := got["bot_review_completed"].(bool); !ok || !g {
 		t.Fatalf("completed: %+v", got)
 	}
@@ -34,7 +34,7 @@ func TestComputeBotReviewDiagnostics_requiredPending(t *testing.T) {
 	t.Parallel()
 	got := ComputeBotReviewDiagnostics([]any{
 		map[string]any{"required": true, "status": BotStatusPending},
-	}, "abc123")
+	}, "abc123", false)
 	if got["bot_review_completed"].(bool) != false {
 		t.Fatalf("%+v", got)
 	}
@@ -53,7 +53,7 @@ func TestComputeBotReviewDiagnostics_requiredCompleted(t *testing.T) {
 	t.Parallel()
 	got := ComputeBotReviewDiagnostics([]any{
 		map[string]any{"required": true, "status": BotStatusCompleted, "review_commit_sha": "abc123"},
-	}, "abc123")
+	}, "abc123", false)
 	if got["bot_review_completed"].(bool) != true || got["bot_review_pending"].(bool) != false {
 		t.Fatalf("%+v", got)
 	}
@@ -70,7 +70,7 @@ func TestComputeBotReviewDiagnostics_requiredCompletedStale(t *testing.T) {
 	// Given: completed bot review on an older commit
 	got := ComputeBotReviewDiagnostics([]any{
 		map[string]any{"required": true, "status": BotStatusCompleted, "review_commit_sha": "old-sha"},
-	}, "new-sha")
+	}, "new-sha", false)
 	// Then: stale is true
 	if got["bot_review_stale"].(bool) != true {
 		t.Fatalf("mismatched SHA should be stale: %+v", got)
@@ -85,7 +85,7 @@ func TestComputeBotReviewDiagnostics_requiredCompletedMissingSHA(t *testing.T) {
 	// Given: completed bot review with no review_commit_sha
 	got := ComputeBotReviewDiagnostics([]any{
 		map[string]any{"required": true, "status": BotStatusCompleted},
-	}, "abc123")
+	}, "abc123", false)
 	// Then: stale is true (fail-closed: missing SHA treated as stale)
 	if got["bot_review_stale"].(bool) != true {
 		t.Fatalf("missing review SHA should be stale: %+v", got)
@@ -96,7 +96,7 @@ func TestComputeBotReviewDiagnostics_optionalIgnoredForAggregate(t *testing.T) {
 	t.Parallel()
 	got := ComputeBotReviewDiagnostics([]any{
 		map[string]any{"required": false, "status": BotStatusPending},
-	}, "abc123")
+	}, "abc123", false)
 	if got["bot_review_completed"].(bool) != true {
 		t.Fatalf("optional should not block: %+v", got)
 	}
@@ -111,8 +111,8 @@ func TestComputeBotReviewDiagnostics_duplicateFindingsOptionalOnlyNoRequired(t *
 	// When:  vacuous completion branch runs (sawRequired == false).
 	// Then:  duplicate_findings_detected still surfaces for triage.
 	got := ComputeBotReviewDiagnostics([]any{
-		map[string]any{"required": false, "status": BotStatusCompleted, "cr_duplicate_findings_count": 2},
-	}, "abc123")
+		map[string]any{"required": false, "status": BotStatusCompleted, "duplicate_findings_count": 2},
+	}, "abc123", false)
 	if got["bot_review_completed"].(bool) != true {
 		t.Fatalf("vacuous completion expected: %+v", got)
 	}
@@ -125,12 +125,12 @@ func TestComputeBotReviewDiagnostics_duplicateFindingsZeroCount(t *testing.T) {
 	t.Parallel()
 	got := ComputeBotReviewDiagnostics([]any{
 		map[string]any{
-			"required":                    true,
-			"status":                      BotStatusCompleted,
-			"review_commit_sha":           "abc123",
-			"cr_duplicate_findings_count": 0,
+			"required":                 true,
+			"status":                   BotStatusCompleted,
+			"review_commit_sha":        "abc123",
+			"duplicate_findings_count": 0,
 		},
-	}, "abc123")
+	}, "abc123", false)
 	if got["duplicate_findings_detected"].(bool) {
 		t.Fatalf("want duplicate_findings_detected=false for zero count, got %+v", got)
 	}
@@ -138,12 +138,14 @@ func TestComputeBotReviewDiagnostics_duplicateFindingsZeroCount(t *testing.T) {
 
 func TestComputeBotReviewDiagnostics_nonThreadFindingsRequired(t *testing.T) {
 	t.Parallel()
+	// Given: required bot completed with actionable findings signal
 	got := ComputeBotReviewDiagnostics([]any{
 		map[string]any{
 			"required": true, "status": BotStatusCompleted, "review_commit_sha": "abc123",
-			"cr_actionable_comments_count": 1,
+			"actionable_findings_count": 1,
 		},
-	}, "abc123")
+	}, "abc123", false)
+	// Then: aggregate non_thread_findings_present is true
 	if got["non_thread_findings_present"].(bool) != true {
 		t.Fatalf("want non_thread_findings_present=true: %+v", got)
 	}
@@ -151,11 +153,74 @@ func TestComputeBotReviewDiagnostics_nonThreadFindingsRequired(t *testing.T) {
 
 func TestComputeBotReviewDiagnostics_nonThreadFindingsOptionalOnly(t *testing.T) {
 	t.Parallel()
+	// Given: optional-only bot with outside-diff findings signal
 	got := ComputeBotReviewDiagnostics([]any{
-		map[string]any{"required": false, "status": BotStatusCompleted, "cr_outside_diff_comments_count": 3},
-	}, "abc123")
+		map[string]any{"required": false, "status": BotStatusCompleted, "outside_diff_findings_count": 3},
+	}, "abc123", false)
+	// Then: aggregate non_thread_findings_present stays false (optional bots excluded)
 	if got["non_thread_findings_present"].(bool) {
 		t.Fatalf("optional bot should not set aggregate non-thread flag: %+v", got)
+	}
+}
+
+func TestComputeBotReviewDiagnostics_nonThreadOutsideDiffRequired(t *testing.T) {
+	t.Parallel()
+	got := ComputeBotReviewDiagnostics([]any{
+		map[string]any{
+			"required": true, "status": BotStatusCompleted, "review_commit_sha": "abc123",
+			"outside_diff_findings_count": 2,
+		},
+	}, "abc123", false)
+	if got["non_thread_findings_present"].(bool) != true {
+		t.Fatalf("want non_thread_findings_present=true: %+v", got)
+	}
+}
+
+func TestComputeBotReviewDiagnostics_nonThreadDuplicateRequired(t *testing.T) {
+	t.Parallel()
+	got := ComputeBotReviewDiagnostics([]any{
+		map[string]any{
+			"required": true, "status": BotStatusCompleted, "review_commit_sha": "abc123",
+			"duplicate_findings_count": 1,
+		},
+	}, "abc123", false)
+	if got["non_thread_findings_present"].(bool) != true {
+		t.Fatalf("want non_thread_findings_present=true: %+v", got)
+	}
+}
+
+func TestComputeBotReviewDiagnostics_nonThreadFindingConversationRequired(t *testing.T) {
+	t.Parallel()
+	got := ComputeBotReviewDiagnostics([]any{
+		map[string]any{
+			"required": true, "status": BotStatusCompleted, "review_commit_sha": "abc123",
+			"finding_conversation_comments_count": 1,
+		},
+	}, "abc123", false)
+	if got["non_thread_findings_present"].(bool) != true {
+		t.Fatalf("want non_thread_findings_present=true: %+v", got)
+	}
+}
+
+func TestComputeBotReviewDiagnostics_conversationIncompleteFailClosed(t *testing.T) {
+	t.Parallel()
+	// Given: required bot with zero non-thread counts but conversation comment window incomplete
+	got := ComputeBotReviewDiagnostics([]any{
+		map[string]any{"required": true, "status": BotStatusCompleted, "review_commit_sha": "abc123"},
+	}, "abc123", true)
+	if got["non_thread_findings_present"].(bool) != true {
+		t.Fatalf("want fail-closed non_thread_findings_present when incomplete: %+v", got)
+	}
+}
+
+func TestComputeBotReviewDiagnostics_conversationIncompleteOptionalOnly(t *testing.T) {
+	t.Parallel()
+	// Given: incomplete pagination but only optional bots — aggregate non-thread stays vacuously false
+	got := ComputeBotReviewDiagnostics([]any{
+		map[string]any{"required": false, "status": BotStatusCompleted},
+	}, "abc123", true)
+	if got["non_thread_findings_present"].(bool) {
+		t.Fatalf("optional-only should not set non_thread even when incomplete: %+v", got)
 	}
 }
 
@@ -163,9 +228,9 @@ func TestComputeBotReviewDiagnostics_duplicateFindingsOnOptionalBot(t *testing.T
 	t.Parallel()
 	// Given: optional bot with duplicate findings in review summary (observation still surfaces it).
 	got := ComputeBotReviewDiagnostics([]any{
-		map[string]any{"required": false, "status": BotStatusCompleted, "cr_duplicate_findings_count": 2},
+		map[string]any{"required": false, "status": BotStatusCompleted, "duplicate_findings_count": 2},
 		map[string]any{"required": true, "status": BotStatusCompleted, "review_commit_sha": "abc123"},
-	}, "abc123")
+	}, "abc123", false)
 	if got["duplicate_findings_detected"].(bool) != true {
 		t.Fatalf("want duplicate_findings_detected=true, got %+v", got)
 	}

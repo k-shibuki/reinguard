@@ -20,7 +20,29 @@ type Root struct {
 	LegacyToolHints map[string]any `yaml:"legacy_tool_hints,omitempty" json:"legacy_tool_hints,omitempty"`
 	SchemaVersion   string         `yaml:"schema_version" json:"schema_version"`
 	DefaultBranch   string         `yaml:"default_branch" json:"default_branch"`
+	Workflow        WorkflowSpec   `yaml:"workflow,omitempty" json:"workflow,omitempty"`
 	Providers       []ProviderSpec `yaml:"providers" json:"providers"`
+}
+
+// WorkflowSpec is top-level workflow-specific config that still belongs to repo-owned Semantics.
+type WorkflowSpec struct {
+	RuntimeGateRoles RuntimeGateRolesSpec `yaml:"runtime_gate_roles,omitempty" json:"runtime_gate_roles,omitempty"`
+}
+
+// RuntimeGateRolesSpec declares repo-specific runtime gate role bindings.
+type RuntimeGateRolesSpec struct {
+	LocalVerification RuntimeGateRoleSpec `yaml:"local_verification,omitempty" json:"local_verification,omitempty"`
+	PrePRAIReview     RuntimeGateRoleSpec `yaml:"pre_pr_ai_review,omitempty" json:"pre_pr_ai_review,omitempty"`
+	PRReadiness       RuntimeGateRoleSpec `yaml:"pr_readiness,omitempty" json:"pr_readiness,omitempty"`
+}
+
+// RuntimeGateRoleSpec binds one semantic gate role to a concrete gate artifact contract.
+type RuntimeGateRoleSpec struct {
+	GateID             string   `yaml:"gate_id,omitempty" json:"gate_id,omitempty"`
+	Required           *bool    `yaml:"required,omitempty" json:"required,omitempty"`
+	ProducerProcedures []string `yaml:"producer_procedures,omitempty" json:"producer_procedures,omitempty"`
+	PassCheckIDs       []string `yaml:"pass_check_ids,omitempty" json:"pass_check_ids,omitempty"`
+	PassRequiresRoles  []string `yaml:"pass_requires_roles,omitempty" json:"pass_requires_roles,omitempty"`
 }
 
 // ProviderSpec is one observation provider entry.
@@ -103,6 +125,18 @@ func Load(dir string) (*LoadResult, error) {
 		return nil, err
 	}
 	return res, nil
+}
+
+// LoadRoot reads and validates only reinguard.yaml.
+func LoadRoot(dir string) (Root, error) {
+	if dir == "" {
+		return Root{}, fmt.Errorf("config: empty directory")
+	}
+	ss, err := compileLoadSchemas()
+	if err != nil {
+		return Root{}, err
+	}
+	return readAndValidateRoot(dir, ss.root)
 }
 
 // Rules returns all rules from all files in stable sort order by control path (kind/filename) then index.

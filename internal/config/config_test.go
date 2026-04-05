@@ -627,6 +627,63 @@ providers:
 	}
 }
 
+func TestLoadRoot_runtimeGateRolesOverride(t *testing.T) {
+	t.Parallel()
+	// Given: reinguard.yaml with workflow.runtime_gate_roles override for pre_pr_ai_review
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(fmt.Sprintf(`schema_version: %q
+default_branch: main
+workflow:
+  runtime_gate_roles:
+    pre_pr_ai_review:
+      gate_id: local-ai-review
+      required: false
+      producer_procedures: [change-inspect]
+      pass_check_ids: [ai-review-cli]
+providers: []
+`, schema.CurrentSchemaVersion)))
+
+	// When: LoadRoot is called
+	root, err := LoadRoot(dir)
+	// Then: override applies and unrelated defaults remain intact
+	if err != nil {
+		t.Fatal(err)
+	}
+	roles := root.EffectiveRuntimeGateRoles()
+	if roles.PrePRAIReview.GateID != "local-ai-review" {
+		t.Fatalf("pre_pr_ai_review gate_id=%q", roles.PrePRAIReview.GateID)
+	}
+	if roles.PrePRAIReview.Required == nil || *roles.PrePRAIReview.Required {
+		t.Fatalf("pre_pr_ai_review required=%v", roles.PrePRAIReview.Required)
+	}
+	if roles.PRReadiness.GateID != "pr-readiness" {
+		t.Fatalf("default pr_readiness should remain intact: %+v", roles.PRReadiness)
+	}
+}
+
+func TestLoadRoot_runtimeGateRolesDuplicateGateID(t *testing.T) {
+	t.Parallel()
+	// Given: reinguard.yaml with two runtime gate roles sharing the same gate_id
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(fmt.Sprintf(`schema_version: %q
+default_branch: main
+workflow:
+  runtime_gate_roles:
+    local_verification:
+      gate_id: shared-gate
+    pr_readiness:
+      gate_id: shared-gate
+providers: []
+`, schema.CurrentSchemaVersion)))
+
+	// When: LoadRoot is called
+	_, err := LoadRoot(dir)
+	// Then: error containing "duplicates" is returned
+	if err == nil || !strings.Contains(err.Error(), "duplicates") {
+		t.Fatalf("got err=%v", err)
+	}
+}
+
 func TestLoad_controlStatesFile(t *testing.T) {
 	t.Parallel()
 	// Given: valid root and one state rules file
