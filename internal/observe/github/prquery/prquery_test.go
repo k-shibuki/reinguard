@@ -113,6 +113,10 @@ func TestCollect_onePage_threadsAndDetail(t *testing.T) {
 						"baseRefName":      "main",
 						"headRefName":      "feat/scoped",
 						"headRefOid":       "abc123",
+						"headRepository": map[string]any{
+							"name":  "reinguard",
+							"owner": map[string]any{"login": "forkowner"},
+						},
 						"labels": map[string]any{
 							"nodes": []map[string]any{{"name": "feat"}},
 						},
@@ -193,6 +197,9 @@ func TestCollect_onePage_threadsAndDetail(t *testing.T) {
 	}
 	if pull["head_ref"].(string) != "feat/scoped" {
 		t.Fatalf("pull: %+v", pull)
+	}
+	if pull["head_repo_owner"].(string) != "forkowner" || pull["head_repo_name"].(string) != "reinguard" {
+		t.Fatalf("head repository: %+v", pull)
 	}
 	labels := pull["labels"].([]any)
 	if len(labels) != 1 || labels[0].(string) != "feat" {

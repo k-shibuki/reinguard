@@ -31,6 +31,10 @@ const prContextQuery = `query PRContext($owner: String!, $name: String!, $number
       baseRefName @include(if: $includeDetail)
       headRefName @include(if: $includeDetail)
       headRefOid @include(if: $includeDetail)
+      headRepository @include(if: $includeDetail) {
+        name
+        owner { login }
+      }
       labels(first: 20) @include(if: $includeDetail) {
         nodes { name }
       }
@@ -119,21 +123,30 @@ type prContextResponse struct {
 	} `json:"repository"`
 }
 
+//nolint:govet // fieldalignment: GraphQL response shape
+type headRepositoryNode struct {
+	Name  string `json:"name"`
+	Owner *struct {
+		Login string `json:"login"`
+	} `json:"owner"`
+}
+
 type prPullRequestNode struct {
 	State *string `json:"state"`
 	// IsDraft is returned as JSON boolean when @include detail.
-	IsDraft                 *bool              `json:"isDraft"`
-	Title                   *string            `json:"title"`
-	Mergeable               *string            `json:"mergeable"`
-	MergeStateStatus        *string            `json:"mergeStateStatus"`
-	BaseRefName             *string            `json:"baseRefName"`
-	HeadRefName             *string            `json:"headRefName"`
-	HeadRefOid              *string            `json:"headRefOid"`
-	Labels                  *labelsConn        `json:"labels"`
-	ClosingIssuesReferences *closingIssuesConn `json:"closingIssuesReferences"`
-	LatestReviews           *latestReviewsConn `json:"latestReviews"`
-	Comments                *commentsConn      `json:"comments"`
-	ReviewThreads           *reviewThreadsConn `json:"reviewThreads"`
+	IsDraft                 *bool               `json:"isDraft"`
+	Title                   *string             `json:"title"`
+	Mergeable               *string             `json:"mergeable"`
+	MergeStateStatus        *string             `json:"mergeStateStatus"`
+	BaseRefName             *string             `json:"baseRefName"`
+	HeadRefName             *string             `json:"headRefName"`
+	HeadRefOid              *string             `json:"headRefOid"`
+	HeadRepository          *headRepositoryNode `json:"headRepository"`
+	Labels                  *labelsConn         `json:"labels"`
+	ClosingIssuesReferences *closingIssuesConn  `json:"closingIssuesReferences"`
+	LatestReviews           *latestReviewsConn  `json:"latestReviews"`
+	Comments                *commentsConn       `json:"comments"`
+	ReviewThreads           *reviewThreadsConn  `json:"reviewThreads"`
 }
 
 type labelsConn struct {
@@ -368,6 +381,18 @@ func emptyReviewsInner() map[string]any {
 	}
 }
 
+func applyHeadRepositorySignals(pr *prPullRequestNode, m map[string]any) {
+	if pr == nil || pr.HeadRepository == nil {
+		return
+	}
+	if pr.HeadRepository.Owner != nil && strings.TrimSpace(pr.HeadRepository.Owner.Login) != "" {
+		m["head_repo_owner"] = strings.TrimSpace(pr.HeadRepository.Owner.Login)
+	}
+	if strings.TrimSpace(pr.HeadRepository.Name) != "" {
+		m["head_repo_name"] = strings.TrimSpace(pr.HeadRepository.Name)
+	}
+}
+
 func buildPullDetail(pr *prPullRequestNode) map[string]any {
 	m := make(map[string]any)
 	if pr.State != nil {
@@ -388,6 +413,7 @@ func buildPullDetail(pr *prPullRequestNode) map[string]any {
 	if pr.HeadRefOid != nil {
 		m["head_sha"] = *pr.HeadRefOid
 	}
+	applyHeadRepositorySignals(pr, m)
 	if pr.Mergeable != nil {
 		m["mergeable"] = mergeableToSignal(*pr.Mergeable)
 	}

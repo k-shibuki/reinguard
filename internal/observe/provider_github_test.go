@@ -576,6 +576,27 @@ exit 1
 	}
 }
 
+func TestHeadRepoForCIStatus(t *testing.T) {
+	t.Parallel()
+	t.Run("fork_head_repo", func(t *testing.T) {
+		t.Parallel()
+		o, n := headRepoForCIStatus(map[string]any{
+			"head_repo_owner": "fork-owner",
+			"head_repo_name":  "fork-repo",
+		}, "base-owner", "base-repo")
+		if o != "fork-owner" || n != "fork-repo" {
+			t.Fatalf("got %q %q", o, n)
+		}
+	})
+	t.Run("falls_back_to_base", func(t *testing.T) {
+		t.Parallel()
+		o, n := headRepoForCIStatus(map[string]any{}, "base-owner", "base-repo")
+		if o != "base-owner" || n != "base-repo" {
+			t.Fatalf("got %q %q", o, n)
+		}
+	})
+}
+
 func runGitCmd(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)

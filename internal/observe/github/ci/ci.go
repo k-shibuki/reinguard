@@ -22,6 +22,9 @@ type combinedStatus struct {
 // Collect returns a coarse CI rollup for the observed head SHA.
 // If headSHAOverride is non-empty after trimming, it is used directly; otherwise the
 // SHA is determined via git rev-parse HEAD in workDir.
+// owner and repo identify the repository for GET .../commits/{sha}/status. For a pull
+// request from a fork, CI statuses are posted to the head repository; pass the head
+// owner and name from the pull request (not the base repo).
 func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir, headSHAOverride string) (map[string]any, []string, error) {
 	if c == nil {
 		return nil, nil, fmt.Errorf("nil client")

@@ -220,7 +220,7 @@ func (p *GitHubProvider) Collect(ctx context.Context, opts Options) (Fragment, e
 	needScopedCIHead := wantFacet("ci") && explicitScope
 	p.githubCollectIssues(ctx, client, owner, repo, wantFacet("issues"), signals, &diags, &degraded)
 	p.githubCollectPullRequestsAndPRNum(ctx, client, owner, repo, opts, wantFacet, signals, appendWarnings, &diags, &degraded, &prNum, &prLookupOK)
-	prHeadSHA = p.githubCollectPRGraph(ctx, client, owner, repo, prNum, wantFacet("pull-requests"), wantFacet("reviews"), needScopedCIHead, prLookupOK, signals, &diags, &degraded, opts)
+	prHeadSHA, ciStatusOwner, ciStatusRepo := p.githubCollectPRGraph(ctx, client, owner, repo, prNum, wantFacet("pull-requests"), wantFacet("reviews"), needScopedCIHead, prLookupOK, signals, &diags, &degraded, opts)
 	if wantFacet("ci") && explicitScope && strings.TrimSpace(prHeadSHA) == "" {
 		degraded = true
 		diags = append(diags, Diagnostic{
@@ -236,7 +236,7 @@ func (p *GitHubProvider) Collect(ctx context.Context, opts Options) (Fragment, e
 			},
 		})
 	} else {
-		p.githubCollectCI(ctx, client, owner, repo, opts.WorkDir, prHeadSHA, wantFacet("ci"), signals, appendWarnings, &diags, &degraded)
+		p.githubCollectCI(ctx, client, owner, repo, opts.WorkDir, prHeadSHA, ciStatusOwner, ciStatusRepo, wantFacet("ci"), signals, appendWarnings, &diags, &degraded)
 	}
 
 	return Fragment{Signals: signals, Diagnostics: diags, Degraded: degraded}, nil
@@ -281,11 +281,15 @@ func (*GitHubProvider) githubCollectPullRequestsAndPRNum(ctx context.Context, cl
 	}
 }
 
-func (*GitHubProvider) githubCollectCI(ctx context.Context, client *githubapi.Client, owner, repo, workDir, headSHA string, want bool, signals map[string]any, appendWarnings func(string, []string), diags *[]Diagnostic, degraded *bool) {
+func (*GitHubProvider) githubCollectCI(ctx context.Context, client *githubapi.Client, baseOwner, baseRepo, workDir, headSHA string, statusOwner, statusRepo string, want bool, signals map[string]any, appendWarnings func(string, []string), diags *[]Diagnostic, degraded *bool) {
 	if !want {
 		return
 	}
-	m, warns, err := ci.Collect(ctx, client, owner, repo, workDir, headSHA)
+	repoOwner, repoName := strings.TrimSpace(statusOwner), strings.TrimSpace(statusRepo)
+	if repoOwner == "" || repoName == "" {
+		repoOwner, repoName = baseOwner, baseRepo
+	}
+	m, warns, err := ci.Collect(ctx, client, repoOwner, repoName, workDir, headSHA)
 	if err != nil {
 		*degraded = true
 		*diags = append(*diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github.ci"})
@@ -295,21 +299,34 @@ func (*GitHubProvider) githubCollectCI(ctx context.Context, client *githubapi.Cl
 	mergeSignals(signals, m)
 }
 
-func (p *GitHubProvider) githubCollectPRGraph(ctx context.Context, client *githubapi.Client, owner, repo string, prNum int, wantPull, wantRev, wantCI bool, prLookupOK bool, signals map[string]any, diags *[]Diagnostic, degraded *bool, opts Options) string {
+// headRepoForCIStatus returns the owner and repo for GET .../commits/{sha}/status.
+// Fork PRs report statuses on the head repository; same-repo PRs match base owner/repo.
+func headRepoForCIStatus(pullDetail map[string]any, baseOwner, baseRepo string) (string, string) {
+	statusOwner, statusRepo := baseOwner, baseRepo
+	if ho, ok := pullDetail["head_repo_owner"].(string); ok && strings.TrimSpace(ho) != "" {
+		if hn, ok := pullDetail["head_repo_name"].(string); ok && strings.TrimSpace(hn) != "" {
+			return strings.TrimSpace(ho), strings.TrimSpace(hn)
+		}
+	}
+	return statusOwner, statusRepo
+}
+
+func (p *GitHubProvider) githubCollectPRGraph(ctx context.Context, client *githubapi.Client, owner, repo string, prNum int, wantPull, wantRev, wantCI bool, prLookupOK bool, signals map[string]any, diags *[]Diagnostic, degraded *bool, opts Options) (headSHA string, statusOwner string, statusRepo string) {
 	if !wantPull && !wantRev && !wantCI {
-		return ""
+		return "", "", ""
 	}
 	if !prLookupOK || prNum <= 0 {
-		return ""
+		return "", "", ""
 	}
 	pullDetail, revInner, err := prquery.Collect(ctx, client, owner, repo, prNum, p.BotReviewers)
 	if err != nil {
 		*degraded = true
 		*diags = append(*diags, Diagnostic{Severity: "error", Message: err.Error(), Provider: "github.pr-query"})
-		return ""
+		return "", "", ""
 	}
-	headSHA, _ := pullDetail["head_sha"].(string)
+	headSHA, _ = pullDetail["head_sha"].(string)
 	headRef, _ := pullDetail["head_ref"].(string)
+	statusOwner, statusRepo = headRepoForCIStatus(pullDetail, owner, repo)
 	if wantPull && len(pullDetail) > 0 {
 		if existing, ok := signals["pull_requests"].(map[string]any); ok {
 			for k, v := range pullDetail {
@@ -329,9 +346,9 @@ func (p *GitHubProvider) githubCollectPRGraph(ctx context.Context, client *githu
 		mergeSignals(signals, map[string]any{"reviews": revInner})
 	}
 	if wantCI {
-		return headSHA
+		return headSHA, statusOwner, statusRepo
 	}
-	return ""
+	return "", "", ""
 }
 
 func mergeSignals(dst map[string]any, src map[string]any) {

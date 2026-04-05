@@ -87,6 +87,40 @@ func TestCollect_nonGitWorkDir(t *testing.T) {
 	}
 }
 
+func TestCollect_statusEndpointUsesOwnerRepoArguments(t *testing.T) {
+	t.Parallel()
+	// Given: a fork PR scenario — CI statuses live on the head repository
+	dir := t.TempDir()
+	gitInit(t, dir)
+	var sawPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sawPath = r.URL.Path
+		_, _ = w.Write([]byte(`{"state":"success"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	head := "abcd0123456789abcdef0123456789abcdef01"
+	// When: Collect is called with head repo owner/name (not the base repo)
+	m, warns, err := Collect(context.Background(), c, "fork-owner", "fork-repo", dir, head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warns) != 0 {
+		t.Fatalf("%v", warns)
+	}
+	// Then: the status request targets /repos/fork-owner/fork-repo/commits/{sha}/status
+	if !strings.Contains(sawPath, "/repos/fork-owner/fork-repo/commits/"+head+"/status") {
+		t.Fatalf("path=%q", sawPath)
+	}
+	cimap, ok := m["ci"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected ci map, got %T", m["ci"])
+	}
+	if cimap["head_sha"] != head {
+		t.Fatalf("ci=%+v", cimap)
+	}
+}
+
 func TestCollect_usesHeadSHAOverride(t *testing.T) {
 	t.Parallel()
 	// Given: git repo with HEAD and an explicit override SHA
