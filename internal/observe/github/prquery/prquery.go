@@ -500,7 +500,7 @@ func applyFindingConversationCountIfNeeded(status map[string]any, enrich []strin
 
 func countCoderabbitFindingConversationComments(nodes []prCommentNode, wantLogin string) int {
 	// Conservative aggregate: counts issue comments that look like findings for merge gating.
-	// Human disposition replies on the PR do not decrement this counter; reviewers use the
+	// User disposition replies on the PR do not decrement this counter; reviewers use the
 	// disposition workflow for non-thread closure (see review--consensus-protocol.md).
 	key := normalizeGitHubActorLogin(wantLogin)
 	var n int
