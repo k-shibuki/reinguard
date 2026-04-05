@@ -94,6 +94,10 @@ func parseCoderabbitOutsideDiffCommentsCount(body string) int {
 // IsCoderabbitFindingConversationComment reports whether a PR issue-comment body should count
 // toward cr_finding_conversation_comments_count: non-empty and not matching exclusion patterns
 // used for status / walkthrough (CoderabbitIssueCommentMaxTier == 0).
+//
+// CodeRabbit HTML wrappers (e.g. "auto-generated comment") are not special-cased: the body may
+// still include substantive notes; reviewers disposition non-thread items per policy instead
+// of growing substring heuristics here.
 func IsCoderabbitFindingConversationComment(body string) bool {
 	if strings.TrimSpace(body) == "" {
 		return false
@@ -182,15 +186,6 @@ func parseCoderabbitReviewedHeadSHA(body string) string {
 // a stale rate limit loses to a newer clean bill, and a stale clean loses to a newer rate limit.
 // Walkthrough/SHA-only markers stay at a lower tier so they do not outrank decisive status lines.
 func CoderabbitIssueCommentMaxTier(body string) int {
-	// Boilerplate PR issue comments (summaries, walkthrough hosts, disposition bot replies).
-	// These are not actionable review findings; treat like other operational tier-6 traffic so
-	// finding_conversation_comments_count does not stay elevated after a disposition cycle.
-	if strings.Contains(body, "<!-- This is an auto-generated reply by CodeRabbit -->") {
-		return 6
-	}
-	if strings.Contains(body, "<!-- This is an auto-generated comment:") {
-		return 6
-	}
 	lower := strings.ToLower(body)
 	t := 0
 	if strings.Contains(lower, "rate limit") || parseCoderabbitRateLimitSeconds(body) > 0 {

@@ -276,18 +276,6 @@ func TestIsCoderabbitFindingConversationComment(t *testing.T) {
 			t.Fatalf("sanity: want tier 6 for operational sample: %q", body)
 		}
 	}
-	autoGen := []string{
-		"<!-- This is an auto-generated reply by CodeRabbit -->\n\nDisposition summary received.",
-		"<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n\n<details>walkthrough</details>",
-	}
-	for _, body := range autoGen {
-		if IsCoderabbitFindingConversationComment(body) {
-			t.Fatalf("auto-generated wrapper should not count as finding-shaped: %q", body)
-		}
-		if CoderabbitIssueCommentMaxTier(body) != 6 {
-			t.Fatalf("want tier 6 for auto-generated wrapper: %q", body)
-		}
-	}
 }
 
 func TestCoderabbitIssueCommentMaxTier_decisiveStatusesShareTierSix(t *testing.T) {
