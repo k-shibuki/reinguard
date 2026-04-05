@@ -165,6 +165,26 @@ func TestCoderabbitEnrichment_EnrichReviewBody(t *testing.T) {
 	}
 }
 
+func TestCoderabbitIssueCommentMaxTier_decisiveStatusesShareTierSix(t *testing.T) {
+	t.Parallel()
+	cases := []string{
+		"Rate limit exceeded. Please try again in 1 minute",
+		"Review paused until you comment.",
+		"Review failed: head commit changed.",
+		"No issues found.",
+		"**Status:** ✅ completed\n",
+		"**Status:** in progress\n",
+	}
+	for _, body := range cases {
+		if got := CoderabbitIssueCommentMaxTier(body); got != 6 {
+			t.Fatalf("CoderabbitIssueCommentMaxTier(%q) = %d, want 6", body, got)
+		}
+	}
+	if got := CoderabbitIssueCommentMaxTier("### Walkthrough\n"); got != 1 {
+		t.Fatalf("walkthrough-only want tier 1, got %d", got)
+	}
+}
+
 func TestCoderabbitEnrichment_ClassifyStatus_order(t *testing.T) {
 	t.Parallel()
 	e := coderabbitEnrichment{}
@@ -214,9 +234,9 @@ func TestCoderabbitEnrichment_reviewedHeadSHAFromRange(t *testing.T) {
 			wantSHA: "4b680dbdeadbeef",
 		},
 		{
-			name:    "single_sha_does_not_match_range_pattern",
+			name:    "single_sha_at_bracket_form",
 			body:    "Reviewing files that changed from the base of the PR at [4b680dbdeadbeef](https://example.com/2).\n",
-			wantSHA: "",
+			wantSHA: "4b680dbdeadbeef",
 		},
 	}
 

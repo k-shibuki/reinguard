@@ -88,42 +88,57 @@ var (
 	reCRReviewClean       = regexp.MustCompile(`(?i)(no\s+issues\s+found|no\s+additional\s+issues\s+found|no\s+actionable\s+comments)`)
 	// Second bracketed SHA is the reviewed head when CodeRabbit summarizes a commit range in PR comments.
 	reCRReviewedHeadRange = regexp.MustCompile(`(?i)between\s+\[([0-9a-f]{7,40})\]\([^)]*\)\s+and\s+\[([0-9a-f]{7,40})\]\(`)
-	reCRReviewProcessing  = regexp.MustCompile(`(?i)(processing\s+new\s+changes|review\s+in\s+progress|\bin\s+progress\b|\*\*status\*\*[^\n]*(in\s+progress|pending|processing)|⏳\s*processing)`)
-	reCRWalkthrough       = regexp.MustCompile(`(?i)(^|\n)#{1,3}\s*[^\n]*(walkthrough|review\s+walkthrough)|\*\*walkthrough\*\*`)
+	// Single-SHA form: "... at [deadbeef...](url)" (comment-only summaries).
+	reCRReviewedHeadAt   = regexp.MustCompile(`(?i)\bat\s+\[([0-9a-f]{7,40})\]`)
+	reCRReviewProcessing = regexp.MustCompile(`(?i)(processing\s+new\s+changes|review\s+in\s+progress|\bin\s+progress\b|\*\*status\*\*[^\n]*(in\s+progress|pending|processing)|⏳\s*processing)`)
+	reCRWalkthrough      = regexp.MustCompile(`(?i)(^|\n)#{1,3}\s*[^\n]*(walkthrough|review\s+walkthrough)|\*\*walkthrough\*\*`)
 )
 
 func parseCoderabbitReviewedHeadSHA(body string) string {
 	if m := reCRReviewedHeadRange.FindStringSubmatch(body); len(m) >= 3 {
 		return strings.ToLower(strings.TrimSpace(m[2]))
 	}
+	if m := reCRReviewedHeadAt.FindStringSubmatch(body); len(m) >= 2 {
+		return strings.ToLower(strings.TrimSpace(m[1]))
+	}
 	return ""
 }
 
 // CoderabbitIssueCommentMaxTier returns the highest semantic tier for PR issue-comment
 // bodies when CodeRabbit enrichment applies. Higher wins when multiple comments exist.
-// Tiers: 5 terminal clean/completed, 4 rate limit, 3 paused, 2 failure cues, 1 other markers.
+//
+// Status-driving bodies (rate limit, pause, failure, terminal clean/completed, in-progress)
+// share one tier so that selectStatusCommentForLogin can break ties by newest updatedAt:
+// a stale rate limit loses to a newer clean bill, and a stale clean loses to a newer rate limit.
+// Walkthrough/SHA-only markers stay at a lower tier so they do not outrank decisive status lines.
 func CoderabbitIssueCommentMaxTier(body string) int {
 	lower := strings.ToLower(body)
 	t := 0
-	if reCRReviewClean.MatchString(body) {
-		t = max(t, 5)
-	}
-	if reCRReviewCompleted.MatchString(body) {
-		t = max(t, 5)
-	}
 	if strings.Contains(lower, "rate limit") || parseCoderabbitRateLimitSeconds(body) > 0 {
-		t = max(t, 4)
+		t = max(t, 6)
 	}
 	if strings.Contains(lower, "review paused") || strings.Contains(lower, "review pause") {
-		t = max(t, 3)
+		t = max(t, 6)
 	}
 	if reviewFailedFromComment(lower) {
-		t = max(t, 2)
+		t = max(t, 6)
+	}
+	if reCRReviewClean.MatchString(body) {
+		t = max(t, 6)
+	}
+	if reCRReviewCompleted.MatchString(body) {
+		t = max(t, 6)
+	}
+	if reCRReviewProcessing.MatchString(body) {
+		t = max(t, 6)
+	}
+	if t > 0 {
+		return t
 	}
 	if m := parseCoderabbitReviewStatusMarkers(body); len(m) > 0 {
-		t = max(t, 1)
+		return 1
 	}
-	return t
+	return 0
 }
 
 func parseCoderabbitReviewStatusMarkers(body string) map[string]any {

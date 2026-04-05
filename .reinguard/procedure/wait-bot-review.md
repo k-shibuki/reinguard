@@ -68,10 +68,8 @@ Use `knowledge.entries` (typically includes `review--bot-operations.md`, `review
 3. For `waiting_bot_stale`, the required bot completed its review on a **previous** HEAD. Re-trigger review per bot docs (same re-trigger path as `waiting_bot_failed` when head moved) and poll until terminal or a different FSM state applies.
 4. For `waiting_bot_run`, poll every **30 seconds** for up to **20 minutes**. Stop immediately if the required bot becomes terminal, actionable review work appears, or the FSM should hand off to another procedure.
 5. For `waiting_bot_rate_limited`, take **`cooldown_sec`** from `rate_limit_remaining_seconds` when present (it is **elapsed-adjusted** from **`status_comment_at`** per `docs/cli.md`); else parse wait duration from the **selected status comment** body and subtract elapsed time since **`status_comment_at`** (same source as Act step 1). **Sleep `cooldown_sec + 30` seconds** before posting `@coderabbitai review` — **30** matches the local gate default **`RATE_LIMIT_RETRY_BUFFER_SEC`** in `.reinguard/scripts/check-local-review.sh` (same formula as local `--retry-on-rate-limit`). Then follow the one-retry recovery path in `review--bot-operations.md` instead of the generic 30-second poll cadence during the cool-down window.
-6. For the polling waits above, when the Adapter (the execution environment, such as Cursor) supports delegation, prefer a delegated wait owner instead of keeping the main agent in an inline sleep cycle.
-7. For a single active unit, prefer foreground-first delegated wait ownership so the delegated worker blocks until review state changes.
-8. Use the Adapter's configured bot-review wait template or wrapper when available; otherwise use the inline polling behavior described in steps 4-5.
-9. When bots are terminal and review threads still exist, switch to `review-address.md`.
+6. **Polling vs delegation:** Use the timing in steps 4–5 as the normative wait model. This repository does not yet define a separate delegation/subagent policy as its own SSOT (see `next-orchestration.md` § CI and bot wait); do not branch this procedure on adapter-specific delegation mechanics. If your execution environment can run the wait in a delegated worker instead of blocking the main agent, you may do so without changing the sleep/trigger semantics above.
+7. When bots are terminal and review threads still exist, switch to `review-address.md`.
 
 ## Output
 

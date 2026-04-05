@@ -602,6 +602,74 @@ func TestCollect_botReviewer_terminalCleanSupersedesOlderRateLimitComment(t *tes
 	}
 }
 
+func TestCollect_botReviewer_newerRateLimitSupersedesOlderCleanComment(t *testing.T) {
+	t.Parallel()
+	// Given: an older terminal-clean comment and a newer rate-limit issue comment (same tier).
+	// When: Collect runs with coderabbit enrichment.
+	// Then: status reflects the newer rate limit, not the stale clean bill.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		resp := map[string]any{
+			"data": map[string]any{
+				"repository": map[string]any{
+					"pullRequest": map[string]any{
+						"state": "OPEN", "isDraft": false, "title": "t",
+						"mergeable": "UNKNOWN", "mergeStateStatus": "UNKNOWN",
+						"baseRefName": "main", "headRefOid": "head-sha",
+						"labels":                  map[string]any{"nodes": []any{}},
+						"closingIssuesReferences": map[string]any{"nodes": []any{}},
+						"latestReviews": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false},
+							"nodes": []any{
+								map[string]any{
+									"state":  "COMMENTED",
+									"author": map[string]any{"login": "coderabbitai"},
+									"commit": map[string]any{"oid": "head-sha"},
+								},
+							},
+						},
+						"comments": map[string]any{
+							"nodes": []map[string]any{
+								{
+									"author":    map[string]any{"login": "coderabbitai[bot]"},
+									"body":      "No issues found.",
+									"updatedAt": "2026-03-27T12:00:00Z",
+								},
+								{
+									"author":    map[string]any{"login": "coderabbitai[bot]"},
+									"body":      "Rate limit exceeded. Please try again in 2 minutes and 5 seconds",
+									"updatedAt": "2026-03-27T12:10:00Z",
+								},
+							},
+						},
+						"reviewThreads": map[string]any{"pageInfo": map[string]any{"hasNextPage": false}, "nodes": []any{}},
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	bots := []BotReviewer{{ID: "coderabbit", Login: "coderabbitai[bot]", Required: true, Enrich: []string{"coderabbit"}}}
+	_, rev, err := Collect(context.Background(), c, "o", "r", 1, bots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := rev["bot_reviewer_status"].([]any)[0].(map[string]any)
+	if !m["contains_rate_limit"].(bool) {
+		t.Fatalf("want rate limit from newer comment, got %+v", m)
+	}
+	if m["status_comment_at"].(string) != "2026-03-27T12:10:00Z" {
+		t.Fatalf("status_comment_at: %+v", m)
+	}
+	if m["status"].(string) != BotStatusRateLimited {
+		t.Fatalf("status: %+v", m)
+	}
+}
+
 func TestCollect_emptyLabelsAndClosingIssuesAreArrays(t *testing.T) {
 	t.Parallel()
 	// Given: a PR with no labels and no closing issue references.

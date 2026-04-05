@@ -110,7 +110,7 @@ CodeRabbit often **edits** a single PR issue “Review Status” comment in plac
 1. Detect: selected status comment body contains "Rate limit exceeded" (or `contains_rate_limit` in observation).
 2. **Cool-down seconds (`cooldown_sec`):** when `signals.github.reviews.bot_reviewer_status[].rate_limit_remaining_seconds` is present (CodeRabbit enrichment in `rgd observe`), use it as `cooldown_sec` — it is already **age-adjusted** against **`status_comment_at`** (selected comment `updatedAt`): parsed wait duration from the body minus elapsed time since that timestamp, floored at zero (see `docs/cli.md` § Bot reviewer fields). Otherwise parse duration from the **selected status comment** body only, then subtract **`now − status_comment_at`** yourself (same idea as `extract_rate_limit_seconds` in `check-local-review.sh`, but PR bodies need the timestamp anchor).
 3. **Sleep:** `cooldown_sec + buffer_sec` where **`buffer_sec` defaults to 30** to match **`RATE_LIMIT_RETRY_BUFFER_SEC`** in `check-local-review.sh` (override only if org policy documents a different buffer).
-4. **Re-trigger:** after that sleep, post `@coderabbitai review` on the PR timeline (or wait for a push if you prefer not to trigger manually — do **not** fire the trigger at **0s** after rate limit).
+4. **Re-trigger:** after that sleep, post `@coderabbitai review` on the PR timeline. Do **not** fire the trigger at **0s** after rate limit; do not rely on an unrelated push as the primary recovery path for `waiting_bot_rate_limited`.
 5. Second consecutive rate limit after one recovery → treat as timed out (max **one** automatic recovery path; same “second hit = stop” idea as `--retry-on-rate-limit` in the local script).
 
 ## Consensus and disposition (policy SSOT)
