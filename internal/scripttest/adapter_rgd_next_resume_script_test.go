@@ -135,6 +135,75 @@ func TestAdapterRgdNextResumeScript_Lifecycle(t *testing.T) {
 	}
 }
 
+func TestAdapterRgdNextResumeScript_StatusStaleOnDetachedHead(t *testing.T) {
+	t.Parallel()
+
+	script := scriptPath(t, "adapter-rgd-next-resume.sh")
+	repo := setupLocalReviewRepo(t)
+	renameBranch(t, repo, "feature/104")
+	gitEmptyCommit(t, repo)
+
+	startOut, err := runBashScript(t, repo, script, nil,
+		"start",
+		"--branch", "feature/104",
+		"--issue", "104",
+	)
+	if err != nil {
+		t.Fatalf("start: %v\n%s", err, startOut)
+	}
+
+	detachOut, err := exec.Command("git", "-C", repo, "checkout", "--detach").CombinedOutput()
+	if err != nil {
+		t.Fatalf("git checkout --detach: %v\n%s", err, detachOut)
+	}
+
+	statusOut, err := runBashScript(t, repo, script, nil, "status")
+	if err != nil {
+		t.Fatalf("status: %v\n%s", err, statusOut)
+	}
+	var got resumeScriptStatus
+	unmarshalJSON(t, statusOut, &got)
+	if got.Status != "stale" || got.ResumeEligible {
+		t.Fatalf("status = %+v", got)
+	}
+	if got.Reason != "detached HEAD" {
+		t.Fatalf("reason = %q", got.Reason)
+	}
+}
+
+func TestAdapterRgdNextResumeScript_SummaryRoundTripWithQuotes(t *testing.T) {
+	t.Parallel()
+
+	script := scriptPath(t, "adapter-rgd-next-resume.sh")
+	repo := setupLocalReviewRepo(t)
+	renameBranch(t, repo, "feature/104")
+	summary := `say "hi" and \n`
+
+	startOut, err := runBashScript(t, repo, script, nil,
+		"start",
+		"--branch", "feature/104",
+		"--issue", "104",
+		"--summary", summary,
+	)
+	if err != nil {
+		t.Fatalf("start: %v\n%s", err, startOut)
+	}
+	approveOut, err := runBashScript(t, repo, script, nil, "approve")
+	if err != nil {
+		t.Fatalf("approve: %v\n%s", err, approveOut)
+	}
+	showOut, err := runBashScript(t, repo, script, nil, "show")
+	if err != nil {
+		t.Fatalf("show: %v\n%s", err, showOut)
+	}
+	var artifact map[string]any
+	unmarshalJSON(t, showOut, &artifact)
+	got, _ := artifact["summary"].(string)
+	if got != summary {
+		t.Fatalf("summary round-trip: got %q want %q", got, summary)
+	}
+}
+
 func TestAdapterRgdNextResumeScript_StatusStaleOnBranchMismatch(t *testing.T) {
 	t.Parallel()
 
@@ -234,6 +303,13 @@ func TestAdapterRgdNextResumeScript_FinishValidatesTerminalReason(t *testing.T) 
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
+			t.Cleanup(func() {
+				clearOut, clearErr := runBashScript(t, repo, script, nil, "clear")
+				if clearErr != nil {
+					t.Errorf("clear: %v\n%s", clearErr, clearOut)
+				}
+			})
+
 			startOut, err := runBashScript(t, repo, script, nil,
 				"start",
 				"--branch", "feature/104",
@@ -249,11 +325,6 @@ func TestAdapterRgdNextResumeScript_FinishValidatesTerminalReason(t *testing.T) 
 			}
 			if !strings.Contains(out, tt.wantSubstr) {
 				t.Fatalf("expected output to contain %q, got:\n%s", tt.wantSubstr, out)
-			}
-
-			clearOut, clearErr := runBashScript(t, repo, script, nil, "clear")
-			if clearErr != nil {
-				t.Fatalf("clear: %v\n%s", clearErr, clearOut)
 			}
 		})
 	}
@@ -300,6 +371,14 @@ func renameBranch(t *testing.T, repo, branch string) {
 	cmd.Dir = repo
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git branch -M: %v\n%s", err, out)
+	}
+}
+
+func gitEmptyCommit(t *testing.T, repo string) {
+	t.Helper()
+	cmd := exec.Command("git", "-C", repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "init")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git commit: %v\n%s", err, out)
 	}
 }
 

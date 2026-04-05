@@ -129,6 +129,36 @@ func TestCollect_usesHeadSHAOverride(t *testing.T) {
 	}
 }
 
+func TestCollect_whitespaceHeadSHAOverrideFallsBackToHEAD(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	gitInit(t, dir)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"state":"success"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+
+	m, warns, err := Collect(context.Background(), c, "o", "r", dir, "   ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warns) != 0 {
+		t.Fatalf("%v", warns)
+	}
+	cimap, ok := m["ci"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected ci map, got %T", m["ci"])
+	}
+	head, err := headSHA(context.Background(), dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cimap["head_sha"] != head {
+		t.Fatalf("want head_sha %q from git HEAD, got %+v", head, cimap)
+	}
+}
+
 func gitInit(t *testing.T, dir string) {
 	t.Helper()
 	cmd := exec.Command("git", "init")

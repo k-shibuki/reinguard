@@ -49,6 +49,14 @@ require_positive_integer() {
   fi
 }
 
+ensure_artifact_branch_matches_current() {
+  local cur
+  cur="$(current_branch)"
+  [[ -n "$cur" ]] || fail_with "current branch is unavailable (detached HEAD)" 2
+  [[ -n "$artifact_branch" ]] || fail_with "artifact has no branch" 2
+  [[ "$artifact_branch" == "$cur" ]] || fail_with "artifact belongs to branch '$artifact_branch' (current: '$cur')" 2
+}
+
 load_artifact() {
   local raw last_iteration terminal
   raw="$(<"$ARTIFACT_PATH")"
@@ -281,6 +289,7 @@ start_cmd() {
 approve_cmd() {
   require_file "$ARTIFACT_PATH" "resume artifact is missing; start must run before approve" 2
   load_artifact
+  ensure_artifact_branch_matches_current
   [[ "$artifact_status" == "pending_approval" ]] || fail_with "approve requires status pending_approval (got $artifact_status)" 2
   local now
   now="$(json_now_utc)"
@@ -314,6 +323,7 @@ update_cmd() {
   [[ -n "$state_id" ]] || fail_with "--state-id is required for update" 2
   require_file "$ARTIFACT_PATH" "resume artifact is missing; start must run before update" 2
   load_artifact
+  ensure_artifact_branch_matches_current
   [[ "$artifact_status" == "active" ]] || fail_with "only an active artifact can be updated" 2
 
   artifact_last_state="$state_id"
@@ -364,6 +374,7 @@ finish_cmd() {
 
   require_file "$ARTIFACT_PATH" "resume artifact is missing; start must run before finish" 2
   load_artifact
+  ensure_artifact_branch_matches_current
   artifact_status="$status"
   artifact_terminal_reason="$reason"
   artifact_terminal_summary="$summary"
@@ -414,9 +425,15 @@ status_cmd() {
     emit_status_json "invalid" "false" "unexpected artifact_type or command"
     return 0
   fi
-  if [[ ( "$artifact_status" == "active" || "$artifact_status" == "pending_approval" ) && -n "$artifact_branch" && -n "$current" && "$artifact_branch" != "$current" ]]; then
-    emit_status_json "stale" "false" "branch mismatch"
-    return 0
+  if [[ ( "$artifact_status" == "active" || "$artifact_status" == "pending_approval" ) && -n "$artifact_branch" ]]; then
+    if [[ -z "$current" ]]; then
+      emit_status_json "stale" "false" "detached HEAD"
+      return 0
+    fi
+    if [[ "$artifact_branch" != "$current" ]]; then
+      emit_status_json "stale" "false" "branch mismatch"
+      return 0
+    fi
   fi
   if [[ "$artifact_status" == "active" ]]; then
     emit_status_json "$artifact_status" "true"

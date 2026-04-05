@@ -360,7 +360,7 @@ func updateObservedScope(prMap map[string]any, opts Options, prNum int, headRef,
 	raw["resolved_pr_number"] = prNum
 	if headRef != "" {
 		raw["pr_head_branch"] = headRef
-		if opts.Scope.PRNumber > 0 && strings.TrimSpace(opts.Scope.Branch) == "" {
+		if opts.Scope.PRNumber > 0 {
 			prMap["current_branch"] = headRef
 			raw["effective_branch"] = headRef
 		}
