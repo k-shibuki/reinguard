@@ -238,6 +238,11 @@ func TestCoderabbitEnrichment_reviewedHeadSHAFromRange(t *testing.T) {
 			body:    "Reviewing files that changed from the base of the PR at [4b680dbdeadbeef](https://example.com/2).\n",
 			wantSHA: "4b680dbdeadbeef",
 		},
+		{
+			name:    "walkthrough_only_no_reviewed_head_sha",
+			body:    "### Walkthrough\nGeneral notes without bracket SHAs.\n",
+			wantSHA: "",
+		},
 	}
 
 	for _, tt := range tests {
