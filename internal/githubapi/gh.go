@@ -161,7 +161,7 @@ var fullSHARe = regexp.MustCompile(`^[0-9a-fA-F]{40}$`)
 func validateFullSHA(sha string) (string, error) {
 	trimmed := strings.TrimSpace(sha)
 	if !fullSHARe.MatchString(trimmed) {
-		return "", fmt.Errorf("commit SHA must be a full 40-character hex string")
+		return "", fmt.Errorf("commit SHA must be a full 40-character hex string, got %q", trimmed)
 	}
 	return trimmed, nil
 }

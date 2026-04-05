@@ -456,8 +456,12 @@ func buildReviewInboxEntry(thread reviewThreadNode) map[string]any {
 	if thread.IsResolved {
 		return nil
 	}
+	threadID := strings.TrimSpace(thread.ID)
+	if threadID == "" {
+		return nil
+	}
 	entry := map[string]any{
-		"thread_id":   strings.TrimSpace(thread.ID),
+		"thread_id":   threadID,
 		"is_outdated": thread.IsOutdated,
 	}
 	if thread.Comments == nil || len(thread.Comments.Nodes) == 0 {

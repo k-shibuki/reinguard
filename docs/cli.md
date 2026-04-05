@@ -118,9 +118,15 @@ Precedence:
 2. Otherwise `--branch` wins over the checked-out branch.
 3. Otherwise live observation uses the local checkout branch.
 
-When `--pr` is set without `--branch`, `signals.github.pull_requests.current_branch`
-tracks the PR head branch, while `observed_scope.local_branch_at_collect`
-preserves the local checkout branch that invoked `rgd`.
+If both `--pr` and `--branch` are set, `--branch` does **not** change PR-scoped
+facets: observation still follows the pull request `N` and its head ref. The
+CLI may still record `requested_branch` in `observed_scope` for visibility;
+effective branch and CI head follow the resolved PR.
+
+Whenever `--pr` is set, `signals.github.pull_requests.current_branch` tracks
+the PR head branch. `observed_scope.local_branch_at_collect` always records
+the local checkout at collect time (independent of `--branch` / `--pr`), so you
+can tell which working tree produced the run.
 
 `--branch` / `--pr` are **live-observe only**. They are rejected when
 `--observation-file` is set on higher-level commands (`state eval`,

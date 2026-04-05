@@ -86,6 +86,7 @@ func TestReplyToPullRequestThread(t *testing.T) {
 }
 
 func TestResolveReviewThread(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		stub    func(ctx context.Context, wd string, args []string) ([]byte, []byte, error)
 		name    string
