@@ -9,6 +9,14 @@ func TestCoderabbitEnrichment_tryAgainMinutesSeconds(t *testing.T) {
 	assertSeconds(t, got, 330)
 }
 
+func TestCoderabbitEnrichment_pleaseWaitMinutesSeconds(t *testing.T) {
+	t.Parallel()
+	e := coderabbitEnrichment{}
+	body := "> [!WARNING]\n> ## Rate limit exceeded\n> Please wait **19 minutes and 47 seconds** before requesting another review.\n"
+	got := e.Enrich(body)
+	assertSeconds(t, got, 19*60+47)
+}
+
 func TestCoderabbitEnrichment_oneMinute(t *testing.T) {
 	t.Parallel()
 	e := coderabbitEnrichment{}
@@ -157,6 +165,29 @@ func TestCoderabbitEnrichment_EnrichReviewBody(t *testing.T) {
 	}
 }
 
+func TestCoderabbitIssueCommentMaxTier_decisiveStatusesShareTierSix(t *testing.T) {
+	t.Parallel()
+	cases := []string{
+		"Rate limit exceeded. Please try again in 1 minute",
+		"Review paused until you comment.",
+		"Review failed: head commit changed.",
+		"No issues found.",
+		"**Status:** ✅ completed\n",
+		"**Status:** in progress\n",
+	}
+	for _, body := range cases {
+		if got := CoderabbitIssueCommentMaxTier(body); got != 6 {
+			t.Fatalf("CoderabbitIssueCommentMaxTier(%q) = %d, want 6", body, got)
+		}
+	}
+	if got := CoderabbitIssueCommentMaxTier("### Walkthrough\n"); got != 1 {
+		t.Fatalf("walkthrough-only want tier 1, got %d", got)
+	}
+	if got := CoderabbitIssueCommentMaxTier("Some generic comment text."); got != 0 {
+		t.Fatalf("no-markers want tier 0, got %d", got)
+	}
+}
+
 func TestCoderabbitEnrichment_ClassifyStatus_order(t *testing.T) {
 	t.Parallel()
 	e := coderabbitEnrichment{}
@@ -164,6 +195,9 @@ func TestCoderabbitEnrichment_ClassifyStatus_order(t *testing.T) {
 		t.Fatalf("got %q", g)
 	}
 	if g := e.ClassifyStatus(map[string]any{"cr_review_processing": true}); g != BotStatusPending {
+		t.Fatalf("got %q", g)
+	}
+	if g := e.ClassifyStatus(map[string]any{"cr_review_completed_clean": true}); g != BotStatusCompletedClean {
 		t.Fatalf("got %q", g)
 	}
 	if g := e.ClassifyStatus(map[string]any{"has_review": true, "cr_review_completed_clean": true}); g != BotStatusCompletedClean {
@@ -174,5 +208,65 @@ func TestCoderabbitEnrichment_ClassifyStatus_order(t *testing.T) {
 	}
 	if g := e.ClassifyStatus(map[string]any{"cr_walkthrough_present": true, "latest_comment_at": "2026-01-01T00:00:00Z"}); g != BotStatusPending {
 		t.Fatalf("got %q", g)
+	}
+}
+
+func TestCoderabbitEnrichment_noActionableCommentsClean(t *testing.T) {
+	t.Parallel()
+	e := coderabbitEnrichment{}
+	got := e.Enrich("No actionable comments were generated in the recent review.\n")
+	if got == nil {
+		t.Fatal("got nil")
+	}
+	clean, ok := got["cr_review_completed_clean"].(bool)
+	if !ok || !clean {
+		t.Fatalf("want cr_review_completed_clean=true, got %v", got)
+	}
+}
+
+func TestCoderabbitEnrichment_reviewedHeadSHAFromRange(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name    string
+		body    string
+		wantSHA string
+	}{
+		{
+			name:    "range_extracts_trailing_sha",
+			body:    "Reviewing files that changed from the base of the PR and between [1c0a07a](https://example.com/1) and [4b680dbdeadbeef](https://example.com/2).\n",
+			wantSHA: "4b680dbdeadbeef",
+		},
+		{
+			name:    "single_sha_at_bracket_form",
+			body:    "Reviewing files that changed from the base of the PR at [4b680dbdeadbeef](https://example.com/2).\n",
+			wantSHA: "4b680dbdeadbeef",
+		},
+		{
+			name:    "walkthrough_only_no_reviewed_head_sha",
+			body:    "### Walkthrough\nGeneral notes without bracket SHAs.\n",
+			wantSHA: "",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			e := coderabbitEnrichment{}
+			got := e.Enrich(tt.body)
+			if tt.wantSHA == "" {
+				if got != nil && got["cr_reviewed_head_sha"] != nil {
+					t.Fatalf("want no reviewed sha, got %v", got)
+				}
+				return
+			}
+			if got == nil {
+				t.Fatal("got nil")
+			}
+			sha, ok := got["cr_reviewed_head_sha"].(string)
+			if !ok || sha != tt.wantSHA {
+				t.Fatalf("want cr_reviewed_head_sha=%s, got %v", tt.wantSHA, got)
+			}
+		})
 	}
 }

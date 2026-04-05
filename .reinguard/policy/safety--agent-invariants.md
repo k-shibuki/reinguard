@@ -34,13 +34,13 @@ Never use `gh pr create --base <feature-branch>`. All PRs must target **`main`**
 
 Before pushing Go changes:
 
-- `go test ./...`
-- `go vet ./...`
-- `golangci-lint run` (or rely on CI, but local run is strongly preferred)
+- `bash .reinguard/scripts/with-repo-local-state.sh -- go test ./...`
+- `bash .reinguard/scripts/with-repo-local-state.sh -- go vet ./...`
+- `bash .reinguard/scripts/with-repo-local-state.sh -- golangci-lint run`
 
 Before pushing Markdown changes:
 
-- `pre-commit run markdownlint-cli2 --all-files` (pinned hook version from `.pre-commit-config.yaml`)
+- `bash .reinguard/scripts/with-repo-local-state.sh -- pre-commit run markdownlint-cli2 --all-files` (pinned hook version from `.pre-commit-config.yaml`)
 
 ## HS-NO-SKIP
 

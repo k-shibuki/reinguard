@@ -83,13 +83,13 @@ If the branch is updated while CodeRabbit is reviewing, CR may post
 |---|---|---|
 | Typical completion | 2–7 min | 1–7 min |
 | Polling interval | 30 s | 30 s |
-| Polling window | 15 min | 15 min |
+| Polling window | 20 min | 20 min |
 
 ### Polling model
 
 - Use this polling model for **PR-side bot review waits** only
   (`.reinguard/procedure/wait-bot-review.md` after PR creation).
-- Poll every **30 seconds** for up to **15 minutes**.
+- Poll every **30 seconds** for up to **20 minutes**.
 - Exit early as soon as the required bot becomes terminal, review threads
   that need classification or reply appear, or the state changes to a
   different FSM route such as `review-address`.
@@ -103,10 +103,15 @@ If the branch is updated while CodeRabbit is reviewing, CR may post
 
 ## Rate-Limit Recovery
 
-1. Detect: PR comment from bot containing "Rate limit exceeded"
-2. Parse wait time from the message (minutes + seconds + 30s buffer)
-3. Sleep, re-trigger same reviewer
-4. Second rate limit → treat as timed out (max 1 recovery)
+CodeRabbit often **edits** a single PR issue “Review Status” comment in place; it may also post separate short replies. `rgd` derives rate-limit cues from the **selected status comment** (`status_comment_at` / `status_comment_source` in `bot_reviewer_status`, see `docs/cli.md`), not from “newest comment only,” so a later acknowledgment does not hide an active rate-limit body in the Review Status comment.
+
+**Sleep-before-re-trigger (same contract as the local CLI gate):** The pre-PR script `.reinguard/scripts/check-local-review.sh` waits **`parsed_cooldown_seconds + RATE_LIMIT_RETRY_BUFFER_SEC`** before its one automatic retry (default buffer **30**). PR-side recovery must use the **same** formula so agents do not post `@coderabbitai review` immediately while the quota window is still active.
+
+1. Detect: selected status comment body contains "Rate limit exceeded" (or `contains_rate_limit` in observation).
+2. **Cool-down seconds (`cooldown_sec`):** when `signals.github.reviews.bot_reviewer_status[].rate_limit_remaining_seconds` is present (CodeRabbit enrichment in `rgd observe`), use it as `cooldown_sec` — it is already **age-adjusted** against **`status_comment_at`** (selected comment `updatedAt`): parsed wait duration from the body minus elapsed time since that timestamp, floored at zero (see `docs/cli.md` § Bot reviewer fields). Otherwise parse duration from the **selected status comment** body only, then subtract **`now − status_comment_at`** yourself (same idea as `extract_rate_limit_seconds` in `check-local-review.sh`, but PR bodies need the timestamp anchor).
+3. **Sleep:** `cooldown_sec + buffer_sec` where **`buffer_sec` defaults to 30** to match **`RATE_LIMIT_RETRY_BUFFER_SEC`** in `check-local-review.sh` (override only if org policy documents a different buffer).
+4. **Re-trigger:** after that sleep, post `@coderabbitai review` on the PR timeline. Do **not** fire the trigger at **0s** after rate limit; do not rely on an unrelated push as the primary recovery path for `waiting_bot_rate_limited`.
+5. Second consecutive rate limit after one recovery → treat as timed out (max **one** automatic recovery path; same “second hit = stop” idea as `--retry-on-rate-limit` in the local script).
 
 ## Consensus and disposition (policy SSOT)
 
@@ -129,6 +134,6 @@ Deduplicate when both reviewers flag the same issue.
 - `.reinguard/knowledge/review--local-coderabbit-cli.md` — pre-PR local CLI gate only
 - `.reinguard/policy/review--consensus-protocol.md` — disposition, resolve, consensus
 - `.reinguard/policy/safety--agent-invariants.md` § **HS-REVIEW-RESOLVE**
-- `.reinguard/procedure/wait-bot-review.md` — FSM routes `user-wait-bot-*` (quota, pause, failed, run)
+- `.reinguard/procedure/wait-bot-review.md` — FSM routes `user-wait-bot-*` (quota, pause, failed, stale, run)
 - `.reinguard/procedure/review-address.md` — thread disposition and multi-source triage
 - `.reinguard/knowledge/review--multi-source-review-signals.md` — inbox model across sources

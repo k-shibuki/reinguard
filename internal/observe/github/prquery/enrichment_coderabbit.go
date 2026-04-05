@@ -64,7 +64,8 @@ func (coderabbitEnrichment) ClassifyStatus(m map[string]any) string {
 	if v, ok := m["cr_review_processing"].(bool); ok && v {
 		return BotStatusPending
 	}
-	if signalBool(m, "has_review") && signalBool(m, "cr_review_completed_clean") {
+	// Terminal clean without a GitHub Review (issue-comment-only completion, e.g. "no actionable comments").
+	if signalBool(m, "cr_review_completed_clean") {
 		return BotStatusCompletedClean
 	}
 	if signalBool(m, "has_review") {
@@ -84,13 +85,67 @@ var (
 	// U+267B recycling symbol, optional U+FE0F variation selector (emoji presentation).
 	reCRDuplicateComments = regexp.MustCompile(`(?i)(?:\x{267B}\x{FE0F}?|\x{267B})\s*Duplicate\s+comments\s*\((\d+)\)`)
 	reCRReviewCompleted   = regexp.MustCompile(`(?i)(review\s+completed|✅\s*completed|status[:\s\*]*\s*✅|\*\*status\*\*[^\n]*(complete|finished|done))`)
-	reCRReviewClean       = regexp.MustCompile(`(?i)(no\s+issues\s+found|no\s+additional\s+issues\s+found)`)
-	reCRReviewProcessing  = regexp.MustCompile(`(?i)(processing\s+new\s+changes|review\s+in\s+progress|\bin\s+progress\b|\*\*status\*\*[^\n]*(in\s+progress|pending|processing)|⏳\s*processing)`)
-	reCRWalkthrough       = regexp.MustCompile(`(?i)(^|\n)#{1,3}\s*[^\n]*(walkthrough|review\s+walkthrough)|\*\*walkthrough\*\*`)
+	reCRReviewClean       = regexp.MustCompile(`(?i)(no\s+issues\s+found|no\s+additional\s+issues\s+found|no\s+actionable\s+comments)`)
+	// Second bracketed SHA is the reviewed head when CodeRabbit summarizes a commit range in PR comments.
+	reCRReviewedHeadRange = regexp.MustCompile(`(?i)between\s+\[([0-9a-f]{7,40})\]\([^)]*\)\s+and\s+\[([0-9a-f]{7,40})\]\(`)
+	// Single-SHA form: "... at [deadbeef...](url)" (comment-only summaries).
+	reCRReviewedHeadAt   = regexp.MustCompile(`(?i)\bat\s+\[([0-9a-f]{7,40})\]`)
+	reCRReviewProcessing = regexp.MustCompile(`(?i)(processing\s+new\s+changes|review\s+in\s+progress|\bin\s+progress\b|\*\*status\*\*[^\n]*(in\s+progress|pending|processing)|⏳\s*processing)`)
+	reCRWalkthrough      = regexp.MustCompile(`(?i)(^|\n)#{1,3}\s*[^\n]*(walkthrough|review\s+walkthrough)|\*\*walkthrough\*\*`)
 )
+
+func parseCoderabbitReviewedHeadSHA(body string) string {
+	if m := reCRReviewedHeadRange.FindStringSubmatch(body); len(m) >= 3 {
+		return strings.ToLower(strings.TrimSpace(m[2]))
+	}
+	if m := reCRReviewedHeadAt.FindStringSubmatch(body); len(m) >= 2 {
+		return strings.ToLower(strings.TrimSpace(m[1]))
+	}
+	return ""
+}
+
+// CoderabbitIssueCommentMaxTier returns the highest semantic tier for PR issue-comment
+// bodies when CodeRabbit enrichment applies. Higher wins when multiple comments exist.
+//
+// Status-driving bodies (rate limit, pause, failure, terminal clean/completed, in-progress)
+// share one tier so that selectStatusCommentForLogin can break ties by newest updatedAt:
+// a stale rate limit loses to a newer clean bill, and a stale clean loses to a newer rate limit.
+// Walkthrough/SHA-only markers stay at a lower tier so they do not outrank decisive status lines.
+func CoderabbitIssueCommentMaxTier(body string) int {
+	lower := strings.ToLower(body)
+	t := 0
+	if strings.Contains(lower, "rate limit") || parseCoderabbitRateLimitSeconds(body) > 0 {
+		t = max(t, 6)
+	}
+	if strings.Contains(lower, "review paused") || strings.Contains(lower, "review pause") {
+		t = max(t, 6)
+	}
+	if reviewFailedFromComment(lower) {
+		t = max(t, 6)
+	}
+	if reCRReviewClean.MatchString(body) {
+		t = max(t, 6)
+	}
+	if reCRReviewCompleted.MatchString(body) {
+		t = max(t, 6)
+	}
+	if reCRReviewProcessing.MatchString(body) {
+		t = max(t, 6)
+	}
+	if t > 0 {
+		return t
+	}
+	if m := parseCoderabbitReviewStatusMarkers(body); len(m) > 0 {
+		return 1
+	}
+	return 0
+}
 
 func parseCoderabbitReviewStatusMarkers(body string) map[string]any {
 	out := make(map[string]any)
+	if sha := parseCoderabbitReviewedHeadSHA(body); sha != "" {
+		out["cr_reviewed_head_sha"] = sha
+	}
 	if reCRWalkthrough.MatchString(body) {
 		out["cr_walkthrough_present"] = true
 	}
@@ -110,17 +165,22 @@ func parseCoderabbitReviewStatusMarkers(body string) map[string]any {
 	return out
 }
 
-// Matches: "try again in 5 minutes and 30 seconds", "try again in 1 minute", "in 2 minutes and 15 seconds"
+// Matches: "try again in 5 minutes and 30 seconds", "try again in 1 minute", "in 2 minutes and 15 seconds",
+// and GitHub issue-comment forms like "Please wait **19 minutes and 47 seconds**".
 var (
-	reTryAgainMinutesSeconds = regexp.MustCompile(`(?i)try\s+again\s+in\s+(\d+)\s*minutes?(?:\s+and\s+(\d+)\s*seconds?)?`)
-	reInMinutesSeconds       = regexp.MustCompile(`(?i)in\s+(\d+)\s*minutes?(?:\s+and\s+(\d+)\s*seconds?)?`)
-	reSecondsOnly            = regexp.MustCompile(`(?i)(?:try\s+again\s+)?in\s+(\d+)\s*seconds?`)
+	reTryAgainMinutesSeconds   = regexp.MustCompile(`(?i)try\s+again\s+in\s+(\d+)\s*minutes?(?:\s+and\s+(\d+)\s*seconds?)?`)
+	reInMinutesSeconds         = regexp.MustCompile(`(?i)in\s+(\d+)\s*minutes?(?:\s+and\s+(\d+)\s*seconds?)?`)
+	rePleaseWaitMinutesSeconds = regexp.MustCompile(`(?i)please\s+wait\s+\*?\*?(\d+)\s*minutes?(?:\s+and\s+(\d+)\s*seconds?)?`)
+	reSecondsOnly              = regexp.MustCompile(`(?i)(?:try\s+again\s+)?in\s+(\d+)\s*seconds?`)
 )
 
 func parseCoderabbitRateLimitSeconds(body string) int {
 	body = strings.TrimSpace(body)
 	if body == "" {
 		return 0
+	}
+	if m := rePleaseWaitMinutesSeconds.FindStringSubmatch(body); len(m) >= 2 {
+		return minutesSecondsToTotal(m[1], subOrEmpty(m, 2))
 	}
 	if m := reTryAgainMinutesSeconds.FindStringSubmatch(body); len(m) >= 2 {
 		return minutesSecondsToTotal(m[1], subOrEmpty(m, 2))

@@ -48,10 +48,10 @@ git config commit.template .github/gitmessage
 Same gates as CI (see also [`.reinguard/policy/safety--agent-invariants.md`](../.reinguard/policy/safety--agent-invariants.md)):
 
 ```bash
-go test ./... -race -count=1
-go vet ./...
-golangci-lint run --timeout=5m ./...
-pre-commit run markdownlint-cli2 --all-files
+bash .reinguard/scripts/with-repo-local-state.sh -- go test ./... -race -count=1
+bash .reinguard/scripts/with-repo-local-state.sh -- go vet ./...
+bash .reinguard/scripts/with-repo-local-state.sh -- golangci-lint run --timeout=5m ./...
+bash .reinguard/scripts/with-repo-local-state.sh -- pre-commit run markdownlint-cli2 --all-files
 ```
 
 `go test ./...` includes Go integration tests for repository-local shell scripts
@@ -61,7 +61,7 @@ cleanly when dependencies such as mikefarah `yq` are unavailable.
 **Coverage** (module-wide threshold **80%**, same as CI):
 
 ```bash
-go test ./... -race -coverpkg=./... -coverprofile=coverage.out -count=1
+bash .reinguard/scripts/with-repo-local-state.sh -- go test ./... -race -coverpkg=./... -coverprofile=coverage.out -count=1
 bash .reinguard/scripts/check-coverage-threshold.sh 80 coverage.out
 ```
 
@@ -71,9 +71,11 @@ After local verification passes and before `pr-create`, run the repository
 CodeRabbit gate from the repo root:
 
 ```bash
-bash .reinguard/scripts/check-local-review.sh --base main
+bash .reinguard/scripts/with-repo-local-state.sh --home-subdir cr-home -- \
+  bash .reinguard/scripts/check-local-review.sh --base main
 # agents / automation (latest cooldown parse + buffer + one retry):
-bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
+bash .reinguard/scripts/with-repo-local-state.sh --home-subdir cr-home -- \
+  bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
 ```
 
 - This repository treats the local CodeRabbit CLI pass as a **required pre-PR gate**.

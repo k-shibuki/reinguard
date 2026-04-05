@@ -11,7 +11,7 @@ sense:
 act:
   - Always present full-path proposal; obtain single approval; execute loop to DoD (no alternate modes).
 output:
-  - Per-iteration state summary; final DoD report.
+  - Agent-internal iteration context each loop; final user-facing DoD or allowed-stop report.
 done_when: "Per-unit Definition of Done satisfied (merge + branch cleanup) or allowed stop."
 escalate_when: "HS-* violation; genuine cannot-proceed with evidence."
 ---
@@ -72,6 +72,7 @@ After approval, the agent **must** drive toward **Per-unit Definition of Done** 
 
 - Asking whether to continue, which option to take, or “should I do X next” (including soft closers that function as a gate).
 - Stopping with only a roadmap while DoD remains unmet when the agent could still act.
+- **Implicit stop (forbidden).** Ending the turn, “handing off,” or treating work as complete **without** (a) Per-unit Definition of Done satisfied **or** (b) an **allowed stop** (below) **with explicit evidence** is prohibited. **Do not** infer completion from habit, a “natural” break, “reasonable” end-of-message, residual uncertainty, long CI or bot wait, or a user-facing “next steps” summary. If the mapped procedure still applies or the next loop iteration is the same Sense → Route → Act → Refresh path, **continue** until DoD or an allowed stop. Naming the violation does not satisfy the contract — only DoD or an allowed stop does.
 
 **Allowed stops:**
 
@@ -84,7 +85,7 @@ After approval, the agent **must** drive toward **Per-unit Definition of Done** 
 Repeat until Per-unit Definition of Done is satisfied or an **allowed stop** fires:
 
 1. **Sense** — `rgd context build` (same cwd / `--config-dir` as the workflow’s initial context build from repo root).
-2. **Parse** — `state`, `routes[0]` (interpret `routes[0].route_id` only when `routes[0].kind` is `resolved`), `guards`, `knowledge.entries`; emit a short summary each iteration for the transcript.
+2. **Parse** — `state`, `routes[0]` (interpret `routes[0].route_id` only when `routes[0].kind` is `resolved`), `guards`, `knowledge.entries`; record a short iteration context **agent-internally** (e.g. tool logs or internal notes). Whether any of that appears in a user-facing channel is defined by the Adapter (see [`../../.cursor/rules/reinguard-bridge.mdc`](../../.cursor/rules/reinguard-bridge.mdc) § **rgd-next Execute — Cursor chat transcript**); Semantics does not require per-iteration user-visible output.
 3. **Route** — Resolve procedure(s) per **ADR-0013 § 4** (*Adapter mapping*). If `state.kind` is not `resolved`, follow ADR-0007 handoff; do not invent a winning state.
 4. **Act (procedure)** — Open the mapped procedure file(s) and **follow each procedure in full** (Context, Reads, Sense, Act, Output, Guard, front-matter `done_when` / `escalate_when` as applicable). Treat any “confirm” / “verify” language in mapped procedures as **agent self-checks** (evidence-backed), not a new user-approval gate, unless an **allowed stop** applies. Do not shortcut HS-*.
 5. **Refresh** — After any **material** remote or local change (push, merge, thread resolve batch, bot re-review when the procedure says so), run **`rgd context build` again** before the next Route.
@@ -99,8 +100,8 @@ For `waiting_ci` and `waiting_bot_*` states, follow the **mapped** procedure (e.
 
 ## Output
 
-- After each loop iteration: current `state_id` / `route_id` / guard summary; which procedure(s) were executed or are next.
-- Final: DoD satisfied with evidence, or allowed stop with evidence.
+- **Per iteration (agent-internal):** current `state_id` / `route_id` / guard summary; which procedure(s) were executed or are next. This is **not necessarily user-facing**; it is the minimum context the agent must retain to drive the loop. Adapter rules define what may appear in the Cursor chat panel during Execute.
+- **Final (user-facing when using the Cursor Adapter):** DoD satisfied with evidence, or allowed stop with evidence.
 
 ## Guard
 

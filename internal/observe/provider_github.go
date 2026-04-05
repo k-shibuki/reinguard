@@ -159,19 +159,7 @@ func (p *GitHubProvider) Collect(ctx context.Context, opts Options) (Fragment, e
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
-	token, err := githubapi.TokenFromGH(ctx, opts.WorkDir)
-	if err != nil {
-		return Fragment{
-			Degraded: true,
-			Diagnostics: []Diagnostic{{
-				Severity: "error",
-				Message:  err.Error(),
-				Provider: "github",
-				Code:     "auth_failed",
-			}},
-		}, nil
-	}
-	owner, repo, err := githubapi.RepoFromGH(ctx, opts.WorkDir)
+	identity, err := githubapi.ResolveGitHubRepoIdentityFromWorkDir(ctx, opts.WorkDir)
 	if err != nil {
 		return Fragment{
 			Degraded: true,
@@ -183,11 +171,31 @@ func (p *GitHubProvider) Collect(ctx context.Context, opts Options) (Fragment, e
 			}},
 		}, nil
 	}
+	owner, repo := identity.Owner, identity.Name
+
+	signals := map[string]any{
+		"repository": map[string]any{
+			"owner":           owner,
+			"name":            repo,
+			"identity_source": string(identity.Source),
+		},
+	}
+
+	token, err := githubapi.TokenFromGH(ctx, opts.WorkDir)
+	if err != nil {
+		return Fragment{
+			Signals:  signals,
+			Degraded: true,
+			Diagnostics: []Diagnostic{{
+				Severity: "error",
+				Message:  err.Error(),
+				Provider: "github",
+				Code:     "auth_failed",
+			}},
+		}, nil
+	}
 
 	client := &githubapi.Client{HTTP: httpClient, Token: token, BaseURL: p.APIBase}
-	signals := map[string]any{
-		"repository": map[string]any{"owner": owner, "name": repo},
-	}
 	var diags []Diagnostic
 	degraded := false
 

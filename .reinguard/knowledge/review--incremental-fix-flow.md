@@ -45,7 +45,7 @@ Normative disposition and resolve rules remain in `.reinguard/policy/review--con
 2. **`change-inspect`** on committed delta + staged + unstaged (see `review-address` Step 0).
 3. **Commit** with `Refs: #<issue>` (no amend+force-push on PR head per `review-address`).
 4. Continue **`review-address`** steps 1–7 (classify, reply, verify, push).
-5. After push, if FSM shows **`waiting_bot_run`**, follow **`wait-bot-review.md`**.
+5. After push, if FSM shows **`waiting_bot_run`** or **`waiting_bot_stale`**, follow **`wait-bot-review.md`**.
 
 ## Related
 

@@ -5,7 +5,10 @@
 #
 # Usage:
 #   bash .reinguard/scripts/check-local-review.sh [--base main] [--mode plain|prompt-only|agent] [--type all|committed|uncommitted] [--retry-on-rate-limit]
-# Optional env: RATE_LIMIT_RETRY_BUFFER_SEC (default 30) — seconds after parsed cooldown before automatic retry.
+# Optional env:
+#   RATE_LIMIT_RETRY_BUFFER_SEC (default 30) — seconds after parsed cooldown before automatic retry.
+#   LOCAL_CR_MAX_WAIT_SEC (default 1200) — max wall-clock seconds for one `coderabbit review` run (supervisor kills the child on expiry).
+#   LOCAL_CR_HEARTBEAT_SEC (default 30) — stderr heartbeat interval while the review subprocess runs (aligns with PR-side 30s cadence).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -16,6 +19,15 @@ source "$SCRIPT_DIR/lib/common.sh"
 RATE_LIMIT_RETRY_BUFFER_SEC="${RATE_LIMIT_RETRY_BUFFER_SEC:-30}"
 if ! [[ "$RATE_LIMIT_RETRY_BUFFER_SEC" =~ ^[0-9]+$ ]]; then
   fail_with "RATE_LIMIT_RETRY_BUFFER_SEC must be a non-negative integer. Got: $RATE_LIMIT_RETRY_BUFFER_SEC" 2
+fi
+
+LOCAL_CR_MAX_WAIT_SEC="${LOCAL_CR_MAX_WAIT_SEC:-1200}"
+LOCAL_CR_HEARTBEAT_SEC="${LOCAL_CR_HEARTBEAT_SEC:-30}"
+if ! [[ "$LOCAL_CR_MAX_WAIT_SEC" =~ ^[0-9]+$ ]]; then
+  fail_with "LOCAL_CR_MAX_WAIT_SEC must be a non-negative integer. Got: $LOCAL_CR_MAX_WAIT_SEC" 2
+fi
+if ! [[ "$LOCAL_CR_HEARTBEAT_SEC" =~ ^[0-9]+$ ]] || [[ "$LOCAL_CR_HEARTBEAT_SEC" -eq 0 ]]; then
+  fail_with "LOCAL_CR_HEARTBEAT_SEC must be a positive integer. Got: $LOCAL_CR_HEARTBEAT_SEC" 2
 fi
 
 BASE="main"
@@ -122,6 +134,7 @@ echo "  Base branch: $BASE"
 echo "  Review type: $REVIEW_TYPE"
 echo "  Output mode: $MODE"
 echo "  Config file: $CONFIG_FILE"
+echo "  Supervisor: max ${LOCAL_CR_MAX_WAIT_SEC}s per attempt; heartbeat every ${LOCAL_CR_HEARTBEAT_SEC}s on stderr while running"
 echo
 
 # The last line containing "rate limit exceeded" (case-insensitive). Cooldown is parsed
@@ -184,6 +197,51 @@ extract_rate_limit_seconds() {
   printf '%s\n' "$total"
 }
 
+# Run one `coderabbit review` with wall-clock cap and periodic stderr heartbeats.
+# Does not restart the CLI on an interval; one subprocess per attempt (same contract as before).
+heartbeat_pause() {
+  local seconds="$1"
+  # Avoid PATH-resolved `sleep` so retry tests observe only the explicit cooldown wait.
+  # `command -p` searches the default utility PATH (not the current $PATH), so scripttest
+  # stubs prepended to PATH do not intercept these waits.
+  command -p sleep "$seconds"
+}
+
+run_supervised_review() {
+  local outfile rc start_ts now elapsed cr_pid
+  outfile="$(mktemp)"
+  "$CR_BIN" review "--$MODE" --type "$REVIEW_TYPE" --base "$BASE" -c "$CONFIG_FILE" --no-color >"$outfile" 2>&1 &
+  cr_pid=$!
+  start_ts=$(date +%s)
+  while kill -0 "$cr_pid" 2>/dev/null; do
+    now=$(date +%s)
+    elapsed=$((now - start_ts))
+    if [[ $elapsed -ge $LOCAL_CR_MAX_WAIT_SEC ]]; then
+      echo "ERROR: CodeRabbit local review exceeded ${LOCAL_CR_MAX_WAIT_SEC}s (LOCAL_CR_MAX_WAIT_SEC). The subprocess was terminated." >&2
+      kill "$cr_pid" 2>/dev/null || true
+      wait "$cr_pid" 2>/dev/null || true
+      rm -f "$outfile"
+      return 124
+    fi
+    echo "Local CodeRabbit review still running (${elapsed}s / ${LOCAL_CR_MAX_WAIT_SEC}s max)..." >&2
+    if ! kill -0 "$cr_pid" 2>/dev/null; then
+      break
+    fi
+    # Sleep in short chunks (`command -p sleep` via heartbeat_pause) so a fast exit is
+    # noticed without waiting a full heartbeat; keeps scripttest sleep stubs accurate.
+    local slept=0
+    while [[ $slept -lt $LOCAL_CR_HEARTBEAT_SEC ]] && kill -0 "$cr_pid" 2>/dev/null; do
+      heartbeat_pause 1
+      slept=$((slept + 1))
+    done
+  done
+  wait "$cr_pid"
+  rc=$?
+  cat "$outfile"
+  rm -f "$outfile"
+  return "$rc"
+}
+
 attempt=1
 max_attempts=1
 if [[ $RETRY_ON_RATE_LIMIT -eq 1 ]]; then
@@ -192,10 +250,14 @@ fi
 
 while true; do
   REVIEW_RC=0
-  REVIEW_OUTPUT="$("$CR_BIN" review "--$MODE" --type "$REVIEW_TYPE" --base "$BASE" -c "$CONFIG_FILE" --no-color 2>&1)" || REVIEW_RC=$?
+  REVIEW_OUTPUT="$(run_supervised_review)" || REVIEW_RC=$?
   printf '%s\n' "$REVIEW_OUTPUT"
   if [[ $REVIEW_RC -eq 0 ]]; then
     break
+  fi
+  if [[ $REVIEW_RC -eq 124 ]]; then
+    echo "ERROR: CodeRabbit local review hit supervisor wall-clock limit (LOCAL_CR_MAX_WAIT_SEC=${LOCAL_CR_MAX_WAIT_SEC})." >&2
+    exit 2
   fi
 
   REVIEW_OUTPUT_CLEAN="$(strip_ansi_cr "$REVIEW_OUTPUT")"

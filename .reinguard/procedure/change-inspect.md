@@ -83,7 +83,8 @@ Normative script details: [`../policy/coding--preflight.md`](../policy/coding--p
 Run the repository-local CodeRabbit gate from the repo root:
 
 ```bash
-bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
+bash .reinguard/scripts/with-repo-local-state.sh --home-subdir cr-home -- \
+  bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
 ```
 
 If the CLI reports a rate limit, the script uses the **latest** rate-limit
@@ -91,16 +92,19 @@ line in that run to parse the cooldown, adds a **safety buffer**, then
 retries the review **once** (`--retry-on-rate-limit`). Treat
 installation/authentication/execution failures, unparsed cooldown, or a
 second consecutive rate limit, as a failed gate and do not proceed.
-While the command is running, treat sparse output or a long cooldown sleep as
-normal for this gate. Do not kill and restart the process unless you have
-positive evidence that it exited, crashed, or violated the documented retry
-contract.
+While the command is running, treat sparse **stdout** from the CLI as normal;
+the script prints **stderr heartbeats** every **30 seconds** and enforces a
+**20-minute** wall-clock cap per attempt (defaults: `LOCAL_CR_HEARTBEAT_SEC`,
+`LOCAL_CR_MAX_WAIT_SEC` — see `coding--preflight.md` and
+`review--local-coderabbit-cli.md`). Do not kill the subprocess unless you have
+positive evidence of a crash or hang **beyond** that supervisor limit, or that
+the process exited, crashed, or violated the documented retry contract.
 If the branch uses a runtime verification gate such as `local-verification`,
 record or refresh it on the reviewed head after the required local checks
 pass, for example:
 
 ```bash
-rgd gate record local-verification --status pass
+rgd gate record --status pass local-verification
 ```
 
 Review the output and disposition findings with the same four categories
@@ -135,10 +139,10 @@ If review closure is not yet complete for the current local review cycle:
    from that pass, fix every finding you will disposition **Fixed** on the
    current branch, and apply same-kind sweep for any fix pattern that
    extends beyond the exact commented line or file.
-3. Re-run applicable preflight steps (`go test`, `go vet`, `golangci-lint`, `pre-commit run markdownlint-cli2 --all-files`)
+3. Re-run applicable preflight steps (`go test`, `go vet`, `golangci-lint`, `bash .reinguard/scripts/with-repo-local-state.sh -- pre-commit run markdownlint-cli2 --all-files`)
 4. Commit the stabilized batch with `Refs: #<issue>`
-5. Re-run `bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit` on the stabilized head
-6. Re-record the runtime gate for the stabilized head when this branch uses one (for example `rgd gate record local-verification --status pass`)
+5. Re-run `bash .reinguard/scripts/with-repo-local-state.sh --home-subdir cr-home -- bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit` on the stabilized head
+6. Re-record the runtime gate for the stabilized head when this branch uses one (for example `rgd gate record --status pass local-verification`)
 7. Re-run inspection (go to step 2) until every finding in the current local review cycle is classified and closed per the shared policy
 
 If a finding is dispositioned **Acknowledged**, record the follow-up Issue
@@ -153,7 +157,7 @@ refresh the runtime gate that proves the branch is ready for PR creation on
 the inspected HEAD, for example:
 
 ```bash
-rgd gate record pr-readiness --status pass
+rgd gate record --status pass pr-readiness
 ```
 
 Then declare **ready for PR creation**. Proceed to `pr-create`.

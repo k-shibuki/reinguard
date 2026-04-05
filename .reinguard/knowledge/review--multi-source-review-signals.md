@@ -62,7 +62,7 @@ Align with substrate guard `merge-readiness`, FSM `merge_ready`, and `.reinguard
 - Working tree clean; **`ci-pass`** (and other required checks) green.
 - Review aggregates are **complete** before trusting zero counts: `github.reviews.pagination_incomplete` is **false** and `github.reviews.review_decisions_truncated` is **false** when those keys are present in observation (same gates as `merge_ready` / `waiting_ci` in workflow rules).
 - `review_threads_unresolved` is **0** where observation is available; formal `CHANGES_REQUESTED` count **0**.
-- **Required bots** are not blocking merge-class handoff: use `github.reviews.bot_reviewer_status` and `github.reviews.bot_review_diagnostics` (see ADR-0013 bot tiers). If any **required** bot is pending, rate-limited, paused, or failed, FSM should surface `waiting_bot_*` — follow `.reinguard/procedure/wait-bot-review.md` instead of treating handoff as done.
+- **Required bots** are not blocking merge-class handoff: use `github.reviews.bot_reviewer_status` and `github.reviews.bot_review_diagnostics` (see ADR-0013 bot tiers). If any **required** bot is pending, rate-limited, paused, failed, or stale, FSM should surface `waiting_bot_*` — follow `.reinguard/procedure/wait-bot-review.md` instead of treating handoff as done.
 - Dispositions posted per policy (**HS-REVIEW-RESOLVE**).
 
 ## FSM alignment

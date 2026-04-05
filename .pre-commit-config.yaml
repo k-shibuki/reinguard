@@ -20,13 +20,13 @@ repos:
         types: [go]
       - id: go-vet
         name: go vet
-        entry: go vet ./...
+        entry: bash .reinguard/scripts/with-repo-local-state.sh -- go vet ./...
         language: system
         types: [go]
         pass_filenames: false
       - id: golangci-lint
         name: golangci-lint
-        entry: golangci-lint run --timeout=5m ./...
+        entry: bash .reinguard/scripts/with-repo-local-state.sh -- golangci-lint run --timeout=5m ./...
         language: system
         types: [go]
         pass_filenames: false

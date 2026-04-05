@@ -17,7 +17,36 @@ func reinguardConfigDir(t *testing.T) string {
 		t.Fatal("runtime.Caller")
 	}
 	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
-	return filepath.Join(root, ".reinguard")
+	src := filepath.Join(root, ".reinguard")
+	dst := filepath.Join(t.TempDir(), ".reinguard")
+	if err := copyTree(t, src, dst); err != nil {
+		t.Fatalf("copy .reinguard: %v", err)
+	}
+	// Isolate FSM scenario tests from developer-local pr-readiness artifacts (pass would force ready_for_pr).
+	_ = os.Remove(filepath.Join(dst, "runtime", "gates", "pr-readiness.json"))
+	return dst
+}
+
+func copyTree(t *testing.T, src, dst string) error {
+	t.Helper()
+	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		out := filepath.Join(dst, rel)
+		if info.IsDir() {
+			return os.MkdirAll(out, 0o755)
+		}
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(out, b, info.Mode().Perm())
+	})
 }
 
 // workflowFSMScenarioFixtures pairs observation JSON with expected state_id and route_id (ADR-0013).
@@ -237,6 +266,32 @@ var workflowFSMScenarioFixtures = []struct {
 }`,
 		wantStateID: "waiting_bot_failed",
 		wantRouteID: "user-wait-bot-failed",
+	},
+	{
+		name: "bot_stale",
+		observation: `{
+  "signals": {
+    "git": {"detached_head": false},
+    "github": {
+      "pull_requests": {"pr_exists_for_branch": true},
+      "reviews": {
+        "review_threads_unresolved": 0,
+        "review_decisions_changes_requested": 0,
+        "bot_reviewer_status": [],
+        "bot_review_diagnostics": {
+          "bot_review_stale": true,
+          "bot_review_failed": false,
+          "bot_review_completed": true,
+          "bot_review_pending": false,
+          "bot_review_terminal": true
+        }
+      }
+    }
+  },
+  "degraded": false
+}`,
+		wantStateID: "waiting_bot_stale",
+		wantRouteID: "user-wait-bot-stale",
 	},
 	{
 		name: "bot_reviewing",
@@ -479,9 +534,14 @@ func writeWorkflowFSMConfig(t *testing.T) string {
 	t.Helper()
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
-	repoCfg := reinguardConfigDir(t)
-	copyWorkflowFSMFile(t, filepath.Join(repoCfg, "control", "states", "workflow.yaml"), filepath.Join(cfgDir, "control", "states", "workflow.yaml"))
-	copyWorkflowFSMFile(t, filepath.Join(repoCfg, "control", "routes", "workflow.yaml"), filepath.Join(cfgDir, "control", "routes", "workflow.yaml"))
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller")
+	}
+	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
+	repoReinguard := filepath.Join(root, ".reinguard")
+	copyWorkflowFSMFile(t, filepath.Join(repoReinguard, "control", "states", "workflow.yaml"), filepath.Join(cfgDir, "control", "states", "workflow.yaml"))
+	copyWorkflowFSMFile(t, filepath.Join(repoReinguard, "control", "routes", "workflow.yaml"), filepath.Join(cfgDir, "control", "routes", "workflow.yaml"))
 	return cfgDir
 }
 

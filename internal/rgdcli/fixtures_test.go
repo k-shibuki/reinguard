@@ -31,6 +31,16 @@ providers:
     enabled: true
 `
 
+// Git + GitHub providers enabled for context-build tests that need both local and remote-style signals.
+const testFixtureReinguardGitAndGitHub = `schema_version: "0.6.0"
+default_branch: main
+providers:
+  - id: git
+    enabled: true
+  - id: github
+    enabled: true
+`
+
 // Single state rule: branch main -> Idle (used by state eval / context build smoke tests).
 const testFixtureRulesStateIdle = `rules:
   - type: state

@@ -32,7 +32,7 @@ resolution) — that is `.reinguard/knowledge/review--bot-operations.md`.
 | Topic | Local CLI (this doc) | PR-side bot review |
 |------|------------------------|---------------------|
 | When | No open PR for branch (pre-PR) | `pr_exists_for_branch` true |
-| Mechanism | One blocking shell command | GitHub + observation + optional polling |
+| Mechanism | One `coderabbit review` run per attempt, supervised (stderr heartbeat every 30s, max 20m per attempt; env `LOCAL_CR_*`) | GitHub + observation; poll every 30s up to 20m per `wait-bot-review` |
 | Procedure | `change-inspect`, then `pr-create` | `wait-bot-review`, `review-address` |
 | Knowledge | This file | `review--bot-operations.md` |
 
@@ -41,23 +41,53 @@ Normative script contract and rate-limit behavior for the gate are in
 
 ## Command
 
-From repo root:
+From repo root, run the gate with repo-local writable state:
 
 ```bash
-bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
+bash .reinguard/scripts/with-repo-local-state.sh --home-subdir cr-home -- \
+  bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
 ```
 
-## Foreground wait (not polling)
+This keeps CodeRabbit state and logs under repo-local `.tmp/` instead of
+depending on `~/.coderabbit`.
 
-- This is **one blocking process** with built-in rate-limit retry — not a
-  `sleep` + `gh` polling loop.
-- Treat it as a **foreground wait**: sparse output while the CLI reviews or
-  sleeps for a parsed cooldown is **normal**.
-- A long run is **not** failure by itself. Only terminal outcomes change control
-  flow: success, explicit CLI failure, auth/tooling failure, cooldown parse
-  failure, or second consecutive rate limit (per policy).
-- Prefer transcript/status checks over killing the process; restart only with
-  positive evidence of exit, crash, or script contract violation.
+## Cursor sandbox note
+
+- In this repository, the local CodeRabbit gate is treated as an
+  **outside-sandbox** step.
+- The observed failure mode inside the Cursor sandbox is not ordinary DNS or
+  HTTPS reachability: normal HTTPS and TLS to `ide.coderabbit.ai` can succeed
+  while the Bun-based CLI still loops on WebSocket connection errors to
+  `wss://ide.coderabbit.ai/ws`.
+- Repo-level `.cursor/sandbox.json` may list portable hostnames; WebSocket or
+  proxy limits can still block the CLI inside the sandbox. See
+  `.reinguard/policy/cursor-sandbox.md`.
+
+## Supervised wait (aligned cadence with PR-side)
+
+- The script runs **one** `coderabbit review` subprocess per attempt (no
+  restart every 30s). A parent supervisor prints a **stderr heartbeat** every
+  **30 seconds** while that subprocess runs and enforces a **maximum wall-clock
+  time of 20 minutes** per attempt (default `LOCAL_CR_MAX_WAIT_SEC=1200`,
+  `LOCAL_CR_HEARTBEAT_SEC=30`). This matches the **30s / 20m** polling budget
+  described for PR-side bot waits in `review--bot-operations.md` (different
+  mechanism: subprocess supervision vs `rgd observe` / GitHub polling).
+- Built-in **rate-limit retry** remains: one automatic retry when
+  `--retry-on-rate-limit` is set and the CLI reports a parseable cooldown.
+  The wait is **`parsed_cooldown_seconds + RATE_LIMIT_RETRY_BUFFER_SEC`**
+  (default buffer **30s**). PR-side CodeRabbit recovery uses the same
+  **`cooldown + 30s`** rule before `@coderabbitai review`; see
+  `review--bot-operations.md` § Rate-Limit Recovery.
+- Sparse **stdout** from the CLI while it works is **normal**; heartbeats go to
+  **stderr** so transcripts stay readable.
+- Only terminal outcomes change control flow: success, explicit CLI failure,
+  supervisor timeout, auth/tooling failure, cooldown parse failure, or second
+  consecutive rate limit (per policy).
+- Do not kill the subprocess without positive evidence of hang beyond the
+  supervisor limit; the supervisor already bounds worst-case wait.
+- This is a **foreground wait**: a long run or cooldown sleep is **not** failure
+  by itself without positive evidence of exit, crash, or script contract
+  violation.
 
 ## Related
 

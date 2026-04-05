@@ -20,8 +20,8 @@ etc.); details delegated to Knowledge documents where noted.
 
 Run the applicable subset before each push:
 
-- **Go code changed**: `go test ./... -race`, `go vet ./...`, `golangci-lint run`
-- **Markdown changed**: `pre-commit run markdownlint-cli2 --all-files` (pinned hook version from `.pre-commit-config.yaml`; no ad-hoc `npx @latest` installs)
+- **Go code changed**: `bash .reinguard/scripts/with-repo-local-state.sh -- go test ./... -race`, same wrapper for `go vet ./...` and `golangci-lint run` (keeps caches under repo-local `.tmp/`)
+- **Markdown changed**: `bash .reinguard/scripts/with-repo-local-state.sh -- pre-commit run markdownlint-cli2 --all-files` (pinned hook version from `.pre-commit-config.yaml`; no ad-hoc `npx @latest` installs)
 - **Config / schemas / knowledge changed**: `rgd config validate` from repo root
 
 **HS-NO-SKIP** applies: do not omit any applicable step without a
@@ -31,14 +31,25 @@ documented exception (PR body or review disposition).
 
 After applicable HS-LOCAL-VERIFY steps pass and before `change-inspect`
 declares the change ready for `pr-create`, run the repository-local
-CodeRabbit gate from the repo root:
+CodeRabbit gate from the repo root, outside the Cursor sandbox:
 
 ```bash
-bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
+bash .reinguard/scripts/with-repo-local-state.sh --home-subdir cr-home -- \
+  bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
 ```
 
 - This is a **required pre-PR gate** for this repository; it does **not**
   replace PR-based CodeRabbit review or merge consensus.
+- In this environment, writable tool state should stay under repo-local
+  `.tmp/` via `.reinguard/scripts/with-repo-local-state.sh` so file/cache
+  access does not depend on `~/.cache`, `~/.coderabbit`, or other user-home
+  locations.
+- The local CodeRabbit CLI still remains an **outside-sandbox** verification
+  step in practice because the observed failure mode inside the Cursor sandbox
+  is a Bun/WebSocket proxy limitation, not a writable-path problem. Repo-level
+  `.cursor/sandbox.json` constraints are normative in
+  `.reinguard/policy/cursor-sandbox.md` (do not commit user-specific absolute
+  paths; portable `networkPolicy.allow` entries are documented there).
 - The script standardizes installation/authentication checks and executes
   the CLI review against the repository's `.coderabbit.yaml`. On a rate
   limit, it parses the cooldown **only from the latest rate-limit line in
@@ -47,10 +58,12 @@ bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
   `RATE_LIMIT_RETRY_BUFFER_SEC`), then retries the review **once**
   automatically. If the cooldown cannot be parsed from that line, or a
   second consecutive rate limit occurs, treat the gate as failed.
-- This local CLI gate is allowed to run for a long time. Sparse output while
-  the CLI is reviewing, or while it is sleeping for a parsed cooldown, is not
-  a failure condition by itself and must not be treated as a hang without
-  positive evidence.
+- The script supervises each `coderabbit review` attempt: stderr **heartbeat**
+  every **30 seconds** (default `LOCAL_CR_HEARTBEAT_SEC=30`) and a **20-minute**
+  wall-clock maximum per attempt (default `LOCAL_CR_MAX_WAIT_SEC=1200`), aligned
+  with PR-side bot wait cadence in `review--bot-operations.md`. Sparse **stdout**
+  while the CLI works, or a long cooldown sleep, is not a failure by itself and
+  must not be treated as a hang without positive evidence.
 - If the script cannot run (CLI missing, auth missing, second consecutive
   rate limit after retry, execution error), treat that as a failed gate and
   do not proceed to `pr-create`.

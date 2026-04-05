@@ -51,6 +51,12 @@ Treat **inspect**, **create**, **address**, and **merge** as distinct steps (sup
 
 **Orchestration:** After Sense and Route, `rgd-next` **always** applies `.reinguard/procedure/next-orchestration.md` (full-path proposal format, single approval gate, post-approval execution contract; no proposal-only or minimal-dump mode). Adapter flow: `rgd-next.md` § **Propose** (once) then § **Execute**.
 
+### rgd-next Execute — Cursor chat transcript (Adapter)
+
+Normative contract: [`.reinguard/procedure/next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md) § Post-approval execution contract, § Loop semantics, § Output. Command surface: [`.cursor/commands/rgd-next.md`](../commands/rgd-next.md) § Execute. Do not restate Semantics here; this subsection only constrains **what may appear in the Cursor chat panel** after the user has given the **single Execute approval**.
+
+After that approval, the agent’s **only** permitted **chat** output is the **final report**: Per-unit Definition of Done satisfied with evidence, or an **allowed stop** with evidence (see `next-orchestration.md` § Post-approval execution contract and § Output). Iteration summaries, guard checks, and procedure progress are **agent-internal** (tool logs, internal notes) and **do not** appear in chat. The agent still follows § Loop semantics and mapped procedures; lack of per-iteration chat is not an excuse to skip Sense → Route → Act → Refresh.
+
 ### Evidence targets
 
 - Until `rgd observe` ships, see [`evidence-temporary.mdc`](evidence-temporary.mdc) for GitHub observation (`gh` / `git` read-only).

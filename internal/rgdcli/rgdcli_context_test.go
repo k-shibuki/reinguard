@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -111,6 +112,118 @@ when:
 	if len(entries) != 0 {
 		t.Fatalf("expected no knowledge entries, got %v", entries)
 	}
+}
+
+func TestRunContextBuild_githubAuthFails_keepsStateAndRoute(t *testing.T) {
+	// Given: live collect with git + github; gh auth fails; repo identity from origin only (sandbox-like)
+	if runtime.GOOS == "windows" {
+		t.Skip("fake gh executable is a Unix #!/bin/sh script")
+	}
+	tmp := t.TempDir()
+	ghBin := filepath.Join(tmp, "gh")
+	script := `#!/bin/sh
+exit 1
+`
+	if err := os.WriteFile(ghBin, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", tmp+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	root := t.TempDir()
+	runGit(t, root, "init")
+	runGit(t, root, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "init")
+	runGit(t, root, "branch", "-M", "main")
+	runGit(t, root, "remote", "add", "origin", "git@github.com:acme/widget.git")
+
+	cfg := filepath.Join(root, ".reinguard")
+	if err := os.Mkdir(cfg, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(cfg, "reinguard.yaml"), []byte(testFixtureReinguardGitAndGitHub))
+	writeFile(t, filepath.Join(cfg, "control", "states", "r.yaml"), []byte(testFixtureRulesStateIdle))
+	writeFile(t, filepath.Join(cfg, "control", "routes", "r.yaml"), []byte(testFixtureControlRoutesNext))
+
+	var buf bytes.Buffer
+	app := NewApp("test")
+	app.Writer = &buf
+	// When: context build runs from cwd while gh auth fails but local git identity is available
+	if err := app.Run([]string{"rgd", "context", "build", "--cwd", root}); err != nil {
+		t.Fatal(err)
+	}
+	var out map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatalf("invalid JSON: %v", err)
+	}
+	// Then: observation is degraded, state/route still resolve, and github.repository comes from local_git
+	assertObservationDegradedWithLocalGitHubRepo(t, out)
+}
+
+func assertObservationDegradedWithLocalGitHubRepo(t *testing.T, out map[string]any) {
+	t.Helper()
+	obs := mustMap(t, out["observation"], "observation")
+	deg, degOK := obs["degraded"].(bool)
+	if !degOK || !deg {
+		t.Fatalf("expected observation.degraded=true, got %v", obs["degraded"])
+	}
+	diags, ok := obs["diagnostics"].([]any)
+	if !ok {
+		t.Fatalf("expected observation.diagnostics array, got %T", obs["diagnostics"])
+	}
+	var sawAuthFailed bool
+	for _, d := range diags {
+		m, ok := d.(map[string]any)
+		if !ok {
+			continue
+		}
+		if m["code"] == "auth_failed" {
+			sawAuthFailed = true
+			break
+		}
+	}
+	if !sawAuthFailed {
+		t.Fatalf("expected auth_failed diagnostic in %+v", diags)
+	}
+	assertStateIdleRouteNext(t, out)
+	signals := mustMap(t, obs["signals"], "signals")
+	gh := mustMap(t, signals["github"], "signals.github")
+	repo := mustMap(t, gh["repository"], "repository")
+	if repo["owner"] != "acme" || repo["name"] != "widget" {
+		t.Fatalf("repository: %+v", repo)
+	}
+	if repo["identity_source"] != "local_git" {
+		t.Fatalf("identity_source: %+v", repo)
+	}
+}
+
+func assertStateIdleRouteNext(t *testing.T, out map[string]any) {
+	t.Helper()
+	state := mustMap(t, out["state"], "state")
+	if state["state_id"] != "Idle" {
+		t.Fatalf("state_id: %v", state["state_id"])
+	}
+	routes := mustSlice(t, out["routes"], "routes")
+	r0 := mustMap(t, routes[0], "routes[0]")
+	if r0["route_id"] != "next" {
+		t.Fatalf("route_id: %v", r0["route_id"])
+	}
+}
+
+func mustMap(t *testing.T, v any, label string) map[string]any {
+	t.Helper()
+	m, ok := v.(map[string]any)
+	if !ok {
+		t.Fatalf("%s: %T", label, v)
+	}
+	return m
+}
+
+func mustSlice(t *testing.T, v any, label string) []any {
+	t.Helper()
+	s, ok := v.([]any)
+	if !ok || len(s) == 0 {
+		t.Fatalf("%s: %v", label, v)
+	}
+	return s
 }
 
 func runGit(t *testing.T, dir string, args ...string) {

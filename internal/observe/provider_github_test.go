@@ -107,6 +107,77 @@ exit 1
 	}
 }
 
+func TestGitHubProvider_Collect_fallsBackToOriginRemoteWhenGhRepoViewFails(t *testing.T) {
+	// Given: gh auth OK but repo view fails, while git origin still points at GitHub
+	if runtime.GOOS == "windows" {
+		t.Skip("fake gh executable is a Unix #!/bin/sh script")
+	}
+	tmp := t.TempDir()
+	ghBin := filepath.Join(tmp, "gh")
+	script := `#!/bin/sh
+if [ "$1" = "auth" ] && [ "$2" = "token" ]; then
+  echo testtoken
+  exit 0
+fi
+exit 1
+`
+	if err := os.WriteFile(ghBin, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", tmp+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	repoDir := t.TempDir()
+	runGitCmd(t, repoDir, "init")
+	runGitCmd(t, repoDir, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "init")
+	runGitCmd(t, repoDir, "remote", "add", "origin", "git@github.com:octocat/hello-world.git")
+
+	shaBytes, err := exec.Command("git", "-C", repoDir, "rev-parse", "HEAD").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sha := strings.TrimSpace(string(shaBytes))
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/search/issues":
+			_, _ = w.Write([]byte(`{"total_count": 0}`))
+		case r.URL.Path == "/repos/octocat/hello-world/pulls":
+			_, _ = w.Write([]byte(`[]`))
+		case r.URL.Path == "/repos/octocat/hello-world/commits/"+sha+"/status":
+			_, _ = w.Write([]byte(`{"state":"success"}`))
+		case strings.HasSuffix(r.URL.Path, "/comments"):
+			_, _ = w.Write([]byte(`[]`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	p := NewGitHubProvider()
+	p.APIBase = srv.URL
+	// When: Collect runs against the repo with gh repo view failing but origin still resolvable
+	frag, err := p.Collect(context.Background(), Options{WorkDir: repoDir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Then: repository identity comes from origin and no repo_resolve_failed diagnostic is emitted
+	repoSignal, ok := frag.Signals["repository"].(map[string]any)
+	if !ok {
+		t.Fatalf("repository signal missing: %+v", frag)
+	}
+	if repoSignal["owner"] != "octocat" || repoSignal["name"] != "hello-world" {
+		t.Fatalf("repository signal: %+v", repoSignal)
+	}
+	if repoSignal["identity_source"] != "local_git" {
+		t.Fatalf("identity_source: %+v", repoSignal)
+	}
+	for _, d := range frag.Diagnostics {
+		if d.Code == "repo_resolve_failed" {
+			t.Fatalf("unexpected repo_resolve_failed: %+v", frag.Diagnostics)
+		}
+	}
+}
+
 func TestGitHubProvider_Collect_reviewsFacetSkippedWhenPullRequestsFail(t *testing.T) {
 	// Given: fake gh on PATH (auth + repo view succeed)
 	if runtime.GOOS == "windows" {
@@ -176,7 +247,7 @@ exit 1
 }
 
 func TestGitHubProvider_Collect_ghAuthFails(t *testing.T) {
-	// Given: gh exits non-zero immediately (auth failure)
+	// Given: gh exits non-zero immediately (auth failure), no resolvable repo identity
 	if runtime.GOOS == "windows" {
 		t.Skip("fake gh executable is a Unix #!/bin/sh script")
 	}
@@ -190,14 +261,55 @@ exit 1
 	}
 	t.Setenv("PATH", tmp+string(os.PathListSeparator)+os.Getenv("PATH"))
 	p := NewGitHubProvider()
-	// When: Collect runs
+	// When: Collect runs (empty dir — cannot resolve local git or gh repo)
 	frag, err := p.Collect(context.Background(), Options{WorkDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Then: degraded with auth_failed diagnostic
+	// Then: degraded with repo_resolve_failed (no origin, gh unusable)
+	if !frag.Degraded || len(frag.Diagnostics) != 1 || frag.Diagnostics[0].Code != "repo_resolve_failed" {
+		t.Fatalf("%+v", frag)
+	}
+}
+
+func TestGitHubProvider_Collect_ghAuthFails_keepsLocalRepositoryIdentity(t *testing.T) {
+	// Given: auth fails but remote.origin.url resolves to GitHub (sandbox-style: token blocked, git readable)
+	if runtime.GOOS == "windows" {
+		t.Skip("fake gh executable is a Unix #!/bin/sh script")
+	}
+	tmp := t.TempDir()
+	ghBin := filepath.Join(tmp, "gh")
+	script := `#!/bin/sh
+exit 1
+`
+	if err := os.WriteFile(ghBin, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", tmp+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	repoDir := t.TempDir()
+	runGitCmd(t, repoDir, "init")
+	runGitCmd(t, repoDir, "remote", "add", "origin", "git@github.com:octocat/hello-world.git")
+
+	p := NewGitHubProvider()
+	// When: Collect runs while auth fails but local origin still identifies the repo
+	frag, err := p.Collect(context.Background(), Options{WorkDir: repoDir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Then: degraded auth_failed keeps repository identity from local_git
 	if !frag.Degraded || len(frag.Diagnostics) != 1 || frag.Diagnostics[0].Code != "auth_failed" {
 		t.Fatalf("%+v", frag)
+	}
+	repoSignal, ok := frag.Signals["repository"].(map[string]any)
+	if !ok {
+		t.Fatalf("repository signal missing: %+v", frag)
+	}
+	if repoSignal["owner"] != "octocat" || repoSignal["name"] != "hello-world" {
+		t.Fatalf("repository signal: %+v", repoSignal)
+	}
+	if repoSignal["identity_source"] != "local_git" {
+		t.Fatalf("identity_source: %+v", repoSignal)
 	}
 }
 
