@@ -186,8 +186,8 @@ The **pull-requests** facet always includes REST-derived fields for the current 
 |-------|------|-------------|
 | `open_count` | number | Open PR count for the repo (REST search). |
 | `current_branch` | string | Effective branch used for PR observation. Defaults to the checked-out branch; with `--branch` (and no `--pr`), the requested branch; with `--pr` (regardless of `--branch`), the PR head branch. |
-| `pr_exists_for_branch` | boolean | Whether an open PR exists for the effective observed branch / explicit `--pr` target. |
-| `pr_number_for_branch` | number | Resolved PR number for the effective observed branch / explicit `--pr` target, or `0`. |
+| `pr_exists_for_branch` | boolean | Whether an open PR exists for the effective scope (resolved branch or explicit `--pr`). |
+| `pr_number_for_branch` | number | Resolved PR number for the effective scope, or `0`. |
 | `state` | string | GraphQL PR state lowercased: `open`, `closed`, `merged`. |
 | `draft` | boolean | Draft flag. |
 | `title` | string | PR title. |
@@ -224,7 +224,7 @@ Populated when the `reviews` facet runs (see `rgd observe github reviews`). Data
 | Field | Type | Description |
 |-------|------|-------------|
 | `local_branch_at_collect` | string | Checked-out local branch when the command ran (empty if detached). |
-| `selection` | string | Scope selection mode: `current_branch`, `explicit_branch`, `explicit_pr`, or `none`. |
+| `selection` | string | Scope selection mode: `current_branch`, `explicit_branch`, `explicit_pr`, or `none` when neither a local branch nor an explicit scope could drive PR observation. |
 | `requested_branch` | string | Explicit `--branch` value when provided. |
 | `requested_pr_number` | number | Explicit `--pr` value when provided. |
 | `effective_branch` | string | Branch that drove PR observation after precedence rules were applied. |
@@ -240,7 +240,6 @@ Each element of `review_inbox` represents one unresolved GitHub review thread.
 |-------|------|-------------|
 | `thread_id` | string | GraphQL review thread node id (`resolveReviewThread` input). |
 | `root_comment_id` | number | Root review comment database id (`in_reply_to` for REST replies). |
-| `is_resolved` | boolean | Thread resolution state from GraphQL. |
 | `is_outdated` | boolean | Thread outdated state from GraphQL. |
 | `body` | string | Root review comment body when available. |
 | `author` | string | Root review comment author login when available. |

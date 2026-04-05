@@ -25,13 +25,15 @@ func ReplyToPullRequestThread(ctx context.Context, wd string, in PullRequestThre
 	if in.InReplyTo <= 0 {
 		return fmt.Errorf("in_reply_to must be greater than 0")
 	}
-	if strings.TrimSpace(in.Body) == "" {
+	in.Body = strings.TrimSpace(in.Body)
+	if in.Body == "" {
 		return fmt.Errorf("reply body must be non-empty")
 	}
-	if err := validateFullSHA(in.CommitSHA); err != nil {
+	sha, err := validateFullSHA(in.CommitSHA)
+	if err != nil {
 		return err
 	}
-	in.CommitSHA = strings.TrimSpace(in.CommitSHA)
+	in.CommitSHA = sha
 	in.Path = strings.TrimSpace(in.Path)
 	if in.Path == "" {
 		return fmt.Errorf("path must be non-empty")

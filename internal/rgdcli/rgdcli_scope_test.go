@@ -22,6 +22,12 @@ func TestParseObserveScopeFlags(t *testing.T) {
 		wantPR             int
 	}{
 		{
+			name:          "given no scope flags when live observe then zero values returned",
+			wantBranch:    "",
+			wantPR:        0,
+			wantErrSubstr: "",
+		},
+		{
 			name:          "given branch when live observe then branch returned",
 			branch:        "main",
 			wantBranch:    "main",
@@ -50,9 +56,24 @@ func TestParseObserveScopeFlags(t *testing.T) {
 			wantErrSubstr:      "--branch/--pr cannot be used with --observation-file",
 		},
 		{
+			name:          "given branch and pr when live observe then both values preserved",
+			branch:        "topic",
+			setPR:         true,
+			pr:            9,
+			wantBranch:    "topic",
+			wantPR:        9,
+			wantErrSubstr: "",
+		},
+		{
 			name:          "given zero pr then error",
 			setPR:         true,
 			pr:            0,
+			wantErrSubstr: "--pr must be greater than 0",
+		},
+		{
+			name:          "given negative pr then error",
+			setPR:         true,
+			pr:            -1,
 			wantErrSubstr: "--pr must be greater than 0",
 		},
 	}

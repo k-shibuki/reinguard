@@ -26,6 +26,11 @@ func TestReviewBodyFromFlags(t *testing.T) {
 			wantBody: "Fixed in latest commit.",
 		},
 		{
+			name:          "given whitespace body when parsing then required error",
+			body:          "   ",
+			wantErrSubstr: "required",
+		},
+		{
 			name:        "given body file when parsing then file body returned",
 			fileBody:    "By design. Scoped CI follows the observed PR head.\n",
 			wantBody:    "By design. Scoped CI follows the observed PR head.\n",

@@ -167,6 +167,7 @@ func TestRunContextBuild_rejectsScopeFlagsWithObservationFile(t *testing.T) {
 	}{
 		{name: "pr", args: []string{"--pr", "104"}},
 		{name: "branch", args: []string{"--branch", "feat/test"}},
+		{name: "branch and pr", args: []string{"--branch", "feat/test", "--pr", "104"}},
 	}
 	for _, tc := range tests {
 		tc := tc

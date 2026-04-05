@@ -56,6 +56,14 @@ type Scope struct {
 	ResolvedPRNumber  int
 }
 
+// Selection values for Scope.Selection.
+const (
+	SelectionExplicitPR     = "explicit_pr"
+	SelectionExplicitBranch = "explicit_branch"
+	SelectionCurrentBranch  = "current_branch"
+	SelectionNone           = "none"
+)
+
 // Collect returns pull request signals for the effective observed branch / PR.
 func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir string, opts ScopeOptions) (map[string]any, Scope, []string, error) {
 	if c == nil {
@@ -86,7 +94,7 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir stri
 	prNum := 0
 	switch {
 	case scope.RequestedPRNumber > 0:
-		scope.Selection = "explicit_pr"
+		scope.Selection = SelectionExplicitPR
 		pull, err := fetchPullRequest(ctx, c, owner, repo, scope.RequestedPRNumber)
 		if err != nil {
 			return nil, scope, warnings, err
@@ -101,9 +109,9 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir stri
 		}
 	case branch != "":
 		if scope.RequestedBranch != "" {
-			scope.Selection = "explicit_branch"
+			scope.Selection = SelectionExplicitBranch
 		} else {
-			scope.Selection = "current_branch"
+			scope.Selection = SelectionCurrentBranch
 		}
 		// Issue search `head:<branch>` matches by prefix; use List Pulls with
 		// head=owner:branch for an exact head ref (GitHub REST).
@@ -128,7 +136,7 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir stri
 			}
 		}
 	default:
-		scope.Selection = "none"
+		scope.Selection = SelectionNone
 	}
 	scope.ResolvedPRNumber = prNum
 

@@ -225,7 +225,19 @@ func TestCollect_onePage_threadsAndDetail(t *testing.T) {
 		t.Fatalf("review_inbox: %+v", rev)
 	}
 	thread := inbox[0].(map[string]any)
-	if thread["thread_id"] != "THREAD_2" || thread["root_comment_id"].(int) != 202 {
+	if thread["thread_id"] != "THREAD_2" {
+		t.Fatalf("thread: %+v", thread)
+	}
+	switch id := thread["root_comment_id"].(type) {
+	case int:
+		if id != 202 {
+			t.Fatalf("want root_comment_id 202, got %d", id)
+		}
+	case float64:
+		if int(id) != 202 {
+			t.Fatalf("want root_comment_id 202, got %v", id)
+		}
+	default:
 		t.Fatalf("thread: %+v", thread)
 	}
 }

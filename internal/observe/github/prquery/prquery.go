@@ -458,7 +458,6 @@ func buildReviewInboxEntry(thread reviewThreadNode) map[string]any {
 	}
 	entry := map[string]any{
 		"thread_id":   strings.TrimSpace(thread.ID),
-		"is_resolved": thread.IsResolved,
 		"is_outdated": thread.IsOutdated,
 	}
 	if thread.Comments == nil || len(thread.Comments.Nodes) == 0 {
@@ -484,6 +483,7 @@ func buildReviewInboxEntry(thread reviewThreadNode) map[string]any {
 	return entry
 }
 
+// putReviewInboxInt adds key only for positive values, which matches GitHub database IDs.
 func putReviewInboxInt(entry map[string]any, key string, value int) {
 	if value > 0 {
 		entry[key] = value
