@@ -62,7 +62,7 @@ After approval, **always** follow [`.reinguard/procedure/next-orchestration.md`]
 
 Loop (summary): **Sense** (`rgd context build`) → **Route** (ADR-0013 § 4; same rules as § Route above) → run mapped procedure(s) → **Refresh** context after material changes — per `next-orchestration.md`.
 
-**Output (for agents):** After each `rgd context build` in the loop, emit a short paragraph: `state_id` / `route_id` / guard summary and which procedure(s) ran or are next (iteration label optional, e.g. “Pass 2”). **Final:** DoD satisfied with evidence, or allowed stop with evidence (`next-orchestration.md` § Post-approval execution contract).
+**Output (for agents):** After each `rgd context build` in the loop, **record** the same iteration context **agent-internally** as in [`next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md) § **Output** (per-iteration bullet): `state_id` / `route_id` / guard summary and which procedure(s) ran or are next. Do **not** treat per-iteration chat as required user-visible output — follow [`.cursor/rules/reinguard-bridge.mdc`](../../.cursor/rules/reinguard-bridge.mdc) § **rgd-next Execute — Cursor chat transcript** for what may appear in the Cursor chat panel. **Final user-facing output:** DoD satisfied with evidence, or allowed stop with evidence (`next-orchestration.md` § Post-approval execution contract).
 
 ## Guard
 

@@ -183,6 +183,9 @@ func TestCoderabbitIssueCommentMaxTier_decisiveStatusesShareTierSix(t *testing.T
 	if got := CoderabbitIssueCommentMaxTier("### Walkthrough\n"); got != 1 {
 		t.Fatalf("walkthrough-only want tier 1, got %d", got)
 	}
+	if got := CoderabbitIssueCommentMaxTier("Some generic comment text."); got != 0 {
+		t.Fatalf("no-markers want tier 0, got %d", got)
+	}
 }
 
 func TestCoderabbitEnrichment_ClassifyStatus_order(t *testing.T) {
