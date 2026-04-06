@@ -687,7 +687,11 @@ func mergeCommentNodesForBots(ctx context.Context, c *githubapi.Client, owner, r
 		if conn == nil {
 			break
 		}
-		merged = append(merged, conn.Nodes...)
+		if len(conn.Nodes) > 0 {
+			older := make([]prCommentNode, 0, len(conn.Nodes)+len(merged))
+			older = append(older, conn.Nodes...)
+			merged = append(older, merged...)
+		}
 		markBotsSeen(conn.Nodes, want, seen)
 		hasPrev = conn.PageInfo.HasPreviousPage
 		before = strings.TrimSpace(conn.PageInfo.StartCursor)

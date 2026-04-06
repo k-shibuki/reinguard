@@ -1221,6 +1221,107 @@ func TestCollect_commentPagination_fetchesOlderBotHeadMovedMessage(t *testing.T)
 	}
 }
 
+func TestCollect_commentPagination_prependsOlderPagesInConversationReadModel(t *testing.T) {
+	t.Parallel()
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("read body: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(string(body), "PRCommentPage") {
+			resp := map[string]any{
+				"data": map[string]any{
+					"repository": map[string]any{
+						"pullRequest": map[string]any{
+							"comments": map[string]any{
+								"pageInfo": map[string]any{"hasPreviousPage": false, "startCursor": ""},
+								"nodes": []map[string]any{
+									{
+										"author":    map[string]any{"login": "coderabbitai"},
+										"body":      "older bot finding",
+										"updatedAt": "2026-03-28T10:00:00Z",
+									},
+									{
+										"author":    map[string]any{"login": "alice"},
+										"body":      "older human reply",
+										"updatedAt": "2026-03-28T10:05:00Z",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			if err := json.NewEncoder(w).Encode(resp); err != nil {
+				t.Errorf("encode: %v", err)
+			}
+			return
+		}
+		resp := map[string]any{
+			"data": map[string]any{
+				"repository": map[string]any{
+					"pullRequest": map[string]any{
+						"state": "OPEN", "isDraft": false, "title": "t",
+						"mergeable": "UNKNOWN", "mergeStateStatus": "UNKNOWN",
+						"baseRefName": "main", "headRefOid": "x",
+						"labels":                  map[string]any{"nodes": []any{}},
+						"closingIssuesReferences": map[string]any{"nodes": []any{}},
+						"latestReviews":           map[string]any{"pageInfo": map[string]any{"hasNextPage": false}, "nodes": []any{}},
+						"comments": map[string]any{
+							"pageInfo": map[string]any{"hasPreviousPage": true, "startCursor": "cur-old"},
+							"nodes": []map[string]any{
+								{
+									"author":    map[string]any{"login": "alice"},
+									"body":      "newer human reply",
+									"updatedAt": "2026-03-28T12:00:00Z",
+								},
+								{
+									"author":    map[string]any{"login": "bob"},
+									"body":      "newest human reply",
+									"updatedAt": "2026-03-28T12:05:00Z",
+								},
+							},
+						},
+						"reviewThreads": map[string]any{"pageInfo": map[string]any{"hasNextPage": false}, "nodes": []any{}},
+					},
+				},
+			},
+		}
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode: %v", err)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	bots := []BotReviewer{{ID: "coderabbit", Login: "coderabbitai[bot]", Required: true, Enrich: []string{"coderabbit"}}}
+	_, rev, err := Collect(context.Background(), c, "o", "r", 1, bots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := int(calls.Load()); got != 2 {
+		t.Fatalf("want 2 graphql calls, got %d", got)
+	}
+	comments := rev["conversation_comments"].([]any)
+	if len(comments) != 4 {
+		t.Fatalf("conversation_comments len: %+v", comments)
+	}
+	bodies := []string{
+		comments[0].(map[string]any)["body"].(string),
+		comments[1].(map[string]any)["body"].(string),
+		comments[2].(map[string]any)["body"].(string),
+		comments[3].(map[string]any)["body"].(string),
+	}
+	want := []string{"older bot finding", "older human reply", "newer human reply", "newest human reply"}
+	if strings.Join(bodies, "|") != strings.Join(want, "|") {
+		t.Fatalf("conversation comment order = %v want %v", bodies, want)
+	}
+}
+
 func TestNormalizeGitHubActorLogin(t *testing.T) {
 	t.Parallel()
 	for _, tt := range []struct {
