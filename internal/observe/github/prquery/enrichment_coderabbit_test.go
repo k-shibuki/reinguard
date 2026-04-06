@@ -296,6 +296,12 @@ func TestIsCoderabbitFindingConversationComment(t *testing.T) {
 	if IsCoderabbitFindingConversationComment("Sure! I'll kick off a new review to verify the fixes.") {
 		t.Fatal("plain operational acknowledgement is excluded")
 	}
+	wrappedFinding := "<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n" +
+		"<details>\n<summary>⚠️ Outside diff range comments (1)</summary><blockquote>\n" +
+		"`internal/observe/github/prquery/prquery.go`: _⚠️ Potential issue_\n</blockquote></details>"
+	if !IsCoderabbitFindingConversationComment(wrappedFinding) {
+		t.Fatal("wrapped outside-diff summary should still count as finding")
+	}
 	// Operational / status PR comments share tier 6 with CoderabbitIssueCommentMaxTier; they must not
 	// inflate finding_conversation_comments_count (merge-readiness non-thread signal).
 	ops := []string{

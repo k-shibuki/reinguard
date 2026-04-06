@@ -404,6 +404,7 @@ func emptyReviewsInner() map[string]any {
 			"bot_review_pending":          false,
 			"bot_review_terminal":         true,
 			"bot_review_failed":           false,
+			"bot_review_stale":            false,
 			"duplicate_findings_detected": false,
 			"non_thread_findings_present": false,
 		},
@@ -648,8 +649,8 @@ func normalizeGitHubActorLogin(login string) string {
 	return strings.TrimSpace(s)
 }
 
-// mergeCommentNodesForBots prepends older issue-comment pages until configured bot logins appear
-// or the back-pagination budget is exhausted; the bool is true when older pages may remain.
+// mergeCommentNodesForBots prepends older issue-comment pages while back-pagination budget
+// remains; the bool is true when older pages may remain beyond what we merged.
 func mergeCommentNodesForBots(ctx context.Context, c *githubapi.Client, owner, repo string, prNumber int, seed *commentsConn, bots []BotReviewer) ([]prCommentNode, bool, error) {
 	if len(bots) == 0 {
 		if seed == nil {
@@ -676,7 +677,7 @@ func mergeCommentNodesForBots(ctx context.Context, c *githubapi.Client, owner, r
 	if seed != nil {
 		before = strings.TrimSpace(seed.PageInfo.StartCursor)
 	}
-	for page := 0; page < maxCommentBackPages && hasPrev && !allBotsSeen(seen, want); page++ {
+	for page := 0; page < maxCommentBackPages && hasPrev; page++ {
 		if before == "" {
 			break
 		}
@@ -731,16 +732,6 @@ func markBotsSeen(nodes []prCommentNode, want map[string]struct{}, seen map[stri
 			seen[k] = true
 		}
 	}
-}
-
-// allBotsSeen is true when every key in want is true in seen.
-func allBotsSeen(seen map[string]bool, want map[string]struct{}) bool {
-	for k := range want {
-		if !seen[k] {
-			return false
-		}
-	}
-	return true
 }
 
 // applyReviewCommitSHAFromEnrichedComment sets review_commit_sha from an enriched reviewed head

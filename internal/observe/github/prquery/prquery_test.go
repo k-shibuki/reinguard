@@ -1310,6 +1310,9 @@ func TestCollect_commentPagination_prependsOlderPagesInConversationReadModel(t *
 	if len(comments) != 4 {
 		t.Fatalf("conversation_comments len: %+v", comments)
 	}
+	if rev["conversation_comments_incomplete"].(bool) {
+		t.Fatalf("conversation_comments_incomplete: %+v", rev)
+	}
 	bodies := []string{
 		comments[0].(map[string]any)["body"].(string),
 		comments[1].(map[string]any)["body"].(string),
@@ -1398,6 +1401,10 @@ func assertReviewsZeros(t *testing.T, rev map[string]any, incomplete bool) {
 		t.Fatalf("%+v", rev)
 	}
 	if rev["pagination_incomplete"].(bool) != incomplete {
+		t.Fatalf("%+v", rev)
+	}
+	diag := rev["bot_review_diagnostics"].(map[string]any)
+	if diag["bot_review_stale"].(bool) {
 		t.Fatalf("%+v", rev)
 	}
 }

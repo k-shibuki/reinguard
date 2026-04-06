@@ -38,7 +38,7 @@ before `state`.
 rgd version
 rgd config validate
 rgd schema export [--dir DIR]
-rgd gate record <gate-id> --status pass|fail [--checks-file FILE]
+rgd gate record <gate-id> --status pass|fail --checks-file FILE
 rgd gate status <gate-id>
 rgd gate show <gate-id>
 rgd observe [workflow-position]
