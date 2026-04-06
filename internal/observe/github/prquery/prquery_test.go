@@ -576,6 +576,12 @@ func TestCollect_botReviewer_rateLimitAgeClampsToZero(t *testing.T) {
 	if m["rate_limit_remaining_seconds"].(int) != 0 {
 		t.Fatalf("want 0 remaining, got %+v", m)
 	}
+	if m["status"].(string) != BotStatusPending {
+		t.Fatalf("after cooldown elapses without terminal clean, want pending: %+v", m)
+	}
+	if m["status_class_basis"].(string) != "issue_comments_pending" {
+		t.Fatalf("status_class_basis: %+v", m)
+	}
 }
 
 func TestCollect_botReviewer_rateLimitWinsOverNewerAckComment(t *testing.T) {
@@ -621,7 +627,9 @@ func TestCollect_botReviewer_rateLimitWinsOverNewerAckComment(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
 	bots := []BotReviewer{{ID: "coderabbit", Login: "coderabbitai[bot]", Required: true, Enrich: []string{"coderabbit"}}}
-	_, rev, err := Collect(context.Background(), c, "o", "r", 1, bots)
+	// Anchor observation time to the status comment so age-adjusted cooldown stays active (125s remaining).
+	obsAt := time.Date(2026, 3, 27, 12, 0, 0, 0, time.UTC)
+	_, rev, err := CollectWithOptions(context.Background(), c, "o", "r", 1, bots, &CollectOptions{Now: &obsAt})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -640,6 +648,9 @@ func TestCollect_botReviewer_rateLimitWinsOverNewerAckComment(t *testing.T) {
 	}
 	if m["status"].(string) != BotStatusRateLimited {
 		t.Fatalf("status: %+v", m)
+	}
+	if m["status_class_basis"].(string) != "active_rate_limit_cooldown" {
+		t.Fatalf("status_class_basis: %+v", m)
 	}
 }
 
@@ -763,7 +774,8 @@ func TestCollect_botReviewer_newerRateLimitSupersedesOlderCleanComment(t *testin
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
 	bots := []BotReviewer{{ID: "coderabbit", Login: "coderabbitai[bot]", Required: true, Enrich: []string{"coderabbit"}}}
-	_, rev, err := Collect(context.Background(), c, "o", "r", 1, bots)
+	obsAt := time.Date(2026, 3, 27, 12, 10, 0, 0, time.UTC)
+	_, rev, err := CollectWithOptions(context.Background(), c, "o", "r", 1, bots, &CollectOptions{Now: &obsAt})
 	if err != nil {
 		t.Fatal(err)
 	}

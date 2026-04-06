@@ -340,7 +340,14 @@ func TestCoderabbitIssueCommentMaxTier_decisiveStatusesShareTierSix(t *testing.T
 func TestCoderabbitEnrichment_ClassifyStatus_order(t *testing.T) {
 	t.Parallel()
 	e := coderabbitEnrichment{}
-	if g := e.ClassifyStatus(map[string]any{"contains_rate_limit": true, "cr_review_processing": true}); g != BotStatusRateLimited {
+	// Processing is evaluated before active cooldown; both signals need not conflict.
+	if g := e.ClassifyStatus(map[string]any{"contains_rate_limit": true, "cr_review_processing": true}); g != BotStatusPending {
+		t.Fatalf("got %q", g)
+	}
+	if g := e.ClassifyStatus(map[string]any{"rate_limit_remaining_seconds": 300, "cr_review_processing": true}); g != BotStatusPending {
+		t.Fatalf("processing wins over active cooldown: got %q", g)
+	}
+	if g := e.ClassifyStatus(map[string]any{"rate_limit_remaining_seconds": 300}); g != BotStatusRateLimited {
 		t.Fatalf("got %q", g)
 	}
 	if g := e.ClassifyStatus(map[string]any{"cr_review_processing": true}); g != BotStatusPending {
@@ -357,6 +364,25 @@ func TestCoderabbitEnrichment_ClassifyStatus_order(t *testing.T) {
 	}
 	if g := e.ClassifyStatus(map[string]any{"cr_walkthrough_present": true, "latest_comment_at": "2026-01-01T00:00:00Z"}); g != BotStatusPending {
 		t.Fatalf("got %q", g)
+	}
+}
+
+func TestCoderabbitEnrichment_ClassifyStatus_staleRateLimitTextDoesNotOverrideClean(t *testing.T) {
+	t.Parallel()
+	e := coderabbitEnrichment{}
+	// Same issue-comment body can mention "rate limit" historically while reporting a terminal clean summary.
+	m := map[string]any{
+		"contains_rate_limit":          true,
+		"review_completed_clean":       true,
+		"rate_limit_remaining_seconds": 0,
+		"latest_comment_at":            "2026-04-06T00:31:05Z",
+	}
+	if g := e.ClassifyStatus(m); g != BotStatusCompletedClean {
+		t.Fatalf("got %q want completed_clean", g)
+	}
+	s, basis := classifyCoderabbitStatusWithBasis(m)
+	if s != BotStatusCompletedClean || basis != "review_completed_clean" {
+		t.Fatalf("basis got %q %q", s, basis)
 	}
 }
 

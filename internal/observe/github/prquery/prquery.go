@@ -23,6 +23,24 @@ type BotReviewer struct {
 // enrichmentNameCoderabbit is the registered enrichment plugin id for CodeRabbit (reinguard.yaml enrich[]).
 const enrichmentNameCoderabbit = "coderabbit"
 
+func enrichIncludesCoderabbit(names []string) bool {
+	for _, n := range names {
+		if strings.TrimSpace(n) == enrichmentNameCoderabbit {
+			return true
+		}
+	}
+	return false
+}
+
+// applyCoderabbitStatusClassBasis sets status_class_basis when CodeRabbit enrichment is enabled.
+func applyCoderabbitStatusClassBasis(status map[string]any, enrich []string) {
+	if !enrichIncludesCoderabbit(enrich) {
+		return
+	}
+	_, basis := classifyCoderabbitStatusWithBasis(status)
+	status["status_class_basis"] = basis
+}
+
 const prContextQuery = `query PRContext($owner: String!, $name: String!, $number: Int!, $cursor: String, $includeDetail: Boolean!) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $number) {
@@ -951,6 +969,7 @@ func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNo
 		adjustRateLimitRemainingForStatusCommentAge(status, now)
 		applyReviewCommitSHAFromEnrichedComment(status)
 		status["status"] = ClassifyBotStatus(status, br.Enrich)
+		applyCoderabbitStatusClassBasis(status, br.Enrich)
 		out = append(out, status)
 	}
 	return out

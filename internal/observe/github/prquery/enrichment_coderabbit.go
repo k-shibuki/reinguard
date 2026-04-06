@@ -113,43 +113,52 @@ func (coderabbitEnrichment) CommentMaxTier(body string) int {
 	return CoderabbitIssueCommentMaxTier(body)
 }
 
-// ClassifyStatus applies CodeRabbit-aware rules on top of generic substring flags.
+// ClassifyStatus applies CodeRabbit-aware rules. Rate limiting is derived from
+// age-adjusted rate_limit_remaining_seconds (not raw "rate limit" substrings), so stale
+// quota text in the same comment as a terminal-clean summary does not override completed_clean.
 func (coderabbitEnrichment) ClassifyStatus(m map[string]any) string {
-	if signalBool(m, "contains_rate_limit") {
-		return BotStatusRateLimited
-	}
+	s, _ := classifyCoderabbitStatusWithBasis(m)
+	return s
+}
+
+// classifyCoderabbitStatusWithBasis returns the bot status and a short machine-readable reason
+// for observability (status_class_basis on bot_reviewer_status entries).
+func classifyCoderabbitStatusWithBasis(m map[string]any) (status string, basis string) {
 	if signalBool(m, "contains_review_paused") {
-		return BotStatusReviewPaused
+		return BotStatusReviewPaused, "review_paused"
 	}
 	if signalBool(m, "contains_review_failed") {
-		return BotStatusReviewFailed
+		return BotStatusReviewFailed, "review_failed"
 	}
 	if v, ok := m["cr_review_processing"].(bool); ok && v {
-		return BotStatusPending
+		return BotStatusPending, "review_processing"
 	}
 	if v, ok := m["review_processing"].(bool); ok && v {
-		return BotStatusPending
+		return BotStatusPending, "review_processing"
 	}
-	// Terminal clean without a GitHub Review (issue-comment-only completion, e.g. "no actionable comments").
+	// Terminal clean from issue-comment markers (e.g. "no actionable comments") — wins over stale rate-limit wording.
 	if signalBool(m, "cr_review_completed_clean") {
-		return BotStatusCompletedClean
+		return BotStatusCompletedClean, "review_completed_clean"
 	}
 	if signalBool(m, "review_completed_clean") {
-		return BotStatusCompletedClean
+		return BotStatusCompletedClean, "review_completed_clean"
+	}
+	if n, ok := intFromStatusMapAny(m, "rate_limit_remaining_seconds"); ok && n > 0 {
+		return BotStatusRateLimited, "active_rate_limit_cooldown"
 	}
 	if signalBool(m, "has_review") {
-		return BotStatusCompleted
+		return BotStatusCompleted, "github_pull_request_review"
 	}
 	if signalBool(m, "cr_walkthrough_present") {
-		return BotStatusPending
+		return BotStatusPending, "walkthrough_present"
 	}
 	if signalBool(m, "walkthrough_present") {
-		return BotStatusPending
+		return BotStatusPending, "walkthrough_present"
 	}
 	if strings.TrimSpace(signalString(m, "latest_comment_at")) != "" {
-		return BotStatusPending
+		return BotStatusPending, "issue_comments_pending"
 	}
-	return BotStatusNotTriggered
+	return BotStatusNotTriggered, "not_triggered"
 }
 
 // Heuristic markers for CodeRabbit "Review Status" / walkthrough issue comments (best-effort).

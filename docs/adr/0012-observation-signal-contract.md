@@ -26,7 +26,11 @@ boundaries** so extensions stay consistent.
   facts, not agent judgment.
 - **Derived signals** — Deterministic combinations of facts computed inside
   `rgd` with a fixed rule (e.g. `working_tree_clean` from porcelain line
-  count). Documented in `docs/cli.md`.
+  count). Documented in `docs/cli.md`. Optional factual provenance fields on
+  the same object (e.g. `status_class_basis` alongside `status` for CodeRabbit
+  bot review classification) are still derived: they name which input signal
+  decided the classification, not reviewer disposition or semantic interpretation
+  of free text beyond documented marker rules.
 - **Excluded** — Agent-internal state, session files, and semantic
   interpretation of review text (ADR-0005).
 
