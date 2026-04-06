@@ -244,6 +244,7 @@ func TestParseCoderabbitActionableCommentsCount(t *testing.T) {
 	}{
 		{name: "empty", body: "", want: 0},
 		{name: "match", body: "Actionable review comments (4)", want: 4},
+		{name: "older_header", body: "**Actionable comments posted: 4**", want: 4},
 		{name: "no_match", body: "no actionable line", want: 0},
 		{name: "zero", body: "Actionable review comments (0)", want: 0},
 		{name: "malformed", body: "Actionable review comments (x)", want: 0},
@@ -291,6 +292,9 @@ func TestIsCoderabbitFindingConversationComment(t *testing.T) {
 	}
 	if IsCoderabbitFindingConversationComment("### Walkthrough\n") {
 		t.Fatal("walkthrough is excluded")
+	}
+	if IsCoderabbitFindingConversationComment("Sure! I'll kick off a new review to verify the fixes.") {
+		t.Fatal("plain operational acknowledgement is excluded")
 	}
 	// Operational / status PR comments share tier 6 with CoderabbitIssueCommentMaxTier; they must not
 	// inflate finding_conversation_comments_count (merge-readiness non-thread signal).

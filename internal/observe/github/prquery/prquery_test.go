@@ -652,6 +652,9 @@ func TestCollect_botReviewer_rateLimitWinsOverNewerAckComment(t *testing.T) {
 	if m["status_class_basis"].(string) != "active_rate_limit_cooldown" {
 		t.Fatalf("status_class_basis: %+v", m)
 	}
+	if got := m["finding_conversation_comments_count"].(int); got != 0 {
+		t.Fatalf("operational ack must not count as finding conversation comment: %+v", m)
+	}
 }
 
 func TestCollect_botReviewer_terminalCleanSupersedesOlderRateLimitComment(t *testing.T) {
@@ -1105,6 +1108,9 @@ func TestCollect_reviewBodyDuplicateFindings(t *testing.T) {
 	}
 	if m["cr_duplicate_findings_count"].(int) != 2 {
 		t.Fatalf("cr_duplicate_findings_count: %+v", m)
+	}
+	if m["actionable_findings_count"].(int) != 4 {
+		t.Fatalf("actionable_findings_count: %+v", m)
 	}
 	diag := rev["bot_review_diagnostics"].(map[string]any)
 	if !diag["duplicate_findings_detected"].(bool) {
