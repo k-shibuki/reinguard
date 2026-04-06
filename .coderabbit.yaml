@@ -9,6 +9,11 @@
 # @coderabbitai review. Agents may still comment @coderabbitai review for
 # an extra pass after pushes. Override or pause anytime in the CodeRabbit UI
 # if org policy differs.
+#
+# Docstrings: finishing touches can suggest or open follow-up work; repository
+# SSOT for godoc meaning and merge gates is `.reinguard/policy/coding--godoc.md`
+# and CI `golangci-lint` / `revive`. Do not treat generated docstrings as
+# authoritative without human review (see path_instructions).
 
 language: "en-US"
 early_access: false
@@ -46,51 +51,52 @@ reviews:
       - "renovate[bot]"
       - "github-actions[bot]"
   finishing_touches:
+    # Optional assist only: follow-up PRs or suggestions must be reviewed for
+    # semantic accuracy; mechanical or filler comments are forbidden per policy.
     docstrings:
-      enabled: false
+      enabled: true
     unit_tests:
       enabled: false
   path_instructions:
     - path: ".reinguard/**"
       instructions: |
-        Semantics layer (ADR-0001, ADR-0010, ADR-0011): repository meaning — policy, knowledge, control
-        rules, and `reinguard.yaml` for `rgd`. P0: contradictions between `policy/catalog.yaml` or
-        `knowledge/manifest.json` and files on disk; broken YAML consumed by `rgd config validate`.
-        Knowledge/policy prose is English; stable front-matter `id` values. Code examples here must match
-        current `rgd`/Go APIs (spec-based providers, not stale signatures). After knowledge front-matter
-        edits, maintainers run `rgd knowledge index` and commit `manifest.json`.
+        Semantics layer (ADR-0001, ADR-0010, ADR-0011): policy, knowledge, control rules, and
+        `reinguard.yaml` consumed by `rgd`. Flag contradictions between `policy/catalog.yaml` or
+        `knowledge/manifest.json` and files on disk; broken YAML that fails `rgd config validate`.
+        Prose is English; stable front-matter `id` values. Code examples must match current `rgd` and
+        Go APIs (spec-based providers). After knowledge front-matter edits, `rgd knowledge index` and
+        commit `manifest.json`.
     - path: ".cursor/**"
       instructions: |
-        Adapter layer (Cursor) per ADR-0001: single always-active bridge rule
-        (`reinguard-bridge.mdc`) + commands (`rgd-next.md`, `cursor-plan.md`).
-        Must point at `.reinguard/` paths and `rgd` CLI — do not duplicate long
-        policy or knowledge checklists. P1 when Adapter text copies normative
-        paragraphs that belong only under `.reinguard/`.
+        Adapter (Cursor) per ADR-0001: bridge rule (`reinguard-bridge.mdc`) and commands under
+        `.cursor/commands/`. Must point at `.reinguard/` and substrate CLI — do not duplicate long
+        normative policy bodies that belong only under `.reinguard/`.
     - path: "AGENTS.md"
       instructions: |
-        Top-level agent orientation; should mirror catalog entry points (policy `catalog.yaml`, knowledge
+        Top-level agent orientation; mirror catalog entry points (`policy/catalog.yaml`, knowledge
         `manifest.json`) and ADR pointers — not replace `.reinguard/` bodies.
     - path: "cmd/**"
       instructions: |
-        `rgd` CLI surface and flags. P0: broken commands or unsafe defaults; missing tests for new behavior.
-        Align with `docs/cli.md` and ADRs; `rgd` must not embed workflow-brain semantics (ADR-0001).
+        `rgd` CLI entrypoints and flags. Align with `docs/cli.md` and ADRs; substrate must not embed
+        workflow-brain semantics (ADR-0001). New behavior needs tests where non-trivial.
     - path: "internal/**"
       instructions: |
-        Non-public implementation for `rgd`. P0: logic bugs, silent failures, resource leaks. Observation
-        and GitHub paths: ADR-0005 (no agent-internal files), ADR-0006 (`gh` for auth). Prefer table-driven
-        Go tests; GWT comments required per `.reinguard/knowledge/testing--*.md` on non-trivial tests.
+        Non-public `rgd` implementation. Observation and GitHub: ADR-0005 (no agent-internal paths),
+        ADR-0006 (`gh` for GitHub auth). Prefer table-driven tests; non-trivial tests follow
+        `.reinguard/knowledge/testing--*.md` (GWT where required).
     - path: "pkg/**"
       instructions: |
-        Library code toward stable APIs. P0: breaking changes without ADR or migration path; missing
-        tests for exported behavior; JSON/schema drift vs embedded contracts (see ADR-0008).
+        Library-facing code and stable-ish APIs. Breaking changes need traceability (ADR, migration).
+        JSON/schema must match embedded contracts (ADR-0008). Exported behavior should have tests.
     - path: "docs/adr/**"
       instructions: |
-        ADRs are normative. P1 if code or `.reinguard/` contradicts an accepted ADR without a superseding ADR.
+        ADRs are normative. Flag drift where code or `.reinguard/` contradicts an accepted ADR without
+        a superseding ADR.
     - path: ".github/workflows/**"
       instructions: |
-        Job `ci-pass` is the single aggregate required check for branch protection. PR policy runs in job
-        `gate-policy` (script `.github/scripts/pr-policy-check.js`; reusable `pr-policy.yaml` still exists).
-        Keep permissions minimal; align with .github/CONTRIBUTING.md.
+        Job `ci-pass` is the aggregate required check for branch protection. PR policy runs in
+        `gate-policy` (`.github/scripts/pr-policy-check.js`). Keep permissions minimal;
+        align with `.github/CONTRIBUTING.md`.
   tools:
     shellcheck:
       enabled: true

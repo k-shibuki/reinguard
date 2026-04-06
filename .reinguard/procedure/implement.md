@@ -97,4 +97,4 @@ rgd observe
 
 - All work traceable to an Issue (`Refs: #N` in commits per `commit--format.md`)
 - **HS-LOCAL-VERIFY**, **HS-NO-SKIP** — enforced via `coding--preflight.md` (Act step 6)
-- Prefer **`rgd`** for observation/context/knowledge; use **`gh`** / **`git`** for GitHub/git inspection per `evidence-temporary.mdc`
+- Prefer **`rgd observe`** / **`rgd context build`** for observation and knowledge filtering; use **`gh`** / **`git`** as read-only supplements for GitHub/Git facts when needed (ADR-0006); see **`docs/cli.md`**

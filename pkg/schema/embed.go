@@ -1,4 +1,6 @@
-// Package schema exposes embedded JSON Schema assets for reinguard.
+// Package schema exposes embedded JSON Schema documents and helpers to load them into a
+// jsonschema Compiler (see NewCompiler in compiler.go). Schema versions and $id URIs
+// follow ADR-0008; use Files for direct read-only access to the embedded FS.
 package schema
 
 import (

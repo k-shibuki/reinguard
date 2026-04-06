@@ -40,7 +40,7 @@ when:
 3. **Optional keyword pass:** `rgd observe > /tmp/rgd-observe.json` then `rgd knowledge pack --observation-file /tmp/rgd-observe.json --query '<keyword>'`.
 4. Read only the Markdown paths you need for the current task.
 
-Until `rgd observe` fully covers every workflow signal, **Adapter** guidance for ad-hoc `gh` / `git` inspection lives in `.cursor/rules/evidence-temporary.mdc` (see also repo `AGENTS.md`).
+For ad-hoc read-only **`gh`** / **`git`** checks when not driving `rgd`, follow [ADR-0006](../../docs/adr/0006-gh-cli-as-sole-authentication.md) and [AGENTS.md](../../AGENTS.md) (observation boundaries); normative CLI surface is [`docs/cli.md`](../../docs/cli.md).
 
 ## Authoring rules for new review knowledge
 

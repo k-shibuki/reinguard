@@ -31,6 +31,8 @@ func IsFailedTier(s string) bool {
 	}
 }
 
+// duplicateFindingsDetected reports whether any required bot reviewer has a positive
+// duplicate-finding count (CodeRabbit-enriched field names included).
 func duplicateFindingsDetected(statusList []any) bool {
 	for _, elt := range statusList {
 		m, ok := elt.(map[string]any)
@@ -67,6 +69,9 @@ func nonThreadFindingsPresentForRequiredBots(statusList []any) bool {
 	return false
 }
 
+// nonThreadFindingsPresentForStatus is true when any non-thread finding signal on this
+// bot's status map is positive (actionable, outside-diff, duplicate, or finding-shaped
+// conversation comments).
 func nonThreadFindingsPresentForStatus(m map[string]any) bool {
 	a := intFromStatusMapOrZeroAny(m, "actionable_findings_count", "cr_actionable_comments_count")
 	o := intFromStatusMapOrZeroAny(m, "outside_diff_findings_count", "cr_outside_diff_comments_count")
@@ -78,6 +83,7 @@ func nonThreadFindingsPresentForStatus(m map[string]any) bool {
 	return a > 0 || o > 0 || d > 0 || f > 0
 }
 
+// hasRequiredBot returns true if statusList contains at least one entry with required: true.
 func hasRequiredBot(statusList []any) bool {
 	for _, elt := range statusList {
 		m, ok := elt.(map[string]any)
@@ -91,6 +97,9 @@ func hasRequiredBot(statusList []any) bool {
 	return false
 }
 
+// aggregateNonThreadFindings combines per-bot non-thread signals. When conversation
+// comments were not fully paginated, it fails closed: true if any required bot exists
+// even when counts may be partial.
 func aggregateNonThreadFindings(statusList []any, conversationCommentsIncomplete bool) bool {
 	n := nonThreadFindingsPresentForRequiredBots(statusList)
 	if conversationCommentsIncomplete {
@@ -99,6 +108,7 @@ func aggregateNonThreadFindings(statusList []any, conversationCommentsIncomplete
 	return n
 }
 
+// intFromStatusMapOrZeroAny returns the first matching key's int value, or 0.
 func intFromStatusMapOrZeroAny(m map[string]any, keys ...string) int {
 	n, ok := intFromStatusMapAny(m, keys...)
 	if !ok {
@@ -175,6 +185,7 @@ func ComputeBotReviewDiagnostics(statusList []any, headSHA string, conversationC
 	}
 }
 
+// intFromStatusMapAny returns the first present key among keys that holds an int-like value.
 func intFromStatusMapAny(m map[string]any, keys ...string) (int, bool) {
 	for _, key := range keys {
 		v, ok := m[key]

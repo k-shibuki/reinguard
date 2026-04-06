@@ -92,6 +92,7 @@ func DefaultRegistry() *ProviderRegistry {
 	return r
 }
 
+// shallowCopyMap returns a one-level copy of m for provider signal merging without mutating inputs.
 func shallowCopyMap(m map[string]any) map[string]any {
 	if m == nil {
 		return map[string]any{}

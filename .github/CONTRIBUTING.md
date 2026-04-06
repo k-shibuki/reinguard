@@ -147,7 +147,9 @@ In GitHub: **Settings → Branches → Branch protection rule** for `main`:
 
 - Prefer **`gh pr merge <N> --squash`** on `main` for a linear history, unless a specific PR or release note calls for a merge commit.
 
-Observation until `rgd observe` exists: use `gh` / `git` for read-only inspection per [`.cursor/rules/evidence-temporary.mdc`](../.cursor/rules/evidence-temporary.mdc).
+### Observation (agents)
+
+Structured observation uses **`rgd observe`** and **`rgd context build`** (see [`docs/cli.md`](../docs/cli.md)). For read-only GitHub or Git facts when needed, use **`gh`** and **`git`**; GitHub authentication for tools follows [ADR-0006](../docs/adr/0006-gh-cli-as-sole-authentication.md). Prefer capturing behavior in tests and CI over ad-hoc scripts.
 
 ## Labels
 

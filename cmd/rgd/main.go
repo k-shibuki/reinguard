@@ -18,7 +18,7 @@ func main() {
 	}
 }
 
-// run constructs the rgd app with ver and executes args.
+// run wires argv and version into [rgdcli.NewApp] and runs the CLI.
 func run(args []string, ver string) error {
 	app := rgdcli.NewApp(ver)
 	return app.Run(args)

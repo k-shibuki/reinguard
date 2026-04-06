@@ -313,6 +313,8 @@ func CollectWithOptions(ctx context.Context, c *githubapi.Client, owner, repo st
 	return pullDetail, reviewsInner, nil
 }
 
+// paginatePRContext walks review-thread GraphQL pages until the inbox is complete or the
+// page budget is hit; incomplete is true when older thread pages were not fetched.
 func paginatePRContext(ctx context.Context, c *githubapi.Client, owner, repo string, prNumber int) (firstPR *prPullRequestNode, inbox []any, total, unresolved int, incomplete bool, err error) {
 	var cursor any
 	for page := 0; page < maxReviewThreadPages; page++ {
@@ -365,6 +367,7 @@ func paginatePRContext(ctx context.Context, c *githubapi.Client, owner, repo str
 	return firstPR, inbox, total, unresolved, incomplete, nil
 }
 
+// emptyReviewsInner returns a zeroed github.reviews subtree used when no PR exists.
 func emptyReviewsInner() map[string]any {
 	return map[string]any{
 		"review_threads_total":               0,
@@ -389,6 +392,7 @@ func emptyReviewsInner() map[string]any {
 	}
 }
 
+// applyHeadRepositorySignals copies fork head owner/name from GraphQL into pull-request signals.
 func applyHeadRepositorySignals(pr *prPullRequestNode, m map[string]any) {
 	if pr == nil || pr.HeadRepository == nil {
 		return
@@ -401,6 +405,8 @@ func applyHeadRepositorySignals(pr *prPullRequestNode, m map[string]any) {
 	}
 }
 
+// buildPullDetail maps GraphQL PR fields into the flat pull-request signal map (state, refs,
+// mergeability, labels, and linked closing issues).
 func buildPullDetail(pr *prPullRequestNode) map[string]any {
 	m := make(map[string]any)
 	if pr.State != nil {
@@ -447,6 +453,7 @@ func buildPullDetail(pr *prPullRequestNode) map[string]any {
 	return m
 }
 
+// mergeableToSignal normalizes GitHub PullRequest.mergeable enum strings for observation signals.
 func mergeableToSignal(gql string) string {
 	switch strings.ToUpper(strings.TrimSpace(gql)) {
 	case "MERGEABLE":
@@ -458,6 +465,7 @@ func mergeableToSignal(gql string) string {
 	}
 }
 
+// buildConversationCommentsReadModel turns issue-comment nodes into the JSON read model for github.reviews.conversation_comments.
 func buildConversationCommentsReadModel(nodes []prCommentNode) []any {
 	out := make([]any, 0, len(nodes))
 	for _, n := range nodes {
@@ -518,6 +526,7 @@ func countCoderabbitFindingConversationComments(nodes []prCommentNode, wantLogin
 	return n
 }
 
+// buildReviewDecisions aggregates latest review submission states (approve vs changes_requested) and truncation.
 func buildReviewDecisions(lr *latestReviewsConn) map[string]any {
 	out := map[string]any{
 		"review_decisions_total":             0,
@@ -546,6 +555,7 @@ func buildReviewDecisions(lr *latestReviewsConn) map[string]any {
 	return out
 }
 
+// buildReviewInboxEntry builds one unresolved-thread entry for the review inbox, or nil if resolved or missing id.
 func buildReviewInboxEntry(thread reviewThreadNode) map[string]any {
 	if thread.IsResolved {
 		return nil
@@ -620,6 +630,8 @@ func normalizeGitHubActorLogin(login string) string {
 	return strings.TrimSpace(s)
 }
 
+// mergeCommentNodesForBots prepends older issue-comment pages until configured bot logins appear
+// or the back-pagination budget is exhausted; the bool is true when older pages may remain.
 func mergeCommentNodesForBots(ctx context.Context, c *githubapi.Client, owner, repo string, prNumber int, seed *commentsConn, bots []BotReviewer) ([]prCommentNode, bool, error) {
 	if len(bots) == 0 {
 		if seed == nil {
@@ -666,6 +678,7 @@ func mergeCommentNodesForBots(ctx context.Context, c *githubapi.Client, owner, r
 	return merged, hasPrev, nil
 }
 
+// fetchPRCommentsPage loads one page of PR issue comments before the given cursor.
 func fetchPRCommentsPage(ctx context.Context, c *githubapi.Client, owner, repo string, prNumber int, before string) (*commentsConn, error) {
 	vars := map[string]any{"owner": owner, "name": repo, "number": prNumber, "before": before}
 	var data prCommentsPageResponse
@@ -678,12 +691,14 @@ func fetchPRCommentsPage(ctx context.Context, c *githubapi.Client, owner, repo s
 	return data.Repository.PullRequest.Comments, nil
 }
 
+// botKeysSeenInComments reports which normalized bot logins from want appear in nodes.
 func botKeysSeenInComments(nodes []prCommentNode, want map[string]struct{}) map[string]bool {
 	seen := make(map[string]bool)
 	markBotsSeen(nodes, want, seen)
 	return seen
 }
 
+// markBotsSeen records normalized author logins from nodes that match want into seen.
 func markBotsSeen(nodes []prCommentNode, want map[string]struct{}, seen map[string]bool) {
 	for _, n := range nodes {
 		if n.Author == nil {
@@ -696,6 +711,7 @@ func markBotsSeen(nodes []prCommentNode, want map[string]struct{}, seen map[stri
 	}
 }
 
+// allBotsSeen is true when every key in want is true in seen.
 func allBotsSeen(seen map[string]bool, want map[string]struct{}) bool {
 	for k := range want {
 		if !seen[k] {
@@ -750,6 +766,8 @@ func genericIssueCommentMaxTier(body string) int {
 	return t
 }
 
+// commentMaxTier returns the semantic tier for body using the first enrichment that implements
+// issueCommentTierer, otherwise genericIssueCommentMaxTier.
 func commentMaxTier(body string, enrichNames []string) int {
 	for _, name := range enrichNames {
 		name = strings.TrimSpace(name)
@@ -767,6 +785,20 @@ func commentMaxTier(body string, enrichNames []string) int {
 		return tierer.CommentMaxTier(body)
 	}
 	return genericIssueCommentMaxTier(body)
+}
+
+// coerceInt parses common JSON numeric shapes into int for status maps.
+func coerceInt(v any) (int, bool) {
+	switch x := v.(type) {
+	case int:
+		return x, true
+	case int64:
+		return int(x), true
+	case float64:
+		return int(x), true
+	default:
+		return 0, false
+	}
 }
 
 // adjustRateLimitRemainingForStatusCommentAge replaces rate_limit_remaining_seconds with
@@ -801,19 +833,6 @@ func adjustRateLimitRemainingForStatusCommentAge(status map[string]any, now time
 		rem = 0
 	}
 	status["rate_limit_remaining_seconds"] = rem
-}
-
-func coerceInt(v any) (int, bool) {
-	switch x := v.(type) {
-	case int:
-		return x, true
-	case int64:
-		return int(x), true
-	case float64:
-		return int(x), true
-	default:
-		return 0, false
-	}
 }
 
 // selectStatusCommentForLogin picks the PR issue comment whose body drives bot status
@@ -860,6 +879,8 @@ func selectStatusCommentForLogin(nodes []prCommentNode, wantLogin string, enrich
 	return best.Body, best.UpdatedAt, "status_marker"
 }
 
+// buildBotReviewerStatus builds one status map per configured bot: latest review, issue-comment
+// enrichment, finding-conversation counts, rate-limit age adjustment, and ClassifyBotStatus.
 func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNodes []prCommentNode, now time.Time) []any {
 	if len(bots) == 0 {
 		return []any{}
@@ -935,6 +956,8 @@ func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNo
 	return out
 }
 
+// latestCommentForLogin returns the body and updatedAt of the chronologically latest issue comment
+// by wantLogin (RFC3339 string compare on updatedAt).
 func latestCommentForLogin(nodes []prCommentNode, wantLogin string) (body, updatedAt string) {
 	var best string
 	for _, n := range nodes {
