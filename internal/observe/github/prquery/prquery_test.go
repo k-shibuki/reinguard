@@ -1119,6 +1119,82 @@ func TestCollect_botReviewer_enrichedHeadOverridesStaleGraphQLReview(t *testing.
 	}
 }
 
+func TestCollect_botReviewer_walkthroughHeadDoesNotOverrideStaleGraphQLReview(t *testing.T) {
+	t.Parallel()
+	// Given: latestReviews still references an older review commit and a newer walkthrough-only
+	// comment mentions the current PR head, but there is no decisive completion marker for the new head.
+	// When: Collect runs with coderabbit enrichment.
+	// Then: review_commit_sha stays on the older review commit and bot_review_stale remains true.
+	head := "abc1234567890abcdef1234567890abcdef1234"
+	oldReviewCommit := "1111111111111111111111111111111111111111"
+	commentBody := "<!-- walkthrough_start -->\n\n" +
+		"<details><summary>Walkthrough</summary>\n\n" +
+		"Reviewing files that changed from the base of the PR and between [" + oldReviewCommit + "](https://example.com/a) " +
+		"and [" + head + "](https://example.com/b).\n" +
+		"</details>\n\n<!-- walkthrough_end -->\n"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		resp := map[string]any{
+			"data": map[string]any{
+				"repository": map[string]any{
+					"pullRequest": map[string]any{
+						"state": "OPEN", "isDraft": false, "title": "t",
+						"mergeable": "UNKNOWN", "mergeStateStatus": "UNKNOWN",
+						"baseRefName": "main", "headRefOid": head,
+						"labels":                  map[string]any{"nodes": []any{}},
+						"closingIssuesReferences": map[string]any{"nodes": []any{}},
+						"latestReviews": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false},
+							"nodes": []any{
+								map[string]any{
+									"state":  "COMMENTED",
+									"author": map[string]any{"login": "coderabbitai"},
+									"commit": map[string]any{"oid": oldReviewCommit},
+								},
+							},
+						},
+						"comments": map[string]any{
+							"nodes": []map[string]any{
+								{
+									"author":    map[string]any{"login": "coderabbitai"},
+									"body":      commentBody,
+									"updatedAt": "2026-03-28T12:00:00Z",
+								},
+							},
+						},
+						"reviewThreads": map[string]any{"pageInfo": map[string]any{"hasNextPage": false}, "nodes": []any{}},
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	bots := []BotReviewer{{ID: "cr", Login: "coderabbitai[bot]", Required: true, Enrich: []string{"coderabbit"}}}
+	_, rev, err := Collect(context.Background(), c, "o", "r", 1, bots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := rev["bot_reviewer_status"].([]any)
+	if len(st) != 1 {
+		t.Fatalf("status len: %v", st)
+	}
+	m := st[0].(map[string]any)
+	if m["status"].(string) != BotStatusCompleted {
+		t.Fatalf("status: %+v", m)
+	}
+	if got := m["review_commit_sha"].(string); got != oldReviewCommit {
+		t.Fatalf("review_commit_sha: want %q, got %q", oldReviewCommit, got)
+	}
+	diag := rev["bot_review_diagnostics"].(map[string]any)
+	if !diag["bot_review_stale"].(bool) {
+		t.Fatalf("want bot_review_stale=true, got %+v", diag)
+	}
+}
+
 func TestCollect_reviewBodyDuplicateFindings(t *testing.T) {
 	t.Parallel()
 	// Given: CodeRabbit latest review body contains a Duplicate comments (N) summary line.

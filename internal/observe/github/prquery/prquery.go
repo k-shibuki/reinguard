@@ -747,7 +747,10 @@ func applyReviewCommitSHAFromEnrichedComment(status map[string]any, headSHA stri
 	}
 	cur := strings.TrimSpace(signalString(status, "review_commit_sha"))
 
-	if enriched != "" && headSHA != "" && strings.EqualFold(enriched, headSHA) {
+	if enriched != "" &&
+		headSHA != "" &&
+		strings.EqualFold(enriched, headSHA) &&
+		statusMapBoolAny(status, false, "cr_review_processing", "review_processing") {
 		status["review_commit_sha"] = enriched
 		return
 	}
