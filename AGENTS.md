@@ -47,23 +47,6 @@ CI: `golangci-lint`, `go vet`, `go test -race`; PRs must pass job **`ci-pass`** 
 
 ### Review threads and merge
 
-Before resolving a review thread (required when **Require conversation resolution** is on), leave a
-short **disposition**: **Fixed** / **By design** / **False positive** / **Acknowledged** — see
-[`.reinguard/policy/review--consensus-protocol.md`](.reinguard/policy/review--consensus-protocol.md)
-for the full consensus model and resolution rules. Non-thread findings (outside-diff-range, PR summary)
-require a PR conversation comment with the same disposition ([**HS-REVIEW-RESOLVE**](.reinguard/policy/safety--agent-invariants.md)).
+Normative: [`.reinguard/policy/review--consensus-protocol.md`](.reinguard/policy/review--consensus-protocol.md) (dispositions, thread and non-thread resolution, [**HS-REVIEW-RESOLVE**](.reinguard/policy/safety--agent-invariants.md)); [`.reinguard/policy/review--disposition-categories.md`](.reinguard/policy/review--disposition-categories.md) (classification for local review, self-inspection, and PR review).
 
-Use the same disposition vocabulary for local review and self-inspection; see
-[`.reinguard/policy/review--disposition-categories.md`](.reinguard/policy/review--disposition-categories.md).
-Classification depends on whether the finding is correct, whether the
-current behavior is intentional by design, or whether the finding is
-incorrect — not on reviewer tone, severity labels, or suggestion wording.
-
-Treat review closure as complete only when every finding in the current
-review cycle is classified and closed through the appropriate channel:
-local inspection ledger before PR creation, or PR thread reply / PR
-conversation comment plus consensus when a PR exists.
-
-Do **not** dismiss any finding as "pre-existing" or "outside diff range" ([**HS-NO-DISMISS**](.reinguard/policy/safety--agent-invariants.md)).
-
-Do **not** merge (any method) while required bot review is not terminal, has failed, is stale, threads are unresolved, or consensus has not been reached ([**HS-MERGE-CONSENSUS**](.reinguard/policy/safety--agent-invariants.md)).
+[**HS-NO-DISMISS**](.reinguard/policy/safety--agent-invariants.md) · [**HS-MERGE-CONSENSUS**](.reinguard/policy/safety--agent-invariants.md)

@@ -104,6 +104,33 @@ func rejectLegacyRulesDir(dir string) error {
 	return nil
 }
 
+func readControlRuleFile(kind, kindDir, name string, rulesSch *jsonschema.Schema) (string, RulesDocument, error) {
+	p := filepath.Join(kindDir, name)
+	key := kind + "/" + name
+	data, readErr := os.ReadFile(p)
+	if readErr != nil {
+		return "", RulesDocument{}, fmt.Errorf("config: read %s: %w", p, readErr)
+	}
+	var docMap map[string]any
+	if uerr := yaml.Unmarshal(data, &docMap); uerr != nil {
+		return "", RulesDocument{}, fmt.Errorf("config: parse %s: %w", p, uerr)
+	}
+	if err := validateDoc(rulesSch, docMap, p); err != nil {
+		return "", RulesDocument{}, err
+	}
+	var doc RulesDocument
+	if uerr := yaml.Unmarshal(data, &doc); uerr != nil {
+		return "", RulesDocument{}, fmt.Errorf("config: decode %s: %w", p, uerr)
+	}
+	if err := validateDeclaredSchemaVersion(doc.SchemaVersion, p); err != nil {
+		return "", RulesDocument{}, err
+	}
+	if err := validateRulesMatchControlKind(kind, doc.Rules, p); err != nil {
+		return "", RulesDocument{}, err
+	}
+	return key, doc, nil
+}
+
 func readControlRuleFiles(dir string, rulesSch *jsonschema.Schema) (map[string]RulesDocument, error) {
 	ruleFiles := make(map[string]RulesDocument)
 	controlKinds := []string{"guards", "routes", "states"}
@@ -128,24 +155,8 @@ func readControlRuleFiles(dir string, rulesSch *jsonschema.Schema) (map[string]R
 		}
 		sort.Strings(yamlNames)
 		for _, name := range yamlNames {
-			p := filepath.Join(kindDir, name)
-			key := kind + "/" + name
-			data, readErr := os.ReadFile(p)
-			if readErr != nil {
-				return nil, fmt.Errorf("config: read %s: %w", p, readErr)
-			}
-			var docMap map[string]any
-			if uerr := yaml.Unmarshal(data, &docMap); uerr != nil {
-				return nil, fmt.Errorf("config: parse %s: %w", p, uerr)
-			}
-			if err := validateDoc(rulesSch, docMap, p); err != nil {
-				return nil, err
-			}
-			var doc RulesDocument
-			if uerr := yaml.Unmarshal(data, &doc); uerr != nil {
-				return nil, fmt.Errorf("config: decode %s: %w", p, uerr)
-			}
-			if err := validateRulesMatchControlKind(kind, doc.Rules, p); err != nil {
+			key, doc, err := readControlRuleFile(kind, kindDir, name, rulesSch)
+			if err != nil {
 				return nil, err
 			}
 			ruleFiles[key] = doc

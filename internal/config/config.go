@@ -68,7 +68,8 @@ type Rule struct {
 
 // RulesDocument wraps the rules array in a YAML file.
 type RulesDocument struct {
-	Rules []Rule `yaml:"rules" json:"rules"`
+	SchemaVersion string `yaml:"schema_version" json:"schema_version"`
+	Rules         []Rule `yaml:"rules" json:"rules"`
 }
 
 // KnowledgeManifestEntry is one knowledge file entry in manifest.json (ADR-0010).
@@ -268,6 +269,18 @@ func schemaVersionSkewWarning(declared string) string {
 	)
 }
 
+// schemaVersionSkewWarningAt is like schemaVersionSkewWarning but names the declaring file for multi-file skew diagnostics.
+func schemaVersionSkewWarningAt(declared, pathHint string) string {
+	w := schemaVersionSkewWarning(declared)
+	if w == "" {
+		return ""
+	}
+	if pathHint == "" {
+		return w
+	}
+	return fmt.Sprintf("config warning: in %s: %s", pathHint, strings.TrimPrefix(w, "config warning: "))
+}
+
 // DeprecatedWarnings returns human-readable stderr lines for deprecated fields and schema skew (ADR-0008).
 func DeprecatedWarnings(root *Root) []string {
 	if root == nil {
@@ -279,6 +292,47 @@ func DeprecatedWarnings(root *Root) []string {
 	}
 	if len(root.LegacyToolHints) > 0 {
 		out = append(out, `config warning: "legacy_tool_hints" is deprecated; remove it from reinguard.yaml (see JSON Schema / docs/cli.md)`)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// ConfigWarnings aggregates schema skew and deprecation warnings for a full validated Load (reinguard.yaml,
+// optional labels and knowledge, and all control rule files). Use after config.Load succeeds.
+func ConfigWarnings(res *LoadResult) []string {
+	if res == nil {
+		return nil
+	}
+	var out []string
+	if w := schemaVersionSkewWarningAt(res.Root.SchemaVersion, "reinguard.yaml"); w != "" {
+		out = append(out, w)
+	}
+	if len(res.Root.LegacyToolHints) > 0 {
+		out = append(out, `config warning: "legacy_tool_hints" is deprecated; remove it from reinguard.yaml (see JSON Schema / docs/cli.md)`)
+	}
+	if res.LabelsPresent && res.Labels != nil {
+		if w := schemaVersionSkewWarningAt(res.Labels.SchemaVersion, "labels.yaml"); w != "" {
+			out = append(out, w)
+		}
+	}
+	if res.KnowledgePresent && res.Knowledge != nil {
+		if w := schemaVersionSkewWarningAt(res.Knowledge.SchemaVersion, "knowledge/manifest.json"); w != "" {
+			out = append(out, w)
+		}
+	}
+	var keys []string
+	for k := range res.RuleFiles {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		doc := res.RuleFiles[k]
+		hint := "control/" + k
+		if w := schemaVersionSkewWarningAt(doc.SchemaVersion, hint); w != "" {
+			out = append(out, w)
+		}
 	}
 	if len(out) == 0 {
 		return nil

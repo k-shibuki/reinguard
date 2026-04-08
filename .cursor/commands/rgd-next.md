@@ -44,25 +44,7 @@ as substrate workflow position.
 
 ## Route
 
-**Normative mapping:** [ADR-0013 § 4](../../docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md) (*Adapter mapping (durable)*). Use ADR-0013 and `.reinguard/control/` as SSOT for state and route semantics.
-
-The table below is a **Cursor-facing heuristic** (when `state.kind` is `resolved`) with the same procedure targets as ADR-0013 § 4:
-
-| `state_id` | Open procedure |
-|------------|----------------|
-| `working_no_pr` | `.reinguard/procedure/implement.md` |
-| `ready_for_pr` | `.reinguard/procedure/pr-create.md` |
-| `pr_open` | `.reinguard/procedure/review-address.md` (residual monitor) |
-| `waiting_ci` | `.reinguard/procedure/review-address.md` (checks / mergeability) |
-| `unresolved_threads` | `.reinguard/procedure/review-address.md` (thread disposition) |
-| `non_thread_findings_pending` | `.reinguard/procedure/review-address.md` (non-thread findings / inbox) |
-| `changes_requested` | `.reinguard/procedure/review-address.md` (formal “Request changes” on the PR) |
-| `waiting_bot_run` | `.reinguard/procedure/wait-bot-review.md` (+ `review--bot-operations.md` from `knowledge.entries`) |
-| `waiting_bot_rate_limited` | `.reinguard/procedure/wait-bot-review.md` |
-| `waiting_bot_paused` | `.reinguard/procedure/wait-bot-review.md` |
-| `waiting_bot_failed` | `.reinguard/procedure/wait-bot-review.md` |
-| `waiting_bot_stale` | `.reinguard/procedure/wait-bot-review.md` |
-| `merge_ready` | `.reinguard/procedure/pr-merge.md` |
+**Normative mapping:** [ADR-0013 § 4](../../docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md) (*Adapter mapping (durable)*). When `state.kind` is `resolved`, use that section’s table to choose the procedure file under `.reinguard/procedure/`. ADR-0013 and `.reinguard/control/` are the SSOT for state and route semantics (do not duplicate the mapping here).
 
 **Dirty working tree + `review-address`:** When `observation.signals.git.working_tree_clean` is `false` and the resolved procedure is `review-address`, run **Step 0** in that procedure first (`change-inspect` → commit → refresh context). See `.reinguard/knowledge/review--incremental-fix-flow.md`.
 
@@ -86,11 +68,9 @@ Persistent JSON defaults to `.reinguard/local/adapter/rgd-next/execute-resume.js
 
 This writes `status: "pending_approval"` and persists the **proposed** contract inputs (`state-id`, `ordered-remainder`, `completion-condition`, fingerprint inputs) so the artifact records **what** the user will approve. The status stays `pending_approval` until the user approves Execute (next section).
 
-1. Trace forward from the current `state_id` using [ADR-0013 § 4](../../docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md) through **Per-unit Definition of Done** in [`.reinguard/procedure/next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md).
-2. Follow **`next-orchestration.md` § Full-path proposal format** in full: current position, ordered remainder, gaps, completion condition.
-3. Obtain **single explicit user approval** per **`next-orchestration.md` § Approval gate** (unit identity, ordered remainder, completion condition). **No per-procedure re-approval** after this gate.
+Proposal content, approval gate, and user-visible output requirements: [`.reinguard/procedure/next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md) § **Full-path proposal format** and § **Approval gate**. Trace from the current `state_id` ([ADR-0013 § 4](../../docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md)) through **Per-unit Definition of Done** in `next-orchestration.md`. **No per-procedure re-approval** after the single gate.
 
-**Output (for agents):** User-visible text must be the full-path proposal — including unit identity, ordered procedures through DoD, gaps, and completion condition — not merely `state_id` / `route_id` bullets. **Do not** end the turn after only a short status line. Do **not** replace the **Output** sections inside each procedure file; those remain authoritative per procedure front matter.
+**Output (for agents):** Per **`next-orchestration.md`** § **Output** and procedure front matter — not merely `state_id` / `route_id` bullets.
 
 ## Execute
 
@@ -104,11 +84,9 @@ bash .reinguard/scripts/adapter-rgd-next-resume.sh approve
 
 If no `pending_approval` artifact exists (for example a fresh machine), run `start` then `approve` in one flow after approval.
 
-**No implicit stop:** Do not end the run because a status summary or external wait “feels done.” Only **Per-unit Definition of Done**, or an **allowed stop with evidence** per `next-orchestration.md` § Post-approval execution contract (including **Implicit stop (forbidden)**), counts as completion.
+Post-approval behavior, loop semantics, allowed stops, and chat output rules: [`.reinguard/procedure/next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md) § **Post-approval execution contract**, § **Loop semantics**, § **Output**.
 
-Loop (summary): **Sense** (`rgd context build`) → **Route** (ADR-0013 § 4; same rules as § Route above) → run mapped procedure(s) → **Refresh** context after material changes — per `next-orchestration.md`.
-
-**Output (for agents):** After each `rgd context build` in the loop, **record** the same iteration context **agent-internally** as in [`next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md) § **Output** (per-iteration bullet): `state_id` / `route_id` / guard summary and which procedure(s) ran or are next. Refresh the Adapter-local artifact with:
+Refresh the Adapter-local artifact with:
 
 ```bash
 bash .reinguard/scripts/adapter-rgd-next-resume.sh update --state-id <state_id> [--route-id <route_id>]

@@ -3,8 +3,13 @@
   "$id": "https://github.com/k-shibuki/reinguard/schemas/rules-document.json",
   "title": "RulesDocument",
   "type": "object",
-  "required": ["rules"],
+  "required": ["schema_version", "rules"],
   "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Synchronized contract version (ADR-0008).",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$"
+    },
     "rules": {
       "type": "array",
       "minItems": 0,

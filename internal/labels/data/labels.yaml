@@ -1,5 +1,5 @@
 # GitHub label catalog + commit prefix config (ADR-0008). SSOT for rgd ensure-labels, labels sync, CI policy.
-schema_version: "0.3.0"
+schema_version: "0.7.0"
 
 categories:
   type:

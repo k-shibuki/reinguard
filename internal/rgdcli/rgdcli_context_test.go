@@ -78,7 +78,7 @@ when:
 ---
 `))
 	writeFile(t, filepath.Join(kdir, "manifest.json"), []byte(`{
-  "schema_version": "0.6.0",
+  "schema_version": "0.7.0",
   "entries": [{
     "id": "doc1",
     "path": "knowledge/doc.md",
@@ -179,7 +179,7 @@ func TestRunContextBuild_rejectsScopeFlagsWithObservationFile(t *testing.T) {
 			writeFile(t, filepath.Join(cfgDir, "control", "states", "default.yaml"), []byte(testFixtureRulesStateIdle))
 			writeFile(t, filepath.Join(cfgDir, "control", "routes", "default.yaml"), []byte(testFixtureControlRoutesNext))
 			obsPath := filepath.Join(t.TempDir(), "observation.json")
-			writeFile(t, obsPath, []byte(`{"schema_version":"0.6.0","signals":{"git":{"branch":"main"}},"degraded":false}`))
+			writeFile(t, obsPath, []byte(`{"schema_version":"0.7.0","signals":{"git":{"branch":"main"}},"degraded":false}`))
 
 			// When: context build runs with --observation-file and a scope flag
 			app := NewApp("test")

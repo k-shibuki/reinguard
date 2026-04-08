@@ -1,9 +1,5 @@
 # ADR-0014: Runtime gate artifacts for deterministic local workflow progression
 
-## Status
-
-Accepted.
-
 ## Context
 
 `working_no_pr` currently collapses materially different local situations:

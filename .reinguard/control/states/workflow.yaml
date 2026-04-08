@@ -1,6 +1,7 @@
 # FSM workflow states (ADR-0013). Lower priority number wins among matches (ADR-0004).
 # Actionable human review (threads / formal changes) beats bot-wait states;
 # bot-wait states split by reason (state_id); CI/merge gate split as waiting_ci.
+schema_version: "0.7.0"
 rules:
   # Human-actionable review work first (before any bot-wait tier).
   - type: state

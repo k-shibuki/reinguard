@@ -1,5 +1,6 @@
 # Routes keyed off flattened state.state_id (ADR-0013). One primary route per state.
 # route_id uses the user-* prefix (Adapter-agnostic; not tied to a specific IDE).
+schema_version: "0.7.0"
 rules:
   - type: route
     id: route_implement_pr_ready
