@@ -493,7 +493,9 @@ func buildConversationCommentsReadModel(nodes []prCommentNode) []any {
 			entry["author"] = strings.TrimSpace(n.Author.Login)
 		}
 		if strings.TrimSpace(n.UpdatedAt) != "" {
-			entry["updated_at"] = n.UpdatedAt
+			t := n.UpdatedAt
+			entry["updated_at"] = t
+			entry["updatedAt"] = t // alias: same ISO8601 as GraphQL field name for consumers expecting camelCase
 		}
 		out = append(out, entry)
 	}

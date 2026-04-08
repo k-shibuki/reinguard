@@ -1467,6 +1467,15 @@ func TestCollect_configLoginBotSuffix_graphQLLoginPlain(t *testing.T) {
 	if m["latest_comment_at"].(string) != "2026-03-28T12:00:00Z" {
 		t.Fatalf("comment: %+v", m)
 	}
+	cc := rev["conversation_comments"].([]any)
+	if len(cc) != 1 {
+		t.Fatalf("conversation_comments: %+v", rev)
+	}
+	ent := cc[0].(map[string]any)
+	wantTS := "2026-03-28T12:00:00Z"
+	if ent["updated_at"].(string) != wantTS || ent["updatedAt"].(string) != wantTS {
+		t.Fatalf("want updated_at and updatedAt %q, got %+v", wantTS, ent)
+	}
 }
 
 func assertReviewsZeros(t *testing.T, rev map[string]any, incomplete bool) {
