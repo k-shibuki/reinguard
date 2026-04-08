@@ -1,9 +1,5 @@
 # ADR-0015: Adapter-local execute resume artifact
 
-## Status
-
-Accepted.
-
 ## Context
 
 `rgd-next` Execute has a single approval gate, then must continue to

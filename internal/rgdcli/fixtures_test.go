@@ -19,12 +19,12 @@ func writeFile(t *testing.T, path string, data []byte) {
 // Shared fixtures for CLI tests: keep rule shapes aligned with config.Load expectations
 // (schema_version, default_branch, providers, control/{states,routes,guards}/*.yaml).
 
-const testFixtureReinguardRoot = `schema_version: "0.6.0"
+const testFixtureReinguardRoot = `schema_version: "0.7.0"
 default_branch: main
 providers: []
 `
 
-const testFixtureReinguardGitOnly = `schema_version: "0.6.0"
+const testFixtureReinguardGitOnly = `schema_version: "0.7.0"
 default_branch: main
 providers:
   - id: git
@@ -32,7 +32,7 @@ providers:
 `
 
 // Git + GitHub providers enabled for context-build tests that need both local and remote-style signals.
-const testFixtureReinguardGitAndGitHub = `schema_version: "0.6.0"
+const testFixtureReinguardGitAndGitHub = `schema_version: "0.7.0"
 default_branch: main
 providers:
   - id: git
@@ -42,7 +42,8 @@ providers:
 `
 
 // Single state rule: branch main -> Idle (used by state eval / context build smoke tests).
-const testFixtureRulesStateIdle = `rules:
+const testFixtureRulesStateIdle = `schema_version: "0.7.0"
+rules:
   - type: state
     id: idle
     priority: 10
@@ -54,7 +55,8 @@ const testFixtureRulesStateIdle = `rules:
 `
 
 // Route rule for context build (keys off resolved state.kind, id: r1); pair with testFixtureRulesStateIdle.
-const testFixtureControlRoutesNext = `rules:
+const testFixtureControlRoutesNext = `schema_version: "0.7.0"
+rules:
   - type: route
     id: r1
     priority: 10
@@ -66,7 +68,8 @@ const testFixtureControlRoutesNext = `rules:
 `
 
 // Two state rules with same priority and overlapping when -> ambiguous with fail-on-non-resolved.
-const testFixtureRulesStateAmbiguous = `rules:
+const testFixtureRulesStateAmbiguous = `schema_version: "0.7.0"
+rules:
   - type: state
     id: a
     priority: 1
@@ -80,7 +83,8 @@ const testFixtureRulesStateAmbiguous = `rules:
 `
 
 // Two route rules with same priority and overlapping when -> ambiguous.
-const testFixtureRulesRouteAmbiguous = `rules:
+const testFixtureRulesRouteAmbiguous = `schema_version: "0.7.0"
+rules:
   - type: route
     id: a
     priority: 1
@@ -93,4 +97,4 @@ const testFixtureRulesRouteAmbiguous = `rules:
     when: {op: eq, path: git.branch, value: feat}
 `
 
-const testFixtureRulesEmpty = "rules: []\n"
+const testFixtureRulesEmpty = "schema_version: \"0.7.0\"\nrules: []\n"

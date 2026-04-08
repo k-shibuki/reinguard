@@ -1,9 +1,5 @@
 # ADR-0013: FSM workflow states and Adapter mapping
 
-## Status
-
-Accepted (design note; amend when observation or Adapter contracts change).
-
 ## Context
 
 reinguard needs a **single priority space** (ADR-0004) for declarative workflow
@@ -119,14 +115,7 @@ it prepares `ready_for_pr` by recording the configured pre-PR AI review proof
 itself a state-mapped procedure.
 Post-review learning: `.reinguard/procedure/internalize.md`.
 
-**Cursor entries:** `.cursor/commands/rgd-next.md` - run/read `rgd context build`,
-Route (`state_id` -> procedure) per section 4 above; no per-procedure Adapter stubs.
-Orchestration (mandatory after Sense and Route: single full-path **Propose**, one approval, then **Execute** to DoD):
-`.reinguard/procedure/next-orchestration.md` - contract referenced from `rgd-next.md` section Propose and section Execute;
-not state-mapped.
-`.cursor/commands/cursor-plan.md` - Plan-mode-style interrogation (`AskQuestion` /
-`CreatePlan` only); GitHub Issue creation is expressed inside the plan when
-issue-first (Phase 3B content); not part of the FSM.
+**Cursor entries:** `.cursor/commands/rgd-next.md` — Sense (`rgd context build`), Route per **§ 4** above, then Propose / Execute per `.reinguard/procedure/next-orchestration.md` (no duplicate procedure mapping table in Adapter files). `.cursor/commands/cursor-plan.md` — planning only (`AskQuestion` / `CreatePlan`); not part of the FSM.
 
 ### 5. Extension contract (state / route / Adapter)
 
@@ -135,7 +124,7 @@ When adding or changing FSM wiring, keep these touchpoints consistent:
 1. **State catalog (this ADR)** — Add or update the row in section 1 for every new or changed `state_id`. Residual states must stay documented (observation gaps, missing facets) and their **numeric `priority`** must be explicit relative to refinements (lower wins; ADR-0004).
 2. **Control state rules** — Edit `.reinguard/control/states/*.yaml`. Ensure rules do not accidentally overlap: a more specific condition (e.g. a gate-backed state) must use a **lower** numeric `priority` than its residual fallback.
 3. **Routes** — Edit `.reinguard/control/routes/*.yaml` when a `state_id` needs a different primary `route_id` or when new states share an existing route with different procedure hints (section 2).
-4. **Adapter mapping** — Update section 4 (Primary procedure) and `.cursor/commands/rgd-next.md` when the primary Cursor procedure for a `state_id` changes.
+4. **Adapter mapping** — Update section 4 (Primary procedure) when the primary Cursor procedure for a `state_id` changes. Adapter commands reference this section; do not duplicate the mapping table outside ADR-0013.
 5. **Procedures** — Update `applies_to.state_ids` in affected `.reinguard/procedure/*.md` files. Procedures that are **not** state-mapped (e.g. `change-inspect`) remain documented here and in their body as producers or prerequisites, not as `state_id` values.
 6. **Tests** — Extend scenario tests (e.g. `internal/rgdcli/workflow_fsm_test.go`) when resolution or fallback behavior is non-obvious (residual vs refined state, stale gate fallback).
 

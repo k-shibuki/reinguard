@@ -56,44 +56,12 @@ Do not emit a second parallel artifact (e.g. “I’ll create the Issue now” w
 
 ### Phase 3B — Issue creation (content to embed in `CreatePlan`)
 
-When the plan shape is **Issue-first**, include these steps **inside** the `CreatePlan` todo list (and enough detail in the overview that an executor needs no guesswork):
-
-1. **Choose template**
-   - **Task** — implementation or chore; Conventional Commits title + type label. Starting point: `.github/ISSUE_TEMPLATE/task.yml`.
-   - **Epic** — phased parent work; label `epic`. Starting point: `.github/ISSUE_TEMPLATE/epic.yml`.
-
-2. **Build the body file** — Markdown file for `--body-file` with sections required by the template (see `workflow--pr-discipline.md` § Recommended Issue sections). Use real newlines (same constraints as PR bodies in `workflow--pr-discipline.md` § PR body updates).
-
-3. **Choose labels** — SSOT: `.reinguard/labels.yaml`.
-   - **Task**: exactly one **type** label (`feat`, `fix`, …) from `categories.type`.
-   - **Epic**: label **`epic`** only (no type label).
-
-4. **Pre-flight validation**
-
-   ```bash
-   bash .reinguard/scripts/check-issue-policy.sh \
-     --title "<title>" \
-     --body-file /path/to/issue-body.md \
-     --label <feat|…|epic> \
-     [--template task|epic]
-   ```
-
-   Fix errors until it prints `Issue policy pre-flight OK.`
-
-5. **Create the Issue**
-
-   ```bash
-   gh issue create --title "<title>" --body-file /path/to/issue-body.md --label "<label>"
-   ```
-
-   For multiple labels: repeat `--label` or `gh issue edit` after create.
-
-**Related:** `.reinguard/scripts/check-issue-policy.sh`, `.reinguard/policy/workflow--pr-discipline.md`, `.reinguard/procedure/implement.md` (branch naming shares `labels.yaml` type vocabulary).
+When the plan shape is **Issue-first**, embed end-to-end Issue creation **inside** the `CreatePlan` todos. Required sections, labels, templates, and `check-issue-policy.sh` usage: [`.reinguard/policy/workflow--pr-discipline.md`](../../.reinguard/policy/workflow--pr-discipline.md). Label vocabulary: [`.reinguard/labels.yaml`](../../.reinguard/labels.yaml). Script: [`.reinguard/scripts/check-issue-policy.sh`](../../.reinguard/scripts/check-issue-policy.sh). Branch naming vocabulary aligns with `implement` (same type labels).
 
 ## Guard
 
 - **Plan mode:** Do not modify the workspace until the user accepts **`CreatePlan`**; use read-only exploration tools only while planning.
-- **Execution handoff:** `cursor-plan` is **planning only**. After the user accepts the plan, execution **must** use [`rgd-next`](rgd-next.md) loop semantics ([`.reinguard/procedure/next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md) § Loop semantics: Sense → Route → Act → Refresh). Do not execute a plan as a linear checklist without FSM-driven state transitions.
+- **Execution handoff:** After plan acceptance, follow [`.cursor/rules/reinguard-bridge.mdc`](../rules/reinguard-bridge.mdc) § **Agent procedure reference** (`rgd-next` + `next-orchestration.md` loop; not a linear checklist).
 - **`CreatePlan` is mandatory** for this command; Issue creation is **never** the standalone output—only steps **inside** the accepted plan.
 - Prefer **`AskQuestion`** over open-ended “what do you want?” when discrete choices exist.
 - Do not claim design decisions are “complete” while any ledger row is still `open` without user acknowledgment.

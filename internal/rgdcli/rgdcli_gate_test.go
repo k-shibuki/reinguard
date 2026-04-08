@@ -92,7 +92,8 @@ func TestRunStateEval_mergesRuntimeGateSignals(t *testing.T) {
 	repo := initGitRepoForGateCLI(t)
 	cfgDir := filepath.Join(repo, ".reinguard")
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
-	writeFile(t, filepath.Join(cfgDir, "control", "states", "gates.yaml"), []byte(`rules:
+	writeFile(t, filepath.Join(cfgDir, "control", "states", "gates.yaml"), []byte(`schema_version: "0.7.0"
+rules:
   - type: state
     id: local_verified
     priority: 1

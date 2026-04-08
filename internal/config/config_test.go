@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -353,7 +354,8 @@ func TestLoad_controlStatesDotYmlAndStableOrder(t *testing.T) {
 	if err := os.MkdirAll(statesDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(statesDir, "z.yml"), []byte(`rules:
+	writeFile(t, filepath.Join(statesDir, "z.yml"), []byte(fmt.Sprintf(`schema_version: %q
+rules:
   - type: state
     id: z
     priority: 10
@@ -362,8 +364,9 @@ func TestLoad_controlStatesDotYmlAndStableOrder(t *testing.T) {
       path: git.branch
       value: main
     state_id: Z
-`))
-	writeFile(t, filepath.Join(statesDir, "a.yaml"), []byte(`rules:
+`, schema.CurrentSchemaVersion)))
+	writeFile(t, filepath.Join(statesDir, "a.yaml"), []byte(fmt.Sprintf(`schema_version: %q
+rules:
   - type: state
     id: a
     priority: 10
@@ -372,7 +375,7 @@ func TestLoad_controlStatesDotYmlAndStableOrder(t *testing.T) {
       path: git.branch
       value: main
     state_id: A
-`))
+`, schema.CurrentSchemaVersion)))
 	if err := os.Mkdir(filepath.Join(statesDir, "skipdir"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -694,7 +697,8 @@ func TestLoad_controlStatesFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	rulePath := filepath.Join(statesDir, "a.yaml")
-	writeFile(t, rulePath, []byte(`rules:
+	writeFile(t, rulePath, []byte(fmt.Sprintf(`schema_version: %q
+rules:
   - type: state
     id: s1
     priority: 10
@@ -703,7 +707,7 @@ func TestLoad_controlStatesFile(t *testing.T) {
       path: git.branch
       value: main
     state_id: Idle
-`))
+`, schema.CurrentSchemaVersion)))
 
 	// When: Load is called
 	res, err := Load(dir)
@@ -773,12 +777,13 @@ func TestLoad_evaluatorReferencesInWhen_table(t *testing.T) {
 			if err := os.MkdirAll(guardsDir, 0o755); err != nil {
 				t.Fatal(err)
 			}
-			body := `rules:
+			body := fmt.Sprintf(`schema_version: %q
+rules:
   - type: guard
     id: g1
     priority: 1
     guard_id: merge-readiness
-    when:` + tc.whenYAML + "\n"
+    when:`+tc.whenYAML+"\n", schema.CurrentSchemaVersion)
 			writeFile(t, filepath.Join(guardsDir, "g.yaml"), []byte(body))
 
 			res, err := Load(dir)
@@ -808,8 +813,9 @@ func TestLoad_controlStatesSchemaInvalid(t *testing.T) {
 	if err := os.MkdirAll(statesDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(statesDir, "bad.yaml"), []byte(`rules: not-an-array
-`))
+	writeFile(t, filepath.Join(statesDir, "bad.yaml"), []byte(fmt.Sprintf(`schema_version: %q
+rules: not-an-array
+`, schema.CurrentSchemaVersion)))
 
 	// When: Load is called
 	_, err := Load(dir)
@@ -834,37 +840,40 @@ func TestLoad_controlKindTypeMismatchRejected(t *testing.T) {
 		{
 			name: "states_dir_has_route_type",
 			kind: "states",
-			yamlBody: `rules:
+			yamlBody: fmt.Sprintf(`schema_version: %q
+rules:
   - type: route
     id: r1
     priority: 10
     route_id: next
     when: {op: eq, path: x, value: 1}
-`,
+`, schema.CurrentSchemaVersion),
 			wantSub: `expected "state"`,
 		},
 		{
 			name: "routes_dir_has_state_type",
 			kind: "routes",
-			yamlBody: `rules:
+			yamlBody: fmt.Sprintf(`schema_version: %q
+rules:
   - type: state
     id: s1
     priority: 10
     state_id: idle
     when: {op: eq, path: x, value: 1}
-`,
+`, schema.CurrentSchemaVersion),
 			wantSub: `expected "route"`,
 		},
 		{
 			name: "guards_dir_has_state_type",
 			kind: "guards",
-			yamlBody: `rules:
+			yamlBody: fmt.Sprintf(`schema_version: %q
+rules:
   - type: state
     id: s1
     priority: 10
     state_id: idle
     when: {op: eq, path: x, value: 1}
-`,
+`, schema.CurrentSchemaVersion),
 			wantSub: `expected "guard"`,
 		},
 	}
@@ -884,6 +893,175 @@ func TestLoad_controlKindTypeMismatchRejected(t *testing.T) {
 				t.Fatalf("got err=%v, want substring %q", err, tt.wantSub)
 			}
 		})
+	}
+}
+
+func TestSchemaVersionSync_committedVersionedFiles(t *testing.T) {
+	t.Parallel()
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller")
+	}
+	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
+	relPaths := []string{
+		".reinguard/reinguard.yaml",
+		".reinguard/labels.yaml",
+		"internal/labels/data/labels.yaml",
+		".reinguard/knowledge/manifest.json",
+		".reinguard/policy/catalog.yaml",
+		".reinguard/control/catalog.yaml",
+		".reinguard/control/states/workflow.yaml",
+		".reinguard/control/routes/workflow.yaml",
+		".reinguard/control/guards/default.yaml",
+	}
+	for _, rel := range relPaths {
+		rel := rel
+		t.Run(rel, func(t *testing.T) {
+			t.Parallel()
+			path := filepath.Join(root, rel)
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("read %s: %v", path, err)
+			}
+			var got string
+			switch filepath.Ext(rel) {
+			case ".json":
+				var m map[string]any
+				if err := json.Unmarshal(data, &m); err != nil {
+					t.Fatalf("json %s: %v", rel, err)
+				}
+				sv, ok := m["schema_version"].(string)
+				if !ok || strings.TrimSpace(sv) == "" {
+					t.Fatalf("%s: missing string schema_version", rel)
+				}
+				got = sv
+			default:
+				var m map[string]any
+				if err := yaml.Unmarshal(data, &m); err != nil {
+					t.Fatalf("yaml %s: %v", rel, err)
+				}
+				sv, ok := m["schema_version"].(string)
+				if !ok || strings.TrimSpace(sv) == "" {
+					t.Fatalf("%s: missing string schema_version", rel)
+				}
+				got = sv
+			}
+			if got != schema.CurrentSchemaVersion {
+				t.Fatalf("%s: schema_version %q, want %q", rel, got, schema.CurrentSchemaVersion)
+			}
+		})
+	}
+}
+
+func olderSameMajorBelowContract(t *testing.T) string {
+	t.Helper()
+	cur := schema.CurrentSchemaVersion
+	cm, ci, cp, err := parseSemverCore(cur)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cp > 0 {
+		return fmt.Sprintf("%d.%d.%d", cm, ci, cp-1)
+	}
+	if ci > 0 {
+		return fmt.Sprintf("%d.%d.%d", cm, ci-1, 0)
+	}
+	t.Skip("need older same-major skew fixture")
+	return ""
+}
+
+func TestConfigWarnings_labelsSkew(t *testing.T) {
+	t.Parallel()
+	older := olderSameMajorBelowContract(t)
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
+	writeFile(t, filepath.Join(dir, "labels.yaml"), []byte(fmt.Sprintf(`schema_version: %q
+categories:
+  x:
+    description: d
+    scope: issue
+    labels:
+      - name: a
+        color: "000000"
+        description: d
+`, older)))
+
+	res, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := ConfigWarnings(res)
+	if len(w) != 1 || !strings.Contains(w[0], "labels.yaml") || !strings.Contains(w[0], "schema_version") {
+		t.Fatalf("want one labels skew warning, got %v", w)
+	}
+}
+
+func TestConfigWarnings_manifestSkew(t *testing.T) {
+	t.Parallel()
+	older := olderSameMajorBelowContract(t)
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
+	if err := os.Mkdir(filepath.Join(dir, "knowledge"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(dir, "knowledge", "manifest.json"), []byte(fmt.Sprintf(`{
+  "schema_version": %q,
+  "entries": []
+}`, older)))
+
+	res, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := ConfigWarnings(res)
+	if len(w) != 1 || !strings.Contains(w[0], "manifest.json") || !strings.Contains(w[0], "schema_version") {
+		t.Fatalf("want one manifest skew warning, got %v", w)
+	}
+}
+
+func TestConfigWarnings_controlStateSkew(t *testing.T) {
+	t.Parallel()
+	older := olderSameMajorBelowContract(t)
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
+	statesDir := filepath.Join(dir, "control", "states")
+	if err := os.MkdirAll(statesDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(statesDir, "x.yaml"), []byte(fmt.Sprintf(`schema_version: %q
+rules:
+  - type: state
+    id: s1
+    priority: 10
+    state_id: idle
+    when: {op: eq, path: git.branch, value: main}
+`, older)))
+
+	res, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := ConfigWarnings(res)
+	if len(w) != 1 || !strings.Contains(w[0], "control/states/x.yaml") || !strings.Contains(w[0], "schema_version") {
+		t.Fatalf("want one control skew warning, got %v", w)
+	}
+}
+
+func TestLoad_controlRule_schemaMajorMismatch(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
+	statesDir := filepath.Join(dir, "control", "states")
+	if err := os.MkdirAll(statesDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(statesDir, "bad.yaml"), []byte(`schema_version: "99.0.0"
+rules: []
+`))
+
+	_, err := Load(dir)
+	if err == nil || !strings.Contains(err.Error(), "incompatible") {
+		t.Fatalf("got %v", err)
 	}
 }
 
@@ -983,7 +1161,7 @@ func assertReinguardControlCatalogWorkflowEntries(t *testing.T, reinguardDir str
 func TestEffectiveRuntimeGateRoles_explicitEmptyPassRequiresRoles(t *testing.T) {
 	t.Parallel()
 	// Given: explicit empty pass_requires_roles for pr_readiness in YAML
-	cfg := `schema_version: "0.6.0"
+	cfg := `schema_version: "0.7.0"
 default_branch: main
 workflow:
   runtime_gate_roles:

@@ -1,5 +1,6 @@
 # Dogfood guard rules: enable merge-readiness (built-in) when not on a detached HEAD.
 # Named evaluator (ADR-0002) wires the match-layer registry alongside scalar op (constant is a no-op true).
+schema_version: "0.7.0"
 rules:
   - type: guard
     id: merge_readiness_when_branch_attached

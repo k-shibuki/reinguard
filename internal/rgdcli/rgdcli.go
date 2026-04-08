@@ -626,7 +626,7 @@ func runConfigValidate(c *cli.Context) error {
 	if _, perr := observe.NewEngineFromConfig(res.Root.Providers); perr != nil {
 		return fmt.Errorf("config: provider build: %w", perr)
 	}
-	for _, w := range config.DeprecatedWarnings(&res.Root) {
+	for _, w := range config.ConfigWarnings(res) {
 		_, _ = fmt.Fprintln(c.App.ErrWriter, w)
 	}
 	repoRoot := configdir.RepoRoot(dir)
