@@ -313,6 +313,10 @@ func TestIsCoderabbitFindingConversationComment(t *testing.T) {
 	if IsCoderabbitFindingConversationComment(walkthroughEcho) {
 		t.Fatal("walkthrough echo of duplicate statistics should not count as finding-shaped issue comment")
 	}
+	learningsReply := "<!-- This is an auto-generated reply by CodeRabbit -->\n<details>\n<summary>🧠 Learnings used</summary>\n\n```\nLearning: do not treat potential issue in fences as a finding.\n```\n\n</details>\n"
+	if IsCoderabbitFindingConversationComment(learningsReply) {
+		t.Fatal("CodeRabbit learnings acknowledgement should be operational, not finding-shaped")
+	}
 	if IsCoderabbitFindingConversationComment("Sure! I'll kick off a new review to verify the fixes.") {
 		t.Fatal("plain operational acknowledgement is excluded")
 	}
