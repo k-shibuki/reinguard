@@ -8,6 +8,7 @@ import (
 
 type coderabbitEnrichment struct{}
 
+// Name returns the stable registry key for the CodeRabbit enrichment plugin.
 func (coderabbitEnrichment) Name() string { return "coderabbit" }
 
 // Enrich extracts rate-limit timing and CodeRabbit Review Status markers from issue comments.
@@ -154,10 +155,13 @@ func IsCoderabbitFindingConversationComment(body string) bool {
 	return CoderabbitIssueCommentMaxTier(visible) == 0
 }
 
+// CountFindingConversationComments counts bot-authored PR issue comments that
+// should contribute to non-thread finding aggregates for merge gating.
 func (coderabbitEnrichment) CountFindingConversationComments(nodes []prCommentNode, login string) int {
 	return countCoderabbitFindingConversationComments(nodes, login)
 }
 
+// CommentMaxTier classifies a CodeRabbit PR conversation comment by semantic tier.
 func (coderabbitEnrichment) CommentMaxTier(body string) int {
 	return CoderabbitIssueCommentMaxTier(body)
 }
