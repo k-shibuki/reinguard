@@ -309,7 +309,6 @@ func TestIsCoderabbitFindingConversationComment(t *testing.T) {
 		"Currently processing new changes in this PR. This may take a few minutes, please wait...",
 		"Review paused until you comment.",
 		"Review failed: head commit changed.",
-		"<!-- This is an auto-generated reply by CodeRabbit -->\n<details>\n<summary>✅ Actions performed</summary>\n\nReview triggered.\n</details>",
 		"<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n<!-- This is an auto-generated comment: review paused by coderabbit.ai -->\n\n> [!NOTE]\n> ## Reviews paused",
 	}
 	for _, body := range ops {
@@ -331,13 +330,17 @@ func TestCoderabbitIssueCommentMaxTier_decisiveStatusesShareTierSix(t *testing.T
 		"No issues found.",
 		"**Status:** ✅ completed\n",
 		"**Status:** in progress\n",
-		"<!-- This is an auto-generated reply by CodeRabbit -->\nReview triggered.\n",
-		"<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n### Walkthrough\n",
 	}
 	for _, body := range cases {
 		if got := CoderabbitIssueCommentMaxTier(body); got != 6 {
 			t.Fatalf("CoderabbitIssueCommentMaxTier(%q) = %d, want 6", body, got)
 		}
+	}
+	if got := CoderabbitIssueCommentMaxTier("<!-- This is an auto-generated reply by CodeRabbit -->\nReview triggered.\n"); got != 0 {
+		t.Fatalf("wrapper-only operational ack want tier 0, got %d", got)
+	}
+	if got := CoderabbitIssueCommentMaxTier("<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n### Walkthrough\n"); got != 1 {
+		t.Fatalf("wrapped walkthrough-only want tier 1, got %d", got)
 	}
 	if got := CoderabbitIssueCommentMaxTier("### Walkthrough\n"); got != 1 {
 		t.Fatalf("walkthrough-only want tier 1, got %d", got)

@@ -1407,4 +1407,7 @@ func assertReviewsZeros(t *testing.T, rev map[string]any, incomplete bool) {
 	if diag["bot_review_stale"].(bool) {
 		t.Fatalf("%+v", rev)
 	}
+	if diag["non_thread_findings_present"].(bool) {
+		t.Fatalf("%+v", rev)
+	}
 }
