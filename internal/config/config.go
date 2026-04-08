@@ -307,7 +307,12 @@ func ConfigWarnings(res *LoadResult) []string {
 		return nil
 	}
 	var out []string
-	out = append(out, DeprecatedWarnings(&res.Root)...)
+	if w := schemaVersionSkewWarningAt(res.Root.SchemaVersion, "reinguard.yaml"); w != "" {
+		out = append(out, w)
+	}
+	if len(res.Root.LegacyToolHints) > 0 {
+		out = append(out, `config warning: "legacy_tool_hints" is deprecated; remove it from reinguard.yaml (see JSON Schema / docs/cli.md)`)
+	}
 	if res.LabelsPresent && res.Labels != nil {
 		if w := schemaVersionSkewWarningAt(res.Labels.SchemaVersion, "labels.yaml"); w != "" {
 			out = append(out, w)

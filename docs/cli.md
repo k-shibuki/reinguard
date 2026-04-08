@@ -586,7 +586,7 @@ artifacts use the dedicated `rgd gate` schema and commands instead.
 
 **`when` clauses (ADR-0002):** Control rules and knowledge manifest entries are checked with the same static validator: unknown `eval:` names, unknown `op` strings, missing required keys per `op` (e.g. `eq` needs `path` and `value`), `eval: constant` requires `params.value` (boolean), and `path` strings must use allowed roots (`git.`, `github.`, `state.`, `gates.`, or `$` / `$.` for nested quantifier clauses). Named evaluators: `rgd config validate` rejects unknown `eval:` names against the built-in registry. To list built-ins, call `evaluator.DefaultRegistry().ListRegistered()` from Go (sorted names), or see `internal/evaluator/`.
 
-**`schema_version` vs this binary (ADR-0008):** Versioned inputs (at minimum `reinguard.yaml`; also optional `labels.yaml`, `knowledge/manifest.json` when present, and each control rule file under `control/{states,routes,guards}/*.yaml`) declare a semver `schema_version` synchronized with embedded JSON Schemas. This `rgd` build compares each to its contract version (`MAJOR.MINOR.PATCH`):
+**`schema_version` vs this binary (ADR-0008):** Versioned inputs (at minimum `reinguard.yaml`; also optional `labels.yaml`, `knowledge/manifest.json` when present, and each control rule file under `control/{states,routes,guards}/*.{yaml,yml}`) declare a semver `schema_version` synchronized with embedded JSON Schemas. This `rgd` build compares each to its contract version (`MAJOR.MINOR.PATCH`):
 
 | Relationship | Behavior |
 |----------------|----------|

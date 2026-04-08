@@ -69,6 +69,8 @@ Optional keyword filter (Adapter ops note):
 rgd knowledge pack --observation-file /tmp/rgd-observe.json --query '<keyword>'
 ```
 
+`--query` matches **triggers** only (case-insensitive substring); see `docs/cli.md`.
+
 ## After changing knowledge front matter
 
 Run `rgd knowledge index` and commit `manifest.json`; then `rgd config validate`.
