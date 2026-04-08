@@ -172,18 +172,15 @@ func (coderabbitEnrichment) ClassifyStatus(m map[string]any) string {
 // classifyCoderabbitStatusWithBasis returns the bot status and a short machine-readable reason
 // for observability (status_class_basis on bot_reviewer_status entries).
 func classifyCoderabbitStatusWithBasis(m map[string]any) (status string, basis string) {
-	if v, ok := m["cr_review_processing"].(bool); ok && v {
-		return BotStatusPending, "review_processing"
-	}
-	if v, ok := m["review_processing"].(bool); ok && v {
+	if statusMapBoolAny(m, true, "cr_review_processing", "review_processing") {
 		return BotStatusPending, "review_processing"
 	}
 	// Terminal clean from issue-comment markers (e.g. "no actionable comments") — wins over stale rate-limit wording.
-	if signalBool(m, "cr_review_completed_clean") {
+	if statusMapBoolAny(m, true, "cr_review_completed_clean", "review_completed_clean") {
 		return BotStatusCompletedClean, "review_completed_clean"
 	}
-	if signalBool(m, "review_completed_clean") {
-		return BotStatusCompletedClean, "review_completed_clean"
+	if statusMapBoolAny(m, false, "cr_review_processing", "review_processing") {
+		return BotStatusCompleted, "review_completed"
 	}
 	if signalBool(m, "contains_review_paused") {
 		return BotStatusReviewPaused, "review_paused"
@@ -207,6 +204,16 @@ func classifyCoderabbitStatusWithBasis(m map[string]any) (status string, basis s
 		return BotStatusPending, "issue_comments_pending"
 	}
 	return BotStatusNotTriggered, "not_triggered"
+}
+
+func statusMapBoolAny(m map[string]any, want bool, keys ...string) bool {
+	for _, key := range keys {
+		v, ok := m[key].(bool)
+		if ok && v == want {
+			return true
+		}
+	}
+	return false
 }
 
 // Heuristic markers for CodeRabbit "Review Status" / walkthrough issue comments (best-effort).

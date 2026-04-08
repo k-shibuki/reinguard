@@ -200,6 +200,22 @@ func TestCoderabbitEnrichment_ClassifyStatus_providerNeutralAliases(t *testing.T
 	}
 }
 
+func TestCoderabbitEnrichment_ClassifyStatus_completedMarkerWithoutCleanMapsToCompleted(t *testing.T) {
+	t.Parallel()
+	e := coderabbitEnrichment{}
+	m := e.Enrich("**Status:** ✅ completed\n")
+	if m == nil {
+		t.Fatal("got nil")
+	}
+	if g := e.ClassifyStatus(m); g != BotStatusCompleted {
+		t.Fatalf("ClassifyStatus(Enrich(completed)) = %q want %q; map=%+v", g, BotStatusCompleted, m)
+	}
+	s, basis := classifyCoderabbitStatusWithBasis(m)
+	if s != BotStatusCompleted || basis != "review_completed" {
+		t.Fatalf("basis got %q %q with map=%+v", s, basis, m)
+	}
+}
+
 func TestCoderabbitEnrichment_EnrichReviewBody_actionableAndOutside(t *testing.T) {
 	t.Parallel()
 	e := coderabbitEnrichment{}
