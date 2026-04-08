@@ -735,16 +735,22 @@ func markBotsSeen(nodes []prCommentNode, want map[string]struct{}, seen map[stri
 }
 
 // applyReviewCommitSHAFromEnrichedComment sets review_commit_sha from an enriched reviewed head
-// when GraphQL did not return a review (comment-only bot completion).
-func applyReviewCommitSHAFromEnrichedComment(status map[string]any) {
-	if strings.TrimSpace(signalString(status, "review_commit_sha")) == "" {
-		if s := strings.TrimSpace(signalString(status, "reviewed_head_sha")); s != "" {
-			status["review_commit_sha"] = s
-			return
-		}
-		if s := strings.TrimSpace(signalString(status, "cr_reviewed_head_sha")); s != "" {
-			status["review_commit_sha"] = s
-		}
+// when GraphQL did not return a review (comment-only bot completion), or when latestReviews still
+// points at an older review commit while the selected status comment names the current PR head in
+// its reviewed range (CodeRabbit summarize / clean-bill edits).
+func applyReviewCommitSHAFromEnrichedComment(status map[string]any, headSHA string) {
+	enriched := strings.TrimSpace(signalString(status, "reviewed_head_sha"))
+	if enriched == "" {
+		enriched = strings.TrimSpace(signalString(status, "cr_reviewed_head_sha"))
+	}
+	cur := strings.TrimSpace(signalString(status, "review_commit_sha"))
+
+	if enriched != "" && headSHA != "" && strings.EqualFold(enriched, headSHA) {
+		status["review_commit_sha"] = enriched
+		return
+	}
+	if cur == "" && enriched != "" {
+		status["review_commit_sha"] = enriched
 	}
 }
 
@@ -892,12 +898,20 @@ func selectStatusCommentForLogin(nodes []prCommentNode, wantLogin string, enrich
 	return best.Body, best.UpdatedAt, "status_marker"
 }
 
+func headRefOIDFromPR(pr *prPullRequestNode) string {
+	if pr == nil || pr.HeadRefOid == nil {
+		return ""
+	}
+	return strings.TrimSpace(*pr.HeadRefOid)
+}
+
 // buildBotReviewerStatus builds one status map per configured bot: latest review, issue-comment
 // enrichment, finding-conversation counts, rate-limit age adjustment, and ClassifyBotStatus.
 func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNodes []prCommentNode, now time.Time) []any {
 	if len(bots) == 0 {
 		return []any{}
 	}
+	headSHA := headRefOIDFromPR(pr)
 	type reviewInfo struct {
 		State     string
 		CommitOid string
@@ -962,7 +976,7 @@ func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNo
 		}
 		applyFindingConversationCountIfNeeded(status, br.Enrich, nodes, login)
 		adjustRateLimitRemainingForStatusCommentAge(status, now)
-		applyReviewCommitSHAFromEnrichedComment(status)
+		applyReviewCommitSHAFromEnrichedComment(status, headSHA)
 		status["status"] = ClassifyBotStatus(status, br.Enrich)
 		applyCoderabbitStatusClassBasis(status, br.Enrich)
 		out = append(out, status)

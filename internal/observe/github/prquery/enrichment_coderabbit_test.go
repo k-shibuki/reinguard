@@ -462,6 +462,11 @@ func TestCoderabbitEnrichment_reviewedHeadSHAFromRange(t *testing.T) {
 			wantSHA: "4b680dbdeadbeef",
 		},
 		{
+			name:    "range_plain_hex_summarize_details",
+			body:    "Reviewing files that changed from the base of the PR and between f2d7df9d7d380f71364014b4d14ae1afdb92c2da and 78cc7e713dc7c5cc68af19bf0e67be6b2fc3b634.\n",
+			wantSHA: "78cc7e713dc7c5cc68af19bf0e67be6b2fc3b634",
+		},
+		{
 			name:    "single_sha_at_bracket_form",
 			body:    "Reviewing files that changed from the base of the PR at [4b680dbdeadbeef](https://example.com/2).\n",
 			wantSHA: "4b680dbdeadbeef",
