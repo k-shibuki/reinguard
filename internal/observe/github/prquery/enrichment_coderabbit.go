@@ -172,12 +172,6 @@ func (coderabbitEnrichment) ClassifyStatus(m map[string]any) string {
 // classifyCoderabbitStatusWithBasis returns the bot status and a short machine-readable reason
 // for observability (status_class_basis on bot_reviewer_status entries).
 func classifyCoderabbitStatusWithBasis(m map[string]any) (status string, basis string) {
-	if signalBool(m, "contains_review_paused") {
-		return BotStatusReviewPaused, "review_paused"
-	}
-	if signalBool(m, "contains_review_failed") {
-		return BotStatusReviewFailed, "review_failed"
-	}
 	if v, ok := m["cr_review_processing"].(bool); ok && v {
 		return BotStatusPending, "review_processing"
 	}
@@ -190,6 +184,12 @@ func classifyCoderabbitStatusWithBasis(m map[string]any) (status string, basis s
 	}
 	if signalBool(m, "review_completed_clean") {
 		return BotStatusCompletedClean, "review_completed_clean"
+	}
+	if signalBool(m, "contains_review_paused") {
+		return BotStatusReviewPaused, "review_paused"
+	}
+	if signalBool(m, "contains_review_failed") {
+		return BotStatusReviewFailed, "review_failed"
 	}
 	if n, ok := intFromStatusMapAny(m, "rate_limit_remaining_seconds"); ok && n > 0 {
 		return BotStatusRateLimited, "active_rate_limit_cooldown"

@@ -399,6 +399,24 @@ func TestCoderabbitEnrichment_ClassifyStatus_staleRateLimitTextDoesNotOverrideCl
 	}
 }
 
+func TestCoderabbitEnrichment_ClassifyStatus_stalePausedOrFailedTextDoesNotOverrideClean(t *testing.T) {
+	t.Parallel()
+	e := coderabbitEnrichment{}
+	m := map[string]any{
+		"contains_review_paused": true,
+		"contains_review_failed": true,
+		"review_completed_clean": true,
+		"latest_comment_at":      "2026-04-08T06:29:17Z",
+	}
+	if g := e.ClassifyStatus(m); g != BotStatusCompletedClean {
+		t.Fatalf("got %q want completed_clean", g)
+	}
+	s, basis := classifyCoderabbitStatusWithBasis(m)
+	if s != BotStatusCompletedClean || basis != "review_completed_clean" {
+		t.Fatalf("basis got %q %q", s, basis)
+	}
+}
+
 func TestCoderabbitEnrichment_noActionableCommentsClean(t *testing.T) {
 	t.Parallel()
 	e := coderabbitEnrichment{}
