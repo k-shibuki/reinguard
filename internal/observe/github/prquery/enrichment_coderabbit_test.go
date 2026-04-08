@@ -318,6 +318,9 @@ func TestIsCoderabbitFindingConversationComment(t *testing.T) {
 	if !IsCoderabbitFindingConversationComment(wrappedFinding) {
 		t.Fatal("wrapped outside-diff summary should still count as finding")
 	}
+	if IsCoderabbitFindingConversationComment("<!-- This is an auto-generated comment: summarize by coderabbit.ai -->") {
+		t.Fatal("wrapper-only auto-generated comment should not count as finding")
+	}
 	// Operational / status PR comments share tier 6 with CoderabbitIssueCommentMaxTier; they must not
 	// inflate finding_conversation_comments_count (merge-readiness non-thread signal).
 	ops := []string{
