@@ -176,12 +176,30 @@ func TestComputeBotReviewDiagnostics_nonThreadOutsideDiffRequired(t *testing.T) 
 	}
 }
 
-func TestComputeBotReviewDiagnostics_nonThreadDuplicateRequired(t *testing.T) {
+func TestComputeBotReviewDiagnostics_nonThreadDuplicateOnlyDoesNotBlockMergeSignal(t *testing.T) {
 	t.Parallel()
+	// Given: required bot with duplicate-suppressed count from review summary only (no actionable/outside/issue-comment findings).
 	got := ComputeBotReviewDiagnostics([]any{
 		map[string]any{
 			"required": true, "status": BotStatusCompleted, "review_commit_sha": "abc123",
 			"duplicate_findings_count": 1,
+		},
+	}, "abc123", false)
+	if got["non_thread_findings_present"].(bool) {
+		t.Fatalf("want non_thread_findings_present=false for duplicate-only: %+v", got)
+	}
+	if got["duplicate_findings_detected"].(bool) != true {
+		t.Fatalf("want duplicate_findings_detected=true for observability: %+v", got)
+	}
+}
+
+func TestComputeBotReviewDiagnostics_nonThreadDuplicatePlusActionableBlocks(t *testing.T) {
+	t.Parallel()
+	got := ComputeBotReviewDiagnostics([]any{
+		map[string]any{
+			"required": true, "status": BotStatusCompleted, "review_commit_sha": "abc123",
+			"duplicate_findings_count":  1,
+			"actionable_findings_count": 1,
 		},
 	}, "abc123", false)
 	if got["non_thread_findings_present"].(bool) != true {

@@ -309,6 +309,10 @@ func TestIsCoderabbitFindingConversationComment(t *testing.T) {
 	if IsCoderabbitFindingConversationComment("### Walkthrough\n") {
 		t.Fatal("walkthrough is excluded")
 	}
+	walkthroughEcho := "### Walkthrough\n\n<details><summary>♻️ Duplicate comments (1)</summary></details>\n"
+	if IsCoderabbitFindingConversationComment(walkthroughEcho) {
+		t.Fatal("walkthrough echo of duplicate statistics should not count as finding-shaped issue comment")
+	}
 	if IsCoderabbitFindingConversationComment("Sure! I'll kick off a new review to verify the fixes.") {
 		t.Fatal("plain operational acknowledgement is excluded")
 	}

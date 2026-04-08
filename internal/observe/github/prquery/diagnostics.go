@@ -80,6 +80,11 @@ func nonThreadFindingsPresentForStatus(m map[string]any) bool {
 	// f is a raw count of bot-authored issue comments classified as finding-shaped (see
 	// IsCoderabbitFindingConversationComment). It does not subtract later user disposition replies;
 	// closure for those uses the consensus protocol (PR conversation disposition), not this aggregate alone.
+	// Duplicate-suppressed inline counts from the review summary alone (zero actionable/outside) are
+	// informational; duplicate_findings_detected still surfaces them for observation.
+	if a == 0 && o == 0 && d > 0 {
+		d = 0
+	}
 	return a > 0 || o > 0 || d > 0 || f > 0
 }
 

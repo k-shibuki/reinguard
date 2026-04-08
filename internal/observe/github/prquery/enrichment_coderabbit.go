@@ -108,6 +108,17 @@ func hasCoderabbitFindingSummary(body string) bool {
 	return reCRPotentialIssue.MatchString(body)
 }
 
+// hasCoderabbitFindingSummaryForConversation is like hasCoderabbitFindingSummary but for PR issue
+// comments only. CodeRabbit walkthrough issue comments echo the same duplicate/actionable/outside
+// statistics as the PullRequestReview body; those are merged via EnrichReviewBody on the status map
+// and must not also inflate finding_conversation_comments_count.
+func hasCoderabbitFindingSummaryForConversation(body string) bool {
+	if reCRWalkthrough.MatchString(body) {
+		return reCRPotentialIssue.MatchString(body)
+	}
+	return hasCoderabbitFindingSummary(body)
+}
+
 func isCoderabbitOperationalConversationComment(body string) bool {
 	if reCROperationalAck.MatchString(body) {
 		return true
@@ -146,7 +157,7 @@ func IsCoderabbitFindingConversationComment(body string) bool {
 	if visible == "" {
 		return false
 	}
-	if hasCoderabbitFindingSummary(visible) {
+	if hasCoderabbitFindingSummaryForConversation(visible) {
 		return true
 	}
 	if isCoderabbitOperationalConversationComment(visible) {
