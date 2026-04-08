@@ -8,6 +8,7 @@ import (
 
 type coderabbitEnrichment struct{}
 
+// Name returns the stable registry key for the CodeRabbit enrichment plugin.
 func (coderabbitEnrichment) Name() string { return "coderabbit" }
 
 // Enrich extracts rate-limit timing and CodeRabbit Review Status markers from issue comments.
@@ -29,13 +30,30 @@ func (coderabbitEnrichment) Enrich(commentBody string) map[string]any {
 	return out
 }
 
-// EnrichReviewBody parses CodeRabbit PullRequestReview.summary bodies (e.g. duplicate-comment notices).
+// EnrichReviewBody parses CodeRabbit PullRequestReview.summary bodies (duplicate notices,
+// actionable/outside-diff counts). See docs/cli.md for marker shapes.
 func (coderabbitEnrichment) EnrichReviewBody(reviewBody string) map[string]any {
-	n := parseCoderabbitDuplicateCount(reviewBody)
-	if n <= 0 {
+	body := strings.TrimSpace(reviewBody)
+	if body == "" {
 		return nil
 	}
-	return map[string]any{"cr_duplicate_findings_count": n}
+	out := make(map[string]any)
+	if n := parseCoderabbitDuplicateCount(body); n > 0 {
+		out["duplicate_findings_count"] = n
+		out["cr_duplicate_findings_count"] = n
+	}
+	if n := parseCoderabbitActionableCommentsCount(body); n > 0 {
+		out["actionable_findings_count"] = n
+		out["cr_actionable_comments_count"] = n
+	}
+	if n := parseCoderabbitOutsideDiffCommentsCount(body); n > 0 {
+		out["outside_diff_findings_count"] = n
+		out["cr_outside_diff_comments_count"] = n
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // parseCoderabbitDuplicateCount extracts N from a "♻️ Duplicate comments (N)" line in a review body.
@@ -50,52 +68,225 @@ func parseCoderabbitDuplicateCount(body string) int {
 	return 0
 }
 
-// ClassifyStatus applies CodeRabbit-aware rules on top of generic substring flags.
+// parseCoderabbitActionableCommentsCount extracts N from CodeRabbit review-body summary
+// headers, including the current "Actionable review comments (N)" form and the older
+// "Actionable comments posted: N" form still present in fixtures and historical reviews.
+func parseCoderabbitActionableCommentsCount(body string) int {
+	if m := reCRActionableComments.FindStringSubmatch(body); len(m) >= 2 {
+		n, err := strconv.Atoi(m[1])
+		if err != nil || n < 0 {
+			return 0
+		}
+		return n
+	}
+	if m := reCRActionableCommentsPosted.FindStringSubmatch(body); len(m) >= 2 {
+		n, err := strconv.Atoi(m[1])
+		if err != nil || n < 0 {
+			return 0
+		}
+		return n
+	}
+	return 0
+}
+
+// parseCoderabbitOutsideDiffCommentsCount extracts N from outside-diff-range summary sections.
+func parseCoderabbitOutsideDiffCommentsCount(body string) int {
+	if m := reCROutsideDiffComments.FindStringSubmatch(body); len(m) >= 2 {
+		n, err := strconv.Atoi(m[1])
+		if err != nil || n < 0 {
+			return 0
+		}
+		return n
+	}
+	return 0
+}
+
+func hasCoderabbitFindingSummary(body string) bool {
+	if parseCoderabbitDuplicateCount(body) > 0 || parseCoderabbitActionableCommentsCount(body) > 0 || parseCoderabbitOutsideDiffCommentsCount(body) > 0 {
+		return true
+	}
+	return reCRPotentialIssue.MatchString(body)
+}
+
+// stripMarkdownFencedCodeBlocks removes GitHub-Flavored Markdown fenced code blocks so that
+// "potential issue" (and similar) inside CodeRabbit learnings snippets does not trigger finding
+// classification for issue comments.
+func stripMarkdownFencedCodeBlocks(body string) string {
+	return strings.TrimSpace(reMarkdownFencedCodeBlock.ReplaceAllString(body, ""))
+}
+
+// hasCoderabbitFindingSummaryForConversation is like hasCoderabbitFindingSummary but for PR issue
+// comments only. CodeRabbit walkthrough issue comments echo the same duplicate/actionable/outside
+// statistics as the PullRequestReview body; those are merged via EnrichReviewBody on the status map
+// and must not also inflate finding_conversation_comments_count.
+func hasCoderabbitFindingSummaryForConversation(body string) bool {
+	withoutFences := stripMarkdownFencedCodeBlocks(body)
+	if reCRWalkthrough.MatchString(withoutFences) {
+		return reCRPotentialIssue.MatchString(withoutFences)
+	}
+	return hasCoderabbitFindingSummary(withoutFences)
+}
+
+func isCoderabbitOperationalConversationComment(body string) bool {
+	if reCROperationalAck.MatchString(body) {
+		return true
+	}
+	return isCoderabbitOperationalConversationCommentAfterAck(body)
+}
+
+func isCoderabbitOperationalConversationCommentAfterAck(body string) bool {
+	lower := strings.ToLower(body)
+	if strings.Contains(lower, "rate limit") || parseCoderabbitRateLimitSeconds(body) > 0 {
+		return true
+	}
+	if strings.Contains(lower, "review paused") || strings.Contains(lower, "reviews paused") || strings.Contains(lower, "review pause") {
+		return true
+	}
+	if reviewFailedFromComment(lower) {
+		return true
+	}
+	if reCRReviewClean.MatchString(body) || reCRReviewCompleted.MatchString(body) || reCRReviewProcessing.MatchString(body) {
+		return true
+	}
+	if reCRWalkthrough.MatchString(body) && !hasCoderabbitFindingSummary(body) {
+		return true
+	}
+	if reCRAutoGeneratedReply.MatchString(body) {
+		if strings.Contains(lower, "review triggered") || reCRLearningsUsedSection.MatchString(body) {
+			return true
+		}
+	}
+	return false
+}
+
+// IsCoderabbitFindingConversationComment reports whether a PR issue-comment body should count
+// toward cr_finding_conversation_comments_count.
+//
+// Wrapped review summaries can still be findings (for example outside-diff or duplicate-comment
+// sections), so treat concrete finding markers as authoritative before excluding operational
+// status traffic such as review-trigger acknowledgements, walkthrough-only summaries, or
+// rate-limit / processing comments.
+func IsCoderabbitFindingConversationComment(body string) bool {
+	body = strings.TrimSpace(body)
+	if body == "" {
+		return false
+	}
+	// Operational markers often live in CodeRabbit HTML comment wrappers; classify using the raw
+	// body first so stripCoderabbitAutoGeneratedWrappers does not remove them.
+	if isCoderabbitOperationalConversationComment(body) {
+		return false
+	}
+	visible := stripCoderabbitAutoGeneratedWrappers(body)
+	if visible == "" {
+		return false
+	}
+	if hasCoderabbitFindingSummaryForConversation(visible) {
+		return true
+	}
+	return CoderabbitIssueCommentMaxTier(visible) == 0
+}
+
+// CountFindingConversationComments counts bot-authored PR issue comments that
+// should contribute to non-thread finding aggregates for merge gating.
+func (coderabbitEnrichment) CountFindingConversationComments(nodes []prCommentNode, login string) int {
+	return countCoderabbitFindingConversationComments(nodes, login)
+}
+
+// CommentMaxTier classifies a CodeRabbit PR conversation comment by semantic tier.
+func (coderabbitEnrichment) CommentMaxTier(body string) int {
+	return CoderabbitIssueCommentMaxTier(body)
+}
+
+// ClassifyStatus applies CodeRabbit-aware rules. Rate limiting is derived from
+// age-adjusted rate_limit_remaining_seconds (not raw "rate limit" substrings), so stale
+// quota text in the same comment as a terminal-clean summary does not override completed_clean.
 func (coderabbitEnrichment) ClassifyStatus(m map[string]any) string {
-	if signalBool(m, "contains_rate_limit") {
-		return BotStatusRateLimited
+	s, _ := classifyCoderabbitStatusWithBasis(m)
+	return s
+}
+
+// classifyCoderabbitStatusWithBasis returns the bot status and a short machine-readable reason
+// for observability (status_class_basis on bot_reviewer_status entries).
+func classifyCoderabbitStatusWithBasis(m map[string]any) (status string, basis string) {
+	if statusMapBoolAny(m, true, "cr_review_processing", "review_processing") {
+		return BotStatusPending, "review_processing"
+	}
+	// Terminal clean from issue-comment markers (e.g. "no actionable comments") — wins over stale rate-limit wording.
+	if statusMapBoolAny(m, true, "cr_review_completed_clean", "review_completed_clean") {
+		return BotStatusCompletedClean, "review_completed_clean"
+	}
+	if statusMapBoolAny(m, false, "cr_review_processing", "review_processing") {
+		return BotStatusCompleted, "review_completed"
 	}
 	if signalBool(m, "contains_review_paused") {
-		return BotStatusReviewPaused
+		return BotStatusReviewPaused, "review_paused"
 	}
 	if signalBool(m, "contains_review_failed") {
-		return BotStatusReviewFailed
+		return BotStatusReviewFailed, "review_failed"
 	}
-	if v, ok := m["cr_review_processing"].(bool); ok && v {
-		return BotStatusPending
-	}
-	// Terminal clean without a GitHub Review (issue-comment-only completion, e.g. "no actionable comments").
-	if signalBool(m, "cr_review_completed_clean") {
-		return BotStatusCompletedClean
+	if n, ok := intFromStatusMapAny(m, "rate_limit_remaining_seconds"); ok && n > 0 {
+		return BotStatusRateLimited, "active_rate_limit_cooldown"
 	}
 	if signalBool(m, "has_review") {
-		return BotStatusCompleted
+		return BotStatusCompleted, "github_pull_request_review"
 	}
 	if signalBool(m, "cr_walkthrough_present") {
-		return BotStatusPending
+		return BotStatusPending, "walkthrough_present"
+	}
+	if signalBool(m, "walkthrough_present") {
+		return BotStatusPending, "walkthrough_present"
 	}
 	if strings.TrimSpace(signalString(m, "latest_comment_at")) != "" {
-		return BotStatusPending
+		return BotStatusPending, "issue_comments_pending"
 	}
-	return BotStatusNotTriggered
+	return BotStatusNotTriggered, "not_triggered"
+}
+
+func statusMapBoolAny(m map[string]any, want bool, keys ...string) bool {
+	for _, key := range keys {
+		v, ok := m[key].(bool)
+		if ok && v == want {
+			return true
+		}
+	}
+	return false
 }
 
 // Heuristic markers for CodeRabbit "Review Status" / walkthrough issue comments (best-effort).
 var (
 	// U+267B recycling symbol, optional U+FE0F variation selector (emoji presentation).
-	reCRDuplicateComments = regexp.MustCompile(`(?i)(?:\x{267B}\x{FE0F}?|\x{267B})\s*Duplicate\s+comments\s*\((\d+)\)`)
-	reCRReviewCompleted   = regexp.MustCompile(`(?i)(review\s+completed|✅\s*completed|status[:\s\*]*\s*✅|\*\*status\*\*[^\n]*(complete|finished|done))`)
-	reCRReviewClean       = regexp.MustCompile(`(?i)(no\s+issues\s+found|no\s+additional\s+issues\s+found|no\s+actionable\s+comments)`)
+	reCRDuplicateComments        = regexp.MustCompile(`(?i)(?:\x{267B}\x{FE0F}?|\x{267B})\s*Duplicate\s+comments\s*\((\d+)\)`)
+	reCRActionableComments       = regexp.MustCompile(`(?i)Actionable\s+review\s+comments\s*\((\d+)\)`)
+	reCRActionableCommentsPosted = regexp.MustCompile(`(?i)Actionable\s+comments\s+posted:\s*(\d+)`)
+	reCROutsideDiffComments      = regexp.MustCompile(`(?i)(?:comments?\s+)?outside\s+(?:of\s+)?the\s+diff(?:\s+range)?[^\n]*\((\d+)\)`)
+	reCRReviewCompleted          = regexp.MustCompile(`(?i)(review\s+completed|✅\s*completed|status[:\s\*]*\s*✅|\*\*status\*\*[^\n]*(complete|finished|done))`)
+	reCRReviewClean              = regexp.MustCompile(`(?i)(no\s+issues\s+found|no\s+additional\s+issues\s+found|no\s+actionable\s+comments)`)
+	reCRAutoGeneratedReply       = regexp.MustCompile(`(?i)<!--\s*this\s+is\s+an\s+auto-generated\s+reply\s+by\s+coderabbit\s*-->`)
+	reCRAutoGeneratedWrapper     = regexp.MustCompile(`(?is)<!--\s*this\s+is\s+an\s+auto-generated\s+(?:comment|reply)[^>]*-->`)
+	reCROperationalAck           = regexp.MustCompile(`(?i)(?:^|\b)(?:sure!\s*)?i['’]ll\s+kick\s+off\s+a\s+new\s+review\s+to\s+verify\s+the\s+fixes\b`)
+	reCRPotentialIssue           = regexp.MustCompile(`(?i)potential\s+issue`)
 	// Second bracketed SHA is the reviewed head when CodeRabbit summarizes a commit range in PR comments.
 	reCRReviewedHeadRange = regexp.MustCompile(`(?i)between\s+\[([0-9a-f]{7,40})\]\([^)]*\)\s+and\s+\[([0-9a-f]{7,40})\]\(`)
+	// Same sentence as summarize comments inside <details>: raw hex after "between" / "and" (no markdown links).
+	reCRReviewedHeadRangePlain = regexp.MustCompile(`(?i)between\s+([0-9a-f]{7,40})\s+and\s+([0-9a-f]{7,40})`)
 	// Single-SHA form: "... at [deadbeef...](url)" (comment-only summaries).
 	reCRReviewedHeadAt   = regexp.MustCompile(`(?i)\bat\s+\[([0-9a-f]{7,40})\]`)
 	reCRReviewProcessing = regexp.MustCompile(`(?i)(processing\s+new\s+changes|review\s+in\s+progress|\bin\s+progress\b|\*\*status\*\*[^\n]*(in\s+progress|pending|processing)|⏳\s*processing)`)
 	reCRWalkthrough      = regexp.MustCompile(`(?i)(^|\n)#{1,3}\s*[^\n]*(walkthrough|review\s+walkthrough)|\*\*walkthrough\*\*`)
+	// CodeRabbit "Learnings used" disposition acknowledgements cite stored learnings in fenced blocks.
+	reCRLearningsUsedSection  = regexp.MustCompile(`(?i)<summary>[^<]*?learnings\s+used`)
+	reMarkdownFencedCodeBlock = regexp.MustCompile("(?s)" + "```" + `[a-zA-Z0-9_-]*\s*\r?\n` + `[\s\S]*?` + "```" + `(?:\s|$)`)
 )
+
+func stripCoderabbitAutoGeneratedWrappers(body string) string {
+	return strings.TrimSpace(reCRAutoGeneratedWrapper.ReplaceAllString(body, ""))
+}
 
 func parseCoderabbitReviewedHeadSHA(body string) string {
 	if m := reCRReviewedHeadRange.FindStringSubmatch(body); len(m) >= 3 {
+		return strings.ToLower(strings.TrimSpace(m[2]))
+	}
+	if m := reCRReviewedHeadRangePlain.FindStringSubmatch(body); len(m) >= 3 {
 		return strings.ToLower(strings.TrimSpace(m[2]))
 	}
 	if m := reCRReviewedHeadAt.FindStringSubmatch(body); len(m) >= 2 {
@@ -117,7 +308,7 @@ func CoderabbitIssueCommentMaxTier(body string) int {
 	if strings.Contains(lower, "rate limit") || parseCoderabbitRateLimitSeconds(body) > 0 {
 		t = max(t, 6)
 	}
-	if strings.Contains(lower, "review paused") || strings.Contains(lower, "review pause") {
+	if strings.Contains(lower, "review paused") || strings.Contains(lower, "reviews paused") || strings.Contains(lower, "review pause") {
 		t = max(t, 6)
 	}
 	if reviewFailedFromComment(lower) {
@@ -144,22 +335,28 @@ func CoderabbitIssueCommentMaxTier(body string) int {
 func parseCoderabbitReviewStatusMarkers(body string) map[string]any {
 	out := make(map[string]any)
 	if sha := parseCoderabbitReviewedHeadSHA(body); sha != "" {
+		out["reviewed_head_sha"] = sha
 		out["cr_reviewed_head_sha"] = sha
 	}
 	if reCRWalkthrough.MatchString(body) {
+		out["walkthrough_present"] = true
 		out["cr_walkthrough_present"] = true
 	}
 	// "No issues found" is a terminal clean result; other status markers do not add value after this.
 	if reCRReviewClean.MatchString(body) {
+		out["review_processing"] = false
+		out["review_completed_clean"] = true
 		out["cr_review_processing"] = false
 		out["cr_review_completed_clean"] = true
 		return out
 	}
 	if reCRReviewCompleted.MatchString(body) {
+		out["review_processing"] = false
 		out["cr_review_processing"] = false
 		return out
 	}
 	if reCRReviewProcessing.MatchString(body) {
+		out["review_processing"] = true
 		out["cr_review_processing"] = true
 	}
 	return out

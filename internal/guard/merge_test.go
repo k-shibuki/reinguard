@@ -17,10 +17,11 @@ func fullReadySignals() map[string]any {
 				"pagination_incomplete":              false,
 				"review_decisions_truncated":         false,
 				"bot_review_diagnostics": map[string]any{
-					"bot_review_pending":  false,
-					"bot_review_terminal": true,
-					"bot_review_failed":   false,
-					"bot_review_stale":    false,
+					"bot_review_pending":          false,
+					"bot_review_terminal":         true,
+					"bot_review_failed":           false,
+					"bot_review_stale":            false,
+					"non_thread_findings_present": false,
 				},
 			},
 		},
@@ -360,6 +361,43 @@ func TestEvalMergeReadiness_decisionsTruncatedMissing(t *testing.T) {
 	r := EvalMergeReadiness(s)
 	// Then: not OK; fail closed
 	if r.OK || !strings.Contains(r.Reason, "fail closed") {
+		t.Fatalf("%+v", r)
+	}
+}
+
+func TestEvalMergeReadiness_nonThreadFindingsMissing(t *testing.T) {
+	t.Parallel()
+	// Given: non_thread_findings_present is absent from bot_review_diagnostics
+	s := fullReadySignals()
+	s["github"].(map[string]any)["reviews"].(map[string]any)["bot_review_diagnostics"] = map[string]any{
+		"bot_review_pending":  false,
+		"bot_review_terminal": true,
+		"bot_review_failed":   false,
+		"bot_review_stale":    false,
+	}
+	// When: EvalMergeReadiness runs
+	r := EvalMergeReadiness(s)
+	// Then: not OK; fail closed
+	if r.OK || !strings.Contains(r.Reason, "missing github.reviews.bot_review_diagnostics.non_thread_findings_present (fail closed)") {
+		t.Fatalf("%+v", r)
+	}
+}
+
+func TestEvalMergeReadiness_nonThreadFindingsPresent(t *testing.T) {
+	t.Parallel()
+	// Given: non-thread review findings are present
+	s := fullReadySignals()
+	s["github"].(map[string]any)["reviews"].(map[string]any)["bot_review_diagnostics"] = map[string]any{
+		"bot_review_pending":          false,
+		"bot_review_terminal":         true,
+		"bot_review_failed":           false,
+		"bot_review_stale":            false,
+		"non_thread_findings_present": true,
+	}
+	// When: EvalMergeReadiness runs
+	r := EvalMergeReadiness(s)
+	// Then: not OK
+	if r.OK || !strings.Contains(r.Reason, "non-thread review findings present") {
 		t.Fatalf("%+v", r)
 	}
 }

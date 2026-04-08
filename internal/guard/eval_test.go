@@ -18,17 +18,18 @@ func TestEvalWithRules(t *testing.T) {
 			When:     map[string]any{"op": "eq", "path": "git.detached_head", "value": false},
 		},
 	}
-	readyReviews := func() map[string]any {
+	readyReviews := func(nonThread bool) map[string]any {
 		return map[string]any{
 			"review_threads_unresolved":          0,
 			"review_decisions_changes_requested": 0,
 			"pagination_incomplete":              false,
 			"review_decisions_truncated":         false,
 			"bot_review_diagnostics": map[string]any{
-				"bot_review_pending":  false,
-				"bot_review_terminal": true,
-				"bot_review_failed":   false,
-				"bot_review_stale":    false,
+				"bot_review_pending":          false,
+				"bot_review_terminal":         true,
+				"bot_review_failed":           false,
+				"bot_review_stale":            false,
+				"non_thread_findings_present": nonThread,
 			},
 		}
 	}
@@ -36,21 +37,28 @@ func TestEvalWithRules(t *testing.T) {
 		"git": map[string]any{"working_tree_clean": true},
 		"github": map[string]any{
 			"ci":      map[string]any{"ci_status": "success"},
-			"reviews": readyReviews(),
+			"reviews": readyReviews(false),
 		},
 	}
 	detachedSignals := map[string]any{
 		"git": map[string]any{"working_tree_clean": true, "detached_head": true},
 		"github": map[string]any{
 			"ci":      map[string]any{"ci_status": "success"},
-			"reviews": readyReviews(),
+			"reviews": readyReviews(false),
 		},
 	}
 	attachedSignals := map[string]any{
 		"git": map[string]any{"working_tree_clean": true, "detached_head": false},
 		"github": map[string]any{
 			"ci":      map[string]any{"ci_status": "success"},
-			"reviews": readyReviews(),
+			"reviews": readyReviews(false),
+		},
+	}
+	nonThreadSignals := map[string]any{
+		"git": map[string]any{"working_tree_clean": true, "detached_head": false},
+		"github": map[string]any{
+			"ci":      map[string]any{"ci_status": "success"},
+			"reviews": readyReviews(true),
 		},
 	}
 	// Given: merge-readiness guard, optional declarative rules, signal variants
@@ -81,6 +89,13 @@ func TestEvalWithRules(t *testing.T) {
 			name:    "declarative_match_runs_builtin",
 			rules:   decl,
 			wantOK:  true,
+		},
+		{
+			signals:          nonThreadSignals,
+			name:             "declarative_match_blocks_on_non_thread_findings",
+			rules:            decl,
+			wantOK:           false,
+			wantReasonSubstr: "non-thread review findings",
 		},
 	}
 	for _, tt := range tests {

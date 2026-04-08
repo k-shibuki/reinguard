@@ -1,4 +1,5 @@
-// Package schemaexport writes embedded JSON Schemas to disk.
+// Package schemaexport writes embedded JSON Schemas from pkg/schema to a directory on
+// disk (used by the rgd schema export command and maintainers who want files beside the binary).
 package schemaexport
 
 import (

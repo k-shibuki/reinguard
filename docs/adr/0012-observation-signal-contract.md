@@ -26,7 +26,11 @@ boundaries** so extensions stay consistent.
   facts, not agent judgment.
 - **Derived signals** — Deterministic combinations of facts computed inside
   `rgd` with a fixed rule (e.g. `working_tree_clean` from porcelain line
-  count). Documented in `docs/cli.md`.
+  count). Documented in `docs/cli.md`. Optional factual provenance fields on
+  the same object (e.g. `status_class_basis` alongside `status` for CodeRabbit
+  bot review classification) are still derived: they name which input signal
+  decided the classification, not reviewer disposition or semantic interpretation
+  of free text beyond documented marker rules.
 - **Excluded** — Agent-internal state, session files, and semantic
   interpretation of review text (ADR-0005).
 
@@ -101,3 +105,14 @@ reflect unresolved **threads**, not raw comment row counts.
 - ADR-0008 (schema versioning)
 - ADR-0009 (observation engine)
 - `.reinguard/knowledge/review--github-thread-api.md`
+
+## Amendment (2026-04, Issue #105)
+
+Non-thread review findings use **documented, deterministic** enrichment fields on
+`bot_reviewer_status` and aggregate `bot_review_diagnostics.non_thread_findings_present`,
+plus `signals.github.reviews.conversation_comments` and `signals.github.ci.check_runs`.
+Provider-specific plugins (for example CodeRabbit) may still emit legacy vendor
+keys, but merge/guard-facing semantics are documented in `docs/cli.md` using
+provider-neutral field meanings.
+Fact vs derived semantics and merge-guard wiring are documented in `docs/cli.md`;
+no semantic disposition is selected in Go beyond declared markers and counts.

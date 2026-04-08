@@ -366,7 +366,24 @@ func RunGateRecord(c *cli.Context, gateID string) error {
 	if err != nil {
 		return err
 	}
-	art, err := gate.Record(context.Background(), cfgDir, wd, gateID, c.String("status"), checks, time.Time{})
+	if len(checks) == 0 {
+		return fmt.Errorf("gate record: at least one check entry is required (provide --checks-file with a JSON array of checks)")
+	}
+	inputs, err := loadGateInputsFile(wd, c.String("inputs-file"))
+	if err != nil {
+		return err
+	}
+	inputGateIDs := c.StringSlice("input-gate")
+	resolvedInputs, err := resolveInputGates(context.Background(), cfgDir, wd, inputGateIDs)
+	if err != nil {
+		return err
+	}
+	inputs = append(inputs, resolvedInputs...)
+	producer := gate.Producer{
+		Procedure: c.String("producer-procedure"),
+		Tool:      c.String("producer-tool"),
+	}
+	art, err := gate.Record(context.Background(), cfgDir, wd, gateID, c.String("status"), producer, inputs, checks, time.Time{})
 	if err != nil {
 		return err
 	}
@@ -478,6 +495,60 @@ func loadChecksFile(wd, path string) ([]gate.Check, error) {
 		return []gate.Check{}, nil
 	}
 	return checks, nil
+}
+
+func loadGateInputsFile(wd, path string) ([]gate.Input, error) {
+	if path == "" {
+		return []gate.Input{}, nil
+	}
+	data, err := os.ReadFile(resolveInputPath(wd, path))
+	if err != nil {
+		return nil, err
+	}
+	var inputs []gate.Input
+	if err := json.Unmarshal(data, &inputs); err != nil {
+		return nil, err
+	}
+	if inputs == nil {
+		return []gate.Input{}, nil
+	}
+	return inputs, nil
+}
+
+func resolveInputGates(ctx context.Context, cfgDir, wd string, gateIDs []string) ([]gate.Input, error) {
+	if len(gateIDs) == 0 {
+		return []gate.Input{}, nil
+	}
+	out := make([]gate.Input, 0, len(gateIDs))
+	seen := map[string]struct{}{}
+	for _, gateID := range gateIDs {
+		gateID = strings.TrimSpace(gateID)
+		if gateID == "" {
+			return nil, fmt.Errorf("--input-gate must be non-empty")
+		}
+		if _, ok := seen[gateID]; ok {
+			return nil, fmt.Errorf("duplicate --input-gate %q", gateID)
+		}
+		seen[gateID] = struct{}{}
+		res, err := gate.Status(ctx, cfgDir, wd, gateID)
+		if err != nil {
+			return nil, err
+		}
+		if res.Status != gate.StatusPass {
+			return nil, fmt.Errorf("--input-gate %q must be fresh pass, got %q", gateID, res.Status)
+		}
+		art, err := gate.Show(cfgDir, gateID)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, gate.Input{
+			GateID:     art.GateID,
+			Status:     art.Status,
+			Subject:    art.Subject,
+			RecordedAt: art.RecordedAt,
+		})
+	}
+	return out, nil
 }
 
 func loadSignalsOpts(c *cli.Context, wd string) (observe.LoadSignalsOptions, error) {
@@ -789,6 +860,10 @@ func NewApp(version string) *cli.App {
 					Flags: []cli.Flag{
 						newGateStatusFlag(),
 						newGateChecksFileFlag(),
+						newGateInputsFileFlag(),
+						newGateInputGateFlag(),
+						newGateProducerProcedureFlag(),
+						newGateProducerToolFlag(),
 						newCwdFlag(),
 						newConfigDirFlag(),
 					},

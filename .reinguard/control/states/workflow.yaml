@@ -17,8 +17,30 @@ rules:
           value: 0
 
   - type: state
-    id: changes_requested
+    id: non_thread_findings_pending
     priority: 9
+    state_id: non_thread_findings_pending
+    when:
+      and:
+        - op: eq
+          path: github.pull_requests.pr_exists_for_branch
+          value: true
+        - op: eq
+          path: github.reviews.review_threads_unresolved
+          value: 0
+        - op: eq
+          path: github.reviews.pagination_incomplete
+          value: false
+        - op: eq
+          path: github.reviews.review_decisions_changes_requested
+          value: 0
+        - op: eq
+          path: github.reviews.bot_review_diagnostics.non_thread_findings_present
+          value: true
+
+  - type: state
+    id: changes_requested
+    priority: 10
     state_id: changes_requested
     when:
       and:
@@ -31,7 +53,7 @@ rules:
 
   - type: state
     id: rate_limited
-    priority: 10
+    priority: 11
     state_id: waiting_bot_rate_limited
     when:
       op: any
@@ -47,7 +69,7 @@ rules:
 
   - type: state
     id: review_paused
-    priority: 11
+    priority: 12
     state_id: waiting_bot_paused
     when:
       op: any
@@ -63,7 +85,7 @@ rules:
 
   - type: state
     id: review_failed
-    priority: 12
+    priority: 13
     state_id: waiting_bot_failed
     when:
       op: eq
@@ -72,7 +94,7 @@ rules:
 
   - type: state
     id: bot_stale
-    priority: 13
+    priority: 14
     state_id: waiting_bot_stale
     when:
       and:
@@ -85,7 +107,7 @@ rules:
 
   - type: state
     id: bot_run
-    priority: 14
+    priority: 15
     state_id: waiting_bot_run
     when:
       and:
@@ -127,6 +149,21 @@ rules:
         - op: eq
           path: github.pull_requests.merge_state_status
           value: clean
+        - op: eq
+          path: github.reviews.bot_review_diagnostics.bot_review_pending
+          value: false
+        - op: eq
+          path: github.reviews.bot_review_diagnostics.bot_review_terminal
+          value: true
+        - op: eq
+          path: github.reviews.bot_review_diagnostics.bot_review_failed
+          value: false
+        - op: eq
+          path: github.reviews.bot_review_diagnostics.bot_review_stale
+          value: false
+        - op: eq
+          path: github.reviews.bot_review_diagnostics.non_thread_findings_present
+          value: false
 
   # No open review decisions/threads, clean tree, but CI or mergeability not yet satisfied.
   - type: state

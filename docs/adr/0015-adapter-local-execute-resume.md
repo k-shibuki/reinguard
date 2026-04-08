@@ -39,6 +39,14 @@ orchestration state, not repository workflow position.
 4. The artifact records only the minimum continuity contract needed to
    resume an already approved Execute path:
    - unit identity (branch, issue / PR when known)
+   - **approved contract** captured at proposal time: proposal `head_sha`,
+     proposed `state_id` / `route_id`, ordered remainder, completion
+     condition, and a **deterministic proposal fingerprint** — SHA-256 (hex) of
+     the UTF-8 newline-terminated sequence: branch, issue number (if any), PR
+     number (if any), proposal `head_sha`, `state_id`, `route_id`, ordered
+     remainder, completion condition, and summary, in that order (see
+     `.reinguard/scripts/adapter-rgd-next-resume.sh` `compute_proposal_fingerprint`)
+   - The fingerprint is a deterministic hash of the listed UTF-8 fields as written by the script (no hidden normalization beyond newline termination where the script adds it).
    - approval marker and timestamps (after the user approves Execute)
    - current lifecycle status (`pending_approval`, `active`, `done`,
      `allowed_stop`, `revoked`)
@@ -54,6 +62,11 @@ orchestration state, not repository workflow position.
 6. Terminality remains evidence-based per `next-orchestration.md`. The
    artifact is a durable record of the Adapter contract, not an authority
    that overrides procedure semantics.
+7. The artifact is allowed to answer **what was approved** for adapter-local
+   audit / resume decisions, but it must still not become substrate state.
+   In particular, the approved contract is evidence for the Adapter only and
+   must not be promoted into `gates.*`, `state_id`, `route_id`, or guard
+   inputs.
 
 ## Migration note
 
@@ -68,6 +81,8 @@ not mixed with workspace tool caches under `/.tmp/`.
   re-opening the approval gate
 - **Easier**: premature final responses become detectable as an
   Adapter-contract mismatch
+- **Easier**: the artifact can explain which exact proposal / completion
+  condition the user approved, not merely that approval happened
 - **Easier**: substrate boundaries stay intact because repo/platform state
   still comes only from `rgd`
 - **Harder**: Adapter commands must explicitly record start / update /

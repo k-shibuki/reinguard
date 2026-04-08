@@ -10,12 +10,14 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
 	jsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 
+	"github.com/k-shibuki/reinguard/internal/config"
 	"github.com/k-shibuki/reinguard/internal/gitroot"
 	"github.com/k-shibuki/reinguard/pkg/schema"
 )
@@ -42,20 +44,42 @@ var (
 
 // Check is one recorded verification check in a gate artifact.
 type Check struct {
-	ID      string `json:"id"`
-	Status  string `json:"status"`
-	Summary string `json:"summary,omitempty"`
+	ID       string `json:"id"`
+	Status   string `json:"status"`
+	Summary  string `json:"summary"`
+	Evidence string `json:"evidence,omitempty"`
+}
+
+// Subject identifies the branch head a proof applies to.
+type Subject struct {
+	HeadSHA string `json:"head_sha"`
+	Branch  string `json:"branch"`
+}
+
+// Producer identifies which procedure and tool recorded a gate artifact.
+type Producer struct {
+	Procedure string `json:"procedure"`
+	Tool      string `json:"tool"`
+}
+
+// Input is one upstream proof consumed by another gate artifact.
+type Input struct {
+	GateID     string  `json:"gate_id"`
+	Status     string  `json:"status"`
+	Subject    Subject `json:"subject"`
+	RecordedAt string  `json:"recorded_at"`
 }
 
 // Artifact is the on-disk runtime gate document.
 type Artifact struct {
-	SchemaVersion string  `json:"schema_version"`
-	GateID        string  `json:"gate_id"`
-	Status        string  `json:"status"`
-	HeadSHA       string  `json:"head_sha"`
-	Branch        string  `json:"branch"`
-	RecordedAt    string  `json:"recorded_at"`
-	Checks        []Check `json:"checks"`
+	SchemaVersion string   `json:"schema_version"`
+	GateID        string   `json:"gate_id"`
+	Status        string   `json:"status"`
+	RecordedAt    string   `json:"recorded_at"`
+	Subject       Subject  `json:"subject"`
+	Producer      Producer `json:"producer"`
+	Inputs        []Input  `json:"inputs"`
+	Checks        []Check  `json:"checks"`
 }
 
 // StatusResult is the derived gate status for CLI output and signal injection.
@@ -99,7 +123,7 @@ func ArtifactPath(cfgDir, gateID string) (string, error) {
 }
 
 // Record writes one validated gate artifact for the current branch HEAD.
-func Record(ctx context.Context, cfgDir, wd, gateID, status string, checks []Check, now time.Time) (Artifact, error) {
+func Record(ctx context.Context, cfgDir, wd, gateID, status string, producer Producer, inputs []Input, checks []Check, now time.Time) (Artifact, error) {
 	if err := ValidateGateID(gateID); err != nil {
 		return Artifact{}, err
 	}
@@ -114,7 +138,11 @@ func Record(ctx context.Context, cfgDir, wd, gateID, status string, checks []Che
 	if err != nil {
 		return Artifact{}, err
 	}
-	art, err := buildArtifact(gateID, status, checks, branch, headSHA, now)
+	roles, err := config.LoadRuntimeGateRoles(cfgDir)
+	if err != nil {
+		return Artifact{}, fmt.Errorf("gate: load runtime roles: %w", err)
+	}
+	art, err := buildArtifact(gateID, status, producer, inputs, checks, branch, headSHA, now, roles)
 	if err != nil {
 		return Artifact{}, err
 	}
@@ -137,7 +165,11 @@ func Show(cfgDir, gateID string) (Artifact, error) {
 	if err != nil {
 		return Artifact{}, err
 	}
-	return readArtifactFile(path, gateID)
+	roles, err := config.LoadRuntimeGateRoles(cfgDir)
+	if err != nil {
+		return Artifact{}, fmt.Errorf("gate: load runtime roles: %w", err)
+	}
+	return readArtifactFile(path, gateID, roles)
 }
 
 // Status evaluates one gate artifact into pass/fail/missing/invalid/stale.
@@ -149,7 +181,11 @@ func Status(ctx context.Context, cfgDir, wd, gateID string) (StatusResult, error
 	if err != nil {
 		return StatusResult{}, err
 	}
-	art, err := readArtifactFile(path, gateID)
+	roles, err := config.LoadRuntimeGateRoles(cfgDir)
+	if err != nil {
+		return StatusResult{}, fmt.Errorf("gate: load runtime roles: %w", err)
+	}
+	art, err := readArtifactFile(path, gateID, roles)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return StatusResult{GateID: gateID, Status: StatusMissing, Reason: "artifact missing"}, nil
@@ -190,16 +226,29 @@ func LoadSignals(ctx context.Context, cfgDir, wd string) (map[string]any, error)
 	return map[string]any{"gates": gates}, nil
 }
 
-func buildArtifact(gateID, status string, checks []Check, branch, headSHA string, now time.Time) (Artifact, error) {
+func buildArtifact(gateID, status string, producer Producer, inputs []Input, checks []Check, branch, headSHA string, now time.Time, roles config.RuntimeGateRolesSpec) (Artifact, error) {
 	status = strings.TrimSpace(status)
 	if err := validateArtifactStatus(status); err != nil {
 		return Artifact{}, err
 	}
-	if strings.TrimSpace(branch) == "" {
-		return Artifact{}, fmt.Errorf("gate: empty branch")
+	subject := Subject{HeadSHA: headSHA, Branch: branch}
+	if err := validateSubject(subject, "subject"); err != nil {
+		return Artifact{}, err
 	}
-	if !headSHAPattern.MatchString(headSHA) {
-		return Artifact{}, fmt.Errorf("gate: invalid head_sha %q", headSHA)
+	if err := validateProducer(producer); err != nil {
+		return Artifact{}, err
+	}
+	normalizedInputs := make([]Input, 0, len(inputs))
+	for i, input := range inputs {
+		if err := validateInput(input, i); err != nil {
+			return Artifact{}, err
+		}
+		normalizedInputs = append(normalizedInputs, Input{
+			GateID:     strings.TrimSpace(input.GateID),
+			Status:     strings.TrimSpace(input.Status),
+			Subject:    Subject{HeadSHA: input.Subject.HeadSHA, Branch: strings.TrimSpace(input.Subject.Branch)},
+			RecordedAt: strings.TrimSpace(input.RecordedAt),
+		})
 	}
 	normalized := make([]Check, 0, len(checks))
 	for i, chk := range checks {
@@ -207,9 +256,10 @@ func buildArtifact(gateID, status string, checks []Check, branch, headSHA string
 			return Artifact{}, err
 		}
 		normalized = append(normalized, Check{
-			ID:      strings.TrimSpace(chk.ID),
-			Status:  strings.TrimSpace(chk.Status),
-			Summary: strings.TrimSpace(chk.Summary),
+			ID:       strings.TrimSpace(chk.ID),
+			Status:   strings.TrimSpace(chk.Status),
+			Summary:  strings.TrimSpace(chk.Summary),
+			Evidence: strings.TrimSpace(chk.Evidence),
 		})
 	}
 	if now.IsZero() {
@@ -219,10 +269,17 @@ func buildArtifact(gateID, status string, checks []Check, branch, headSHA string
 		SchemaVersion: schema.CurrentSchemaVersion,
 		GateID:        gateID,
 		Status:        status,
-		HeadSHA:       headSHA,
-		Branch:        branch,
 		RecordedAt:    now.UTC().Format(time.RFC3339),
-		Checks:        normalized,
+		Subject:       subject,
+		Producer: Producer{
+			Procedure: strings.TrimSpace(producer.Procedure),
+			Tool:      strings.TrimSpace(producer.Tool),
+		},
+		Inputs: normalizedInputs,
+		Checks: normalized,
+	}
+	if err := validateGateContract(art, roles); err != nil {
+		return Artifact{}, err
 	}
 	if err := validateArtifact(art); err != nil {
 		return Artifact{}, err
@@ -234,12 +291,184 @@ func validateCheck(chk Check, idx int) error {
 	if strings.TrimSpace(chk.ID) == "" {
 		return fmt.Errorf("gate: checks[%d].id must be non-empty", idx)
 	}
+	if strings.TrimSpace(chk.Summary) == "" {
+		return fmt.Errorf("gate: checks[%d].summary must be non-empty", idx)
+	}
 	switch strings.TrimSpace(chk.Status) {
 	case StatusPass, StatusFail, StatusSkipped:
 		return nil
 	default:
 		return fmt.Errorf("gate: checks[%d].status %q is invalid", idx, chk.Status)
 	}
+}
+
+func validateSubject(subject Subject, field string) error {
+	if strings.TrimSpace(subject.Branch) == "" {
+		return fmt.Errorf("gate: %s.branch must be non-empty", field)
+	}
+	if !headSHAPattern.MatchString(subject.HeadSHA) {
+		return fmt.Errorf("gate: invalid %s.head_sha %q", field, subject.HeadSHA)
+	}
+	return nil
+}
+
+func validateProducer(producer Producer) error {
+	if strings.TrimSpace(producer.Procedure) == "" {
+		return fmt.Errorf("gate: producer.procedure must be non-empty")
+	}
+	if strings.TrimSpace(producer.Tool) == "" {
+		return fmt.Errorf("gate: producer.tool must be non-empty")
+	}
+	return nil
+}
+
+func validateInput(input Input, idx int) error {
+	if err := ValidateGateID(input.GateID); err != nil {
+		return fmt.Errorf("gate: inputs[%d]: %w", idx, err)
+	}
+	if err := validateArtifactStatus(input.Status); err != nil {
+		return fmt.Errorf("gate: inputs[%d]: %w", idx, err)
+	}
+	if err := validateSubject(input.Subject, fmt.Sprintf("inputs[%d].subject", idx)); err != nil {
+		return err
+	}
+	if _, err := time.Parse(time.RFC3339, strings.TrimSpace(input.RecordedAt)); err != nil {
+		return fmt.Errorf("gate: inputs[%d].recorded_at must be RFC3339: %w", idx, err)
+	}
+	return nil
+}
+
+func validateGateContract(art Artifact, roles config.RuntimeGateRolesSpec) error {
+	if len(art.Checks) == 0 {
+		return fmt.Errorf("gate: %s requires at least one check entry", art.GateID)
+	}
+	roleName, role, ok := runtimeGateRoleByGateID(roles, art.GateID)
+	if !ok {
+		return nil
+	}
+	if err := validateConfiguredGateRole(roleName, role, art); err != nil {
+		return err
+	}
+	if roleName == config.RuntimeGateRolePRReadiness {
+		return validateConfiguredPRReadinessGate(art, roles)
+	}
+	return nil
+}
+
+func validateConfiguredGateRole(roleName string, role config.RuntimeGateRoleSpec, art Artifact) error {
+	if len(role.ProducerProcedures) > 0 && !slices.Contains(role.ProducerProcedures, art.Producer.Procedure) {
+		return fmt.Errorf("gate: %s producer.procedure %q must be one of %q", art.GateID, art.Producer.Procedure, role.ProducerProcedures)
+	}
+	if roleName != config.RuntimeGateRolePRReadiness && len(art.Inputs) != 0 {
+		return fmt.Errorf("gate: %s must not declare upstream inputs", art.GateID)
+	}
+	for _, checkID := range role.PassCheckIDs {
+		if !hasCheck(art.Checks, checkID) {
+			return fmt.Errorf("gate: %s requires checks[].id == %q", art.GateID, checkID)
+		}
+		if art.Status == StatusPass && !hasPassingCheck(art.Checks, checkID) {
+			return fmt.Errorf("gate: %s pass proof requires checks[].id == %q with status %q", art.GateID, checkID, StatusPass)
+		}
+	}
+	return nil
+}
+
+func validateConfiguredPRReadinessGate(art Artifact, roles config.RuntimeGateRolesSpec) error {
+	if art.Status != StatusPass {
+		return nil
+	}
+	requiredInputs := map[string]bool{}
+	for _, roleName := range config.DerefPassRequiresRoles(roles.PRReadiness.PassRequiresRoles) {
+		role := runtimeGateRoleByName(roles, roleName)
+		if strings.TrimSpace(role.GateID) == "" {
+			continue
+		}
+		if !runtimeGateRoleRequiredForPRReadiness(roleName, role) {
+			continue
+		}
+		requiredInputs[role.GateID] = false
+	}
+	for _, input := range art.Inputs {
+		if input.Status != StatusPass {
+			continue
+		}
+		if !subjectsEqual(input.Subject, art.Subject) {
+			return fmt.Errorf("gate: %s input %q subject must match artifact subject", art.GateID, input.GateID)
+		}
+		if _, ok := requiredInputs[input.GateID]; ok {
+			requiredInputs[input.GateID] = true
+		}
+	}
+	var missing []string
+	for gateID, ok := range requiredInputs {
+		if !ok {
+			missing = append(missing, gateID)
+		}
+	}
+	if len(missing) > 0 {
+		slices.Sort(missing)
+		return fmt.Errorf("gate: %s requires passing input proof for %v on the same subject", art.GateID, missing)
+	}
+	return nil
+}
+
+func runtimeGateRoleRequiredForPRReadiness(roleName string, role config.RuntimeGateRoleSpec) bool {
+	if roleName != config.RuntimeGateRolePrePRAIReview {
+		return true
+	}
+	if role.Required == nil {
+		return true
+	}
+	return *role.Required
+}
+
+func runtimeGateRoleByGateID(roles config.RuntimeGateRolesSpec, gateID string) (string, config.RuntimeGateRoleSpec, bool) {
+	for _, roleName := range []string{
+		config.RuntimeGateRoleLocalVerification,
+		config.RuntimeGateRolePrePRAIReview,
+		config.RuntimeGateRolePRReadiness,
+	} {
+		role := runtimeGateRoleByName(roles, roleName)
+		if role.GateID == gateID {
+			return roleName, role, true
+		}
+	}
+	return "", config.RuntimeGateRoleSpec{}, false
+}
+
+func runtimeGateRoleByName(roles config.RuntimeGateRolesSpec, roleName string) config.RuntimeGateRoleSpec {
+	switch roleName {
+	case config.RuntimeGateRoleLocalVerification:
+		return roles.LocalVerification
+	case config.RuntimeGateRolePrePRAIReview:
+		return roles.PrePRAIReview
+	case config.RuntimeGateRolePRReadiness:
+		return roles.PRReadiness
+	default:
+		return config.RuntimeGateRoleSpec{}
+	}
+}
+
+func hasCheck(checks []Check, id string) bool {
+	for _, chk := range checks {
+		if chk.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+func hasPassingCheck(checks []Check, id string) bool {
+	for _, chk := range checks {
+		if chk.ID == id && chk.Status == StatusPass {
+			return true
+		}
+	}
+	return false
+}
+
+func subjectsEqual(a, b Subject) bool {
+	return a.HeadSHA == b.HeadSHA && strings.TrimSpace(a.Branch) == strings.TrimSpace(b.Branch)
 }
 
 func validateArtifactStatus(status string) error {
@@ -282,7 +511,7 @@ func writeArtifactFile(path string, art Artifact) error {
 	return nil
 }
 
-func readArtifactFile(path, expectedGateID string) (Artifact, error) {
+func readArtifactFile(path, expectedGateID string, roles config.RuntimeGateRolesSpec) (Artifact, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return Artifact{}, err
@@ -301,8 +530,14 @@ func readArtifactFile(path, expectedGateID string) (Artifact, error) {
 	if art.GateID != expectedGateID {
 		return Artifact{}, fmt.Errorf("gate: artifact %s declares gate_id %q; want %q", path, art.GateID, expectedGateID)
 	}
+	if art.Inputs == nil {
+		art.Inputs = []Input{}
+	}
 	if art.Checks == nil {
 		art.Checks = []Check{}
+	}
+	if err := validateGateContract(art, roles); err != nil {
+		return Artifact{}, err
 	}
 	return art, nil
 }
@@ -349,8 +584,8 @@ func deriveStatus(ctx context.Context, wd string, art Artifact) StatusResult {
 	res := StatusResult{
 		GateID:     art.GateID,
 		Status:     art.Status,
-		HeadSHA:    art.HeadSHA,
-		Branch:     art.Branch,
+		HeadSHA:    art.Subject.HeadSHA,
+		Branch:     art.Subject.Branch,
 		RecordedAt: art.RecordedAt,
 	}
 	branch, detached, err := gitroot.CurrentBranch(ctx, wd)
@@ -370,14 +605,14 @@ func deriveStatus(ctx context.Context, wd string, art Artifact) StatusResult {
 		res.Reason = "current HEAD is detached"
 		return res
 	}
-	if art.Branch != branch {
+	if art.Subject.Branch != branch {
 		res.Status = StatusStale
-		res.Reason = fmt.Sprintf("artifact branch %q != current branch %q", art.Branch, branch)
+		res.Reason = fmt.Sprintf("artifact branch %q != current branch %q", art.Subject.Branch, branch)
 		return res
 	}
-	if art.HeadSHA != headSHA {
+	if art.Subject.HeadSHA != headSHA {
 		res.Status = StatusStale
-		res.Reason = fmt.Sprintf("artifact head_sha %q != current HEAD %q", art.HeadSHA, headSHA)
+		res.Reason = fmt.Sprintf("artifact head_sha %q != current HEAD %q", art.Subject.HeadSHA, headSHA)
 		return res
 	}
 	return res

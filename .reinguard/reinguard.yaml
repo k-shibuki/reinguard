@@ -1,6 +1,21 @@
 # Minimal repo-local config (ADR-0008). See pkg/schema/reinguard-config.json.
 schema_version: "0.6.0"
 default_branch: main
+workflow:
+  runtime_gate_roles:
+    local_verification:
+      gate_id: local-verification
+      producer_procedures: [implement, change-inspect]
+    pre_pr_ai_review:
+      gate_id: local-coderabbit
+      required: true
+      producer_procedures: [change-inspect]
+      pass_check_ids: [local-coderabbit-cli]
+    pr_readiness:
+      gate_id: pr-readiness
+      producer_procedures: [change-inspect]
+      pass_check_ids: [review-closure]
+      pass_requires_roles: [local_verification, pre_pr_ai_review]
 providers:
   - id: git
     enabled: true

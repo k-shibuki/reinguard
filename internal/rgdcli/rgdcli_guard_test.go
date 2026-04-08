@@ -73,7 +73,8 @@ func TestRunGuardEval_relativeObservationFileWithCwd(t *testing.T) {
 	          "bot_review_pending": false,
 	          "bot_review_terminal": true,
 	          "bot_review_failed": false,
-	          "bot_review_stale": false
+	          "bot_review_stale": false,
+	          "non_thread_findings_present": false
 	        }
 	      }
 	    }
@@ -125,7 +126,8 @@ func TestRunGuardEval_ok(t *testing.T) {
 	          "bot_review_pending": false,
 	          "bot_review_terminal": true,
 	          "bot_review_failed": false,
-	          "bot_review_stale": false
+	          "bot_review_stale": false,
+	          "non_thread_findings_present": false
 	        }
 	      }
 	    }

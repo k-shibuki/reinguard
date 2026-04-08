@@ -576,6 +576,12 @@ func TestCollect_botReviewer_rateLimitAgeClampsToZero(t *testing.T) {
 	if m["rate_limit_remaining_seconds"].(int) != 0 {
 		t.Fatalf("want 0 remaining, got %+v", m)
 	}
+	if m["status"].(string) != BotStatusPending {
+		t.Fatalf("after cooldown elapses without terminal clean, want pending: %+v", m)
+	}
+	if m["status_class_basis"].(string) != "issue_comments_pending" {
+		t.Fatalf("status_class_basis: %+v", m)
+	}
 }
 
 func TestCollect_botReviewer_rateLimitWinsOverNewerAckComment(t *testing.T) {
@@ -621,7 +627,9 @@ func TestCollect_botReviewer_rateLimitWinsOverNewerAckComment(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
 	bots := []BotReviewer{{ID: "coderabbit", Login: "coderabbitai[bot]", Required: true, Enrich: []string{"coderabbit"}}}
-	_, rev, err := Collect(context.Background(), c, "o", "r", 1, bots)
+	// Anchor observation time to the status comment so age-adjusted cooldown stays active (125s remaining).
+	obsAt := time.Date(2026, 3, 27, 12, 0, 0, 0, time.UTC)
+	_, rev, err := CollectWithOptions(context.Background(), c, "o", "r", 1, bots, &CollectOptions{Now: &obsAt})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -640,6 +648,12 @@ func TestCollect_botReviewer_rateLimitWinsOverNewerAckComment(t *testing.T) {
 	}
 	if m["status"].(string) != BotStatusRateLimited {
 		t.Fatalf("status: %+v", m)
+	}
+	if m["status_class_basis"].(string) != "active_rate_limit_cooldown" {
+		t.Fatalf("status_class_basis: %+v", m)
+	}
+	if got := m["finding_conversation_comments_count"].(int); got != 0 {
+		t.Fatalf("operational ack must not count as finding conversation comment: %+v", m)
 	}
 }
 
@@ -763,7 +777,8 @@ func TestCollect_botReviewer_newerRateLimitSupersedesOlderCleanComment(t *testin
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
 	bots := []BotReviewer{{ID: "coderabbit", Login: "coderabbitai[bot]", Required: true, Enrich: []string{"coderabbit"}}}
-	_, rev, err := Collect(context.Background(), c, "o", "r", 1, bots)
+	obsAt := time.Date(2026, 3, 27, 12, 10, 0, 0, time.UTC)
+	_, rev, err := CollectWithOptions(context.Background(), c, "o", "r", 1, bots, &CollectOptions{Now: &obsAt})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1030,11 +1045,161 @@ func TestCollect_botReviewer_commentOnlyNoReviewClean(t *testing.T) {
 	}
 }
 
+func TestCollect_botReviewer_enrichedHeadOverridesStaleGraphQLReview(t *testing.T) {
+	t.Parallel()
+	// Given: latestReviews still references an older review commit, but the selected CodeRabbit
+	// status comment includes a reviewed range ending at the current PR head (summarize path).
+	// When: Collect runs with coderabbit enrichment.
+	// Then: review_commit_sha matches head and bot_review_stale is false.
+	head := "abc1234567890abcdef1234567890abcdef1234"
+	oldReviewCommit := "1111111111111111111111111111111111111111"
+	commentBody := "No actionable comments were generated in the recent review.\n\n" +
+		"Reviewing files that changed from the base of the PR and between [" + oldReviewCommit + "](https://example.com/a) " +
+		"and [" + head + "](https://example.com/b).\n"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		resp := map[string]any{
+			"data": map[string]any{
+				"repository": map[string]any{
+					"pullRequest": map[string]any{
+						"state": "OPEN", "isDraft": false, "title": "t",
+						"mergeable": "UNKNOWN", "mergeStateStatus": "UNKNOWN",
+						"baseRefName": "main", "headRefOid": head,
+						"labels":                  map[string]any{"nodes": []any{}},
+						"closingIssuesReferences": map[string]any{"nodes": []any{}},
+						"latestReviews": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false},
+							"nodes": []any{
+								map[string]any{
+									"state":  "COMMENTED",
+									"author": map[string]any{"login": "coderabbitai"},
+									"commit": map[string]any{"oid": oldReviewCommit},
+								},
+							},
+						},
+						"comments": map[string]any{
+							"nodes": []map[string]any{
+								{
+									"author":    map[string]any{"login": "coderabbitai"},
+									"body":      commentBody,
+									"updatedAt": "2026-03-28T12:00:00Z",
+								},
+							},
+						},
+						"reviewThreads": map[string]any{"pageInfo": map[string]any{"hasNextPage": false}, "nodes": []any{}},
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	bots := []BotReviewer{{ID: "cr", Login: "coderabbitai[bot]", Required: true, Enrich: []string{"coderabbit"}}}
+	_, rev, err := Collect(context.Background(), c, "o", "r", 1, bots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := rev["bot_reviewer_status"].([]any)
+	if len(st) != 1 {
+		t.Fatalf("status len: %v", st)
+	}
+	m := st[0].(map[string]any)
+	if m["status"].(string) != BotStatusCompletedClean {
+		t.Fatalf("status: %+v", m)
+	}
+	if got := m["review_commit_sha"].(string); got != head {
+		t.Fatalf("review_commit_sha: want %q, got %q", head, got)
+	}
+	diag := rev["bot_review_diagnostics"].(map[string]any)
+	if diag["bot_review_stale"].(bool) {
+		t.Fatalf("want bot_review_stale=false, got %+v", diag)
+	}
+}
+
+func TestCollect_botReviewer_walkthroughHeadDoesNotOverrideStaleGraphQLReview(t *testing.T) {
+	t.Parallel()
+	// Given: latestReviews still references an older review commit and a newer walkthrough-only
+	// comment mentions the current PR head, but there is no decisive completion marker for the new head.
+	// When: Collect runs with coderabbit enrichment.
+	// Then: review_commit_sha stays on the older review commit and bot_review_stale remains true.
+	head := "abc1234567890abcdef1234567890abcdef1234"
+	oldReviewCommit := "1111111111111111111111111111111111111111"
+	commentBody := "<!-- walkthrough_start -->\n\n" +
+		"<details><summary>Walkthrough</summary>\n\n" +
+		"Reviewing files that changed from the base of the PR and between [" + oldReviewCommit + "](https://example.com/a) " +
+		"and [" + head + "](https://example.com/b).\n" +
+		"</details>\n\n<!-- walkthrough_end -->\n"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		resp := map[string]any{
+			"data": map[string]any{
+				"repository": map[string]any{
+					"pullRequest": map[string]any{
+						"state": "OPEN", "isDraft": false, "title": "t",
+						"mergeable": "UNKNOWN", "mergeStateStatus": "UNKNOWN",
+						"baseRefName": "main", "headRefOid": head,
+						"labels":                  map[string]any{"nodes": []any{}},
+						"closingIssuesReferences": map[string]any{"nodes": []any{}},
+						"latestReviews": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false},
+							"nodes": []any{
+								map[string]any{
+									"state":  "COMMENTED",
+									"author": map[string]any{"login": "coderabbitai"},
+									"commit": map[string]any{"oid": oldReviewCommit},
+								},
+							},
+						},
+						"comments": map[string]any{
+							"nodes": []map[string]any{
+								{
+									"author":    map[string]any{"login": "coderabbitai"},
+									"body":      commentBody,
+									"updatedAt": "2026-03-28T12:00:00Z",
+								},
+							},
+						},
+						"reviewThreads": map[string]any{"pageInfo": map[string]any{"hasNextPage": false}, "nodes": []any{}},
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	bots := []BotReviewer{{ID: "cr", Login: "coderabbitai[bot]", Required: true, Enrich: []string{"coderabbit"}}}
+	_, rev, err := Collect(context.Background(), c, "o", "r", 1, bots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := rev["bot_reviewer_status"].([]any)
+	if len(st) != 1 {
+		t.Fatalf("status len: %v", st)
+	}
+	m := st[0].(map[string]any)
+	if m["status"].(string) != BotStatusCompleted {
+		t.Fatalf("status: %+v", m)
+	}
+	if got := m["review_commit_sha"].(string); got != oldReviewCommit {
+		t.Fatalf("review_commit_sha: want %q, got %q", oldReviewCommit, got)
+	}
+	diag := rev["bot_review_diagnostics"].(map[string]any)
+	if !diag["bot_review_stale"].(bool) {
+		t.Fatalf("want bot_review_stale=true, got %+v", diag)
+	}
+}
+
 func TestCollect_reviewBodyDuplicateFindings(t *testing.T) {
 	t.Parallel()
 	// Given: CodeRabbit latest review body contains a Duplicate comments (N) summary line.
 	// When:  Collect runs with coderabbit enrichment.
-	// Then:  cr_duplicate_findings_count is set and duplicate_findings_detected is true.
+	// Then:  duplicate count is set on both normalized and legacy keys, and aggregate diagnostics fire.
 	dupBody := "**Actionable comments posted: 4**\n\n<details>\n<summary>♻️ Duplicate comments (2)</summary><blockquote>\n</blockquote></details>"
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		resp := map[string]any{
@@ -1088,8 +1253,14 @@ func TestCollect_reviewBodyDuplicateFindings(t *testing.T) {
 		t.Fatalf("bot_reviewer_status len: %d, want 1", len(st))
 	}
 	m := st[0].(map[string]any)
+	if m["duplicate_findings_count"].(int) != 2 {
+		t.Fatalf("duplicate_findings_count: %+v", m)
+	}
 	if m["cr_duplicate_findings_count"].(int) != 2 {
 		t.Fatalf("cr_duplicate_findings_count: %+v", m)
+	}
+	if m["actionable_findings_count"].(int) != 4 {
+		t.Fatalf("actionable_findings_count: %+v", m)
 	}
 	diag := rev["bot_review_diagnostics"].(map[string]any)
 	if !diag["duplicate_findings_detected"].(bool) {
@@ -1200,6 +1371,110 @@ func TestCollect_commentPagination_fetchesOlderBotHeadMovedMessage(t *testing.T)
 	}
 }
 
+func TestCollect_commentPagination_prependsOlderPagesInConversationReadModel(t *testing.T) {
+	t.Parallel()
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("read body: %v", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(string(body), "PRCommentPage") {
+			resp := map[string]any{
+				"data": map[string]any{
+					"repository": map[string]any{
+						"pullRequest": map[string]any{
+							"comments": map[string]any{
+								"pageInfo": map[string]any{"hasPreviousPage": false, "startCursor": ""},
+								"nodes": []map[string]any{
+									{
+										"author":    map[string]any{"login": "coderabbitai"},
+										"body":      "older bot finding",
+										"updatedAt": "2026-03-28T10:00:00Z",
+									},
+									{
+										"author":    map[string]any{"login": "alice"},
+										"body":      "older human reply",
+										"updatedAt": "2026-03-28T10:05:00Z",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			if err := json.NewEncoder(w).Encode(resp); err != nil {
+				t.Errorf("encode: %v", err)
+			}
+			return
+		}
+		resp := map[string]any{
+			"data": map[string]any{
+				"repository": map[string]any{
+					"pullRequest": map[string]any{
+						"state": "OPEN", "isDraft": false, "title": "t",
+						"mergeable": "UNKNOWN", "mergeStateStatus": "UNKNOWN",
+						"baseRefName": "main", "headRefOid": "x",
+						"labels":                  map[string]any{"nodes": []any{}},
+						"closingIssuesReferences": map[string]any{"nodes": []any{}},
+						"latestReviews":           map[string]any{"pageInfo": map[string]any{"hasNextPage": false}, "nodes": []any{}},
+						"comments": map[string]any{
+							"pageInfo": map[string]any{"hasPreviousPage": true, "startCursor": "cur-old"},
+							"nodes": []map[string]any{
+								{
+									"author":    map[string]any{"login": "alice"},
+									"body":      "newer human reply",
+									"updatedAt": "2026-03-28T12:00:00Z",
+								},
+								{
+									"author":    map[string]any{"login": "bob"},
+									"body":      "newest human reply",
+									"updatedAt": "2026-03-28T12:05:00Z",
+								},
+							},
+						},
+						"reviewThreads": map[string]any{"pageInfo": map[string]any{"hasNextPage": false}, "nodes": []any{}},
+					},
+				},
+			},
+		}
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode: %v", err)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	bots := []BotReviewer{{ID: "coderabbit", Login: "coderabbitai[bot]", Required: true, Enrich: []string{"coderabbit"}}}
+	_, rev, err := Collect(context.Background(), c, "o", "r", 1, bots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := int(calls.Load()); got != 2 {
+		t.Fatalf("want 2 graphql calls, got %d", got)
+	}
+	comments := rev["conversation_comments"].([]any)
+	if len(comments) != 4 {
+		t.Fatalf("conversation_comments len: %+v", comments)
+	}
+	if rev["conversation_comments_incomplete"].(bool) {
+		t.Fatalf("conversation_comments_incomplete: %+v", rev)
+	}
+	bodies := []string{
+		comments[0].(map[string]any)["body"].(string),
+		comments[1].(map[string]any)["body"].(string),
+		comments[2].(map[string]any)["body"].(string),
+		comments[3].(map[string]any)["body"].(string),
+	}
+	want := []string{"older bot finding", "older human reply", "newer human reply", "newest human reply"}
+	if strings.Join(bodies, "|") != strings.Join(want, "|") {
+		t.Fatalf("conversation comment order = %v want %v", bodies, want)
+	}
+}
+
 func TestNormalizeGitHubActorLogin(t *testing.T) {
 	t.Parallel()
 	for _, tt := range []struct {
@@ -1268,6 +1543,15 @@ func TestCollect_configLoginBotSuffix_graphQLLoginPlain(t *testing.T) {
 	if m["latest_comment_at"].(string) != "2026-03-28T12:00:00Z" {
 		t.Fatalf("comment: %+v", m)
 	}
+	cc := rev["conversation_comments"].([]any)
+	if len(cc) != 1 {
+		t.Fatalf("conversation_comments: %+v", rev)
+	}
+	ent := cc[0].(map[string]any)
+	wantTS := "2026-03-28T12:00:00Z"
+	if ent["updated_at"].(string) != wantTS || ent["updatedAt"].(string) != wantTS {
+		t.Fatalf("want updated_at and updatedAt %q, got %+v", wantTS, ent)
+	}
 }
 
 func assertReviewsZeros(t *testing.T, rev map[string]any, incomplete bool) {
@@ -1276,6 +1560,13 @@ func assertReviewsZeros(t *testing.T, rev map[string]any, incomplete bool) {
 		t.Fatalf("%+v", rev)
 	}
 	if rev["pagination_incomplete"].(bool) != incomplete {
+		t.Fatalf("%+v", rev)
+	}
+	diag := rev["bot_review_diagnostics"].(map[string]any)
+	if diag["bot_review_stale"].(bool) {
+		t.Fatalf("%+v", rev)
+	}
+	if diag["non_thread_findings_present"].(bool) {
 		t.Fatalf("%+v", rev)
 	}
 }

@@ -14,6 +14,69 @@
       "type": "string",
       "minLength": 1
     },
+    "workflow": {
+      "type": "object",
+      "description": "Optional workflow overlay: runtime gate role bindings and related PR readiness wiring (see ADR-0014).",
+      "additionalProperties": false,
+      "properties": {
+        "runtime_gate_roles": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "local_verification": {
+              "allOf": [
+                { "$ref": "#/$defs/runtimeGateRole" },
+                {
+                  "type": "object",
+                  "properties": {
+                    "pass_requires_roles": {
+                      "type": "array",
+                      "maxItems": 0
+                    }
+                  }
+                }
+              ]
+            },
+            "pre_pr_ai_review": {
+              "allOf": [
+                { "$ref": "#/$defs/runtimeGateRole" },
+                {
+                  "type": "object",
+                  "properties": {
+                    "pass_requires_roles": {
+                      "type": "array",
+                      "uniqueItems": true,
+                      "items": {
+                        "type": "string",
+                        "enum": ["local_verification"]
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "pr_readiness": {
+              "allOf": [
+                { "$ref": "#/$defs/runtimeGateRole" },
+                {
+                  "type": "object",
+                  "properties": {
+                    "pass_requires_roles": {
+                      "type": "array",
+                      "uniqueItems": true,
+                      "items": {
+                        "type": "string",
+                        "enum": ["local_verification", "pre_pr_ai_review"]
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
     "providers": {
       "type": "array",
       "items": {
@@ -85,6 +148,46 @@
       "description": "Deprecated. Reserved for transitional tooling metadata; do not use in new configs.",
       "additionalProperties": true,
       "deprecated": true
+    }
+  },
+  "$defs": {
+    "runtimeGateRole": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gate_id"],
+      "properties": {
+        "gate_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "producer_procedures": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "pass_check_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "pass_requires_roles": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": {
+          "type": "boolean"
+        }
+      }
     }
   },
   "additionalProperties": false

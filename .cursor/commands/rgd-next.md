@@ -55,6 +55,7 @@ The table below is a **Cursor-facing heuristic** (when `state.kind` is `resolved
 | `pr_open` | `.reinguard/procedure/review-address.md` (residual monitor) |
 | `waiting_ci` | `.reinguard/procedure/review-address.md` (checks / mergeability) |
 | `unresolved_threads` | `.reinguard/procedure/review-address.md` (thread disposition) |
+| `non_thread_findings_pending` | `.reinguard/procedure/review-address.md` (non-thread findings / inbox) |
 | `changes_requested` | `.reinguard/procedure/review-address.md` (formal “Request changes” on the PR) |
 | `waiting_bot_run` | `.reinguard/procedure/wait-bot-review.md` (+ `review--bot-operations.md` from `knowledge.entries`) |
 | `waiting_bot_rate_limited` | `.reinguard/procedure/wait-bot-review.md` |
@@ -72,12 +73,18 @@ When `state.kind` is not `resolved`, follow ADR-0007 handoff: gather observation
 After **Sense** and **Route**, record the Adapter-local **proposal** artifact for the unit (branch / issue / PR as known) **before** the approval gate, then present the full-path proposal **exactly once** per run, then wait for approval. There is no alternate mode (no proposal-only run and no stopping after a minimal state dump).
 
 ```bash
-bash .reinguard/scripts/adapter-rgd-next-resume.sh start --branch <branch> [--issue <N>] [--pr <N>] [--summary TEXT]
+bash .reinguard/scripts/adapter-rgd-next-resume.sh start \
+  --branch <branch> \
+  --state-id <state_id> \
+  [--route-id <route_id>] \
+  --ordered-remainder "<procedure1 -> procedure2 -> ... -> DoD>" \
+  --completion-condition "<Per-unit Definition of Done>" \
+  [--issue <N>] [--pr <N>] [--summary TEXT]
 ```
 
 Persistent JSON defaults to `.reinguard/local/adapter/rgd-next/execute-resume.json` (ADR-0015).
 
-This writes `status: "pending_approval"` until the user approves Execute (next section).
+This writes `status: "pending_approval"` and persists the **proposed** contract inputs (`state-id`, `ordered-remainder`, `completion-condition`, fingerprint inputs) so the artifact records **what** the user will approve. The status stays `pending_approval` until the user approves Execute (next section).
 
 1. Trace forward from the current `state_id` using [ADR-0013 § 4](../../docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md) through **Per-unit Definition of Done** in [`.reinguard/procedure/next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md).
 2. Follow **`next-orchestration.md` § Full-path proposal format** in full: current position, ordered remainder, gaps, completion condition.

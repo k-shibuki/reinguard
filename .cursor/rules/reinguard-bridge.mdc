@@ -65,15 +65,14 @@ approves Execute. That artifact exists only to decide **resume vs fresh run**
 on a later chat turn; it is **not** substrate state and must not be surfaced
 through `rgd context build`, FSM rules, guards, or `gates.<id>.*`.
 
-### Evidence targets
+### GitHub and git observation
 
-- Until `rgd observe` ships, see [`evidence-temporary.mdc`](evidence-temporary.mdc) for GitHub observation (`gh` / `git` read-only).
+- **Primary:** `rgd observe` and `rgd context build` — structured observation and FSM-facing signals (see [`docs/cli.md`](../../docs/cli.md), ADR-0006, ADR-0009).
+- **Supplementary:** `gh` and `git` for read-only GitHub or Git facts when you need ad-hoc checks or `rgd` is not available; GitHub tool auth uses `gh` per ADR-0006. Prefer stable behavior in tests and CI over one-off scripts.
 
 ### Agent procedure reference
 
 Procedure **bodies** live under [`.reinguard/procedure/`](../../.reinguard/procedure/) (SSOT). **Cursor entries:** [`rgd-next.md`](../commands/rgd-next.md) — `rgd context build`, Route, **Propose** (once), then **Execute** with `next-orchestration.md`; [`cursor-plan.md`](../commands/cursor-plan.md) — `AskQuestion` / `CreatePlan` only (`gh issue create` appears as plan todos when issue-first). **After `cursor-plan` acceptance, execution must use `rgd-next` loop semantics** (`next-orchestration.md` § Loop semantics) — `cursor-plan` does not define execution; it produces the plan that `rgd-next` Execute consumes.
-
-Use `gh` CLI for observation (`gh issue view`, `gh pr view`, `gh pr checks`, etc.) until full `rgd observe` coverage.
 
 ### Maintainer reference
 

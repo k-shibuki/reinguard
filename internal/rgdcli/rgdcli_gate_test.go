@@ -3,9 +3,12 @@ package rgdcli
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os/exec"
 	"path/filepath"
 	"testing"
+
+	"github.com/k-shibuki/reinguard/pkg/schema"
 )
 
 func TestRunGateRecordStatusShow_roundTrip(t *testing.T) {
@@ -27,6 +30,7 @@ func TestRunGateRecordStatusShow_roundTrip(t *testing.T) {
 		"--config-dir", cfgDir,
 		"--cwd", repo,
 		"--status", "pass",
+		"--producer-procedure", "implement",
 		"--checks-file", "checks.json",
 		"local-verification",
 	}); err != nil {
@@ -62,6 +66,9 @@ func TestRunGateRecordStatusShow_roundTrip(t *testing.T) {
 	if recordOut["gate_id"] != "local-verification" || recordOut["status"] != "pass" {
 		t.Fatalf("record output=%v", recordOut)
 	}
+	if _, ok := recordOut["producer"].(map[string]any); !ok {
+		t.Fatalf("missing producer in record output=%v", recordOut)
+	}
 	var statusOut map[string]any
 	if err := json.Unmarshal(statusBuf.Bytes(), &statusOut); err != nil {
 		t.Fatalf("status json: %v raw=%s", err, statusBuf.String())
@@ -96,6 +103,9 @@ func TestRunStateEval_mergesRuntimeGateSignals(t *testing.T) {
       value: pass
 `))
 	writeFile(t, filepath.Join(repo, "obs.json"), []byte(`{"signals":{"git":{"branch":"main"}},"degraded":false}`))
+	writeFile(t, filepath.Join(repo, "checks.json"), []byte(`[
+  {"id":"go-test","status":"pass","summary":"go test ./... -race"}
+]`))
 
 	var recordBuf bytes.Buffer
 	app := NewApp("t")
@@ -105,6 +115,8 @@ func TestRunStateEval_mergesRuntimeGateSignals(t *testing.T) {
 		"--config-dir", cfgDir,
 		"--cwd", repo,
 		"--status", "pass",
+		"--producer-procedure", "implement",
+		"--checks-file", "checks.json",
 		"local-verification",
 	}); err != nil {
 		t.Fatal(err)
@@ -149,6 +161,7 @@ func TestRunGateRecord_badChecksFile(t *testing.T) {
 		"--config-dir", cfgDir,
 		"--cwd", repo,
 		"--status", "pass",
+		"--producer-procedure", "implement",
 		"--checks-file", "checks.json",
 		"local-verification",
 	})
@@ -156,6 +169,156 @@ func TestRunGateRecord_badChecksFile(t *testing.T) {
 	// Then: the JSON parse error is returned
 	if err == nil {
 		t.Fatal("expected error for malformed checks file")
+	}
+}
+
+func TestRunGateRecord_resolvesInputGates(t *testing.T) {
+	t.Parallel()
+	// Given: a git repo with local-verification and local-coderabbit gates recorded
+	repo := initGitRepoForGateCLI(t)
+	cfgDir := t.TempDir()
+	writeFile(t, filepath.Join(repo, "verify-checks.json"), []byte(`[
+  {"id":"go-test","status":"pass","summary":"go test ./... -race"}
+]`))
+	writeFile(t, filepath.Join(repo, "cr-checks.json"), []byte(`[
+  {"id":"local-coderabbit-cli","status":"pass","summary":"local CodeRabbit completed"}
+]`))
+	writeFile(t, filepath.Join(repo, "ready-checks.json"), []byte(`[
+  {"id":"review-closure","status":"pass","summary":"all local findings classified and closed"}
+]`))
+
+	app := NewApp("t")
+	app.Writer = &bytes.Buffer{}
+	if err := app.Run([]string{
+		"rgd", "gate", "record",
+		"--config-dir", cfgDir,
+		"--cwd", repo,
+		"--status", "pass",
+		"--producer-procedure", "implement",
+		"--checks-file", "verify-checks.json",
+		"local-verification",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	app2 := NewApp("t")
+	app2.Writer = &bytes.Buffer{}
+	if err := app2.Run([]string{
+		"rgd", "gate", "record",
+		"--config-dir", cfgDir,
+		"--cwd", repo,
+		"--status", "pass",
+		"--producer-procedure", "change-inspect",
+		"--checks-file", "cr-checks.json",
+		"local-coderabbit",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// When: pr-readiness is recorded with both gates as --input-gate dependencies
+	var readyBuf bytes.Buffer
+	app3 := NewApp("t")
+	app3.Writer = &readyBuf
+	if err := app3.Run([]string{
+		"rgd", "gate", "record",
+		"--config-dir", cfgDir,
+		"--cwd", repo,
+		"--status", "pass",
+		"--producer-procedure", "change-inspect",
+		"--checks-file", "ready-checks.json",
+		"--input-gate", "local-verification",
+		"--input-gate", "local-coderabbit",
+		"pr-readiness",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Then: the pr-readiness artifact lists both upstream gates in inputs
+	var readyOut map[string]any
+	if err := json.Unmarshal(readyBuf.Bytes(), &readyOut); err != nil {
+		t.Fatalf("record json: %v raw=%s", err, readyBuf.String())
+	}
+	inputs, ok := readyOut["inputs"].([]any)
+	if !ok || len(inputs) != 2 {
+		t.Fatalf("expected two inputs in pr-readiness artifact: %v", readyOut)
+	}
+	gotIDs := map[string]bool{}
+	for _, in := range inputs {
+		m, ok := in.(map[string]any)
+		if !ok {
+			t.Fatalf("input not object: %v", in)
+		}
+		id, _ := m["gate_id"].(string)
+		gotIDs[id] = true
+	}
+	if !gotIDs["local-verification"] || !gotIDs["local-coderabbit"] {
+		t.Fatalf("want local-verification and local-coderabbit in inputs: %+v", inputs)
+	}
+}
+
+func TestRunGateRecord_prReadinessAllowsOptionalPrePRAIReview(t *testing.T) {
+	t.Parallel()
+	// Given: reinguard.yaml with pre_pr_ai_review.required=false and local-verification recorded
+	repo := initGitRepoForGateCLI(t)
+	cfgDir := filepath.Join(repo, ".reinguard")
+	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(fmt.Sprintf(`schema_version: %q
+default_branch: main
+workflow:
+  runtime_gate_roles:
+    pre_pr_ai_review:
+      gate_id: local-coderabbit
+      required: false
+providers: []
+`, schema.CurrentSchemaVersion)))
+	writeFile(t, filepath.Join(repo, "verify-checks.json"), []byte(`[
+  {"id":"go-test","status":"pass","summary":"go test ./... -race"}
+]`))
+	writeFile(t, filepath.Join(repo, "ready-checks.json"), []byte(`[
+  {"id":"review-closure","status":"pass","summary":"all local findings classified and closed"}
+]`))
+
+	app := NewApp("t")
+	app.Writer = &bytes.Buffer{}
+	if err := app.Run([]string{
+		"rgd", "gate", "record",
+		"--config-dir", cfgDir,
+		"--cwd", repo,
+		"--status", "pass",
+		"--producer-procedure", "implement",
+		"--checks-file", "verify-checks.json",
+		"local-verification",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// When: pr-readiness is recorded with only local-verification as input (optional AI review omitted)
+	var readyBuf bytes.Buffer
+	app2 := NewApp("t")
+	app2.Writer = &readyBuf
+	if err := app2.Run([]string{
+		"rgd", "gate", "record",
+		"--config-dir", cfgDir,
+		"--cwd", repo,
+		"--status", "pass",
+		"--producer-procedure", "change-inspect",
+		"--checks-file", "ready-checks.json",
+		"--input-gate", "local-verification",
+		"pr-readiness",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Then: inputs contains only local-verification
+	var readyOut map[string]any
+	if err := json.Unmarshal(readyBuf.Bytes(), &readyOut); err != nil {
+		t.Fatalf("record json: %v raw=%s", err, readyBuf.String())
+	}
+	inputs, ok := readyOut["inputs"].([]any)
+	if !ok || len(inputs) != 1 {
+		t.Fatalf("expected one input in optional AI review config: %v", readyOut)
+	}
+	m0, ok := inputs[0].(map[string]any)
+	if !ok || m0["gate_id"] != "local-verification" {
+		t.Fatalf("expected sole input gate_id local-verification: %v", inputs[0])
 	}
 }
 

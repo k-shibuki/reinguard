@@ -48,6 +48,9 @@ rules:
           value: unresolved_threads
         - op: eq
           path: state.state_id
+          value: non_thread_findings_pending
+        - op: eq
+          path: state.state_id
           value: changes_requested
 
   - type: route

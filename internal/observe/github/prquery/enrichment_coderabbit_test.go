@@ -160,8 +160,191 @@ func TestCoderabbitEnrichment_EnrichReviewBody(t *testing.T) {
 	if n, ok := got["cr_duplicate_findings_count"].(int); !ok || n != 3 {
 		t.Fatalf("got %v", got)
 	}
+	if n, ok := got["duplicate_findings_count"].(int); !ok || n != 3 {
+		t.Fatalf("got %v", got)
+	}
 	if e.EnrichReviewBody("no duplicate section") != nil {
 		t.Fatal("want nil")
+	}
+}
+
+func TestCoderabbitEnrichment_Enrich_providerNeutralIssueCommentAliases(t *testing.T) {
+	t.Parallel()
+	e := coderabbitEnrichment{}
+	// Body triggers reviewed head SHA + in-progress processing; assert normalized keys only.
+	body := "Reviewing files between [1c0a07a](https://example.com/1) and [4b680dbdeadbeef](https://example.com/2).\n" +
+		"Currently processing new changes in this PR.\n"
+	got := e.Enrich(body)
+	if got == nil {
+		t.Fatal("got nil")
+	}
+	if v, ok := got["review_processing"].(bool); !ok || !v {
+		t.Fatalf("want review_processing=true, got %+v", got)
+	}
+	if sha, ok := got["reviewed_head_sha"].(string); !ok || sha != "4b680dbdeadbeef" {
+		t.Fatalf("want reviewed_head_sha, got %+v", got)
+	}
+}
+
+func TestCoderabbitEnrichment_ClassifyStatus_providerNeutralAliases(t *testing.T) {
+	t.Parallel()
+	e := coderabbitEnrichment{}
+	if g := e.ClassifyStatus(map[string]any{"review_processing": true}); g != BotStatusPending {
+		t.Fatalf("ClassifyStatus(review_processing)= %q want %q", g, BotStatusPending)
+	}
+	if g := e.ClassifyStatus(map[string]any{"review_completed_clean": true}); g != BotStatusCompletedClean {
+		t.Fatalf("ClassifyStatus(review_completed_clean)= %q want %q", g, BotStatusCompletedClean)
+	}
+	if g := e.ClassifyStatus(map[string]any{"walkthrough_present": true, "latest_comment_at": ""}); g != BotStatusPending {
+		t.Fatalf("ClassifyStatus(walkthrough_present)= %q want %q", g, BotStatusPending)
+	}
+}
+
+func TestCoderabbitEnrichment_ClassifyStatus_completedMarkerWithoutCleanMapsToCompleted(t *testing.T) {
+	t.Parallel()
+	e := coderabbitEnrichment{}
+	m := e.Enrich("**Status:** ✅ completed\n")
+	if m == nil {
+		t.Fatal("got nil")
+	}
+	if g := e.ClassifyStatus(m); g != BotStatusCompleted {
+		t.Fatalf("ClassifyStatus(Enrich(completed)) = %q want %q; map=%+v", g, BotStatusCompleted, m)
+	}
+	s, basis := classifyCoderabbitStatusWithBasis(m)
+	if s != BotStatusCompleted || basis != "review_completed" {
+		t.Fatalf("basis got %q %q with map=%+v", s, basis, m)
+	}
+}
+
+func TestCoderabbitEnrichment_EnrichReviewBody_actionableAndOutside(t *testing.T) {
+	t.Parallel()
+	e := coderabbitEnrichment{}
+	//nolint:govet // test table readability over struct packing
+	tests := []struct {
+		name string
+		body string
+		want map[string]int
+	}{
+		{
+			name: "actionable_and_outside",
+			body: "Actionable review comments (2)\nComments outside the diff range (1)\n",
+			want: map[string]int{
+				"cr_actionable_comments_count": 2, "actionable_findings_count": 2,
+				"cr_outside_diff_comments_count": 1, "outside_diff_findings_count": 1,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := e.EnrichReviewBody(tt.body)
+			if got == nil {
+				t.Fatal("got nil")
+			}
+			for k, w := range tt.want {
+				n, ok := got[k].(int)
+				if !ok || n != w {
+					t.Fatalf("%s: got[%q]=%v want %d full=%+v", tt.name, k, got[k], w, got)
+				}
+			}
+		})
+	}
+}
+
+func TestParseCoderabbitActionableCommentsCount(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		body string
+		want int
+	}{
+		{name: "empty", body: "", want: 0},
+		{name: "match", body: "Actionable review comments (4)", want: 4},
+		{name: "older_header", body: "**Actionable comments posted: 4**", want: 4},
+		{name: "no_match", body: "no actionable line", want: 0},
+		{name: "zero", body: "Actionable review comments (0)", want: 0},
+		{name: "malformed", body: "Actionable review comments (x)", want: 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := parseCoderabbitActionableCommentsCount(tt.body); got != tt.want {
+				t.Fatalf("parseCoderabbitActionableCommentsCount(%q) = %d, want %d", tt.body, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseCoderabbitOutsideDiffCommentsCount(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		body string
+		want int
+	}{
+		{name: "canonical", body: "Comments outside the diff range (3)", want: 3},
+		{name: "short_form", body: "outside the diff (2)", want: 2},
+		{name: "no_match", body: "outside section missing", want: 0},
+		{name: "malformed", body: "Comments outside the diff range (x)", want: 0},
+		{name: "zero", body: "Comments outside the diff range (0)", want: 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := parseCoderabbitOutsideDiffCommentsCount(tt.body); got != tt.want {
+				t.Fatalf("parseCoderabbitOutsideDiffCommentsCount(%q) = %d, want %d", tt.body, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsCoderabbitFindingConversationComment(t *testing.T) {
+	t.Parallel()
+	if !IsCoderabbitFindingConversationComment("Please fix the nil dereference in handler.go.") {
+		t.Fatal("generic tier-0 body should count as finding-shaped")
+	}
+	if IsCoderabbitFindingConversationComment("No issues found.\n") {
+		t.Fatal("terminal clean marker is excluded")
+	}
+	if IsCoderabbitFindingConversationComment("### Walkthrough\n") {
+		t.Fatal("walkthrough is excluded")
+	}
+	walkthroughEcho := "### Walkthrough\n\n<details><summary>♻️ Duplicate comments (1)</summary></details>\n"
+	if IsCoderabbitFindingConversationComment(walkthroughEcho) {
+		t.Fatal("walkthrough echo of duplicate statistics should not count as finding-shaped issue comment")
+	}
+	learningsReply := "<!-- This is an auto-generated reply by CodeRabbit -->\n<details>\n<summary>🧠 Learnings used</summary>\n\n```\nLearning: do not treat potential issue in fences as a finding.\n```\n\n</details>\n"
+	if IsCoderabbitFindingConversationComment(learningsReply) {
+		t.Fatal("CodeRabbit learnings acknowledgement should be operational, not finding-shaped")
+	}
+	if IsCoderabbitFindingConversationComment("Sure! I'll kick off a new review to verify the fixes.") {
+		t.Fatal("plain operational acknowledgement is excluded")
+	}
+	wrappedFinding := "<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n" +
+		"<details>\n<summary>⚠️ Outside diff range comments (1)</summary><blockquote>\n" +
+		"`internal/observe/github/prquery/prquery.go`: _⚠️ Potential issue_\n</blockquote></details>"
+	if !IsCoderabbitFindingConversationComment(wrappedFinding) {
+		t.Fatal("wrapped outside-diff summary should still count as finding")
+	}
+	if IsCoderabbitFindingConversationComment("<!-- This is an auto-generated comment: summarize by coderabbit.ai -->") {
+		t.Fatal("wrapper-only auto-generated comment should not count as finding")
+	}
+	// Operational / status PR comments share tier 6 with CoderabbitIssueCommentMaxTier; they must not
+	// inflate finding_conversation_comments_count (merge-readiness non-thread signal).
+	ops := []string{
+		"Rate limit exceeded. Please try again in 5 minutes and 30 seconds",
+		"Currently processing new changes in this PR. This may take a few minutes, please wait...",
+		"Review paused until you comment.",
+		"Review failed: head commit changed.",
+		"<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n<!-- This is an auto-generated comment: review paused by coderabbit.ai -->\n\n> [!NOTE]\n> ## Reviews paused",
+	}
+	for _, body := range ops {
+		if IsCoderabbitFindingConversationComment(body) {
+			t.Fatalf("operational body should be excluded: %q", body)
+		}
+		if CoderabbitIssueCommentMaxTier(body) != 6 {
+			t.Fatalf("sanity: want tier 6 for operational sample: %q", body)
+		}
 	}
 }
 
@@ -180,6 +363,12 @@ func TestCoderabbitIssueCommentMaxTier_decisiveStatusesShareTierSix(t *testing.T
 			t.Fatalf("CoderabbitIssueCommentMaxTier(%q) = %d, want 6", body, got)
 		}
 	}
+	if got := CoderabbitIssueCommentMaxTier("<!-- This is an auto-generated reply by CodeRabbit -->\nReview triggered.\n"); got != 0 {
+		t.Fatalf("wrapper-only operational ack want tier 0, got %d", got)
+	}
+	if got := CoderabbitIssueCommentMaxTier("<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n### Walkthrough\n"); got != 1 {
+		t.Fatalf("wrapped walkthrough-only want tier 1, got %d", got)
+	}
 	if got := CoderabbitIssueCommentMaxTier("### Walkthrough\n"); got != 1 {
 		t.Fatalf("walkthrough-only want tier 1, got %d", got)
 	}
@@ -191,7 +380,14 @@ func TestCoderabbitIssueCommentMaxTier_decisiveStatusesShareTierSix(t *testing.T
 func TestCoderabbitEnrichment_ClassifyStatus_order(t *testing.T) {
 	t.Parallel()
 	e := coderabbitEnrichment{}
-	if g := e.ClassifyStatus(map[string]any{"contains_rate_limit": true, "cr_review_processing": true}); g != BotStatusRateLimited {
+	// Processing is evaluated before active cooldown; both signals need not conflict.
+	if g := e.ClassifyStatus(map[string]any{"contains_rate_limit": true, "cr_review_processing": true}); g != BotStatusPending {
+		t.Fatalf("got %q", g)
+	}
+	if g := e.ClassifyStatus(map[string]any{"rate_limit_remaining_seconds": 300, "cr_review_processing": true}); g != BotStatusPending {
+		t.Fatalf("processing wins over active cooldown: got %q", g)
+	}
+	if g := e.ClassifyStatus(map[string]any{"rate_limit_remaining_seconds": 300}); g != BotStatusRateLimited {
 		t.Fatalf("got %q", g)
 	}
 	if g := e.ClassifyStatus(map[string]any{"cr_review_processing": true}); g != BotStatusPending {
@@ -208,6 +404,43 @@ func TestCoderabbitEnrichment_ClassifyStatus_order(t *testing.T) {
 	}
 	if g := e.ClassifyStatus(map[string]any{"cr_walkthrough_present": true, "latest_comment_at": "2026-01-01T00:00:00Z"}); g != BotStatusPending {
 		t.Fatalf("got %q", g)
+	}
+}
+
+func TestCoderabbitEnrichment_ClassifyStatus_staleRateLimitTextDoesNotOverrideClean(t *testing.T) {
+	t.Parallel()
+	e := coderabbitEnrichment{}
+	// Same issue-comment body can mention "rate limit" historically while reporting a terminal clean summary.
+	m := map[string]any{
+		"contains_rate_limit":          true,
+		"review_completed_clean":       true,
+		"rate_limit_remaining_seconds": 0,
+		"latest_comment_at":            "2026-04-06T00:31:05Z",
+	}
+	if g := e.ClassifyStatus(m); g != BotStatusCompletedClean {
+		t.Fatalf("got %q want completed_clean", g)
+	}
+	s, basis := classifyCoderabbitStatusWithBasis(m)
+	if s != BotStatusCompletedClean || basis != "review_completed_clean" {
+		t.Fatalf("basis got %q %q", s, basis)
+	}
+}
+
+func TestCoderabbitEnrichment_ClassifyStatus_stalePausedOrFailedTextDoesNotOverrideClean(t *testing.T) {
+	t.Parallel()
+	e := coderabbitEnrichment{}
+	m := map[string]any{
+		"contains_review_paused": true,
+		"contains_review_failed": true,
+		"review_completed_clean": true,
+		"latest_comment_at":      "2026-04-08T06:29:17Z",
+	}
+	if g := e.ClassifyStatus(m); g != BotStatusCompletedClean {
+		t.Fatalf("got %q want completed_clean", g)
+	}
+	s, basis := classifyCoderabbitStatusWithBasis(m)
+	if s != BotStatusCompletedClean || basis != "review_completed_clean" {
+		t.Fatalf("basis got %q %q", s, basis)
 	}
 }
 
@@ -235,6 +468,11 @@ func TestCoderabbitEnrichment_reviewedHeadSHAFromRange(t *testing.T) {
 			name:    "range_extracts_trailing_sha",
 			body:    "Reviewing files that changed from the base of the PR and between [1c0a07a](https://example.com/1) and [4b680dbdeadbeef](https://example.com/2).\n",
 			wantSHA: "4b680dbdeadbeef",
+		},
+		{
+			name:    "range_plain_hex_summarize_details",
+			body:    "Reviewing files that changed from the base of the PR and between f2d7df9d7d380f71364014b4d14ae1afdb92c2da and 78cc7e713dc7c5cc68af19bf0e67be6b2fc3b634.\n",
+			wantSHA: "78cc7e713dc7c5cc68af19bf0e67be6b2fc3b634",
 		},
 		{
 			name:    "single_sha_at_bracket_form",

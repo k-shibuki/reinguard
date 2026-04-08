@@ -121,6 +121,11 @@ Verify the doc impact list from `implement` (Act step 3) is reflected:
 - `.reinguard/` knowledge or policy updated if operational meaning
   changed
 - Intentional deferrals documented in the PR body
+- **Go godoc** (when the diff touches exported APIs, package comments, or
+  non-trivial internal helpers): align with
+  `.reinguard/policy/coding--godoc.md` — meaningful sentences, no mechanical
+  filler; optional CodeRabbit docstring output is never authoritative without
+  review
 
 ## Disposition guidance
 

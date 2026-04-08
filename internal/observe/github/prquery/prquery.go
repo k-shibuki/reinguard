@@ -20,6 +20,27 @@ type BotReviewer struct {
 	Required bool
 }
 
+// enrichmentNameCoderabbit is the registered enrichment plugin id for CodeRabbit (reinguard.yaml enrich[]).
+const enrichmentNameCoderabbit = "coderabbit"
+
+func enrichIncludesCoderabbit(names []string) bool {
+	for _, n := range names {
+		if strings.TrimSpace(n) == enrichmentNameCoderabbit {
+			return true
+		}
+	}
+	return false
+}
+
+// applyCoderabbitStatusClassBasis sets status_class_basis when CodeRabbit enrichment is enabled.
+func applyCoderabbitStatusClassBasis(status map[string]any, enrich []string) {
+	if !enrichIncludesCoderabbit(enrich) {
+		return
+	}
+	_, basis := classifyCoderabbitStatusWithBasis(status)
+	status["status_class_basis"] = basis
+}
+
 const prContextQuery = `query PRContext($owner: String!, $name: String!, $number: Int!, $cursor: String, $includeDetail: Boolean!) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $number) {
@@ -294,20 +315,24 @@ func CollectWithOptions(ctx context.Context, c *githubapi.Client, owner, repo st
 		inbox = []any{}
 	}
 	reviewsInner["review_inbox"] = inbox
-	commentNodes, err := mergeCommentNodesForBots(ctx, c, owner, repo, prNumber, firstPR.Comments, bots)
+	commentNodes, conversationIncomplete, err := mergeCommentNodesForBots(ctx, c, owner, repo, prNumber, firstPR.Comments, bots)
 	if err != nil {
 		return nil, nil, err
 	}
+	reviewsInner["conversation_comments"] = buildConversationCommentsReadModel(commentNodes)
+	reviewsInner["conversation_comments_incomplete"] = conversationIncomplete
 	statusList := buildBotReviewerStatus(firstPR, bots, commentNodes, now)
 	reviewsInner["bot_reviewer_status"] = statusList
 	var headSHA string
 	if firstPR.HeadRefOid != nil {
 		headSHA = *firstPR.HeadRefOid
 	}
-	reviewsInner["bot_review_diagnostics"] = ComputeBotReviewDiagnostics(statusList, headSHA)
+	reviewsInner["bot_review_diagnostics"] = ComputeBotReviewDiagnostics(statusList, headSHA, conversationIncomplete)
 	return pullDetail, reviewsInner, nil
 }
 
+// paginatePRContext walks review-thread GraphQL pages until the inbox is complete or the
+// page budget is hit; incomplete is true when older thread pages were not fetched.
 func paginatePRContext(ctx context.Context, c *githubapi.Client, owner, repo string, prNumber int) (firstPR *prPullRequestNode, inbox []any, total, unresolved int, incomplete bool, err error) {
 	var cursor any
 	for page := 0; page < maxReviewThreadPages; page++ {
@@ -360,12 +385,15 @@ func paginatePRContext(ctx context.Context, c *githubapi.Client, owner, repo str
 	return firstPR, inbox, total, unresolved, incomplete, nil
 }
 
+// emptyReviewsInner returns a zeroed github.reviews subtree used when no PR exists.
 func emptyReviewsInner() map[string]any {
 	return map[string]any{
 		"review_threads_total":               0,
 		"review_threads_unresolved":          0,
 		"pagination_incomplete":              false,
 		"review_inbox":                       []any{},
+		"conversation_comments":              []any{},
+		"conversation_comments_incomplete":   false,
 		"review_decisions_total":             0,
 		"review_decisions_approved":          0,
 		"review_decisions_changes_requested": 0,
@@ -376,11 +404,14 @@ func emptyReviewsInner() map[string]any {
 			"bot_review_pending":          false,
 			"bot_review_terminal":         true,
 			"bot_review_failed":           false,
+			"bot_review_stale":            false,
 			"duplicate_findings_detected": false,
+			"non_thread_findings_present": false,
 		},
 	}
 }
 
+// applyHeadRepositorySignals copies fork head owner/name from GraphQL into pull-request signals.
 func applyHeadRepositorySignals(pr *prPullRequestNode, m map[string]any) {
 	if pr == nil || pr.HeadRepository == nil {
 		return
@@ -393,6 +424,8 @@ func applyHeadRepositorySignals(pr *prPullRequestNode, m map[string]any) {
 	}
 }
 
+// buildPullDetail maps GraphQL PR fields into the flat pull-request signal map (state, refs,
+// mergeability, labels, and linked closing issues).
 func buildPullDetail(pr *prPullRequestNode) map[string]any {
 	m := make(map[string]any)
 	if pr.State != nil {
@@ -439,6 +472,7 @@ func buildPullDetail(pr *prPullRequestNode) map[string]any {
 	return m
 }
 
+// mergeableToSignal normalizes GitHub PullRequest.mergeable enum strings for observation signals.
 func mergeableToSignal(gql string) string {
 	switch strings.ToUpper(strings.TrimSpace(gql)) {
 	case "MERGEABLE":
@@ -450,6 +484,70 @@ func mergeableToSignal(gql string) string {
 	}
 }
 
+// buildConversationCommentsReadModel turns issue-comment nodes into the JSON read model for github.reviews.conversation_comments.
+func buildConversationCommentsReadModel(nodes []prCommentNode) []any {
+	out := make([]any, 0, len(nodes))
+	for _, n := range nodes {
+		entry := map[string]any{"body": n.Body}
+		if n.Author != nil && strings.TrimSpace(n.Author.Login) != "" {
+			entry["author"] = strings.TrimSpace(n.Author.Login)
+		}
+		if strings.TrimSpace(n.UpdatedAt) != "" {
+			t := n.UpdatedAt
+			entry["updated_at"] = t
+			entry["updatedAt"] = t // alias: same ISO8601 as GraphQL field name for consumers expecting camelCase
+		}
+		out = append(out, entry)
+	}
+	return out
+}
+
+// applyFindingConversationCountIfNeeded sets finding-conversation counts from the first
+// configured enrichment that implements findingConversationCounter; later enrich[] names are ignored.
+func applyFindingConversationCountIfNeeded(status map[string]any, enrich []string, nodes []prCommentNode, login string) {
+	for _, name := range enrich {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		e, ok := enrichmentByNameLocked(name)
+		if !ok {
+			continue
+		}
+		counter, ok := e.(findingConversationCounter)
+		if !ok {
+			continue
+		}
+		count := counter.CountFindingConversationComments(nodes, login)
+		status["finding_conversation_comments_count"] = count
+		if name == enrichmentNameCoderabbit {
+			status["cr_finding_conversation_comments_count"] = count
+		}
+		return
+	}
+}
+
+func countCoderabbitFindingConversationComments(nodes []prCommentNode, wantLogin string) int {
+	// Conservative aggregate: counts issue comments that look like findings for merge gating.
+	// User disposition replies on the PR do not decrement this counter; reviewers use the
+	// disposition workflow for non-thread closure (see review--consensus-protocol.md).
+	key := normalizeGitHubActorLogin(wantLogin)
+	var n int
+	for _, cn := range nodes {
+		if cn.Author == nil {
+			continue
+		}
+		if normalizeGitHubActorLogin(cn.Author.Login) != key {
+			continue
+		}
+		if IsCoderabbitFindingConversationComment(cn.Body) {
+			n++
+		}
+	}
+	return n
+}
+
+// buildReviewDecisions aggregates latest review submission states (approve vs changes_requested) and truncation.
 func buildReviewDecisions(lr *latestReviewsConn) map[string]any {
 	out := map[string]any{
 		"review_decisions_total":             0,
@@ -478,6 +576,7 @@ func buildReviewDecisions(lr *latestReviewsConn) map[string]any {
 	return out
 }
 
+// buildReviewInboxEntry builds one unresolved-thread entry for the review inbox, or nil if resolved or missing id.
 func buildReviewInboxEntry(thread reviewThreadNode) map[string]any {
 	if thread.IsResolved {
 		return nil
@@ -552,14 +651,17 @@ func normalizeGitHubActorLogin(login string) string {
 	return strings.TrimSpace(s)
 }
 
-func mergeCommentNodesForBots(ctx context.Context, c *githubapi.Client, owner, repo string, prNumber int, seed *commentsConn, bots []BotReviewer) ([]prCommentNode, error) {
+// mergeCommentNodesForBots prepends older issue-comment pages while back-pagination budget
+// remains; the bool is true when older pages may remain beyond what we merged.
+func mergeCommentNodesForBots(ctx context.Context, c *githubapi.Client, owner, repo string, prNumber int, seed *commentsConn, bots []BotReviewer) ([]prCommentNode, bool, error) {
 	if len(bots) == 0 {
 		if seed == nil {
-			return nil, nil
+			return nil, false, nil
 		}
 		out := make([]prCommentNode, len(seed.Nodes))
 		copy(out, seed.Nodes)
-		return out, nil
+		incomplete := seed.PageInfo.HasPreviousPage
+		return out, incomplete, nil
 	}
 	want := make(map[string]struct{})
 	for _, br := range bots {
@@ -577,25 +679,31 @@ func mergeCommentNodesForBots(ctx context.Context, c *githubapi.Client, owner, r
 	if seed != nil {
 		before = strings.TrimSpace(seed.PageInfo.StartCursor)
 	}
-	for page := 0; page < maxCommentBackPages && hasPrev && !allBotsSeen(seen, want); page++ {
+	for page := 0; page < maxCommentBackPages && hasPrev; page++ {
 		if before == "" {
 			break
 		}
 		conn, err := fetchPRCommentsPage(ctx, c, owner, repo, prNumber, before)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		if conn == nil {
 			break
 		}
-		merged = append(merged, conn.Nodes...)
+		if len(conn.Nodes) > 0 {
+			older := make([]prCommentNode, 0, len(conn.Nodes)+len(merged))
+			older = append(older, conn.Nodes...)
+			merged = append(older, merged...)
+		}
 		markBotsSeen(conn.Nodes, want, seen)
 		hasPrev = conn.PageInfo.HasPreviousPage
 		before = strings.TrimSpace(conn.PageInfo.StartCursor)
 	}
-	return merged, nil
+	// hasPrev means older comment pages exist beyond what we merged; counts may be partial.
+	return merged, hasPrev, nil
 }
 
+// fetchPRCommentsPage loads one page of PR issue comments before the given cursor.
 func fetchPRCommentsPage(ctx context.Context, c *githubapi.Client, owner, repo string, prNumber int, before string) (*commentsConn, error) {
 	vars := map[string]any{"owner": owner, "name": repo, "number": prNumber, "before": before}
 	var data prCommentsPageResponse
@@ -608,12 +716,14 @@ func fetchPRCommentsPage(ctx context.Context, c *githubapi.Client, owner, repo s
 	return data.Repository.PullRequest.Comments, nil
 }
 
+// botKeysSeenInComments reports which normalized bot logins from want appear in nodes.
 func botKeysSeenInComments(nodes []prCommentNode, want map[string]struct{}) map[string]bool {
 	seen := make(map[string]bool)
 	markBotsSeen(nodes, want, seen)
 	return seen
 }
 
+// markBotsSeen records normalized author logins from nodes that match want into seen.
 func markBotsSeen(nodes []prCommentNode, want map[string]struct{}, seen map[string]bool) {
 	for _, n := range nodes {
 		if n.Author == nil {
@@ -626,22 +736,26 @@ func markBotsSeen(nodes []prCommentNode, want map[string]struct{}, seen map[stri
 	}
 }
 
-func allBotsSeen(seen map[string]bool, want map[string]struct{}) bool {
-	for k := range want {
-		if !seen[k] {
-			return false
-		}
+// applyReviewCommitSHAFromEnrichedComment sets review_commit_sha from an enriched reviewed head
+// when GraphQL did not return a review (comment-only bot completion), or when latestReviews still
+// points at an older review commit while the selected status comment names the current PR head in
+// its reviewed range (CodeRabbit summarize / clean-bill edits).
+func applyReviewCommitSHAFromEnrichedComment(status map[string]any, headSHA string) {
+	enriched := strings.TrimSpace(signalString(status, "reviewed_head_sha"))
+	if enriched == "" {
+		enriched = strings.TrimSpace(signalString(status, "cr_reviewed_head_sha"))
 	}
-	return true
-}
+	cur := strings.TrimSpace(signalString(status, "review_commit_sha"))
 
-// applyReviewCommitSHAFromCoderabbitComment sets review_commit_sha from cr_reviewed_head_sha
-// when GraphQL did not return a review (comment-only CodeRabbit completion).
-func applyReviewCommitSHAFromCoderabbitComment(status map[string]any) {
-	if strings.TrimSpace(signalString(status, "review_commit_sha")) == "" {
-		if s := strings.TrimSpace(signalString(status, "cr_reviewed_head_sha")); s != "" {
-			status["review_commit_sha"] = s
-		}
+	if enriched != "" &&
+		headSHA != "" &&
+		strings.EqualFold(enriched, headSHA) &&
+		statusMapBoolAny(status, false, "cr_review_processing", "review_processing") {
+		status["review_commit_sha"] = enriched
+		return
+	}
+	if cur == "" && enriched != "" {
+		status["review_commit_sha"] = enriched
 	}
 }
 
@@ -656,15 +770,6 @@ func reviewFailedFromComment(lower string) bool {
 	}
 	if strings.Contains(lower, "review was voided") || strings.Contains(lower, "voided review") {
 		return true
-	}
-	return false
-}
-
-func hasCoderabbitEnrich(enrichNames []string) bool {
-	for _, n := range enrichNames {
-		if strings.TrimSpace(n) == "coderabbit" {
-			return true
-		}
 	}
 	return false
 }
@@ -685,11 +790,39 @@ func genericIssueCommentMaxTier(body string) int {
 	return t
 }
 
+// commentMaxTier returns the semantic tier for body using the first enrichment that implements
+// issueCommentTierer, otherwise genericIssueCommentMaxTier.
 func commentMaxTier(body string, enrichNames []string) int {
-	if hasCoderabbitEnrich(enrichNames) {
-		return CoderabbitIssueCommentMaxTier(body)
+	for _, name := range enrichNames {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		e, ok := enrichmentByNameLocked(name)
+		if !ok {
+			continue
+		}
+		tierer, ok := e.(issueCommentTierer)
+		if !ok {
+			continue
+		}
+		return tierer.CommentMaxTier(body)
 	}
 	return genericIssueCommentMaxTier(body)
+}
+
+// coerceInt parses common JSON numeric shapes into int for status maps.
+func coerceInt(v any) (int, bool) {
+	switch x := v.(type) {
+	case int:
+		return x, true
+	case int64:
+		return int(x), true
+	case float64:
+		return int(x), true
+	default:
+		return 0, false
+	}
 }
 
 // adjustRateLimitRemainingForStatusCommentAge replaces rate_limit_remaining_seconds with
@@ -724,19 +857,6 @@ func adjustRateLimitRemainingForStatusCommentAge(status map[string]any, now time
 		rem = 0
 	}
 	status["rate_limit_remaining_seconds"] = rem
-}
-
-func coerceInt(v any) (int, bool) {
-	switch x := v.(type) {
-	case int:
-		return x, true
-	case int64:
-		return int(x), true
-	case float64:
-		return int(x), true
-	default:
-		return 0, false
-	}
 }
 
 // selectStatusCommentForLogin picks the PR issue comment whose body drives bot status
@@ -783,10 +903,20 @@ func selectStatusCommentForLogin(nodes []prCommentNode, wantLogin string, enrich
 	return best.Body, best.UpdatedAt, "status_marker"
 }
 
+func headRefOIDFromPR(pr *prPullRequestNode) string {
+	if pr == nil || pr.HeadRefOid == nil {
+		return ""
+	}
+	return strings.TrimSpace(*pr.HeadRefOid)
+}
+
+// buildBotReviewerStatus builds one status map per configured bot: latest review, issue-comment
+// enrichment, finding-conversation counts, rate-limit age adjustment, and ClassifyBotStatus.
 func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNodes []prCommentNode, now time.Time) []any {
 	if len(bots) == 0 {
 		return []any{}
 	}
+	headSHA := headRefOIDFromPR(pr)
 	type reviewInfo struct {
 		State     string
 		CommitOid string
@@ -849,14 +979,18 @@ func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNo
 				status[k] = v
 			}
 		}
+		applyFindingConversationCountIfNeeded(status, br.Enrich, nodes, login)
 		adjustRateLimitRemainingForStatusCommentAge(status, now)
-		applyReviewCommitSHAFromCoderabbitComment(status)
+		applyReviewCommitSHAFromEnrichedComment(status, headSHA)
 		status["status"] = ClassifyBotStatus(status, br.Enrich)
+		applyCoderabbitStatusClassBasis(status, br.Enrich)
 		out = append(out, status)
 	}
 	return out
 }
 
+// latestCommentForLogin returns the body and updatedAt of the chronologically latest issue comment
+// by wantLogin (RFC3339 string compare on updatedAt).
 func latestCommentForLogin(nodes []prCommentNode, wantLogin string) (body, updatedAt string) {
 	var best string
 	for _, n := range nodes {

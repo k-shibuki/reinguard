@@ -26,16 +26,17 @@ wins** among matching rules (ADR-0004). `state_id` values:
 | state_id | Intent | Notes |
 |----------|--------|--------|
 | `unresolved_threads` | Actionable review threads remain open | `github.reviews.review_threads_unresolved` > 0 (GraphQL `reviewThreads` with `isResolved` false). **Stronger than** bot-wait states when both match so agents fix threads instead of waiting on bots. |
+| `non_thread_findings_pending` | Required bot has non-thread review work (enrichment counts) | PR exists; threads 0; pagination complete; no formal changes-requested; `github.reviews.bot_review_diagnostics.non_thread_findings_present` true (Issue #105). **Priority** between `unresolved_threads` and `changes_requested`. |
 | `changes_requested` | Formal GitHub "Request changes" on the PR | `github.reviews.review_decisions_changes_requested` > 0 (`latestReviews` with state `CHANGES_REQUESTED`). **Not** the same as open review threads; a bot may leave threads without a CHANGES_REQUESTED review. |
 | `waiting_bot_rate_limited` | Required bot `status` is `rate_limited` | `op: any` on `github.reviews.bot_reviewer_status` with `$.required` and `$.status` |
 | `waiting_bot_paused` | Required bot `status` is `review_paused` | Same pattern |
 | `waiting_bot_failed` | Any required bot in failed tier (aggregate) | `github.reviews.bot_review_diagnostics.bot_review_failed` |
-| `waiting_bot_stale` | Required bot completed review on a different HEAD | `bot_review_diagnostics.bot_review_stale` true and PR exists. **Priority vs `waiting_bot_rate_limited`:** state rule `rate_limited` (priority 10) wins over `bot_stale` (priority 13) when both could match — cool down / quota recovery must finish before treating stale re-trigger as the primary action. |
+| `waiting_bot_stale` | Required bot completed review on a different HEAD | `bot_review_diagnostics.bot_review_stale` true and PR exists. **Priority vs `waiting_bot_rate_limited`:** state rule `rate_limited` (priority 11) wins over `bot_stale` (priority 14) when both could match — cool down / quota recovery must finish before treating stale re-trigger as the primary action. |
 | `waiting_bot_run` | Waiting on required bot outcome | `bot_review_diagnostics.bot_review_pending` and PR exists |
-| `merge_ready` | Coarse merge gate (clean tree, CI, threads, decisions) | Aligns with `merge-readiness` guard signals |
+| `merge_ready` | Coarse merge gate (clean tree, CI, threads, decisions, bot diagnostics) | Rule includes `bot_review_diagnostics` alignment with the `merge-readiness` built-in (pending/terminal/failed/stale/non-thread), plus mergeability and CI success — see `.reinguard/control/states/workflow.yaml` |
 | `waiting_ci` | PR open; no thread/decision work; CI or mergeability not satisfied | Threads 0, changes 0, working tree clean; `ci_status` != `success` **or** `merge_state_status` != `clean` |
 | `pr_open` | PR exists; residual (e.g. dirty working tree) | `github.pull_requests.pr_exists_for_branch` true |
-| `ready_for_pr` | No PR exists, and `pr-readiness` is fresh and passing | `pr_exists_for_branch` false (or missing) and `gates.pr-readiness.status == pass`; `pr-readiness` is the runtime gate recorded by `.reinguard/procedure/change-inspect.md` per ADR-0014 (artifact under `.reinguard/local/gates/`), keeping PR readiness mechanically visible without a dedicated route vocabulary |
+| `ready_for_pr` | No PR exists, and `pr-readiness` is fresh and passing | `pr_exists_for_branch` false (or missing) and `gates.pr-readiness.status == pass`; `pr-readiness` is the runtime gate recorded by `.reinguard/procedure/change-inspect.md` per ADR-0014 (artifact under `.reinguard/local/gates/`). Its `pass` contract is proof-carrying: it must reference the fresh passing inputs required by `workflow.runtime_gate_roles.pr_readiness.pass_requires_roles` for the same subject. In this repository’s current default config, that means `local-verification` plus `local-coderabbit`, so the FSM can keep reading one gate without treating it as an opaque marker. |
 | `working_no_pr` | No PR for branch (or PR facet absent); residual before PR readiness is proven | `pr_exists_for_branch` false or path missing, with `ready_for_pr` using a lower numeric `priority` than `working_no_pr` so it wins when the gate condition matches |
 
 **Bot status tiers** (per-element `status` in `bot_reviewer_status`):
@@ -74,7 +75,7 @@ after state resolution (same mechanism as `rgd route select` with merged state).
 | `user-implement` | `working_no_pr`, `ready_for_pr` | `implement` while work is still in progress; `pr-create` when `state_id` is `ready_for_pr` |
 | `user-monitor-pr` | `pr_open` | Observe PR / residual |
 | `user-wait-ci` | `waiting_ci` | `review-address` (checks / mergeability) |
-| `user-address-review` | `unresolved_threads`, `changes_requested` | `review-address` |
+| `user-address-review` | `unresolved_threads`, `non_thread_findings_pending`, `changes_requested` | `review-address` |
 | `user-wait-bot-failed` | `waiting_bot_failed` | `wait-bot-review` |
 | `user-wait-bot-stale` | `waiting_bot_stale` | `wait-bot-review` |
 | `user-wait-bot-run` | `waiting_bot_run` | `wait-bot-review` |
@@ -106,12 +107,15 @@ primary `route_id` in `rgd route select` output. Alternatives appear in
 | `pr_open` | `.reinguard/procedure/review-address.md` |
 | `waiting_ci` | `.reinguard/procedure/review-address.md` |
 | `unresolved_threads` | `.reinguard/procedure/review-address.md` |
+| `non_thread_findings_pending` | `.reinguard/procedure/review-address.md` |
 | `changes_requested` | `.reinguard/procedure/review-address.md` |
 | `waiting_bot_rate_limited` / `waiting_bot_paused` / `waiting_bot_failed` / `waiting_bot_stale` / `waiting_bot_run` | `.reinguard/procedure/wait-bot-review.md` (+ `review--bot-operations.md` in `knowledge.entries`) |
 | `merge_ready` | `.reinguard/procedure/pr-merge.md` |
 
 Self-inspection before PR creation remains `.reinguard/procedure/change-inspect.md`;
-it prepares `ready_for_pr` by recording the `pr-readiness` gate but is not
+it prepares `ready_for_pr` by recording the configured pre-PR AI review proof
+(default gate id: `local-coderabbit`) and then the proof-carrying
+`pr-readiness` gate, but is not
 itself a state-mapped procedure.
 Post-review learning: `.reinguard/procedure/internalize.md`.
 

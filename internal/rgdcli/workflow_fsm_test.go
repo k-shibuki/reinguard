@@ -150,6 +150,31 @@ var workflowFSMScenarioFixtures = []struct {
 		wantRouteID: "user-address-review",
 	},
 	{
+		name: "non_thread_findings_pending",
+		observation: `{
+  "signals": {
+    "git": {"detached_head": false, "working_tree_clean": true},
+    "github": {
+      "pull_requests": {"pr_exists_for_branch": true, "merge_state_status": "clean"},
+      "ci": {"ci_status": "success"},
+      "reviews": {
+        "review_threads_unresolved": 0,
+        "pagination_incomplete": false,
+        "review_decisions_changes_requested": 0,
+        "review_decisions_truncated": false,
+        "bot_reviewer_status": [],
+        "bot_review_diagnostics": {
+          "non_thread_findings_present": true
+        }
+      }
+    }
+  },
+  "degraded": false
+}`,
+		wantStateID: "non_thread_findings_pending",
+		wantRouteID: "user-address-review",
+	},
+	{
 		name: "merge_ready",
 		observation: `{
   "signals": {
@@ -165,7 +190,14 @@ var workflowFSMScenarioFixtures = []struct {
         "pagination_incomplete": false,
         "review_decisions_changes_requested": 0,
         "review_decisions_truncated": false,
-        "bot_reviewer_status": []
+        "bot_reviewer_status": [],
+        "bot_review_diagnostics": {
+          "bot_review_pending": false,
+          "bot_review_terminal": true,
+          "bot_review_failed": false,
+          "bot_review_stale": false,
+          "non_thread_findings_present": false
+        }
       }
     }
   },
@@ -429,11 +461,50 @@ func TestRunStateEval_workflowFSM_readyForPRFromGate(t *testing.T) {
 	var recordBuf bytes.Buffer
 	recordApp := NewApp("record")
 	recordApp.Writer = &recordBuf
+	writeFile(t, filepath.Join(repo, "verify-checks.json"), []byte(`[
+  {"id":"go-test","status":"pass","summary":"go test ./... -race"}
+]`))
+	writeFile(t, filepath.Join(repo, "cr-checks.json"), []byte(`[
+  {"id":"local-coderabbit-cli","status":"pass","summary":"local CodeRabbit completed"}
+]`))
+	writeFile(t, filepath.Join(repo, "ready-checks.json"), []byte(`[
+  {"id":"review-closure","status":"pass","summary":"all local findings classified and closed"}
+]`))
 	if err := recordApp.Run([]string{
 		"rgd", "gate", "record",
 		"--config-dir", cfgDir,
 		"--cwd", repo,
 		"--status", "pass",
+		"--producer-procedure", "implement",
+		"--checks-file", "verify-checks.json",
+		"local-verification",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	recordApp2 := NewApp("record2")
+	recordApp2.Writer = io.Discard
+	if err := recordApp2.Run([]string{
+		"rgd", "gate", "record",
+		"--config-dir", cfgDir,
+		"--cwd", repo,
+		"--status", "pass",
+		"--producer-procedure", "change-inspect",
+		"--checks-file", "cr-checks.json",
+		"local-coderabbit",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	recordApp3 := NewApp("record3")
+	recordApp3.Writer = io.Discard
+	if err := recordApp3.Run([]string{
+		"rgd", "gate", "record",
+		"--config-dir", cfgDir,
+		"--cwd", repo,
+		"--status", "pass",
+		"--producer-procedure", "change-inspect",
+		"--checks-file", "ready-checks.json",
+		"--input-gate", "local-verification",
+		"--input-gate", "local-coderabbit",
 		"pr-readiness",
 	}); err != nil {
 		t.Fatal(err)
@@ -499,11 +570,50 @@ func TestRunStateEval_workflowFSM_stalePrReadinessFallsBackToWorkingNoPR(t *test
 
 	recordApp := NewApp("record")
 	recordApp.Writer = io.Discard
+	writeFile(t, filepath.Join(repo, "verify-checks.json"), []byte(`[
+  {"id":"go-test","status":"pass","summary":"go test ./... -race"}
+]`))
+	writeFile(t, filepath.Join(repo, "cr-checks.json"), []byte(`[
+  {"id":"local-coderabbit-cli","status":"pass","summary":"local CodeRabbit completed"}
+]`))
+	writeFile(t, filepath.Join(repo, "ready-checks.json"), []byte(`[
+  {"id":"review-closure","status":"pass","summary":"all local findings classified and closed"}
+]`))
 	if err := recordApp.Run([]string{
 		"rgd", "gate", "record",
 		"--config-dir", cfgDir,
 		"--cwd", repo,
 		"--status", "pass",
+		"--producer-procedure", "implement",
+		"--checks-file", "verify-checks.json",
+		"local-verification",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	recordApp2 := NewApp("record2")
+	recordApp2.Writer = io.Discard
+	if err := recordApp2.Run([]string{
+		"rgd", "gate", "record",
+		"--config-dir", cfgDir,
+		"--cwd", repo,
+		"--status", "pass",
+		"--producer-procedure", "change-inspect",
+		"--checks-file", "cr-checks.json",
+		"local-coderabbit",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	recordApp3 := NewApp("record3")
+	recordApp3.Writer = io.Discard
+	if err := recordApp3.Run([]string{
+		"rgd", "gate", "record",
+		"--config-dir", cfgDir,
+		"--cwd", repo,
+		"--status", "pass",
+		"--producer-procedure", "change-inspect",
+		"--checks-file", "ready-checks.json",
+		"--input-gate", "local-verification",
+		"--input-gate", "local-coderabbit",
 		"pr-readiness",
 	}); err != nil {
 		t.Fatal(err)

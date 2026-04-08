@@ -19,6 +19,19 @@ type combinedStatus struct {
 	State string `json:"state"`
 }
 
+// checkRunJSON is one element of check_runs from GET .../commits/{sha}/check-runs.
+type checkRunJSON struct {
+	Conclusion *string `json:"conclusion"`
+	Name       string  `json:"name"`
+	Status     string  `json:"status"`
+}
+
+// checkRunsAPIResponse is the JSON shape of GET /repos/{owner}/{repo}/commits/{sha}/check-runs.
+type checkRunsAPIResponse struct {
+	CheckRuns  []checkRunJSON `json:"check_runs"`
+	TotalCount int            `json:"total_count"`
+}
+
 // Collect returns a coarse CI rollup for the observed head SHA.
 // If headSHAOverride is non-empty after trimming, it is used directly; otherwise the
 // SHA is determined via git rev-parse HEAD in workDir.
@@ -51,19 +64,62 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir, hea
 		url.PathEscape(sha),
 	)
 	var st combinedStatus
-	if err := c.GetJSON(ctx, u, &st); err != nil {
+	if err = c.GetJSON(ctx, u, &st); err != nil {
 		return nil, warnings, err
 	}
 	status := strings.ToLower(st.State)
 	if status == "" {
 		status = "unknown"
 	}
+	ciMap := map[string]any{
+		"ci_status": status,
+		"head_sha":  sha,
+	}
+	checkRuns, warnsCR, err := fetchCheckRuns(ctx, c, owner, repo, sha)
+	warnings = append(warnings, warnsCR...)
+	if err != nil {
+		warnings = append(warnings, err.Error())
+		ciMap["check_runs"] = []any{}
+	} else {
+		ciMap["check_runs"] = checkRuns
+	}
 	return map[string]any{
-		"ci": map[string]any{
-			"ci_status": status,
-			"head_sha":  sha,
-		},
+		"ci": ciMap,
 	}, warnings, nil
+}
+
+func fetchCheckRuns(ctx context.Context, c *githubapi.Client, owner, repo, sha string) ([]any, []string, error) {
+	if c == nil {
+		return nil, nil, fmt.Errorf("nil client")
+	}
+	u := fmt.Sprintf("%s/repos/%s/%s/commits/%s/check-runs?per_page=100",
+		c.APIBase(),
+		url.PathEscape(owner),
+		url.PathEscape(repo),
+		url.PathEscape(sha),
+	)
+	var resp checkRunsAPIResponse
+	if err := c.GetJSON(ctx, u, &resp); err != nil {
+		return nil, nil, err
+	}
+	var warns []string
+	if resp.TotalCount > len(resp.CheckRuns) {
+		warns = append(warns, fmt.Sprintf("github ci: check-runs response truncated (%d of %d)", len(resp.CheckRuns), resp.TotalCount))
+	}
+	out := make([]any, 0, len(resp.CheckRuns))
+	for _, cr := range resp.CheckRuns {
+		entry := map[string]any{
+			"name":   cr.Name,
+			"status": strings.ToLower(strings.TrimSpace(cr.Status)),
+		}
+		if cr.Conclusion != nil {
+			entry["conclusion"] = strings.ToLower(strings.TrimSpace(*cr.Conclusion))
+		} else {
+			entry["conclusion"] = nil
+		}
+		out = append(out, entry)
+	}
+	return out, warns, nil
 }
 
 // headSHA returns the current commit SHA from git rev-parse HEAD in wd.
