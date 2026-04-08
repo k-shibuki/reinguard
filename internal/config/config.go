@@ -3,7 +3,6 @@ package config
 
 import (
 	"fmt"
-	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -319,7 +318,7 @@ func ConfigWarnings(res *LoadResult) []string {
 		}
 	}
 	if res.KnowledgePresent && res.Knowledge != nil {
-		if w := schemaVersionSkewWarningAt(res.Knowledge.SchemaVersion, filepath.Join("knowledge", "manifest.json")); w != "" {
+		if w := schemaVersionSkewWarningAt(res.Knowledge.SchemaVersion, "knowledge/manifest.json"); w != "" {
 			out = append(out, w)
 		}
 	}
@@ -330,7 +329,7 @@ func ConfigWarnings(res *LoadResult) []string {
 	sort.Strings(keys)
 	for _, k := range keys {
 		doc := res.RuleFiles[k]
-		hint := filepath.Join("control", filepath.ToSlash(k))
+		hint := "control/" + k
 		if w := schemaVersionSkewWarningAt(doc.SchemaVersion, hint); w != "" {
 			out = append(out, w)
 		}
