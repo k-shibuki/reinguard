@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -113,25 +114,16 @@ func ValidateStateMapping(entries []Entry, declaredStateIDs map[string]struct{})
 	return nil
 }
 
-func containsString(list []string, v string) bool {
-	for _, x := range list {
-		if x == v {
-			return true
-		}
-	}
-	return false
-}
-
 // HintEntry returns the procedure mapped to stateID, optionally filtered by routeID
 // when the entry declares non-empty RouteIDs (must match a resolved route).
 func HintEntry(entries []Entry, stateID string, routeResolved bool, routeID string) *Entry {
 	for i := range entries {
 		e := &entries[i]
-		if !containsString(e.StateIDs, stateID) {
+		if !slices.Contains(e.StateIDs, stateID) {
 			continue
 		}
 		if len(e.RouteIDs) > 0 {
-			if !routeResolved || routeID == "" || !containsString(e.RouteIDs, routeID) {
+			if !routeResolved || routeID == "" || !slices.Contains(e.RouteIDs, routeID) {
 				continue
 			}
 		}

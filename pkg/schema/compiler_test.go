@@ -32,3 +32,45 @@ func TestNewCompiler(t *testing.T) {
 		})
 	}
 }
+
+func TestOperationalContextSchema_procedureHintResolvedOnly(t *testing.T) {
+	t.Parallel()
+	c, err := NewCompiler()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := c.Compile(URIOperationalContext)
+	if err != nil {
+		t.Fatal(err)
+	}
+	valid := map[string]any{
+		"schema_version": CurrentSchemaVersion,
+		"state": map[string]any{
+			"kind":     "resolved",
+			"state_id": "working_no_pr",
+			"procedure_hint": map[string]any{
+				"procedure_id": "procedure-implement",
+				"path":         ".reinguard/procedure/implement.md",
+				"derived_from": "state_id",
+			},
+		},
+	}
+	if err := s.Validate(valid); err != nil {
+		t.Fatalf("valid context rejected: %v", err)
+	}
+	invalid := map[string]any{
+		"schema_version": CurrentSchemaVersion,
+		"state": map[string]any{
+			"kind":     "ambiguous",
+			"state_id": "working_no_pr",
+			"procedure_hint": map[string]any{
+				"procedure_id": "procedure-implement",
+				"path":         ".reinguard/procedure/implement.md",
+				"derived_from": "state_id",
+			},
+		},
+	}
+	if err := s.Validate(invalid); err == nil {
+		t.Fatal("expected schema validation error for procedure_hint on non-resolved state")
+	}
+}

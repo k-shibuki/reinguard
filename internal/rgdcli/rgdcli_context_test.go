@@ -195,6 +195,14 @@ applies_to:
 		t.Fatal(err)
 	}
 	state := mustMap(t, out["state"], "state")
+	if state["kind"] != "resolved" || state["state_id"] != "Idle" {
+		t.Fatalf("unexpected state resolution: %v", state)
+	}
+	routes := mustSlice(t, out["routes"], "routes")
+	r0 := mustMap(t, routes[0], "routes[0]")
+	if r0["kind"] != "resolved" || r0["route_id"] != "next" {
+		t.Fatalf("unexpected route resolution: %v", r0)
+	}
 	if _, ok := state["procedure_hint"]; ok {
 		t.Fatalf("unexpected procedure_hint: %v", state["procedure_hint"])
 	}

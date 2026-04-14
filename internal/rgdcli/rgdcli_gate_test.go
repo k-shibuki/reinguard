@@ -213,27 +213,57 @@ func TestRunGateRecord_inlineChecksAndFileChecks(t *testing.T) {
 	if !ok || len(checks) != 2 {
 		t.Fatalf("expected 2 checks (1 from file + 1 inline), got %v", out)
 	}
+	got := map[string]string{}
+	for _, raw := range checks {
+		m, ok := raw.(map[string]any)
+		if !ok {
+			t.Fatalf("check entry must be object: %T", raw)
+		}
+		id, _ := m["id"].(string)
+		status, _ := m["status"].(string)
+		summary, _ := m["summary"].(string)
+		got[id] = status + "|" + summary
+	}
+	if got["go-test"] != "pass|go test ./... -race" {
+		t.Fatalf("missing/invalid file check: %+v", got)
+	}
+	if got["golangci-lint"] != "pass|golangci-lint run" {
+		t.Fatalf("missing/invalid inline check: %+v", got)
+	}
 }
 
 func TestRunGateRecord_inlineCheckBadFormat(t *testing.T) {
 	t.Parallel()
-	repo := initGitRepoForGateCLI(t)
-	cfgDir := t.TempDir()
+	tests := []string{
+		"bad-format",
+		":pass:summary",
+		"id::summary",
+		"id:pass:",
+		"id:pass",
+	}
+	for _, v := range tests {
+		v := v
+		t.Run(v, func(t *testing.T) {
+			t.Parallel()
+			repo := initGitRepoForGateCLI(t)
+			cfgDir := t.TempDir()
 
-	var buf bytes.Buffer
-	app := NewApp("t")
-	app.Writer = &buf
-	err := app.Run([]string{
-		"rgd", "gate", "record",
-		"--config-dir", cfgDir,
-		"--cwd", repo,
-		"--status", "pass",
-		"--producer-procedure", "implement",
-		"--check", "bad-format",
-		"local-verification",
-	})
-	if err == nil {
-		t.Fatal("expected error for malformed --check value")
+			var buf bytes.Buffer
+			app := NewApp("t")
+			app.Writer = &buf
+			err := app.Run([]string{
+				"rgd", "gate", "record",
+				"--config-dir", cfgDir,
+				"--cwd", repo,
+				"--status", "pass",
+				"--producer-procedure", "implement",
+				"--check", v,
+				"local-verification",
+			})
+			if err == nil {
+				t.Fatalf("expected error for malformed --check value %q", v)
+			}
+		})
 	}
 }
 

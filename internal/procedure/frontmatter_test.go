@@ -52,6 +52,28 @@ applies_to:
 	}
 }
 
+func TestParseFrontMatter_blockScalarAllowsIndentedDelimiters(t *testing.T) {
+	t.Parallel()
+	md := `---
+id: procedure-block-scalar
+purpose: |
+  Keep the literal line below as part of the YAML value.
+  ---
+  More text.
+applies_to:
+  state_ids: []
+  route_ids: []
+---
+`
+	fm, err := ParseFrontMatter([]byte(md))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(fm.Purpose, "More text.") {
+		t.Fatalf("purpose=%q", fm.Purpose)
+	}
+}
+
 func TestParseFrontMatter_errors(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -73,9 +95,18 @@ applies_to:
   route_ids: []
 ---
 `, contain: "duplicate state_id"},
+		{name: "dup_route_in_file", input: `---
+id: x
+purpose: p
+applies_to:
+  state_ids: []
+  route_ids:
+    - r
+    - r
+---
+`, contain: "duplicate route_id"},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			_, err := ParseFrontMatter([]byte(tt.input))

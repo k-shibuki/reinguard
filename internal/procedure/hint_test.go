@@ -2,47 +2,88 @@ package procedure
 
 import "testing"
 
-func TestHintEntry_routeFilter(t *testing.T) {
+func TestHintEntry(t *testing.T) {
 	t.Parallel()
-	entries := []Entry{
-		{
-			ID:       "p1",
-			Path:     "procedure/a.md",
-			StateIDs: []string{"Idle"},
-			RouteIDs: []string{"next"},
+	stateIDs := []string{"Idle", "ready_for_pr", "B"}
+	routeIDs := []string{"", "next", "wrong", "r"}
+	tests := map[string]struct {
+		entries       []Entry
+		stateIDIndex  int
+		routeIDIndex  int
+		wantIndex     int
+		routeResolved bool
+	}{
+		"route filter match": {
+			entries: []Entry{{
+				ID:       "p1",
+				Path:     "procedure/a.md",
+				StateIDs: []string{"Idle"},
+				RouteIDs: []string{"next"},
+			}},
+			stateIDIndex:  0,
+			routeResolved: true,
+			routeIDIndex:  1,
+			wantIndex:     0,
+		},
+		"route filter mismatch": {
+			entries: []Entry{{
+				ID:       "p1",
+				Path:     "procedure/a.md",
+				StateIDs: []string{"Idle"},
+				RouteIDs: []string{"next"},
+			}},
+			stateIDIndex:  0,
+			routeResolved: true,
+			routeIDIndex:  2,
+			wantIndex:     -1,
+		},
+		"route unresolved blocks filtered match": {
+			entries: []Entry{{
+				ID:       "p1",
+				Path:     "procedure/a.md",
+				StateIDs: []string{"Idle"},
+				RouteIDs: []string{"next"},
+			}},
+			stateIDIndex:  0,
+			routeResolved: false,
+			routeIDIndex:  0,
+			wantIndex:     -1,
+		},
+		"empty route scope still matches state": {
+			entries: []Entry{{
+				ID:       "p2",
+				Path:     "procedure/b.md",
+				StateIDs: []string{"ready_for_pr"},
+				RouteIDs: nil,
+			}},
+			stateIDIndex:  1,
+			routeResolved: false,
+			routeIDIndex:  0,
+			wantIndex:     0,
+		},
+		"unknown state": {
+			entries:       []Entry{{ID: "x", StateIDs: []string{"A"}}},
+			stateIDIndex:  2,
+			routeResolved: true,
+			routeIDIndex:  3,
+			wantIndex:     -1,
 		},
 	}
-	got := HintEntry(entries, "Idle", true, "next")
-	if got == nil || got.ID != "p1" {
-		t.Fatalf("got %+v", got)
-	}
-	if HintEntry(entries, "Idle", true, "wrong") != nil {
-		t.Fatal("expected no match when route filter fails")
-	}
-	if HintEntry(entries, "Idle", false, "") != nil {
-		t.Fatal("expected no match when route not resolved")
-	}
-}
-
-func TestHintEntry_emptyRouteIDs(t *testing.T) {
-	t.Parallel()
-	entries := []Entry{
-		{
-			ID:       "p2",
-			Path:     "procedure/b.md",
-			StateIDs: []string{"ready_for_pr"},
-			RouteIDs: nil,
-		},
-	}
-	got := HintEntry(entries, "ready_for_pr", false, "")
-	if got == nil || got.ID != "p2" {
-		t.Fatalf("got %+v", got)
-	}
-}
-
-func TestHintEntry_unknownState(t *testing.T) {
-	t.Parallel()
-	if HintEntry([]Entry{{ID: "x", StateIDs: []string{"A"}}}, "B", true, "r") != nil {
-		t.Fatal("expected nil")
+	for name, tc := range tests {
+		tc := tc
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			got := HintEntry(tc.entries, stateIDs[tc.stateIDIndex], tc.routeResolved, routeIDs[tc.routeIDIndex])
+			if tc.wantIndex < 0 {
+				if got != nil {
+					t.Fatalf("expected nil, got %+v", got)
+				}
+				return
+			}
+			wantID := tc.entries[tc.wantIndex].ID
+			if got == nil || got.ID != wantID {
+				t.Fatalf("got %+v, want id %q", got, wantID)
+			}
+		})
 	}
 }

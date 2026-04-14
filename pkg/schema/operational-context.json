@@ -50,6 +50,20 @@
           "additionalProperties": false
         }
       },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": { "const": "resolved" }
+            }
+          },
+          "else": {
+            "not": {
+              "required": ["procedure_hint"]
+            }
+          }
+        }
+      ],
       "additionalProperties": true
     }
   },

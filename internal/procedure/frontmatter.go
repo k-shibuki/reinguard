@@ -27,16 +27,21 @@ type FrontMatter struct {
 // ParseFrontMatter extracts and parses the first YAML front matter block (--- ... ---).
 func ParseFrontMatter(md []byte) (*FrontMatter, error) {
 	s := strings.TrimSpace(string(md))
-	if !strings.HasPrefix(s, "---") {
+	lines := strings.Split(s, "\n")
+	if len(lines) == 0 || strings.TrimRight(lines[0], "\r") != "---" {
 		return nil, fmt.Errorf("procedure: missing opening front matter delimiter")
 	}
-	s = strings.TrimPrefix(s, "---")
-	s = strings.TrimLeft(s, "\r\n")
-	end := strings.Index(s, "\n---")
+	end := -1
+	for i := 1; i < len(lines); i++ {
+		if strings.TrimRight(lines[i], "\r") == "---" {
+			end = i
+			break
+		}
+	}
 	if end < 0 {
 		return nil, fmt.Errorf("procedure: missing closing front matter delimiter")
 	}
-	yamlBlock := strings.TrimSpace(s[:end])
+	yamlBlock := strings.TrimSpace(strings.Join(lines[1:end], "\n"))
 	var fm FrontMatter
 	if err := yaml.Unmarshal([]byte(yamlBlock), &fm); err != nil {
 		return nil, fmt.Errorf("procedure: parse front matter yaml: %w", err)
@@ -72,13 +77,12 @@ func trimNonEmptyStrings(in []string) []string {
 }
 
 func validateUniqueStrings(kind, procedureID string, values []string) error {
-	seen := make(map[string]string)
+	seen := make(map[string]struct{})
 	for _, v := range values {
-		key := v
-		if prev, ok := seen[key]; ok {
-			return fmt.Errorf("procedure: front matter: duplicate %s %q in procedure id %q (also %q)", kind, v, procedureID, prev)
+		if _, ok := seen[v]; ok {
+			return fmt.Errorf("procedure: front matter: duplicate %s %q in procedure id %q", kind, v, procedureID)
 		}
-		seen[key] = v
+		seen[v] = struct{}{}
 	}
 	return nil
 }
