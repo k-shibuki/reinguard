@@ -11,8 +11,10 @@ import (
 	jsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 	"gopkg.in/yaml.v3"
 
+	"github.com/k-shibuki/reinguard/internal/configdir"
 	"github.com/k-shibuki/reinguard/internal/evaluator"
 	"github.com/k-shibuki/reinguard/internal/labels"
+	"github.com/k-shibuki/reinguard/internal/procedure"
 	"github.com/k-shibuki/reinguard/pkg/schema"
 )
 
@@ -256,4 +258,37 @@ func validateKnowledgeWhenClauses(km *KnowledgeManifest, pathHint string) error 
 		}
 	}
 	return nil
+}
+
+func applyOptionalProcedures(res *LoadResult, dir string) error {
+	repoRoot := configdir.RepoRoot(dir)
+	procDir := filepath.Join(dir, "procedure")
+	entries, present, err := procedure.LoadEntries(repoRoot, procDir)
+	if err != nil {
+		return fmt.Errorf("config: %w", err)
+	}
+	if !present {
+		return nil
+	}
+	declared := declaredStateIDsFromRules(res.Rules())
+	if err := procedure.ValidateStateMapping(entries, declared); err != nil {
+		return fmt.Errorf("config: %w", err)
+	}
+	res.ProcedurePresent = true
+	res.ProcedureEntries = entries
+	return nil
+}
+
+func declaredStateIDsFromRules(rules []Rule) map[string]struct{} {
+	out := make(map[string]struct{})
+	for _, r := range rules {
+		if r.Type != "state" {
+			continue
+		}
+		sid := strings.TrimSpace(r.StateID)
+		if sid != "" {
+			out[sid] = struct{}{}
+		}
+	}
+	return out
 }

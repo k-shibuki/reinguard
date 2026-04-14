@@ -44,7 +44,7 @@ as substrate workflow position.
 
 ## Route
 
-**Normative mapping:** [ADR-0013 § 4](../../docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md) (*Adapter mapping (durable)*). When `state.kind` is `resolved`, use that section’s table to choose the procedure file under `.reinguard/procedure/`. ADR-0013 and `.reinguard/control/` are the SSOT for state and route semantics (do not duplicate the mapping here).
+**Normative mapping:** When `state.kind` is `resolved`, choose the procedure under `.reinguard/procedure/` whose YAML front matter `applies_to.state_ids` contains `state.state_id` (and align with `routes[0].route_id` vs `applies_to.route_ids` when procedures scope by route). The durable mapping is machine-readable Semantics validated by `rgd config validate`; [ADR-0013](../../docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md) §4 describes the mechanism and FSM context (do not duplicate a routing table here). ADR-0013 and `.reinguard/control/` remain the SSOT for state and route *semantics*.
 
 **Dirty working tree + `review-address`:** When `observation.signals.git.working_tree_clean` is `false` and the resolved procedure is `review-address`, run **Step 0** in that procedure first (`change-inspect` → commit → refresh context). See `.reinguard/knowledge/review--incremental-fix-flow.md`.
 
@@ -68,7 +68,7 @@ Persistent JSON defaults to `.reinguard/local/adapter/rgd-next/execute-resume.js
 
 This writes `status: "pending_approval"` and persists the **proposed** contract inputs (`state-id`, `ordered-remainder`, `completion-condition`, fingerprint inputs) so the artifact records **what** the user will approve. The status stays `pending_approval` until the user approves Execute (next section).
 
-Proposal content, approval gate, and user-visible output requirements: [`.reinguard/procedure/next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md) § **Full-path proposal format** and § **Approval gate**. Trace from the current `state_id` ([ADR-0013 § 4](../../docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md)) through **Per-unit Definition of Done** in `next-orchestration.md`. **No per-procedure re-approval** after the single gate.
+Proposal content, approval gate, and user-visible output requirements: [`.reinguard/procedure/next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md) § **Full-path proposal format** and § **Approval gate**. Trace from the current `state_id` and mapped procedure (front matter SSOT per ADR-0013 § 4) through **Per-unit Definition of Done** in `next-orchestration.md`. **No per-procedure re-approval** after the single gate.
 
 **Output (for agents):** Per **`next-orchestration.md`** § **Output** and procedure front matter — not merely `state_id` / `route_id` bullets.
 

@@ -94,19 +94,24 @@ primary `route_id` in `rgd route select` output. Alternatives appear in
 `control/guards/*.yaml` as today. State `merge_ready` is a **coarse** picture;
 `guard eval merge-readiness` remains the explicit merge gate signal.
 
-### 4. Adapter mapping (durable)
+### 4. Adapter mapping (machine-readable SSOT)
 
-| state_id | Primary procedure (Semantics) |
-|----------|------------------------------|
-| `working_no_pr` | `.reinguard/procedure/implement.md` |
-| `ready_for_pr` | `.reinguard/procedure/pr-create.md` |
-| `pr_open` | `.reinguard/procedure/review-address.md` |
-| `waiting_ci` | `.reinguard/procedure/review-address.md` |
-| `unresolved_threads` | `.reinguard/procedure/review-address.md` |
-| `non_thread_findings_pending` | `.reinguard/procedure/review-address.md` |
-| `changes_requested` | `.reinguard/procedure/review-address.md` |
-| `waiting_bot_rate_limited` / `waiting_bot_paused` / `waiting_bot_failed` / `waiting_bot_stale` / `waiting_bot_run` | `.reinguard/procedure/wait-bot-review.md` (+ `review--bot-operations.md` in `knowledge.entries`) |
-| `merge_ready` | `.reinguard/procedure/pr-merge.md` |
+The mapping from a resolved workflow `state_id` to the **primary** Adapter
+procedure document is **not** maintained as a Markdown table in this ADR.
+
+**SSOT:** `.reinguard/procedure/*.md` YAML front matter (`applies_to.state_ids`,
+and optionally `applies_to.route_ids`) per ADR-0011.
+
+**Rules:**
+
+- Each mapped `state_id` is claimed by **exactly one** procedure’s `applies_to.state_ids`. `rgd config validate` rejects duplicates and
+  `state_id` values that do not appear on any `control/states` rule.
+- Adapters resolve the procedure file by matching `state.state_id` from
+  `rgd context build` against that front matter (and cross-check
+  `routes[0].route_id` against `applies_to.route_ids` when procedures scope by
+  route). Optional `state.procedure_hint` in context JSON, when present, is a
+  derived advisory field from the same SSOT; the Markdown files remain
+  authoritative.
 
 Self-inspection before PR creation remains `.reinguard/procedure/change-inspect.md`;
 it prepares `ready_for_pr` by recording the configured pre-PR AI review proof
@@ -115,7 +120,7 @@ it prepares `ready_for_pr` by recording the configured pre-PR AI review proof
 itself a state-mapped procedure.
 Post-review learning: `.reinguard/procedure/internalize.md`.
 
-**Cursor entries:** `.cursor/commands/rgd-next.md` — Sense (`rgd context build`), Route per **§ 4** above, then Propose / Execute per `.reinguard/procedure/next-orchestration.md` (no duplicate procedure mapping table in Adapter files). `.cursor/commands/cursor-plan.md` — planning only (`AskQuestion` / `CreatePlan`); not part of the FSM.
+**Cursor entries:** `.cursor/commands/rgd-next.md` — Sense (`rgd context build`), Route using procedure front matter as above, then Propose / Execute per `.reinguard/procedure/next-orchestration.md` (do not duplicate a mapping table in Adapter files). `.cursor/commands/cursor-plan.md` — planning only (`AskQuestion` / `CreatePlan`); not part of the FSM.
 
 ### 5. Extension contract (state / route / Adapter)
 
@@ -124,8 +129,8 @@ When adding or changing FSM wiring, keep these touchpoints consistent:
 1. **State catalog (this ADR)** — Add or update the row in section 1 for every new or changed `state_id`. Residual states must stay documented (observation gaps, missing facets) and their **numeric `priority`** must be explicit relative to refinements (lower wins; ADR-0004).
 2. **Control state rules** — Edit `.reinguard/control/states/*.yaml`. Ensure rules do not accidentally overlap: a more specific condition (e.g. a gate-backed state) must use a **lower** numeric `priority` than its residual fallback.
 3. **Routes** — Edit `.reinguard/control/routes/*.yaml` when a `state_id` needs a different primary `route_id` or when new states share an existing route with different procedure hints (section 2).
-4. **Adapter mapping** — Update section 4 (Primary procedure) when the primary Cursor procedure for a `state_id` changes. Adapter commands reference this section; do not duplicate the mapping table outside ADR-0013.
-5. **Procedures** — Update `applies_to.state_ids` in affected `.reinguard/procedure/*.md` files. Procedures that are **not** state-mapped (e.g. `change-inspect`) remain documented here and in their body as producers or prerequisites, not as `state_id` values.
+4. **Procedure mapping (`applies_to`)** — When the primary procedure for a `state_id` changes, update the affected `.reinguard/procedure/*.md` front matter (`applies_to.state_ids` / `route_ids` as appropriate). Run `rgd config validate`. Do not add a second mapping table to this ADR; section 4 documents the mechanism only.
+5. **Procedures (not state-mapped)** — Procedures that are not tied to a `state_id` (e.g. `change-inspect`, `next-orchestration`) keep `applies_to.state_ids: []` and remain documented in their bodies as producers, orchestration, or prerequisites.
 6. **Tests** — Extend scenario tests (e.g. `internal/rgdcli/workflow_fsm_test.go`) when resolution or fallback behavior is non-obvious (residual vs refined state, stale gate fallback).
 
 **Guards vs states:** `guard eval` outputs (e.g. built-in `merge-readiness`) are **not** `state_id` values. FSM states may *align* with guard signals (e.g. `merge_ready` with merge-readiness); wiring belongs in `control/states/*.yaml` and this ADR, not by conflating guard JSON with state without explicit rules.
@@ -139,7 +144,7 @@ Operational checklist (files, validation commands, knowledge surfacing): see `.r
 
 ## Consequences
 
-- **Easier**: One YAML-defined FSM; `rgd-next` routes substrate output to procedures.
+- **Easier**: One YAML-defined FSM; Adapters map substrate output to procedures via machine-readable Semantics (`applies_to`) validated by `rgd`.
 - **Harder**: Priority authoring must stay global across states/routes/guards
   (ADR-0004).
 - **Harder**: Observation providers and tests must cover the timing gap where a

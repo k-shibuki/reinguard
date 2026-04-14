@@ -30,7 +30,7 @@ Follow these policy documents in every interaction:
 
 ## Workflow
 
-Follow [.reinguard/policy/workflow--pr-discipline.md](../../.reinguard/policy/workflow--pr-discipline.md). Which procedures apply to which FSM `state_id` / `route_id` is defined in each procedure’s YAML front matter (`applies_to`) and in [ADR-0013 § 4](../../docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md) (*Adapter mapping*). After Sense and Route, `rgd-next` applies [`.reinguard/procedure/next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md) (single full-path proposal, one approval gate, then Execute). Adapter flow: [`rgd-next.md`](../commands/rgd-next.md) § **Propose** then § **Execute**.
+Follow [.reinguard/policy/workflow--pr-discipline.md](../../.reinguard/policy/workflow--pr-discipline.md). Which procedures apply to which FSM `state_id` / `route_id` is defined in each procedure’s YAML front matter (`applies_to`) under [.reinguard/procedure/](../../.reinguard/procedure/); `rgd config validate` checks mapping consistency with `control/states`. [ADR-0013](../../docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md) documents FSM semantics and the mapping *mechanism* (not a duplicate Markdown routing table). After Sense and Route, `rgd-next` applies [`.reinguard/procedure/next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md) (single full-path proposal, one approval gate, then Execute). Adapter flow: [`rgd-next.md`](../commands/rgd-next.md) § **Propose** then § **Execute**.
 
 ### rgd-next Execute — Cursor chat transcript (Adapter)
 

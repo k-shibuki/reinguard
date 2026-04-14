@@ -96,6 +96,19 @@ when:
     "when": {"eval": "constant", "params": {"value": true}}
   }]
 }`))
+	if err := os.Mkdir(filepath.Join(root, "procedure"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(root, "procedure", "golden.md"), []byte(`---
+id: procedure-golden-idle
+purpose: Golden fixture for context build procedure_hint.
+applies_to:
+  state_ids:
+    - Idle
+  route_ids:
+    - next
+---
+`))
 	return root
 }
 

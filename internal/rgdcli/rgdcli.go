@@ -31,6 +31,7 @@ import (
 	"github.com/k-shibuki/reinguard/internal/knowledge"
 	"github.com/k-shibuki/reinguard/internal/observation"
 	"github.com/k-shibuki/reinguard/internal/observe"
+	"github.com/k-shibuki/reinguard/internal/procedure"
 	"github.com/k-shibuki/reinguard/internal/resolve"
 	"github.com/k-shibuki/reinguard/internal/schemaexport"
 	"github.com/k-shibuki/reinguard/internal/signals"
@@ -76,6 +77,22 @@ func resolveEvalOutputMap(res resolve.Result) map[string]any {
 	}
 	if res.ReEntryHint != "" {
 		out["re_entry_hint"] = res.ReEntryHint
+	}
+	return out
+}
+
+func contextBuildStateOutput(stateRes resolve.Result, routeRes resolve.Result, loaded *config.LoadResult) map[string]any {
+	out := resolveEvalOutputMap(stateRes)
+	if stateRes.Kind != resolve.OutcomeResolved || stateRes.StateID == "" || !loaded.ProcedurePresent {
+		return out
+	}
+	routeOK := routeRes.Kind == resolve.OutcomeResolved && routeRes.RouteID != ""
+	if e := procedure.HintEntry(loaded.ProcedureEntries, stateRes.StateID, routeOK, routeRes.RouteID); e != nil {
+		out["procedure_hint"] = map[string]any{
+			"procedure_id": e.ID,
+			"path":         e.Path,
+			"derived_from": "state_id",
+		}
 	}
 	return out
 }
@@ -311,7 +328,7 @@ func RunContextBuild(c *cli.Context) error {
 	ctxDoc := map[string]any{
 		"schema_version": schema.CurrentSchemaVersion,
 		"observation":    obsDoc,
-		"state":          stateRes,
+		"state":          contextBuildStateOutput(stateRes, routeRes, loaded),
 		"routes":         []any{routeRes},
 		"guards": map[string]any{
 			"merge-readiness": gr,
