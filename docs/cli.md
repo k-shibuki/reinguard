@@ -38,7 +38,7 @@ before `state`.
 rgd version
 rgd config validate
 rgd schema export [--dir DIR]
-rgd gate record <gate-id> --status pass|fail --checks-file FILE
+rgd gate record <gate-id> --status pass|fail --check id:status:summary [--checks-file FILE]
 rgd gate status <gate-id>
 rgd gate show <gate-id>
 rgd observe [workflow-position]
@@ -379,9 +379,12 @@ Records one validated gate artifact for the current branch HEAD.
 | `--status` | yes | Top-level gate outcome: `pass` or `fail` |
 | `--producer-procedure` | yes | Procedure that is recording the proof (for example `implement` or `change-inspect`) |
 | `--producer-tool` | no | Recording tool identifier. Defaults to `rgd gate record` |
-| `--checks-file` | yes | JSON array of check objects with fields `id`, `status`, required `summary`, and optional `evidence`; check `status` may be `pass`, `fail`, or `skipped`. At least one check entry is required; the command rejects an empty array. |
+| `--check` | no* | Inline check as `id:status:summary` (repeatable). Preferred over `--checks-file` for simple cases. |
+| `--checks-file` | no* | JSON array of check objects with fields `id`, `status`, required `summary`, and optional `evidence`; check `status` may be `pass`, `fail`, or `skipped`. |
 | `--inputs-file` | no | JSON array of upstream gate proof objects (`gate_id`, `status`, `subject`, `recorded_at`) |
 | `--input-gate` | no | Repeatable shortcut: copy one **fresh passing** stored gate artifact into `inputs[]` |
+
+\* At least one check entry is required from either `--check` or `--checks-file` (or both). `--check` and `--checks-file` may be combined; entries are merged.
 
 The command attaches:
 

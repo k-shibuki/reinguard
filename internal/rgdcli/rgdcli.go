@@ -383,8 +383,13 @@ func RunGateRecord(c *cli.Context, gateID string) error {
 	if err != nil {
 		return err
 	}
+	inlineChecks, err := parseInlineChecks(c.StringSlice("check"))
+	if err != nil {
+		return err
+	}
+	checks = append(checks, inlineChecks...)
 	if len(checks) == 0 {
-		return fmt.Errorf("gate record: at least one check entry is required (provide --checks-file with a JSON array of checks)")
+		return fmt.Errorf("gate record: at least one check entry is required (provide --check or --checks-file)")
 	}
 	inputs, err := loadGateInputsFile(wd, c.String("inputs-file"))
 	if err != nil {
@@ -494,6 +499,22 @@ func mergeGateSignalsIntoFlat(ctx context.Context, cfgDir, wd string, flat map[s
 		flat[k] = v
 	}
 	return nil
+}
+
+func parseInlineChecks(raw []string) ([]gate.Check, error) {
+	var out []gate.Check
+	for _, s := range raw {
+		parts := strings.SplitN(s, ":", 3)
+		if len(parts) < 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
+			return nil, fmt.Errorf("gate record: --check value %q must be id:status:summary", s)
+		}
+		out = append(out, gate.Check{
+			ID:      parts[0],
+			Status:  parts[1],
+			Summary: parts[2],
+		})
+	}
+	return out, nil
 }
 
 func loadChecksFile(wd, path string) ([]gate.Check, error) {
@@ -876,6 +897,7 @@ func NewApp(version string) *cli.App {
 					ArgsUsage: "<gate-id>",
 					Flags: []cli.Flag{
 						newGateStatusFlag(),
+						newGateCheckFlag(),
 						newGateChecksFileFlag(),
 						newGateInputsFileFlag(),
 						newGateInputGateFlag(),

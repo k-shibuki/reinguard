@@ -64,6 +64,14 @@ orchestration state, not repository workflow position.
    must not be promoted into `gates.*`, `state_id`, `route_id`, or guard
    inputs.
 
+### Schema versioning
+
+The resume artifact carries its own `schema_version`, independent of the
+substrate `CurrentSchemaVersion` in `pkg/schema/embed.go`. The SSOT is
+`RESUME_SCHEMA_VERSION` at the top of
+`.reinguard/scripts/adapter-rgd-next-resume.sh`. The version follows semver
+(`MAJOR.MINOR.PATCH`); breaking shape changes increment MAJOR.
+
 ## Migration note
 
 Previously the resume file defaulted under `.tmp/adapter/rgd-next/` (and

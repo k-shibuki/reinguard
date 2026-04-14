@@ -146,6 +146,97 @@ rules:
 	}
 }
 
+func TestRunGateRecord_inlineChecks(t *testing.T) {
+	t.Parallel()
+	repo := initGitRepoForGateCLI(t)
+	cfgDir := t.TempDir()
+
+	var buf bytes.Buffer
+	app := NewApp("t")
+	app.Writer = &buf
+	if err := app.Run([]string{
+		"rgd", "gate", "record",
+		"--config-dir", cfgDir,
+		"--cwd", repo,
+		"--status", "pass",
+		"--producer-procedure", "implement",
+		"--check", "go-test:pass:go test ./... -race",
+		"--check", "golangci-lint:pass:golangci-lint run",
+		"local-verification",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	var out map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatalf("json: %v raw=%s", err, buf.String())
+	}
+	checks, ok := out["checks"].([]any)
+	if !ok || len(checks) != 2 {
+		t.Fatalf("expected 2 checks, got %v", out)
+	}
+	first := checks[0].(map[string]any)
+	if first["id"] != "go-test" || first["status"] != "pass" || first["summary"] != "go test ./... -race" {
+		t.Fatalf("unexpected first check: %v", first)
+	}
+}
+
+func TestRunGateRecord_inlineChecksAndFileChecks(t *testing.T) {
+	t.Parallel()
+	repo := initGitRepoForGateCLI(t)
+	cfgDir := t.TempDir()
+	writeFile(t, filepath.Join(repo, "checks.json"), []byte(`[
+  {"id":"go-test","status":"pass","summary":"go test ./... -race"}
+]`))
+
+	var buf bytes.Buffer
+	app := NewApp("t")
+	app.Writer = &buf
+	if err := app.Run([]string{
+		"rgd", "gate", "record",
+		"--config-dir", cfgDir,
+		"--cwd", repo,
+		"--status", "pass",
+		"--producer-procedure", "implement",
+		"--checks-file", "checks.json",
+		"--check", "golangci-lint:pass:golangci-lint run",
+		"local-verification",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	var out map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatalf("json: %v raw=%s", err, buf.String())
+	}
+	checks, ok := out["checks"].([]any)
+	if !ok || len(checks) != 2 {
+		t.Fatalf("expected 2 checks (1 from file + 1 inline), got %v", out)
+	}
+}
+
+func TestRunGateRecord_inlineCheckBadFormat(t *testing.T) {
+	t.Parallel()
+	repo := initGitRepoForGateCLI(t)
+	cfgDir := t.TempDir()
+
+	var buf bytes.Buffer
+	app := NewApp("t")
+	app.Writer = &buf
+	err := app.Run([]string{
+		"rgd", "gate", "record",
+		"--config-dir", cfgDir,
+		"--cwd", repo,
+		"--status", "pass",
+		"--producer-procedure", "implement",
+		"--check", "bad-format",
+		"local-verification",
+	})
+	if err == nil {
+		t.Fatal("expected error for malformed --check value")
+	}
+}
+
 func TestRunGateRecord_badChecksFile(t *testing.T) {
 	t.Parallel()
 	// Given: a git repo and a malformed checks file

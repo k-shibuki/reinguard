@@ -38,7 +38,10 @@ but it must not become a workflow brain or execute arbitrary repository scripts.
    gates without inventing agent-internal memory.
 6. `rgd` does **not** execute verification commands for gates. Procedures or
    agents run checks such as `go test`, `go vet`, or `golangci-lint`, then
-   record the resulting verified outcome into a gate artifact.
+   record the resulting verified outcome into a gate artifact. Checks can be
+   supplied inline via the repeatable `--check id:status:summary` flag
+   (preferred for simple cases) or via `--checks-file` for bulk / evidence-
+   rich payloads. The two may be combined; entries are merged.
 7. Runtime gates may define **gate-specific proof contracts** on top of the
    common schema:
    - `local-verification` proves HS-LOCAL-VERIFY work on one `subject`

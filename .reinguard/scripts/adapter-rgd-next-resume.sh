@@ -8,6 +8,8 @@ source "$SCRIPT_DIR/lib/common.sh"
 source "$SCRIPT_DIR/lib/json_minimal.sh"
 
 SCRIPT_NAME="adapter-rgd-next-resume.sh"
+# SSOT for the resume artifact schema version (ADR-0015).
+RESUME_SCHEMA_VERSION="1.0.0"
 
 if ! git rev-parse --show-toplevel >/dev/null 2>&1; then
   fail_with "$SCRIPT_NAME must run inside a Git repository." 2
@@ -118,7 +120,7 @@ write_artifact_file() {
   mkdir -p "$ARTIFACT_DIR"
   {
     printf '{\n'
-    printf '  "schema_version": "1",\n'
+    printf '  "schema_version": "%s",\n' "$RESUME_SCHEMA_VERSION"
     printf '  "artifact_type": "adapter_rgd_next_resume",\n'
     printf '  "command": "rgd-next",\n'
     printf '  "status": "%s",\n' "$(json_escape "$artifact_status")"
