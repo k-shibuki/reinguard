@@ -57,7 +57,7 @@ func newGateStatusFlag() *cli.StringFlag {
 }
 
 func newGateChecksFileFlag() *cli.StringFlag {
-	return &cli.StringFlag{Name: "checks-file", Usage: "JSON file containing gate check results; use - to read a JSON array from stdin"}
+	return &cli.StringFlag{Name: "checks-file", Usage: "JSON file containing a gate check array; use - to read the same array format from stdin"}
 }
 
 func newGateCheckFlag() *cli.StringSliceFlag {

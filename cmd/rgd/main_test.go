@@ -53,7 +53,6 @@ func TestExitStatus(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -248,19 +247,7 @@ func TestCLIGateRecord_checksFileFromStdin(t *testing.T) {
 
 func runRGDBinary(t *testing.T, args ...string) (stdout string, stderr string, exitCode int) {
 	t.Helper()
-
-	bin := buildRGDBinary(t)
-	cmd := exec.Command(bin, args...)
-	cmd.Dir = repoRoot(t)
-	out, err := cmd.Output()
-	if err == nil {
-		return string(out), "", 0
-	}
-	var exitErr *exec.ExitError
-	if !errors.As(err, &exitErr) {
-		t.Fatalf("unexpected command error: %v", err)
-	}
-	return string(out), string(exitErr.Stderr), exitErr.ExitCode()
+	return runRGDBinaryWithInput(t, repoRoot(t), "", args...)
 }
 
 func runRGDBinaryWithInput(t *testing.T, dir string, stdin string, args ...string) (stdout string, stderr string, exitCode int) {
@@ -299,6 +286,7 @@ func TestMain(m *testing.M) {
 func buildRGDBinary(t *testing.T) string {
 	t.Helper()
 
+	root := repoRoot(t)
 	buildRGDBinaryOnce.Do(func() {
 		tmpDir, err := os.MkdirTemp("", "rgd-test-*")
 		if err != nil {
@@ -311,7 +299,7 @@ func buildRGDBinary(t *testing.T) string {
 			bin += ".exe"
 		}
 		cmd := exec.Command("go", "build", "-o", bin, "./cmd/rgd")
-		cmd.Dir = repoRoot(t)
+		cmd.Dir = root
 		if out, err := cmd.CombinedOutput(); err != nil {
 			buildRGDBinaryErr = errors.New(string(out))
 			return

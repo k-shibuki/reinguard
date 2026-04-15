@@ -87,10 +87,10 @@ The on-disk directory for substrate-owned gate artifacts was renamed from
 `runtime/` to `local/` so that reinguard-owned local state (gates and Adapter
 resume) lives under one gitignored tree (`.reinguard/local/`) and stays
 distinct from workspace-relative tool caches (`.tmp/`). Scratch artifacts
-previously written to `runtime/` are no longer supported and can be safely
-deleted. Existing
-`.reinguard/runtime/gates/*.json` files are not read; re-record with
-`rgd gate record` after updating `rgd`.
+previously written to `runtime/` other than gate records are no longer
+supported and can be safely deleted. Existing
+`.reinguard/runtime/gates/*.json` files are not read by updated tooling;
+re-record them with `rgd gate record` after updating `rgd`.
 
 ## Refs
 
