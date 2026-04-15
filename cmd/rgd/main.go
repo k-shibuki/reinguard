@@ -3,7 +3,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"os"
 
@@ -31,6 +30,9 @@ func run(args []string, ver string) error {
 	return app.Run(args)
 }
 
+// exitStatus extracts an exit code and message from err. It prefers
+// [cli.ExitCoder], then falls back to any error exposing ExitCode(), and uses
+// exit code 1 for other errors. Nil returns (0, "").
 func exitStatus(err error) (int, string) {
 	if err == nil {
 		return 0, ""
@@ -47,5 +49,5 @@ func exitStatus(err error) (int, string) {
 	if errors.As(err, &exiter) {
 		return exiter.ExitCode(), err.Error()
 	}
-	return 1, fmt.Sprint(err)
+	return 1, err.Error()
 }

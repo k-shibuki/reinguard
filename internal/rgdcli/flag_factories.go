@@ -57,11 +57,15 @@ func newGateStatusFlag() *cli.StringFlag {
 }
 
 func newGateChecksFileFlag() *cli.StringFlag {
-	return &cli.StringFlag{Name: "checks-file", Usage: "JSON file containing gate check results (alternative to --check)"}
+	return &cli.StringFlag{Name: "checks-file", Usage: "JSON file containing gate check results; use - to read a JSON array from stdin"}
 }
 
 func newGateCheckFlag() *cli.StringSliceFlag {
 	return &cli.StringSliceFlag{Name: "check", Usage: "inline check as id:status:summary (repeatable; alternative to --checks-file)"}
+}
+
+func newGateCheckJSONFlag() *cli.StringFlag {
+	return &cli.StringFlag{Name: "check-json", Usage: "inline JSON for gate checks (one object or an array; supports evidence without a temp file)"}
 }
 
 func newGateInputsFileFlag() *cli.StringFlag {
@@ -127,7 +131,7 @@ func newCommandHelpFlag() *cli.BoolFlag {
 	}
 }
 
-// hideHelpOnCommands stops urfave from appending package-global cli.HelpFlag to
+// addHelpFlagOnCommands stops urfave from appending package-global cli.HelpFlag to
 // each subcommand (which would race under concurrent App.Run). Users still get
 // top-level help via root newRootHelpFlag and subcommand help via fresh
 // per-command help flags, without sharing cli.HelpFlag across App instances.

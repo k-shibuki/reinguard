@@ -64,6 +64,14 @@ orchestration state, not repository workflow position.
    must not be promoted into `gates.*`, `state_id`, `route_id`, or guard
    inputs.
 
+### Current layout
+
+- **Durable Adapter continuity state:** `.reinguard/local/adapter/`
+- **Durable Substrate gate state:** `.reinguard/local/gates/`
+- **Workspace-local caches and tool homes:** `.tmp/`
+- **Transient command payloads:** prefer stdin or inline flags; they are not
+  part of the default contract for `.reinguard/local/`
+
 ### Schema versioning
 
 The resume artifact carries its own `schema_version`, independent of the
@@ -77,7 +85,7 @@ substrate `CurrentSchemaVersion` in `pkg/schema/embed.go`. The SSOT is
 Previously the resume file defaulted under `.tmp/adapter/rgd-next/` (and
 `REINGUARD_LOCAL_STATE_ROOT` from `with-repo-local-state.sh`). It now defaults
 to `.reinguard/local/adapter/rgd-next/execute-resume.json` so Adapter state is
-not mixed with workspace tool caches under `/.tmp/`.
+not mixed with workspace tool caches under `.tmp/`.
 
 ## Consequences
 

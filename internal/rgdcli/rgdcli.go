@@ -46,7 +46,7 @@ type exitCodeError struct {
 }
 
 func (e *exitCodeError) Error() string {
-	return ""
+	return "non-resolved outcome"
 }
 
 func (e *exitCodeError) ExitCode() int {
@@ -417,7 +417,11 @@ func RunGateRecord(c *cli.Context, gateID string) error {
 	if err != nil {
 		return err
 	}
-	checks, err := loadChecksFile(wd, c.String("checks-file"))
+	checks, err := loadChecksFile(c.App.Reader, wd, c.String("checks-file"))
+	if err != nil {
+		return err
+	}
+	jsonChecks, err := parseInlineCheckJSON(c.String("check-json"))
 	if err != nil {
 		return err
 	}
@@ -425,9 +429,10 @@ func RunGateRecord(c *cli.Context, gateID string) error {
 	if err != nil {
 		return err
 	}
+	checks = append(checks, jsonChecks...)
 	checks = append(checks, inlineChecks...)
 	if len(checks) == 0 {
-		return fmt.Errorf("gate record: at least one check entry is required (provide --check or --checks-file)")
+		return fmt.Errorf("gate record: at least one check entry is required (provide --check, --check-json, or --checks-file)")
 	}
 	inputs, err := loadGateInputsFile(wd, c.String("inputs-file"))
 	if err != nil {
@@ -555,11 +560,41 @@ func parseInlineChecks(raw []string) ([]gate.Check, error) {
 	return out, nil
 }
 
-func loadChecksFile(wd, path string) ([]gate.Check, error) {
+func parseInlineCheckJSON(raw string) ([]gate.Check, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return []gate.Check{}, nil
+	}
+	var many []gate.Check
+	if err := json.Unmarshal([]byte(raw), &many); err == nil {
+		if many == nil {
+			return []gate.Check{}, nil
+		}
+		return many, nil
+	}
+	var one gate.Check
+	if err := json.Unmarshal([]byte(raw), &one); err != nil {
+		return nil, fmt.Errorf("gate record: --check-json must decode to one check object or an array of check objects: %w", err)
+	}
+	return []gate.Check{one}, nil
+}
+
+func loadChecksFile(stdin io.Reader, wd, path string) ([]gate.Check, error) {
 	if path == "" {
 		return []gate.Check{}, nil
 	}
-	data, err := os.ReadFile(resolveInputPath(wd, path))
+	var (
+		data []byte
+		err  error
+	)
+	if path == "-" {
+		if stdin == nil {
+			return nil, fmt.Errorf("gate record: --checks-file - requires stdin")
+		}
+		data, err = io.ReadAll(stdin)
+	} else {
+		data, err = os.ReadFile(resolveInputPath(wd, path))
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -937,6 +972,7 @@ func NewApp(version string) *cli.App {
 					Flags: []cli.Flag{
 						newGateStatusFlag(),
 						newGateCheckFlag(),
+						newGateCheckJSONFlag(),
 						newGateChecksFileFlag(),
 						newGateInputsFileFlag(),
 						newGateInputGateFlag(),

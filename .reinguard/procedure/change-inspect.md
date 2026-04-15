@@ -104,12 +104,12 @@ If the branch uses runtime verification gates (artifacts under
 reviewed head after the required local checks pass. The pre-PR AI review
 step is its own proof, distinct from generic local verification. In this
 repository’s current default config, that role resolves to `local-coderabbit`.
-For example (replace the angle-bracket placeholder with a **repo-root-relative** path to a JSON array of `checks[]` you author for this run — often a temp file in the repo root or under `.reinguard/local/`, produced by the same shell session after the local AI review step):
+For example, prefer inline flags or stdin over writing a transient JSON file:
 
 ```bash
 rgd gate record --status pass \
   --producer-procedure change-inspect \
-  --checks-file <local-coderabbit-checks.json> \
+  --check "local-coderabbit-cli:pass:local CodeRabbit completed on the current HEAD" \
   local-coderabbit
 ```
 
@@ -170,7 +170,7 @@ subject (declared in `.reinguard/reinguard.yaml` under `workflow.runtime_gate_ro
 ```bash
 rgd gate record --status pass \
   --producer-procedure change-inspect \
-  --checks-file <pr-readiness-checks.json> \
+  --check "review-closure:pass:all local findings classified and closed on the current HEAD" \
   --input-gate local-verification \
   --input-gate local-coderabbit \
   pr-readiness

@@ -195,6 +195,77 @@ func TestRunGateRecord_inlineChecks(t *testing.T) {
 	}
 }
 
+func TestRunGateRecord_checksFileFromStdin(t *testing.T) {
+	t.Parallel()
+	repo := initGitRepoForGateCLI(t)
+	cfgDir := t.TempDir()
+
+	var buf bytes.Buffer
+	app := NewApp("t")
+	app.Writer = &buf
+	app.Reader = strings.NewReader(`[
+  {"id":"go-test","status":"pass","summary":"go test ./... -race"},
+  {"id":"golangci-lint","status":"pass","summary":"golangci-lint run"}
+]`)
+	if err := app.Run([]string{
+		"rgd", "gate", "record",
+		"--config-dir", cfgDir,
+		"--cwd", repo,
+		"--status", "pass",
+		"--producer-procedure", "implement",
+		"--checks-file", "-",
+		"local-verification",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	var out map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatalf("json: %v raw=%s", err, buf.String())
+	}
+	checks, ok := out["checks"].([]any)
+	if !ok || len(checks) != 2 {
+		t.Fatalf("expected 2 checks from stdin, got %v", out)
+	}
+}
+
+func TestRunGateRecord_inlineCheckJSON(t *testing.T) {
+	t.Parallel()
+	repo := initGitRepoForGateCLI(t)
+	cfgDir := t.TempDir()
+
+	var buf bytes.Buffer
+	app := NewApp("t")
+	app.Writer = &buf
+	if err := app.Run([]string{
+		"rgd", "gate", "record",
+		"--config-dir", cfgDir,
+		"--cwd", repo,
+		"--status", "pass",
+		"--producer-procedure", "implement",
+		"--check-json", `{"id":"go-test","status":"pass","summary":"go test ./... -race","evidence":"coverage.out >= 80%"}`,
+		"local-verification",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	var out map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatalf("json: %v raw=%s", err, buf.String())
+	}
+	checks, ok := out["checks"].([]any)
+	if !ok || len(checks) != 1 {
+		t.Fatalf("expected 1 JSON check, got %v", out)
+	}
+	check0, ok := checks[0].(map[string]any)
+	if !ok {
+		t.Fatalf("check must be object: %T", checks[0])
+	}
+	if check0["evidence"] != "coverage.out >= 80%" {
+		t.Fatalf("expected evidence to round-trip, got %v", check0)
+	}
+}
+
 func TestRunGateRecord_inlineChecksAndFileChecks(t *testing.T) {
 	t.Parallel()
 	repo := initGitRepoForGateCLI(t)
@@ -243,6 +314,31 @@ func TestRunGateRecord_inlineChecksAndFileChecks(t *testing.T) {
 	}
 	if got["golangci-lint"] != "pass|golangci-lint run" {
 		t.Fatalf("missing/invalid inline check: %+v", got)
+	}
+}
+
+func TestRunGateRecord_inlineCheckJSONBadFormat(t *testing.T) {
+	t.Parallel()
+	repo := initGitRepoForGateCLI(t)
+	cfgDir := t.TempDir()
+
+	var buf bytes.Buffer
+	app := NewApp("t")
+	app.Writer = &buf
+	err := app.Run([]string{
+		"rgd", "gate", "record",
+		"--config-dir", cfgDir,
+		"--cwd", repo,
+		"--status", "pass",
+		"--producer-procedure", "implement",
+		"--check-json", `{`,
+		"local-verification",
+	})
+	if err == nil {
+		t.Fatal("expected error for malformed --check-json value")
+	}
+	if !strings.Contains(err.Error(), "--check-json must decode") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
