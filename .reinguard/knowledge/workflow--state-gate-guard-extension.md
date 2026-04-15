@@ -25,8 +25,8 @@ when:
 1. [ ] Update `.reinguard/control/states/*.yaml` — priorities (lower wins); residual vs refined ordering.
 2. [ ] Update ADR-0013 § State catalog and any route/Adapter notes.
 3. [ ] Update `.reinguard/control/routes/*.yaml` if the primary `route_id` or matching rules change.
-4. [ ] Update `.cursor/commands/rgd-next.md` heuristic table if the primary procedure changes.
-5. [ ] Update `.reinguard/procedure/*.md` `applies_to.state_ids` for affected procedures.
+4. [ ] Update `.reinguard/procedure/*.md` `applies_to.state_ids` / `applies_to.route_ids` for affected procedures; run `rgd config validate` (no Adapter “heuristic table”; `rgd-next` derives routing from front matter).
+5. [ ] Confirm `.cursor/commands/rgd-next.md` still points at substrate + Semantics only (no duplicated mapping table).
 6. [ ] Add or extend `internal/rgdcli/workflow_fsm_test.go` (or equivalent) for non-obvious resolution.
 
 ## Adding or changing a runtime **gate** (`gate_id`)
@@ -34,7 +34,7 @@ when:
 1. [ ] Document producer procedure(s) (`rgd gate record <gate-id>` after verification) and consumer(s) (`rgd gate status`, FSM `gates.<gate-id>.*`). On-disk files: `.reinguard/local/gates/<gate-id>.json` (gitignored).
 2. [ ] Update ADR-0014 extension contract if semantics are new or changed.
 3. [ ] Update `.reinguard/control/states/*.yaml` / `routes/*.yaml` if FSM rules reference `gates.<gate-id>`.
-4. [ ] Update ADR-0013 § State catalog / Adapter mapping if a new `state_id` or mapping is introduced.
+4. [ ] Update ADR-0013 § State catalog / procedure mapping notes if a new `state_id` or primary procedure changes.
 5. [ ] Add CLI/FSM tests for `pass` vs `stale` / `missing` behavior if resolution depends on the gate.
 
 ## Adding or changing **guards** (`guard eval`)
@@ -51,7 +51,7 @@ when:
 
 ## Validation and tests (run before push)
 
-1. [ ] `rgd config validate` — control YAML, manifest freshness, `when` static checks.
+1. [ ] `rgd config validate` — control YAML, procedure `applies_to` mapping checks, manifest freshness, `when` static checks.
 2. [ ] `go test ./... -race` (and `go vet`, `golangci-lint` per project policy) when Go or tests change.
 
 **Targeted tests (when touched by the change):**
@@ -77,7 +77,7 @@ when:
 
 1. ADR-0013 / ADR-0014 — durable rules and catalog rows.
 2. `.reinguard/control/states/*.yaml` and `routes/*.yaml` — priorities and `when` clauses.
-3. Procedures and `.cursor/commands/rgd-next.md` — `applies_to`, Adapter heuristic table.
+3. Procedures — `applies_to` updates; Adapter commands reference substrate + procedure files only.
 4. Knowledge — new/changed atoms; `rgd knowledge index`; manifest committed.
 5. `docs/cli.md` — if built-in guard or CLI behavior changes.
 6. Go tests — `workflow_fsm_test` and package tests per the table above; then full `go test ./... -race`.

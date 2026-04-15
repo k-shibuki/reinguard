@@ -10,6 +10,7 @@ import (
 	jsonschema "github.com/santhosh-tekuri/jsonschema/v6"
 
 	"github.com/k-shibuki/reinguard/internal/labels"
+	"github.com/k-shibuki/reinguard/internal/procedure"
 	"github.com/k-shibuki/reinguard/pkg/schema"
 )
 
@@ -90,6 +91,8 @@ type KnowledgeManifest struct {
 }
 
 // LoadResult holds validated configuration from a config directory.
+//
+//nolint:govet // fieldalignment: keep JSON/config field grouping for readability
 type LoadResult struct {
 	RuleFiles        map[string]RulesDocument
 	Knowledge        *KnowledgeManifest
@@ -98,6 +101,8 @@ type LoadResult struct {
 	Root             Root
 	KnowledgePresent bool
 	LabelsPresent    bool
+	ProcedurePresent bool
+	ProcedureEntries []procedure.Entry
 }
 
 // Load reads reinguard.yaml, all control/{states,routes,guards}/*.yaml, and optional knowledge/manifest.json.
@@ -125,6 +130,9 @@ func Load(dir string) (*LoadResult, error) {
 		return nil, err
 	}
 	if err := applyOptionalKnowledge(res, dir, ss.km); err != nil {
+		return nil, err
+	}
+	if err := applyOptionalProcedures(res, dir); err != nil {
 		return nil, err
 	}
 	return res, nil

@@ -57,7 +57,11 @@ func newGateStatusFlag() *cli.StringFlag {
 }
 
 func newGateChecksFileFlag() *cli.StringFlag {
-	return &cli.StringFlag{Name: "checks-file", Usage: "JSON file containing gate check results"}
+	return &cli.StringFlag{Name: "checks-file", Usage: "JSON file containing gate check results (alternative to --check)"}
+}
+
+func newGateCheckFlag() *cli.StringSliceFlag {
+	return &cli.StringSliceFlag{Name: "check", Usage: "inline check as id:status:summary (repeatable; alternative to --checks-file)"}
 }
 
 func newGateInputsFileFlag() *cli.StringFlag {

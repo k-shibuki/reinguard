@@ -1065,6 +1065,155 @@ rules: []
 	}
 }
 
+func TestLoad_procedureMapping_ok(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
+	statesDir := filepath.Join(dir, "control", "states")
+	if err := os.MkdirAll(statesDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(statesDir, "t.yaml"), []byte(fmt.Sprintf(`schema_version: %q
+rules:
+  - type: state
+    id: only
+    priority: 10
+    when:
+      op: eq
+      path: git.branch
+      value: main
+    state_id: working_no_pr
+`, schema.CurrentSchemaVersion)))
+	procDir := filepath.Join(dir, "procedure")
+	if err := os.MkdirAll(procDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(procDir, "p.md"), []byte(`---
+id: procedure-test
+purpose: Test procedure.
+applies_to:
+  state_ids:
+    - working_no_pr
+  route_ids: []
+---
+`))
+	res, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.ProcedurePresent || len(res.ProcedureEntries) != 1 {
+		t.Fatalf("procedure: present=%v entries=%+v", res.ProcedurePresent, res.ProcedureEntries)
+	}
+}
+
+func TestLoad_procedureMapping_duplicateStateRejected(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
+	statesDir := filepath.Join(dir, "control", "states")
+	if err := os.MkdirAll(statesDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(statesDir, "t.yaml"), []byte(fmt.Sprintf(`schema_version: %q
+rules:
+  - type: state
+    id: only
+    priority: 10
+    when:
+      op: eq
+      path: git.branch
+      value: main
+    state_id: working_no_pr
+`, schema.CurrentSchemaVersion)))
+	procDir := filepath.Join(dir, "procedure")
+	if err := os.MkdirAll(procDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	body := `---
+id: procedure-a
+purpose: A
+applies_to:
+  state_ids:
+    - working_no_pr
+  route_ids: []
+---
+`
+	writeFile(t, filepath.Join(procDir, "a.md"), []byte(body))
+	writeFile(t, filepath.Join(procDir, "b.md"), []byte(strings.Replace(body, "procedure-a", "procedure-b", 1)))
+
+	_, err := Load(dir)
+	if err == nil || !strings.Contains(err.Error(), "state_id \"working_no_pr\"") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestLoad_procedureMapping_orphanStateRejected(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
+	statesDir := filepath.Join(dir, "control", "states")
+	if err := os.MkdirAll(statesDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(statesDir, "t.yaml"), []byte(fmt.Sprintf(`schema_version: %q
+rules:
+  - type: state
+    id: only
+    priority: 10
+    when:
+      op: eq
+      path: git.branch
+      value: main
+    state_id: working_no_pr
+`, schema.CurrentSchemaVersion)))
+	procDir := filepath.Join(dir, "procedure")
+	if err := os.MkdirAll(procDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(procDir, "p.md"), []byte(`---
+id: procedure-bad
+purpose: Bad mapping.
+applies_to:
+  state_ids:
+    - not_a_real_state
+  route_ids: []
+---
+`))
+
+	_, err := Load(dir)
+	if err == nil || !strings.Contains(err.Error(), "no matching control state rule") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestLoad_procedureDirAbsent_ok(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
+	statesDir := filepath.Join(dir, "control", "states")
+	if err := os.MkdirAll(statesDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(statesDir, "t.yaml"), []byte(fmt.Sprintf(`schema_version: %q
+rules:
+  - type: state
+    id: only
+    priority: 10
+    when:
+      op: eq
+      path: git.branch
+      value: main
+    state_id: working_no_pr
+`, schema.CurrentSchemaVersion)))
+	res, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.ProcedurePresent || len(res.ProcedureEntries) != 0 {
+		t.Fatalf("expected no procedure bundle, got present=%v n=%d", res.ProcedurePresent, len(res.ProcedureEntries))
+	}
+}
+
 func TestLoad_repositoryReinguard(t *testing.T) {
 	t.Parallel()
 	// Given: this repository's committed .reinguard bundle (control + knowledge)
@@ -1079,8 +1228,15 @@ func TestLoad_repositoryReinguard(t *testing.T) {
 	}
 	// When: Load runs
 	// Then: no error (schema + when validation for FSM YAML)
-	if _, err := Load(dir); err != nil {
+	res, err := Load(dir)
+	if err != nil {
 		t.Fatalf("Load: %v", err)
+	}
+	if !res.ProcedurePresent {
+		t.Fatal("expected .reinguard/procedure to be loaded")
+	}
+	if len(res.ProcedureEntries) < 1 {
+		t.Fatalf("expected procedure entries, got %d", len(res.ProcedureEntries))
 	}
 
 	// And: control catalog lists workflow bundle entries expected by adapter/docs

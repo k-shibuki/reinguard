@@ -81,6 +81,11 @@
     "state_id": "Idle",
     "rule_id": "idle",
     "priority": 10,
-    "target_id": "Idle"
+    "target_id": "Idle",
+    "procedure_hint": {
+      "procedure_id": "procedure-golden-idle",
+      "path": "procedure/golden.md",
+      "derived_from": "state_id"
+    }
   }
 }

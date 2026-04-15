@@ -38,7 +38,7 @@ before `state`.
 rgd version
 rgd config validate
 rgd schema export [--dir DIR]
-rgd gate record <gate-id> --status pass|fail --checks-file FILE
+rgd gate record <gate-id> --status pass|fail --check id:status:summary [--checks-file FILE]
 rgd gate status <gate-id>
 rgd gate show <gate-id>
 rgd observe [workflow-position]
@@ -379,9 +379,12 @@ Records one validated gate artifact for the current branch HEAD.
 | `--status` | yes | Top-level gate outcome: `pass` or `fail` |
 | `--producer-procedure` | yes | Procedure that is recording the proof (for example `implement` or `change-inspect`) |
 | `--producer-tool` | no | Recording tool identifier. Defaults to `rgd gate record` |
-| `--checks-file` | yes | JSON array of check objects with fields `id`, `status`, required `summary`, and optional `evidence`; check `status` may be `pass`, `fail`, or `skipped`. At least one check entry is required; the command rejects an empty array. |
+| `--check` | no* | Inline check as `id:status:summary` (repeatable). Preferred over `--checks-file` for simple cases. |
+| `--checks-file` | no* | JSON array of check objects with fields `id`, `status`, required `summary`, and optional `evidence`; check `status` may be `pass`, `fail`, or `skipped`. |
 | `--inputs-file` | no | JSON array of upstream gate proof objects (`gate_id`, `status`, `subject`, `recorded_at`) |
 | `--input-gate` | no | Repeatable shortcut: copy one **fresh passing** stored gate artifact into `inputs[]` |
+
+\* At least one check entry is required from either `--check` or `--checks-file` (or both). `--check` and `--checks-file` may be combined; entries are merged.
 
 The command attaches:
 
@@ -530,7 +533,12 @@ The `knowledge` object in the output has **`entries`** (same shape as
 Optional per-step flags may be added in future issues; Phase 1 runs the full
 default chain when not using `--observation-file`.
 
-The `state` field is the state-resolution **Result** (same JSON shape as `rgd state eval` stdout).
+The `state` field is the state-resolution **Result** (same JSON shape as `rgd state eval` stdout),
+plus an optional **`procedure_hint`** when `state.kind` is **`resolved`**: an object
+`{"procedure_id":"…","path":"…","derived_from":"state_id"}` derived from `.reinguard/procedure/*.md`
+front matter (`applies_to.state_ids`, and `applies_to.route_ids` as a filter when non-empty).
+It is **advisory** for Adapters; omit when no matching procedure is found, when `state.kind` is not
+`resolved`, or when a route filter does not match the resolved `routes[0].route_id`.
 The `routes` array contains one route-resolution **Result** (same shape as `rgd route select` stdout,
 including `route_candidates` when applicable). See `pkg/schema/operational-context.json` (`resolutionResult`).
 
@@ -569,15 +577,15 @@ The command shells out to `gh api graphql` with a single
 
 ### Authors: extending State / Gate / Guard
 
-- **Normative FSM and gate rules:** [ADR-0013](adr/0013-fsm-workflow-states-and-adapter-mapping.md) (states, routes, Adapter mapping), [ADR-0014](adr/0014-runtime-gate-artifacts.md) (runtime gates, `gates.*` signals, freshness).
+- **Normative FSM and gate rules:** [ADR-0013](adr/0013-fsm-workflow-states-and-adapter-mapping.md) (states, routes, procedure `applies_to` SSOT), [ADR-0014](adr/0014-runtime-gate-artifacts.md) (runtime gates, `gates.*` signals, freshness).
 - **Operational checklist** (which files to update, `rgd config validate`, tests, knowledge manifest): `.reinguard/knowledge/workflow--state-gate-guard-extension.md`.
 - **`knowledge.entries`:** Filtered using the **merged** flat map that includes `gates.<gate-id>.*` and, after state resolution, `state.kind`, `state.state_id`, and `state.rule_id`. Use **`rgd context build`** when authoring or debugging `when` clauses that reference `gates.*` or `state.*`. `rgd knowledge pack --observation-file` alone does **not** merge state or gates unless those keys are already in the observation file—see the `knowledge pack` section above.
 - **`rgd gate status` / `rgd gate record`:** Verify CLI behavior and flag order against this document when documenting new gates in procedures.
 
 ## `rgd config validate`
 
-Validates `reinguard.yaml`, `control/{states,routes,guards}/*.yaml`, and `knowledge/manifest.json` when
-present, against embedded JSON Schemas. Also **builds enabled observation providers** (same path as `rgd observe`) so invalid `providers[].options` (e.g. unknown `bot_reviewers[].enrich` names) fail validation. Non-zero exit on hard validation
+Validates `reinguard.yaml`, `control/{states,routes,guards}/*.yaml`, `procedure/*.md` procedure front matter (when the directory exists), and `knowledge/manifest.json` when
+present, against embedded JSON Schemas and mapping consistency rules. Also **builds enabled observation providers** (same path as `rgd observe`) so invalid `providers[].options` (e.g. unknown `bot_reviewers[].enrich` names) fail validation. Non-zero exit on hard validation
 errors. **Deprecated** configuration keys (marked in JSON Schema) emit **warnings
 on stderr** but still exit **0** when validation succeeds.
 

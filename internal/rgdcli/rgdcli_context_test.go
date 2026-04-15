@@ -159,6 +159,98 @@ exit 1
 	assertObservationDegradedWithLocalGitHubRepo(t, out)
 }
 
+func TestRunContextBuild_procedureHint_omitsWhenRouteDoesNotMatchProcFilter(t *testing.T) {
+	t.Parallel()
+	cfgDir := t.TempDir()
+	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
+	writeFile(t, filepath.Join(cfgDir, "control", "states", "default.yaml"), []byte(testFixtureRulesStateIdle))
+	writeFile(t, filepath.Join(cfgDir, "control", "routes", "default.yaml"), []byte(testFixtureControlRoutesNext))
+	if err := os.Mkdir(filepath.Join(cfgDir, "knowledge"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(cfgDir, "knowledge", "manifest.json"), []byte(`{"schema_version":"0.7.0","entries":[]}`))
+	if err := os.Mkdir(filepath.Join(cfgDir, "procedure"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(cfgDir, "procedure", "p.md"), []byte(`---
+id: proc-wrong-route
+purpose: Fixture procedure with route filter mismatch.
+applies_to:
+  state_ids:
+    - Idle
+  route_ids:
+    - not-next
+---
+`))
+	dir := goldenCaseDir(t, "context_build")
+	obs := filepath.Join(dir, "observation.json")
+	var buf bytes.Buffer
+	app := NewApp("test")
+	app.Writer = &buf
+	if err := app.Run([]string{"rgd", "context", "build", "--config-dir", cfgDir, "--observation-file", obs}); err != nil {
+		t.Fatal(err)
+	}
+	var out map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	state := mustMap(t, out["state"], "state")
+	if state["kind"] != "resolved" || state["state_id"] != "Idle" {
+		t.Fatalf("unexpected state resolution: %v", state)
+	}
+	routes := mustSlice(t, out["routes"], "routes")
+	r0 := mustMap(t, routes[0], "routes[0]")
+	if r0["kind"] != "resolved" || r0["route_id"] != "next" {
+		t.Fatalf("unexpected route resolution: %v", r0)
+	}
+	if _, ok := state["procedure_hint"]; ok {
+		t.Fatalf("unexpected procedure_hint: %v", state["procedure_hint"])
+	}
+}
+
+func TestRunContextBuild_procedureHint_omitsWhenStateAmbiguous(t *testing.T) {
+	t.Parallel()
+	cfgDir := t.TempDir()
+	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
+	writeFile(t, filepath.Join(cfgDir, "control", "states", "default.yaml"), []byte(testFixtureRulesStateAmbiguous))
+	writeFile(t, filepath.Join(cfgDir, "control", "routes", "default.yaml"), []byte(testFixtureControlRoutesNext))
+	if err := os.Mkdir(filepath.Join(cfgDir, "knowledge"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(cfgDir, "knowledge", "manifest.json"), []byte(`{"schema_version":"0.7.0","entries":[]}`))
+	if err := os.Mkdir(filepath.Join(cfgDir, "procedure"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(cfgDir, "procedure", "p.md"), []byte(`---
+id: proc-a
+purpose: Maps only state A for ambiguous fixture.
+applies_to:
+  state_ids:
+    - A
+  route_ids: []
+---
+`))
+	obsPath := filepath.Join(t.TempDir(), "obs.json")
+	writeFile(t, obsPath, []byte(`{"schema_version":"0.7.0","signals":{"git":{"branch":"feat"}},"degraded":false}`))
+	var buf bytes.Buffer
+	app := NewApp("test")
+	app.Writer = &buf
+	if err := app.Run([]string{"rgd", "context", "build", "--config-dir", cfgDir, "--observation-file", obsPath}); err != nil {
+		t.Fatal(err)
+	}
+	var out map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	state := mustMap(t, out["state"], "state")
+	if state["kind"] != "ambiguous" {
+		t.Fatalf("want ambiguous state, got %v", state["kind"])
+	}
+	if _, ok := state["procedure_hint"]; ok {
+		t.Fatal("unexpected procedure_hint for non-resolved state")
+	}
+}
+
 func TestRunContextBuild_rejectsScopeFlagsWithObservationFile(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

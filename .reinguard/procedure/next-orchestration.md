@@ -22,12 +22,12 @@ escalate_when: "HS-* violation; genuine cannot-proceed with evidence."
 
 **Not a Cursor slash command** — the invocable Adapter entry is [`.cursor/commands/rgd-next.md`](../../.cursor/commands/rgd-next.md) (Propose → Execute after approval).
 
-**Design alignment**: [ADR-0001](../../docs/adr/0001-system-positioning.md) — `state_id` → procedure routing is normative in [ADR-0013](../../docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md) § 4; this document holds **orchestration** (proposal, approval, execution contract, loop).
+**Design alignment**: [ADR-0001](../../docs/adr/0001-system-positioning.md) — `state_id` → procedure routing uses `.reinguard/procedure/*.md` front matter (`applies_to`), validated by `rgd config validate`; [ADR-0013](../../docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md) § 4 documents the mechanism and FSM semantics. This document holds **orchestration** (proposal, approval, execution contract, loop).
 
 ## Context
 
 - [`../policy/safety--agent-invariants.md`](../policy/safety--agent-invariants.md) — **HS-*** hard stops
-- [ADR-0013](../../docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md) — FSM states; **§ 4 Adapter mapping (durable)** for `state_id` → procedure routing
+- [ADR-0013](../../docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md) — FSM states; **§ 4** procedure mapping mechanism (`applies_to` SSOT)
 
 **Already in context** (always-active Adapter rule): HS-* codes, catalogs, workflow and commit policy.
 
@@ -50,7 +50,7 @@ Concrete gates: HS-* invariants, `merge-readiness` / `rgd guard eval merge-readi
 Before the approval gate, present:
 
 1. **Current position** — `state_id`, `route_id` (when resolved), and brief evidence basis from `rgd context build` JSON.
-2. **Ordered remainder** — Trace **forward** from the current `state_id` using **ADR-0013 § 4** (*Adapter mapping*) through **Per-unit Definition of Done** above. List the **sequence of procedures** you expect (e.g. `review-address` → `wait-bot-review` → `pr-merge` → branch cleanup). Include `change-inspect` and `pr-create` on the path from `working_no_pr` when applicable.
+2. **Ordered remainder** — Trace **forward** from the current `state_id` using the mapped primary procedure (procedure front matter per ADR-0013 § 4) through **Per-unit Definition of Done** above. List the **sequence of procedures** you expect (e.g. `review-address` → `wait-bot-review` → `pr-merge` → branch cleanup). Include `change-inspect` and `pr-create` on the path from `working_no_pr` when applicable.
 3. **Gaps** — State honestly what is unknown until the next observation (e.g. “PR not opened yet — review steps are projected”).
 4. **Completion condition** — Reference **Per-unit Definition of Done** (this section).
 
@@ -105,7 +105,7 @@ Repeat until Per-unit Definition of Done is satisfied or an **allowed stop** fir
 
 1. **Sense** — `rgd context build` (same cwd / `--config-dir` as the workflow’s initial context build from repo root).
 2. **Parse** — `state`, `routes[0]` (interpret `routes[0].route_id` only when `routes[0].kind` is `resolved`), `guards`, `knowledge.entries`; record a short iteration context **agent-internally** (e.g. tool logs or internal notes). Whether any of that appears in a user-facing channel is defined by the Adapter (see [`../../.cursor/rules/reinguard-bridge.mdc`](../../.cursor/rules/reinguard-bridge.mdc) § **rgd-next Execute — Cursor chat transcript**); Semantics does not require per-iteration user-visible output.
-3. **Route** — Resolve procedure(s) per **ADR-0013 § 4** (*Adapter mapping*). If `state.kind` is not `resolved`, follow ADR-0007 handoff; do not invent a winning state.
+3. **Route** — Resolve procedure(s) from `.reinguard/procedure/` front matter (`applies_to`) consistent with ADR-0013 § 4. If `state.kind` is not `resolved`, follow ADR-0007 handoff; do not invent a winning state.
 4. **Act (procedure)** — Open the mapped procedure file(s) and **follow each procedure in full** (Context, Reads, Sense, Act, Output, Guard, front-matter `done_when` / `escalate_when` as applicable). Treat any “confirm” / “verify” language in mapped procedures as **agent self-checks** (evidence-backed), not a new user-approval gate, unless an **allowed stop** applies. Do not shortcut HS-*.
 5. **Refresh** — After any **material** remote or local change (push, merge, thread resolve batch, bot re-review when the procedure says so), run **`rgd context build` again** before the next Route.
 
