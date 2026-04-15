@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/urfave/cli/v2"
@@ -219,26 +220,39 @@ func runRGDBinary(t *testing.T, args ...string) (stdout string, stderr string, e
 	if err == nil {
 		return string(out), "", 0
 	}
-	exitErr, ok := err.(*exec.ExitError)
-	if !ok {
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
 		t.Fatalf("unexpected command error: %v", err)
 	}
 	return string(out), string(exitErr.Stderr), exitErr.ExitCode()
 }
 
+var (
+	buildRGDBinaryOnce sync.Once
+	buildRGDBinaryPath string
+	buildRGDBinaryErr  error
+)
+
 func buildRGDBinary(t *testing.T) string {
 	t.Helper()
 
-	bin := filepath.Join(t.TempDir(), "rgd")
-	if runtime.GOOS == "windows" {
-		bin += ".exe"
+	buildRGDBinaryOnce.Do(func() {
+		bin := filepath.Join(t.TempDir(), "rgd")
+		if runtime.GOOS == "windows" {
+			bin += ".exe"
+		}
+		cmd := exec.Command("go", "build", "-o", bin, "./cmd/rgd")
+		cmd.Dir = repoRoot(t)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			buildRGDBinaryErr = errors.New(string(out))
+			return
+		}
+		buildRGDBinaryPath = bin
+	})
+	if buildRGDBinaryErr != nil {
+		t.Fatalf("go build rgd: %v", buildRGDBinaryErr)
 	}
-	cmd := exec.Command("go", "build", "-o", bin, "./cmd/rgd")
-	cmd.Dir = repoRoot(t)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("go build rgd: %v %s", err, string(out))
-	}
-	return bin
+	return buildRGDBinaryPath
 }
 
 func repoRoot(t *testing.T) string {

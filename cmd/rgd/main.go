@@ -2,6 +2,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -34,14 +35,17 @@ func exitStatus(err error) (int, string) {
 	if err == nil {
 		return 0, ""
 	}
+	var cliExiter cli.ExitCoder
+	if errors.As(err, &cliExiter) {
+		return cliExiter.ExitCode(), cliExiter.Error()
+	}
+
 	type exitCoder interface {
 		ExitCode() int
 	}
-	if exiter, ok := err.(exitCoder); ok {
+	var exiter exitCoder
+	if errors.As(err, &exiter) {
 		return exiter.ExitCode(), err.Error()
-	}
-	if exiter, ok := err.(cli.ExitCoder); ok {
-		return exiter.ExitCode(), exiter.Error()
 	}
 	return 1, fmt.Sprint(err)
 }
