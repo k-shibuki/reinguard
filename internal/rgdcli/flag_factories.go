@@ -100,11 +100,10 @@ func observeFlags() []cli.Flag {
 	}
 }
 
-// Root-only clones of urfave's default HelpFlag / VersionFlag. The library keeps
-// those as package globals; appending them to multiple App instances causes
-// data races under concurrent Run. HideHelp/HideVersion on the App plus these
-// per-NewApp flags preserves behavior without sharing *BoolFlag with other Apps.
-func newRootHelpFlag() *cli.BoolFlag {
+// newHelpFlag returns a fresh help flag instance. urfave/cli keeps its default
+// help flag as a package global, so callers must avoid sharing pointers across
+// App instances or command flag slices.
+func newHelpFlag() *cli.BoolFlag {
 	return &cli.BoolFlag{
 		Name:               "help",
 		Aliases:            []string{"h"},
@@ -113,20 +112,15 @@ func newRootHelpFlag() *cli.BoolFlag {
 	}
 }
 
+// Root-only clone of urfave's default VersionFlag. The library keeps that as a
+// package global; appending it to multiple App instances causes data races
+// under concurrent Run. HideVersion on the App plus this per-NewApp flag
+// preserves behavior without sharing *BoolFlag with other Apps.
 func newRootVersionFlag() *cli.BoolFlag {
 	return &cli.BoolFlag{
 		Name:               "version",
 		Aliases:            []string{"v"},
 		Usage:              "print the version",
-		DisableDefaultText: true,
-	}
-}
-
-func newCommandHelpFlag() *cli.BoolFlag {
-	return &cli.BoolFlag{
-		Name:               "help",
-		Aliases:            []string{"h"},
-		Usage:              "show help",
 		DisableDefaultText: true,
 	}
 }
@@ -137,7 +131,7 @@ func newCommandHelpFlag() *cli.BoolFlag {
 // per-command help flags, without sharing cli.HelpFlag across App instances.
 func addHelpFlagOnCommands(cmds []*cli.Command) {
 	for _, c := range cmds {
-		c.Flags = append(c.Flags, newCommandHelpFlag())
+		c.Flags = append(c.Flags, newHelpFlag())
 		c.HideHelp = true
 		addHelpFlagOnCommands(c.Subcommands)
 	}

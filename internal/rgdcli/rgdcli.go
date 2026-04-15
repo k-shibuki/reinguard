@@ -1098,7 +1098,7 @@ func NewApp(version string) *cli.App {
 			newCwdFlag(),
 			newSerialFlag(),
 			newFailOnNonResolvedFlag(),
-			newRootHelpFlag(),
+			newHelpFlag(),
 			verFlag,
 		},
 		Commands: commands,

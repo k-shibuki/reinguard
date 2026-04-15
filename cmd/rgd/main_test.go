@@ -283,9 +283,18 @@ func runRGDBinaryWithInput(t *testing.T, dir string, stdin string, args ...strin
 
 var (
 	buildRGDBinaryOnce sync.Once
+	buildRGDBinaryDir  string
 	buildRGDBinaryPath string
 	buildRGDBinaryErr  error
 )
+
+func TestMain(m *testing.M) {
+	code := m.Run()
+	if buildRGDBinaryDir != "" {
+		_ = os.RemoveAll(buildRGDBinaryDir)
+	}
+	os.Exit(code)
+}
 
 func buildRGDBinary(t *testing.T) string {
 	t.Helper()
@@ -296,6 +305,7 @@ func buildRGDBinary(t *testing.T) string {
 			buildRGDBinaryErr = err
 			return
 		}
+		buildRGDBinaryDir = tmpDir
 		bin := filepath.Join(tmpDir, "rgd")
 		if runtime.GOOS == "windows" {
 			bin += ".exe"

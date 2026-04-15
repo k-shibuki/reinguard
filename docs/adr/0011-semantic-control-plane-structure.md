@@ -44,7 +44,8 @@ Without explicit structure:
      under `.reinguard/` is for repository-local discovery only; semantic
      ownership remains Substrate/runtime or Adapter/runtime, not Semantics.
      Transient command inputs, scratch payloads, and tool caches do **not**
-     belong here by default.
+     belong here; use workspace-relative paths such as `.tmp/` for those
+     artifacts unless a bounded runtime contract explicitly says otherwise.
 
 1. **No `.reinguard/rules/`** — Replaced by `control/` subdirectories to
    avoid ambiguous naming.
@@ -85,7 +86,9 @@ Without explicit structure:
 The on-disk directory for substrate-owned gate artifacts was renamed from
 `runtime/` to `local/` so that reinguard-owned local state (gates and Adapter
 resume) lives under one gitignored tree (`.reinguard/local/`) and stays
-distinct from workspace-relative tool caches (`.tmp/`). Existing
+distinct from workspace-relative tool caches (`.tmp/`). Scratch artifacts
+previously written to `runtime/` are no longer supported and can be safely
+deleted. Existing
 `.reinguard/runtime/gates/*.json` files are not read; re-record with
 `rgd gate record` after updating `rgd`.
 
@@ -96,3 +99,4 @@ distinct from workspace-relative tool caches (`.tmp/`). Existing
 - ADR-0010 (knowledge format and manifest)
 - ADR-0013 (FSM workflow states and Adapter mapping)
 - ADR-0014 (runtime gate artifacts)
+- ADR-0015 (Adapter-local execute resume)

@@ -381,8 +381,8 @@ signal map as `gates.<gate-id>.*`.
 
 Runtime gate artifacts live under `.reinguard/local/gates/` and are validated
 against the embedded `gate-artifact.json` schema. These artifacts are
-**gitignored durable operational state**, not Semantics content. Transient
-`checks[]` authoring should prefer stdin or inline flags instead of writing
+**gitignored durable operational state**, not Semantics content. When authoring
+temporary check entries, prefer stdin or inline flags instead of writing
 scratch JSON under `.reinguard/local/`.
 
 ### `rgd gate record <gate-id>`
