@@ -32,7 +32,7 @@ func newPRNumberFlag() *cli.IntFlag {
 func newFailOnNonResolvedFlag() *cli.BoolFlag {
 	return &cli.BoolFlag{
 		Name:  "fail-on-non-resolved",
-		Usage: "exit non-zero for ambiguous, degraded, or unsupported outcomes where applicable",
+		Usage: "exit 2 for ambiguous, degraded, or unsupported outcomes where applicable",
 	}
 }
 
@@ -118,13 +118,23 @@ func newRootVersionFlag() *cli.BoolFlag {
 	}
 }
 
+func newCommandHelpFlag() *cli.BoolFlag {
+	return &cli.BoolFlag{
+		Name:               "help",
+		Aliases:            []string{"h"},
+		Usage:              "show help",
+		DisableDefaultText: true,
+	}
+}
+
 // hideHelpOnCommands stops urfave from appending package-global cli.HelpFlag to
 // each subcommand (which would race under concurrent App.Run). Users still get
-// top-level help via root newRootHelpFlag; adding a fresh help BoolFlag per
-// subcommand's Flags slice is the extension path for `subcmd --help`.
-func hideHelpOnCommands(cmds []*cli.Command) {
+// top-level help via root newRootHelpFlag and subcommand help via fresh
+// per-command help flags, without sharing cli.HelpFlag across App instances.
+func addHelpFlagOnCommands(cmds []*cli.Command) {
 	for _, c := range cmds {
+		c.Flags = append(c.Flags, newCommandHelpFlag())
 		c.HideHelp = true
-		hideHelpOnCommands(c.Subcommands)
+		addHelpFlagOnCommands(c.Subcommands)
 	}
 }

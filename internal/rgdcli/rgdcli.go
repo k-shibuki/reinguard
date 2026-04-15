@@ -39,8 +39,41 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+const exitCodeNonResolved = 2
+
+type exitCodeError struct {
+	code int
+}
+
+func (e *exitCodeError) Error() string {
+	return ""
+}
+
+func (e *exitCodeError) ExitCode() int {
+	return e.code
+}
+
 func isNonResolvedOutcome(k resolve.OutcomeKind) bool {
 	return k == resolve.OutcomeAmbiguous || k == resolve.OutcomeDegraded || k == resolve.OutcomeUnsupported
+}
+
+func exitNonResolved() error {
+	return &exitCodeError{code: exitCodeNonResolved}
+}
+
+func filterContextKnowledge(loaded *config.LoadResult, flat map[string]any) ([]config.KnowledgeManifestEntry, []string) {
+	if !loaded.KnowledgePresent || loaded.Knowledge == nil {
+		return []config.KnowledgeManifestEntry{}, nil
+	}
+	entries, warns := knowledge.FilterBySignals(loaded.Knowledge.Entries, flat)
+	if entries == nil {
+		entries = []config.KnowledgeManifestEntry{}
+	}
+	return entries, warns
+}
+
+func shouldFailContextBuild(strict bool, stateRes, routeRes resolve.Result) bool {
+	return strict && (isNonResolvedOutcome(stateRes.Kind) || isNonResolvedOutcome(routeRes.Kind))
 }
 
 // resolveEvalOutputMap matches resolve.Result JSON omitempty so CLI stdout aligns with context build.
@@ -169,10 +202,13 @@ func RunStateEval(c *cli.Context) error {
 		return err
 	}
 	out := resolveEvalOutputMap(res)
-	if c.Bool("fail-on-non-resolved") && isNonResolvedOutcome(res.Kind) {
-		return fmt.Errorf("non-resolved state outcome: %s", res.Kind)
+	if err := writeJSON(c.App.Writer, out); err != nil {
+		return err
 	}
-	return writeJSON(c.App.Writer, out)
+	if c.Bool("fail-on-non-resolved") && isNonResolvedOutcome(res.Kind) {
+		return exitNonResolved()
+	}
+	return nil
 }
 
 // RunRouteSelect loads signals (and optional --state-file merge into the flat map), resolves
@@ -214,10 +250,13 @@ func RunRouteSelect(c *cli.Context) error {
 		}
 		out["route_candidates"] = rc
 	}
-	if c.Bool("fail-on-non-resolved") && isNonResolvedOutcome(res.Kind) {
-		return fmt.Errorf("non-resolved route outcome: %s", res.Kind)
+	if err := writeJSON(c.App.Writer, out); err != nil {
+		return err
 	}
-	return writeJSON(c.App.Writer, out)
+	if c.Bool("fail-on-non-resolved") && isNonResolvedOutcome(res.Kind) {
+		return exitNonResolved()
+	}
+	return nil
 }
 
 // RunKnowledgePack lists knowledge entries from manifest (ADR-0010).
@@ -299,14 +338,7 @@ func RunContextBuild(c *cli.Context) error {
 	}) {
 		flat[k] = v
 	}
-	kEntries := make([]config.KnowledgeManifestEntry, 0)
-	var kWarns []string
-	if loaded.KnowledgePresent && loaded.Knowledge != nil {
-		kEntries, kWarns = knowledge.FilterBySignals(loaded.Knowledge.Entries, flat)
-		if kEntries == nil {
-			kEntries = []config.KnowledgeManifestEntry{}
-		}
-	}
+	kEntries, kWarns := filterContextKnowledge(loaded, flat)
 	routeRes, err := resolve.ResolveRoute(loaded.Rules(), flat, degSet)
 	if err != nil {
 		return err
@@ -336,7 +368,13 @@ func RunContextBuild(c *cli.Context) error {
 		"knowledge":   map[string]any{"entries": kEntries},
 		"diagnostics": ctxDiags,
 	}
-	return writeJSON(c.App.Writer, ctxDoc)
+	if err := writeJSON(c.App.Writer, ctxDoc); err != nil {
+		return err
+	}
+	if shouldFailContextBuild(c.Bool("fail-on-non-resolved"), stateRes, routeRes) {
+		return exitNonResolved()
+	}
+	return nil
 }
 
 // RunGuardEval runs a named guard.
@@ -882,6 +920,7 @@ func NewApp(version string) *cli.App {
 						newObservationFileFlag(),
 						newBranchFlag(),
 						newPRNumberFlag(),
+						newFailOnNonResolvedFlag(),
 					},
 					Action: RunContextBuild,
 				},
@@ -1010,7 +1049,7 @@ func NewApp(version string) *cli.App {
 			},
 		},
 	}
-	hideHelpOnCommands(commands)
+	addHelpFlagOnCommands(commands)
 
 	return &cli.App{
 		Name:        "rgd",

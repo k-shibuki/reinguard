@@ -13,7 +13,7 @@ body or README.
 | `--cwd` | — | Working directory for git/gh subprocesses (default: process CWD) |
 | `-o`, `--output` | — | Reserved for future file output (optional) |
 | `--serial` | — | Run observation providers sequentially (default: parallel) |
-| `--fail-on-non-resolved` | — | Exit non-zero when state/route outcome is `ambiguous`, `degraded`, or `unsupported` |
+| `--fail-on-non-resolved` | — | Exit code `2` when a supported evaluation outcome is `ambiguous`, `degraded`, or `unsupported` |
 
 With **urfave/cli v2**, place flags that must apply to a **nested** subcommand
 **after** the subcommand name (e.g. `rgd state eval --config-dir DIR`), not only
@@ -28,9 +28,15 @@ before `state`.
 
 | Code | Meaning |
 |------|---------|
-| 0 | Success; default even for ambiguous/degraded/unsupported evaluation unless `--fail-on-non-resolved` |
-| 1 | Usage error, validation failure, or missing required flag |
-| 2 | Unexpected internal error |
+| 0 | Success |
+| 1 | Error (config, I/O, observation failure, invalid usage, validation failure, or other command error) |
+| 2 | Non-resolved outcome only when `--fail-on-non-resolved` is set on a command that supports it |
+
+Commands that support `--fail-on-non-resolved`:
+
+- `rgd state eval`
+- `rgd route select`
+- `rgd context build`
 
 ## Command tree
 
@@ -62,6 +68,9 @@ rgd labels sync [--dry-run]
 ```
 
 Phase 1 does **not** define command aliases (e.g. no `pr` for `pull-requests`).
+
+All subcommands support `--help`. Each command uses a fresh help-flag instance so
+concurrent CLI tests avoid sharing urfave/cli package-global help flags.
 
 ## Maintainer / repository commands
 
@@ -312,6 +321,8 @@ Committed workflow `state_id` priorities for this repository are documented in *
   [`rgd observe`](#explicit-github-pr-scope) when `--observation-file` is not set.
 - Runtime gate statuses from `.reinguard/local/gates/*.json` are merged into
   the evaluation signal map as `gates.<gate-id>.*` before state resolution.
+- `--fail-on-non-resolved` writes the normal JSON result to stdout, then exits
+  `2` when `kind` is `ambiguous`, `degraded`, or `unsupported`.
 
 ### Output
 
@@ -339,6 +350,8 @@ Evaluates `type: route` rules using:
   [`rgd observe`](#explicit-github-pr-scope))
 - Runtime gate statuses from `.reinguard/local/gates/*.json` (merged as
   `gates.<gate-id>.*` before route evaluation)
+- `--fail-on-non-resolved` writes the normal JSON result to stdout, then exits
+  `2` when `kind` is `ambiguous`, `degraded`, or `unsupported`.
 
 ### Output
 
@@ -526,6 +539,9 @@ guard steps use that flat map; they do not see route/guard outcomes inside
   GitHub PR scope into the observe step using the same precedence as
   [`rgd observe`](#explicit-github-pr-scope). Rejected with
   `--observation-file`.
+- **`--fail-on-non-resolved`**: writes the operational-context JSON to stdout,
+  then exits `2` when either the embedded `state` result or `routes[0]` result
+  is `ambiguous`, `degraded`, or `unsupported`.
 
 The `knowledge` object in the output has **`entries`** (same shape as
 `rgd knowledge pack` stdout), not `paths` (ADR-0010).

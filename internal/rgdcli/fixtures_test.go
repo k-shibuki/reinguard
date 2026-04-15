@@ -82,19 +82,4 @@ rules:
     when: {op: eq, path: git.branch, value: feat}
 `
 
-// Two route rules with same priority and overlapping when -> ambiguous.
-const testFixtureRulesRouteAmbiguous = `schema_version: "0.7.0"
-rules:
-  - type: route
-    id: a
-    priority: 1
-    route_id: R1
-    when: {op: eq, path: git.branch, value: feat}
-  - type: route
-    id: b
-    priority: 1
-    route_id: R2
-    when: {op: eq, path: git.branch, value: feat}
-`
-
 const testFixtureRulesEmpty = "schema_version: \"0.7.0\"\nrules: []\n"

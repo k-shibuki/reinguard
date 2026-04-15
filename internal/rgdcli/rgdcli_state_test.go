@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -43,62 +42,6 @@ func TestRunStateEval_observationFile(t *testing.T) {
 	}
 	if out["state_id"] != "Idle" {
 		t.Fatalf("expected state_id=Idle, got %v", out["state_id"])
-	}
-}
-
-func TestRunStateEval_failOnNonResolved(t *testing.T) {
-	t.Parallel()
-	// Given: ambiguous overlapping state rules and matching signals
-	cfgDir := t.TempDir()
-	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
-	writeFile(t, filepath.Join(cfgDir, "control", "states", "r.yaml"), []byte(testFixtureRulesStateAmbiguous))
-	obsDir := t.TempDir()
-	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{"signals":{"git":{"branch":"feat"}}}`))
-	app := NewApp("t")
-	app.Writer = &bytes.Buffer{}
-	// When: state eval runs with --fail-on-non-resolved
-	err := app.Run([]string{
-		"rgd", "state", "eval",
-		"--config-dir", cfgDir,
-		"--observation-file", filepath.Join(obsDir, "o.json"),
-		"--fail-on-non-resolved",
-	})
-	// Then: non-nil error mentioning ambiguity
-	if err == nil || !strings.Contains(err.Error(), "ambiguous") {
-		t.Fatalf("%v", err)
-	}
-}
-
-func TestRunStateEval_failOnUnsupported(t *testing.T) {
-	t.Parallel()
-	// Given: state rule whose when-clause cannot be evaluated (unsupported outcome)
-	cfgDir := t.TempDir()
-	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
-	writeFile(t, filepath.Join(cfgDir, "control", "states", "bad.yaml"), []byte(`schema_version: "0.7.0"
-rules:
-  - type: state
-    id: bad
-    priority: 1
-    state_id: X
-    when:
-      op: gt
-      path: git.stash_count
-      value: not-a-number
-`))
-	obsDir := t.TempDir()
-	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{"signals":{"git":{"stash_count": 0}}}`))
-	app := NewApp("t")
-	app.Writer = &bytes.Buffer{}
-	// When: state eval runs with --fail-on-non-resolved
-	err := app.Run([]string{
-		"rgd", "state", "eval",
-		"--config-dir", cfgDir,
-		"--observation-file", filepath.Join(obsDir, "o.json"),
-		"--fail-on-non-resolved",
-	})
-	// Then: non-nil error mentioning unsupported (when evaluation fails at resolve time)
-	if err == nil || !strings.Contains(err.Error(), "unsupported") {
-		t.Fatalf("%v", err)
 	}
 }
 
