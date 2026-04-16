@@ -369,7 +369,7 @@ func nowFromCollectOptions(opts *CollectOptions) time.Time {
 	if opts != nil && opts.Now != nil {
 		return opts.Now.UTC()
 	}
-	return time.Now()
+	return time.Now().UTC()
 }
 
 func reviewInboxForView(view string, inbox []any) []any {

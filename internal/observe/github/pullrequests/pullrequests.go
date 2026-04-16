@@ -127,7 +127,7 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir stri
 		"pr_number_for_branch": prNum,
 		"observed_scope":       scope.signalMap(),
 	}
-	if prForBranch && strings.TrimSpace(view) == ViewSummary {
+	if prForBranch && strings.EqualFold(strings.TrimSpace(view), ViewSummary) {
 		detail, err := summaryPullDetail(ctx, c, owner, repo, prNum, explicitPull)
 		if err != nil {
 			return nil, scope, warnings, err

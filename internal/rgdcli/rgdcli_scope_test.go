@@ -142,6 +142,7 @@ func TestParseObserveViewFlag(t *testing.T) {
 		{name: "reviews inbox", view: "inbox", gitHubFacet: "reviews", want: "inbox"},
 		{name: "invalid name", view: "tiny", wantErrSubstr: "--view must be one of summary, inbox, full"},
 		{name: "inbox wrong facet", view: "inbox", gitHubFacet: "ci", wantErrSubstr: "--view inbox is only supported for rgd observe github reviews"},
+		{name: "inbox empty facet", view: "inbox", wantErrSubstr: "--view inbox is only supported for rgd observe github reviews"},
 	}
 	for _, tc := range tests {
 		tc := tc

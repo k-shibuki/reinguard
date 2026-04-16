@@ -293,77 +293,70 @@ func TestCollect_onePage_threadsAndDetail(t *testing.T) {
 	}
 }
 
-func TestCollectReviewsWithView_summaryOmitsInboxAndConversationBodies(t *testing.T) {
+func TestCollectReviewsWithView_compactViews(t *testing.T) {
 	t.Parallel()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		resp := map[string]any{
-			"data": map[string]any{
-				"repository": map[string]any{
-					"pullRequest": map[string]any{
-						"latestReviews": map[string]any{
-							"pageInfo": map[string]any{"hasNextPage": false},
-							"nodes": []map[string]any{
-								{"state": "APPROVED", "author": map[string]any{"login": "alice"}},
+	tests := []struct {
+		graphQLResponse   map[string]any
+		validateInbox     func(*testing.T, []any)
+		name              string
+		view              string
+		wantThreadsUnres  int
+		wantDecisionsAppr int
+		wantInboxLen      int
+		wantCommentsLen   int
+	}{
+		{
+			name: "summary omits inbox and conversation bodies",
+			view: ReviewViewSummary,
+			graphQLResponse: map[string]any{
+				"data": map[string]any{
+					"repository": map[string]any{
+						"pullRequest": map[string]any{
+							"latestReviews": map[string]any{
+								"pageInfo": map[string]any{"hasNextPage": false},
+								"nodes": []map[string]any{
+									{"state": "APPROVED", "author": map[string]any{"login": "alice"}},
+								},
 							},
-						},
-						"reviewThreads": map[string]any{
-							"pageInfo": map[string]any{"hasNextPage": false, "endCursor": ""},
-							"nodes": []map[string]any{
-								{"id": "THREAD_1", "isResolved": false, "isOutdated": false},
+							"reviewThreads": map[string]any{
+								"pageInfo": map[string]any{"hasNextPage": false, "endCursor": ""},
+								"nodes": []map[string]any{
+									{"id": "THREAD_1", "isResolved": false, "isOutdated": false},
+								},
 							},
 						},
 					},
 				},
 			},
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(resp); err != nil {
-			t.Errorf("encode response: %v", err)
-		}
-	}))
-	t.Cleanup(srv.Close)
-
-	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
-	rev, err := CollectReviewsWithView(context.Background(), c, "o", "r", 1, nil, ReviewViewSummary)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if rev["review_threads_unresolved"].(int) != 1 || rev["review_decisions_approved"].(int) != 1 {
-		t.Fatalf("reviews=%+v", rev)
-	}
-	if inbox := rev["review_inbox"].([]any); len(inbox) != 0 {
-		t.Fatalf("summary inbox=%+v", inbox)
-	}
-	if comments := rev["conversation_comments"].([]any); len(comments) != 0 {
-		t.Fatalf("summary comments=%+v", comments)
-	}
-}
-
-func TestCollectReviewsWithView_inboxIncludesThreadAnchorsButOmitsConversationBodies(t *testing.T) {
-	t.Parallel()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		resp := map[string]any{
-			"data": map[string]any{
-				"repository": map[string]any{
-					"pullRequest": map[string]any{
-						"latestReviews": map[string]any{
-							"pageInfo": map[string]any{"hasNextPage": false},
-							"nodes":    []any{},
-						},
-						"reviewThreads": map[string]any{
-							"pageInfo": map[string]any{"hasNextPage": false, "endCursor": ""},
-							"nodes": []map[string]any{
-								{
-									"id":         "THREAD_2",
-									"isResolved": false,
-									"isOutdated": true,
-									"comments": map[string]any{
-										"nodes": []map[string]any{
-											{
-												"databaseId": 202,
-												"body":       "please update scope",
-												"path":       "internal/rgdcli/rgdcli.go",
-												"line":       42,
+			wantThreadsUnres:  1,
+			wantDecisionsAppr: 1,
+		},
+		{
+			name: "inbox includes thread anchors but omits conversation bodies",
+			view: ReviewViewInbox,
+			graphQLResponse: map[string]any{
+				"data": map[string]any{
+					"repository": map[string]any{
+						"pullRequest": map[string]any{
+							"latestReviews": map[string]any{
+								"pageInfo": map[string]any{"hasNextPage": false},
+								"nodes":    []any{},
+							},
+							"reviewThreads": map[string]any{
+								"pageInfo": map[string]any{"hasNextPage": false, "endCursor": ""},
+								"nodes": []map[string]any{
+									{
+										"id":         "THREAD_2",
+										"isResolved": false,
+										"isOutdated": true,
+										"comments": map[string]any{
+											"nodes": []map[string]any{
+												{
+													"databaseId": 202,
+													"body":       "please update scope",
+													"path":       "internal/rgdcli/rgdcli.go",
+													"line":       42,
+												},
 											},
 										},
 									},
@@ -373,29 +366,56 @@ func TestCollectReviewsWithView_inboxIncludesThreadAnchorsButOmitsConversationBo
 					},
 				},
 			},
-		}
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(resp); err != nil {
-			t.Errorf("encode response: %v", err)
-		}
-	}))
-	t.Cleanup(srv.Close)
+			wantInboxLen:    1,
+			wantCommentsLen: 0,
+			validateInbox: func(t *testing.T, inbox []any) {
+				t.Helper()
+				thread := inbox[0].(map[string]any)
+				if thread["thread_id"] != "THREAD_2" || thread["path"] != "internal/rgdcli/rgdcli.go" {
+					t.Fatalf("thread=%+v", thread)
+				}
+			},
+		},
+	}
 
-	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
-	rev, err := CollectReviewsWithView(context.Background(), c, "o", "r", 1, nil, ReviewViewInbox)
-	if err != nil {
-		t.Fatal(err)
-	}
-	inbox := rev["review_inbox"].([]any)
-	if len(inbox) != 1 {
-		t.Fatalf("inbox=%+v", inbox)
-	}
-	thread := inbox[0].(map[string]any)
-	if thread["thread_id"] != "THREAD_2" || thread["path"] != "internal/rgdcli/rgdcli.go" {
-		t.Fatalf("thread=%+v", thread)
-	}
-	if comments := rev["conversation_comments"].([]any); len(comments) != 0 {
-		t.Fatalf("inbox comments=%+v", comments)
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				if err := json.NewEncoder(w).Encode(tt.graphQLResponse); err != nil {
+					t.Errorf("encode response: %v", err)
+				}
+			}))
+			t.Cleanup(srv.Close)
+
+			c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+			rev, err := CollectReviewsWithView(context.Background(), c, "o", "r", 1, nil, tt.view)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if tt.wantThreadsUnres > 0 && rev["review_threads_unresolved"].(int) != tt.wantThreadsUnres {
+				t.Errorf("review_threads_unresolved=%d, want %d", rev["review_threads_unresolved"].(int), tt.wantThreadsUnres)
+			}
+			if tt.wantDecisionsAppr > 0 && rev["review_decisions_approved"].(int) != tt.wantDecisionsAppr {
+				t.Errorf("review_decisions_approved=%d, want %d", rev["review_decisions_approved"].(int), tt.wantDecisionsAppr)
+			}
+
+			inbox := rev["review_inbox"].([]any)
+			if len(inbox) != tt.wantInboxLen {
+				t.Fatalf("inbox len=%d, want %d: %+v", len(inbox), tt.wantInboxLen, inbox)
+			}
+			if tt.validateInbox != nil {
+				tt.validateInbox(t, inbox)
+			}
+
+			comments := rev["conversation_comments"].([]any)
+			if len(comments) != tt.wantCommentsLen {
+				t.Fatalf("comments len=%d, want %d: %+v", len(comments), tt.wantCommentsLen, comments)
+			}
+		})
 	}
 }
 

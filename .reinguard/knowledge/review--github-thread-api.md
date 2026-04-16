@@ -36,7 +36,7 @@ When available, prefer `rgd` commands for review thread operations:
 - Read threads with `rgd observe github reviews --view inbox` or
   `rgd context build --compact` for the structured `review_inbox` read model.
 - Reply and resolve with `rgd review reply-thread` and
-  `rgd review resolve-thread` for the covered happy-path transport.
+  `rgd review resolve-thread` for standard reply and resolution workflows.
 
 Use the raw GraphQL flow below as the fallback and truth source for cases not
 yet surfaced by `rgd`.
