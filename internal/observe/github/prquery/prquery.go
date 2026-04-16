@@ -67,7 +67,7 @@ const prContextQuery = `query PRContext(
       mergeStateStatus @include(if: $includeDetail)
       baseRefName @include(if: $includeDetail)
       headRefName @include(if: $includeDetail)
-      headRefOid @include(if: $includeDetail)
+      headRefOid
       headRepository @include(if: $includeDetail) {
         name
         owner { login }

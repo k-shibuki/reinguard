@@ -154,7 +154,7 @@ func RunObserve(c *cli.Context, gitHubFacet string, providerOverride []string) e
 	if err != nil {
 		return err
 	}
-	view, err := parseObserveViewFlag(c, gitHubFacet, providerOverride, observe.ViewSummary)
+	view, err := parseObserveViewFlag(c, gitHubFacet, observe.ViewSummary)
 	if err != nil {
 		return err
 	}
@@ -711,15 +711,13 @@ func parseObserveScopeFlags(c *cli.Context, observationFileSet bool) (branch str
 	return branch, prNumber, nil
 }
 
-func parseObserveViewFlag(c *cli.Context, gitHubFacet string, providerOverride []string, defaultView observe.View) (observe.View, error) {
+func parseObserveViewFlag(c *cli.Context, gitHubFacet string, defaultView observe.View) (observe.View, error) {
 	raw := strings.TrimSpace(c.String("view"))
 	if raw == "" {
 		return defaultView, nil
 	}
 	view := observe.View(raw)
-	switch view {
-	case observe.ViewSummary, observe.ViewInbox, observe.ViewFull:
-	default:
+	if !view.Valid() {
 		return "", fmt.Errorf("--view must be one of summary, inbox, or full")
 	}
 	if view == observe.ViewInbox && gitHubFacet != "reviews" {
@@ -787,6 +785,8 @@ func compactObservationSignals(signalsAny map[string]any) map[string]any {
 	return out
 }
 
+// compactSelectedKeys keeps only the fields that remain useful in compact mode:
+// workflow-driving scalars, scope metadata, and merge/readiness aggregates.
 func compactSelectedKeys(parent map[string]any, field string, keys ...string) map[string]any {
 	raw, ok := parent[field].(map[string]any)
 	if !ok {
@@ -818,12 +818,11 @@ func detectObservationView(path string) (observe.View, bool) {
 	if !ok {
 		return "", false
 	}
-	switch observe.View(strings.TrimSpace(raw)) {
-	case observe.ViewSummary, observe.ViewInbox, observe.ViewFull:
-		return observe.View(strings.TrimSpace(raw)), true
-	default:
-		return "", false
+	view := observe.View(strings.TrimSpace(raw))
+	if view.Valid() {
+		return view, true
 	}
+	return "", false
 }
 
 func writeJSON(w io.Writer, v any) error {

@@ -48,10 +48,15 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir, hea
 	if c == nil {
 		return nil, nil, fmt.Errorf("nil client")
 	}
-	if strings.TrimSpace(view) == "" {
+	var warnings []string
+	view = strings.TrimSpace(view)
+	if view == "" {
 		view = ViewFull
 	}
-	var warnings []string
+	if view != ViewSummary && view != ViewFull {
+		warnings = append(warnings, fmt.Sprintf("github ci: unknown view %q, defaulting to %s", view, ViewFull))
+		view = ViewFull
+	}
 	sha := strings.TrimSpace(headSHAOverride)
 	var err error
 	if sha == "" {

@@ -161,7 +161,7 @@ func TestParseObserveViewFlag(t *testing.T) {
 			}
 			ctx := cli.NewContext(cli.NewApp(), set, nil)
 
-			got, err := parseObserveViewFlag(ctx, tc.gitHubFacet, nil, "summary")
+			got, err := parseObserveViewFlag(ctx, tc.gitHubFacet, "summary")
 
 			if tc.wantErrSubstr != "" {
 				if err == nil || !strings.Contains(err.Error(), tc.wantErrSubstr) {

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -602,7 +603,7 @@ exit 1
 	runGitCmd(t, repoDir, "init")
 	runGitCmd(t, repoDir, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "init")
 
-	var graphQLCalls int
+	var graphQLCalled atomic.Bool
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.URL.Path == "/search/issues":
@@ -626,10 +627,12 @@ exit 1
 		case r.URL.Path == "/repos/octocat/hello-world/commits/0123456789abcdef0123456789abcdef01234567/status":
 			_, _ = w.Write([]byte(`{"state":"success"}`))
 		case strings.Contains(r.URL.Path, "/check-runs"):
-			t.Fatalf("summary CI view must not fetch check-runs: %s", r.URL.Path)
+			http.Error(w, "unexpected check-runs", http.StatusInternalServerError)
+			return
 		case r.URL.Path == "/graphql":
-			graphQLCalls++
-			t.Fatalf("summary CI scope must not use GraphQL")
+			graphQLCalled.Store(true)
+			http.Error(w, "unexpected graphql", http.StatusInternalServerError)
+			return
 		default:
 			http.NotFound(w, r)
 		}
@@ -651,8 +654,8 @@ exit 1
 	if frag.Degraded {
 		t.Fatalf("unexpected degraded fragment: %+v", frag)
 	}
-	if graphQLCalls != 0 {
-		t.Fatalf("graphql calls = %d, want 0", graphQLCalls)
+	if graphQLCalled.Load() {
+		t.Fatal("summary CI scope must not use GraphQL")
 	}
 	ciMap, ok := frag.Signals["ci"].(map[string]any)
 	if !ok {

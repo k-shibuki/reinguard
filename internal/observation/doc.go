@@ -8,6 +8,8 @@ import (
 )
 
 // Document builds an observation document map (validated against observation schema by caller).
+// Caller-provided meta is copied first; reserved keys such as degraded_sources are overwritten
+// by the computed observation metadata.
 func Document(signals map[string]any, diags []observe.Diagnostic, degraded bool, meta map[string]any) map[string]any {
 	srcs := degradedSources(diags, degraded)
 	mergedMeta := map[string]any{}

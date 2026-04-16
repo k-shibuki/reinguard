@@ -113,26 +113,49 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir stri
 		branch = localBranch
 	}
 	scope.EffectiveBranch = branch
-	prForBranch := false
-	prNum := 0
+	prForBranch, prNum, explicitPull, err := resolvePRSelection(ctx, c, owner, repo, branch, &scope)
+	if err != nil {
+		return nil, scope, warnings, err
+	}
+	scope.ResolvedPRNumber = prNum
+
+	prSignals := map[string]any{
+		"open_count":           openOut.TotalCount,
+		"current_branch":       scope.EffectiveBranch,
+		"pr_exists_for_branch": prForBranch,
+		"pr_number_for_branch": prNum,
+		"observed_scope":       scope.signalMap(),
+	}
+	if prForBranch && strings.TrimSpace(view) == ViewSummary {
+		detail, err := summaryPullDetail(ctx, c, owner, repo, prNum, explicitPull)
+		if err != nil {
+			return nil, scope, warnings, err
+		}
+		mergePullSummary(prSignals, detail)
+	}
+
+	return map[string]any{
+		"pull_requests": prSignals,
+	}, scope, warnings, nil
+}
+
+func resolvePRSelection(ctx context.Context, c *githubapi.Client, owner, repo, branch string, scope *Scope) (prForBranch bool, prNum int, explicitPull *pullGet, err error) {
 	switch {
 	case scope.RequestedPRNumber > 0:
 		scope.Selection = SelectionExplicitPR
 		pull, err := fetchPullRequest(ctx, c, owner, repo, scope.RequestedPRNumber)
 		if err != nil {
-			return nil, scope, warnings, err
+			return false, 0, nil, err
 		}
 		if !strings.EqualFold(strings.TrimSpace(pull.State), "open") {
-			return nil, scope, warnings, fmt.Errorf("pull request #%d is not open", scope.RequestedPRNumber)
+			return false, 0, nil, fmt.Errorf("pull request #%d is not open", scope.RequestedPRNumber)
 		}
-		prForBranch = true
-		prNum = pull.Number
 		scope.EffectiveBranch = strings.TrimSpace(pull.Head.Ref)
+		return true, pull.Number, &pull, nil
 	case branch != "":
+		scope.Selection = SelectionCurrentBranch
 		if scope.RequestedBranch != "" {
 			scope.Selection = SelectionExplicitBranch
-		} else {
-			scope.Selection = SelectionCurrentBranch
 		}
 		// Issue search `head:<branch>` matches by prefix; use List Pulls with
 		// head=owner:branch for an exact head ref (GitHub REST).
@@ -147,38 +170,25 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir stri
 		)
 		var pulls []pullListItem
 		if err := c.GetJSON(ctx, uPulls, &pulls); err != nil {
-			return nil, scope, warnings, err
+			return false, 0, nil, err
 		}
 		for _, p := range pulls {
 			if strings.EqualFold(p.Head.Ref, branch) {
-				prForBranch = true
-				prNum = p.Number
-				break
+				return true, p.Number, nil, nil
 			}
 		}
+		return false, 0, nil, nil
 	default:
 		scope.Selection = SelectionNone
+		return false, 0, nil, nil
 	}
-	scope.ResolvedPRNumber = prNum
+}
 
-	prSignals := map[string]any{
-		"open_count":           openOut.TotalCount,
-		"current_branch":       scope.EffectiveBranch,
-		"pr_exists_for_branch": prForBranch,
-		"pr_number_for_branch": prNum,
-		"observed_scope":       scope.signalMap(),
+func summaryPullDetail(ctx context.Context, c *githubapi.Client, owner, repo string, prNum int, explicitPull *pullGet) (pullGet, error) {
+	if explicitPull != nil {
+		return *explicitPull, nil
 	}
-	if prForBranch && strings.TrimSpace(view) == ViewSummary {
-		detail, err := fetchPullRequest(ctx, c, owner, repo, prNum)
-		if err != nil {
-			return nil, scope, warnings, err
-		}
-		mergePullSummary(prSignals, detail)
-	}
-
-	return map[string]any{
-		"pull_requests": prSignals,
-	}, scope, warnings, nil
+	return fetchPullRequest(ctx, c, owner, repo, prNum)
 }
 
 // resolveBranch returns the current branch name or warnings for detached HEAD / errors.

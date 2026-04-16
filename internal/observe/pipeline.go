@@ -18,7 +18,8 @@ type LoadSignalsOptions struct {
 	// Branch observes GitHub PR linkage for a specific branch.
 	// When empty, live collection uses the checked-out branch.
 	Branch string
-	View   View
+	// View selects the observation output view (summary, inbox, full).
+	View View
 	// PRNumber observes GitHub PR-scoped facets for a specific pull request.
 	// When zero, live collection does not force a PR number.
 	PRNumber int

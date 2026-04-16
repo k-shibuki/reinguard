@@ -12,6 +12,16 @@ const (
 	ViewFull    View = "full"
 )
 
+// Valid reports whether v is one of the supported observation views.
+func (v View) Valid() bool {
+	switch v {
+	case ViewSummary, ViewInbox, ViewFull:
+		return true
+	default:
+		return false
+	}
+}
+
 // Diagnostic records a non-fatal observation issue (provider failure, warning, or fragment-level detail).
 type Diagnostic struct {
 	Severity string `json:"severity"`

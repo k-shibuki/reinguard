@@ -353,7 +353,7 @@ func (p *GitHubProvider) githubCollectReviewSignalsByView(ctx context.Context, c
 	if view == ViewFull {
 		return p.githubCollectPRGraph(ctx, client, owner, repo, prNum, wantPull, wantRev, prLookupOK, signals, diags, degraded, opts)
 	}
-	if !wantRev {
+	if !wantRev || !prLookupOK || prNum <= 0 {
 		return "", "", ""
 	}
 	reviewsInner, err := prquery.CollectReviewsWithView(ctx, client, owner, repo, prNum, p.BotReviewers, string(view))

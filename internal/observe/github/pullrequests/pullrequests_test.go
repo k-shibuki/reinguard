@@ -252,6 +252,7 @@ func TestCollect_explicitPROpensRequestedPR(t *testing.T) {
 
 func TestCollect_summaryViewAddsRESTPullMetadata(t *testing.T) {
 	t.Parallel()
+	// Given: local repo on main and an explicit open PR with detailed REST metadata
 	dir := t.TempDir()
 	run(t, "git", dir, "init")
 	run(t, "git", dir, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "init")
@@ -284,6 +285,7 @@ func TestCollect_summaryViewAddsRESTPullMetadata(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "tok", BaseURL: srv.URL}
+	// When: Collect runs with ViewSummary
 	m, _, warns, err := Collect(context.Background(), c, "o", "r", dir, ScopeOptions{PRNumber: 18}, ViewSummary)
 	if err != nil {
 		t.Fatal(err)
@@ -291,6 +293,7 @@ func TestCollect_summaryViewAddsRESTPullMetadata(t *testing.T) {
 	if len(warns) != 0 {
 		t.Fatalf("%v", warns)
 	}
+	// Then: REST-derived PR fields are mapped into pull_requests
 	pr, ok := m["pull_requests"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected pull_requests map, got %T", m["pull_requests"])

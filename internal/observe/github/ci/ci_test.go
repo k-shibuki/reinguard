@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/k-shibuki/reinguard/internal/githubapi"
@@ -101,9 +102,12 @@ func TestCollect_summaryOmitsCheckRuns(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	gitInit(t, dir)
+	var checkRunsRequested atomic.Bool
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/check-runs") {
-			t.Fatalf("summary view must not fetch check-runs: %s", r.URL.Path)
+			checkRunsRequested.Store(true)
+			http.Error(w, "unexpected check-runs", http.StatusInternalServerError)
+			return
 		}
 		_, _ = w.Write([]byte(`{"state":"success"}`))
 	}))
@@ -113,6 +117,9 @@ func TestCollect_summaryOmitsCheckRuns(t *testing.T) {
 	m, warns, err := Collect(context.Background(), c, "o", "r", dir, "", ViewSummary)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if checkRunsRequested.Load() {
+		t.Fatal("summary view must not fetch check-runs")
 	}
 	if len(warns) != 0 {
 		t.Fatalf("%v", warns)
