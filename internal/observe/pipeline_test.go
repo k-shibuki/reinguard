@@ -61,6 +61,34 @@ func TestParseObservationJSON_stringDiagnostics(t *testing.T) {
 	}
 }
 
+func TestParseObservationDocument_metaPreserved(t *testing.T) {
+	t.Parallel()
+	// Given: observation JSON with meta.view and degraded_sources
+	data, err := json.Marshal(map[string]any{
+		"signals":  map[string]any{"a": true},
+		"degraded": true,
+		"meta": map[string]any{
+			"view":             "summary",
+			"degraded_sources": []any{"github"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// When: ParseObservationDocument runs
+	doc, err := ParseObservationDocument(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Then: optional meta is available to higher-level callers without reparsing
+	if !doc.Degraded {
+		t.Fatal("expected degraded true")
+	}
+	if got := stringField(doc.Meta, "view"); got != "summary" {
+		t.Fatalf("view=%q", got)
+	}
+}
+
 func TestParseObservationJSON_errors(t *testing.T) {
 	t.Parallel()
 	// Given: malformed observation JSON payloads

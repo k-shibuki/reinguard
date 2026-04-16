@@ -172,7 +172,7 @@ already fixed by the saved observation document.
 | `signals` | object | Namespaced provider outputs (`git`, `github`, …) |
 | `diagnostics` | array | Optional structured messages |
 | `degraded` | boolean | True if any provider failed or returned partial data |
-| `meta` | object | Optional; may include `degraded_sources` (string array) and `view` (chosen observe depth) |
+| `meta` | object | Optional; when present, includes `view` (chosen observe depth) and may include `degraded_sources` (string array) |
 
 ### Non-fatal provider failure
 

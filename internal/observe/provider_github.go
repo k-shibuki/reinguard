@@ -387,8 +387,8 @@ func (p *GitHubProvider) githubCollectCIFacet(ctx context.Context, client *githu
 }
 
 func mergeNonEmptyString(dst *string, src string) {
-	if strings.TrimSpace(src) != "" {
-		*dst = src
+	if trimmed := strings.TrimSpace(src); trimmed != "" {
+		*dst = trimmed
 	}
 }
 

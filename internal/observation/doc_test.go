@@ -112,3 +112,18 @@ func TestDocument_withDiagnosticsAndMeta(t *testing.T) {
 		t.Fatalf("expected git and github in degraded_sources, got: %v", srcs)
 	}
 }
+
+func TestDocument_preservesProvidedViewMeta(t *testing.T) {
+	t.Parallel()
+	// Given: caller-provided meta.view
+	doc := Document(map[string]any{"x": 1}, nil, false, map[string]any{"view": "summary"})
+	// When: the observation document is built
+	meta, ok := doc["meta"].(map[string]any)
+	if !ok {
+		t.Fatal("expected meta")
+	}
+	// Then: view is preserved for downstream commands
+	if got := meta["view"]; got != "summary" {
+		t.Fatalf("view=%v", got)
+	}
+}

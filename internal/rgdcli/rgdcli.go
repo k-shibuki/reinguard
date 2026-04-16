@@ -320,15 +320,9 @@ func RunContextBuild(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	sig, diags, deg, err := observe.LoadSignalsFileOrCollect(context.Background(), &loaded.Root, loadOpts)
+	sig, diags, deg, obsView, err := loadContextObservation(context.Background(), &loaded.Root, loadOpts)
 	if err != nil {
 		return err
-	}
-	obsView := loadOpts.View
-	if loadOpts.ObservationPath != "" {
-		if detected, ok := detectObservationView(loadOpts.ObservationPath); ok {
-			obsView = detected
-		}
 	}
 	obsDoc := observation.Document(sig, diags, deg, map[string]any{"view": string(obsView)})
 	flat := signals.Flatten(sig)
@@ -389,6 +383,24 @@ func RunContextBuild(c *cli.Context) error {
 		return exitNonResolved()
 	}
 	return nil
+}
+
+func loadContextObservation(ctx context.Context, root *config.Root, opts observe.LoadSignalsOptions) (map[string]any, []observe.Diagnostic, bool, observe.View, error) {
+	if opts.ObservationPath == "" {
+		sig, diags, deg, err := observe.LoadSignalsFileOrCollect(ctx, root, opts)
+		return sig, diags, deg, opts.View, err
+	}
+	doc, err := observe.LoadObservationFile(opts.ObservationPath)
+	if err != nil {
+		return nil, nil, false, "", err
+	}
+	view := opts.View
+	if raw, ok := doc.Meta["view"].(string); ok {
+		if detected := observe.View(strings.TrimSpace(raw)); detected.Valid() {
+			view = detected
+		}
+	}
+	return doc.Signals, doc.Diagnostics, doc.Degraded, view, nil
 }
 
 // RunGuardEval runs a named guard.
@@ -799,30 +811,6 @@ func compactSelectedKeys(parent map[string]any, field string, keys ...string) ma
 		}
 	}
 	return out
-}
-
-func detectObservationView(path string) (observe.View, bool) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "", false
-	}
-	var doc map[string]any
-	if err := json.Unmarshal(data, &doc); err != nil {
-		return "", false
-	}
-	meta, ok := doc["meta"].(map[string]any)
-	if !ok {
-		return "", false
-	}
-	raw, ok := meta["view"].(string)
-	if !ok {
-		return "", false
-	}
-	view := observe.View(strings.TrimSpace(raw))
-	if view.Valid() {
-		return view, true
-	}
-	return "", false
 }
 
 func writeJSON(w io.Writer, v any) error {

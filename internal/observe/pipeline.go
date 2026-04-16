@@ -26,6 +26,15 @@ type LoadSignalsOptions struct {
 	Serial   bool
 }
 
+// ParsedObservation captures the supported observation document fields.
+type ParsedObservation struct {
+	Signals map[string]any
+	Meta    map[string]any
+
+	Diagnostics []Diagnostic
+	Degraded    bool
+}
+
 // LoadSignalsFileOrCollect reads observation JSON from ObservationPath when set (signals,
 // diagnostics, degraded per observation document shape); otherwise builds an engine from
 // root.Providers via NewEngineFromConfig and runs Collect (ADR-0003). An empty provider list
@@ -33,11 +42,11 @@ type LoadSignalsOptions struct {
 // on read path; nil root with no observation file returns an error.
 func LoadSignalsFileOrCollect(ctx context.Context, root *config.Root, opts LoadSignalsOptions) (map[string]any, []Diagnostic, bool, error) {
 	if opts.ObservationPath != "" {
-		data, err := os.ReadFile(opts.ObservationPath)
+		doc, err := LoadObservationFile(opts.ObservationPath)
 		if err != nil {
 			return nil, nil, false, err
 		}
-		return ParseObservationJSON(data)
+		return doc.Signals, doc.Diagnostics, doc.Degraded, nil
 	}
 	if root == nil {
 		return nil, nil, false, fmt.Errorf("observe: nil config root")
@@ -54,25 +63,41 @@ func LoadSignalsFileOrCollect(ctx context.Context, root *config.Root, opts LoadS
 	})
 }
 
-// ParseObservationJSON decodes a saved observation document (signals, diagnostics, degraded).
-func ParseObservationJSON(data []byte) (signals map[string]any, diags []Diagnostic, degraded bool, err error) {
+// LoadObservationFile reads and parses a saved observation document from disk.
+func LoadObservationFile(path string) (ParsedObservation, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ParsedObservation{}, err
+	}
+	return ParseObservationDocument(data)
+}
+
+// ParseObservationDocument decodes a saved observation document including optional meta.
+func ParseObservationDocument(data []byte) (ParsedObservation, error) {
 	var doc map[string]any
 	if err := json.Unmarshal(data, &doc); err != nil {
-		return nil, nil, false, err
+		return ParsedObservation{}, err
 	}
 	rawSignals, ok := doc["signals"]
 	if !ok {
-		return nil, nil, false, fmt.Errorf("observation JSON must include object field %q", "signals")
+		return ParsedObservation{}, fmt.Errorf("observation JSON must include object field %q", "signals")
 	}
-	signals, ok = rawSignals.(map[string]any)
+	signals, ok := rawSignals.(map[string]any)
 	if !ok {
-		return nil, nil, false, fmt.Errorf("observation JSON field %q must be an object", "signals")
+		return ParsedObservation{}, fmt.Errorf("observation JSON field %q must be an object", "signals")
 	}
-	degraded, _ = doc["degraded"].(bool)
+	out := ParsedObservation{
+		Signals:  signals,
+		Degraded: false,
+	}
+	out.Degraded, _ = doc["degraded"].(bool)
+	if rawMeta, ok := doc["meta"].(map[string]any); ok {
+		out.Meta = rawMeta
+	}
 	if raw, ok := doc["diagnostics"].([]any); ok {
 		for _, r := range raw {
 			if m, ok := r.(map[string]any); ok {
-				diags = append(diags, Diagnostic{
+				out.Diagnostics = append(out.Diagnostics, Diagnostic{
 					Severity: stringField(m, "severity"),
 					Message:  stringField(m, "message"),
 					Provider: stringField(m, "provider"),
@@ -81,7 +106,16 @@ func ParseObservationJSON(data []byte) (signals map[string]any, diags []Diagnost
 			}
 		}
 	}
-	return signals, diags, degraded, nil
+	return out, nil
+}
+
+// ParseObservationJSON decodes a saved observation document (signals, diagnostics, degraded).
+func ParseObservationJSON(data []byte) (signals map[string]any, diags []Diagnostic, degraded bool, err error) {
+	doc, err := ParseObservationDocument(data)
+	if err != nil {
+		return nil, nil, false, err
+	}
+	return doc.Signals, doc.Diagnostics, doc.Degraded, nil
 }
 
 func stringField(m map[string]any, k string) string {
