@@ -25,6 +25,9 @@
   },
   "observation": {
     "degraded": false,
+    "meta": {
+      "view": "full"
+    },
     "schema_version": "0.7.0",
     "signals": {
       "git": {

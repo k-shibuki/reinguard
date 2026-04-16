@@ -154,6 +154,10 @@ func RunObserve(c *cli.Context, gitHubFacet string, providerOverride []string) e
 	if err != nil {
 		return err
 	}
+	view, err := parseObserveViewFlag(c, gitHubFacet, providerOverride, observe.ViewSummary)
+	if err != nil {
+		return err
+	}
 	engine, err := observe.NewEngineFromConfig(root.Providers)
 	if err != nil {
 		return err
@@ -164,12 +168,13 @@ func RunObserve(c *cli.Context, gitHubFacet string, providerOverride []string) e
 		ProviderIDs: providerOverride,
 		GitHubFacet: gitHubFacet,
 		Scope:       observe.Scope{Branch: branch, PRNumber: prNumber},
+		View:        view,
 	}
 	signals, diags, deg, err := engine.Collect(context.Background(), &root, opts)
 	if err != nil {
 		return err
 	}
-	doc := observation.Document(signals, diags, deg)
+	doc := observation.Document(signals, diags, deg, map[string]any{"view": string(view)})
 	return writeJSON(c.App.Writer, doc)
 }
 
@@ -319,7 +324,13 @@ func RunContextBuild(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	obsDoc := observation.Document(sig, diags, deg)
+	obsView := loadOpts.View
+	if loadOpts.ObservationPath != "" {
+		if detected, ok := detectObservationView(loadOpts.ObservationPath); ok {
+			obsView = detected
+		}
+	}
+	obsDoc := observation.Document(sig, diags, deg, map[string]any{"view": string(obsView)})
 	flat := signals.Flatten(sig)
 	if mergeErr := mergeGateSignalsIntoFlat(context.Background(), cfgDir, wd, flat); mergeErr != nil {
 		return mergeErr
@@ -367,6 +378,9 @@ func RunContextBuild(c *cli.Context) error {
 		},
 		"knowledge":   map[string]any{"entries": kEntries},
 		"diagnostics": ctxDiags,
+	}
+	if c.Bool("compact") {
+		ctxDoc["observation"] = compactObservationDocument(obsDoc)
 	}
 	if err := writeJSON(c.App.Writer, ctxDoc); err != nil {
 		return err
@@ -671,6 +685,7 @@ func loadSignalsOpts(c *cli.Context, wd string) (observe.LoadSignalsOptions, err
 		WorkDir:  wd,
 		Branch:   branch,
 		PRNumber: prNumber,
+		View:     observe.ViewFull,
 		Serial:   c.Bool("serial"),
 	}
 	if p := c.String("observation-file"); p != "" {
@@ -694,6 +709,121 @@ func parseObserveScopeFlags(c *cli.Context, observationFileSet bool) (branch str
 		return "", 0, fmt.Errorf("--branch/--pr cannot be used with --observation-file")
 	}
 	return branch, prNumber, nil
+}
+
+func parseObserveViewFlag(c *cli.Context, gitHubFacet string, providerOverride []string, defaultView observe.View) (observe.View, error) {
+	raw := strings.TrimSpace(c.String("view"))
+	if raw == "" {
+		return defaultView, nil
+	}
+	view := observe.View(raw)
+	switch view {
+	case observe.ViewSummary, observe.ViewInbox, observe.ViewFull:
+	default:
+		return "", fmt.Errorf("--view must be one of summary, inbox, or full")
+	}
+	if view == observe.ViewInbox && gitHubFacet != "reviews" {
+		return "", fmt.Errorf("--view inbox is only supported for rgd observe github reviews")
+	}
+	return view, nil
+}
+
+func compactObservationDocument(doc map[string]any) map[string]any {
+	out := map[string]any{
+		"schema_version": doc["schema_version"],
+		"degraded":       doc["degraded"],
+	}
+	if diags, ok := doc["diagnostics"]; ok {
+		out["diagnostics"] = diags
+	}
+	if meta, ok := doc["meta"]; ok {
+		out["meta"] = meta
+	}
+	signalsAny, ok := doc["signals"].(map[string]any)
+	if !ok {
+		out["signals"] = map[string]any{}
+		return out
+	}
+	out["signals"] = compactObservationSignals(signalsAny)
+	return out
+}
+
+func compactObservationSignals(signalsAny map[string]any) map[string]any {
+	out := map[string]any{}
+	if gitAny, ok := signalsAny["git"]; ok {
+		out["git"] = gitAny
+	}
+	ghAny, ok := signalsAny["github"].(map[string]any)
+	if !ok {
+		return out
+	}
+	ghOut := map[string]any{}
+	if repo := compactSelectedKeys(ghAny, "repository", "owner", "name", "identity_source"); len(repo) > 0 {
+		ghOut["repository"] = repo
+	}
+	if issues := compactSelectedKeys(ghAny, "issues", "open_count"); len(issues) > 0 {
+		ghOut["issues"] = issues
+	}
+	if prs := compactSelectedKeys(ghAny, "pull_requests",
+		"open_count", "current_branch", "pr_exists_for_branch", "pr_number_for_branch",
+		"state", "draft", "title", "base_ref", "head_ref", "head_sha", "mergeable",
+		"merge_state_status", "observed_scope",
+	); len(prs) > 0 {
+		ghOut["pull_requests"] = prs
+	}
+	if ci := compactSelectedKeys(ghAny, "ci", "ci_status", "head_sha"); len(ci) > 0 {
+		ghOut["ci"] = ci
+	}
+	if reviews := compactSelectedKeys(ghAny, "reviews",
+		"review_threads_total", "review_threads_unresolved", "pagination_incomplete",
+		"review_decisions_total", "review_decisions_approved", "review_decisions_changes_requested",
+		"review_decisions_truncated", "bot_review_diagnostics",
+	); len(reviews) > 0 {
+		ghOut["reviews"] = reviews
+	}
+	if len(ghOut) > 0 {
+		out["github"] = ghOut
+	}
+	return out
+}
+
+func compactSelectedKeys(parent map[string]any, field string, keys ...string) map[string]any {
+	raw, ok := parent[field].(map[string]any)
+	if !ok {
+		return nil
+	}
+	out := map[string]any{}
+	for _, key := range keys {
+		if v, exists := raw[key]; exists {
+			out[key] = v
+		}
+	}
+	return out
+}
+
+func detectObservationView(path string) (observe.View, bool) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", false
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(data, &doc); err != nil {
+		return "", false
+	}
+	meta, ok := doc["meta"].(map[string]any)
+	if !ok {
+		return "", false
+	}
+	raw, ok := meta["view"].(string)
+	if !ok {
+		return "", false
+	}
+	switch observe.View(strings.TrimSpace(raw)) {
+	case observe.ViewSummary, observe.ViewInbox, observe.ViewFull:
+		return observe.View(strings.TrimSpace(raw)), true
+	default:
+		return "", false
+	}
 }
 
 func writeJSON(w io.Writer, v any) error {
@@ -832,12 +962,6 @@ func NewApp(version string) *cli.App {
 			Action: func(c *cli.Context) error { return RunObserve(c, "", nil) },
 			Subcommands: []*cli.Command{
 				{
-					Name:   "workflow-position",
-					Usage:  "alias of full observe",
-					Flags:  observeFlags(),
-					Action: func(c *cli.Context) error { return RunObserve(c, "", nil) },
-				},
-				{
 					Name:   "git",
 					Usage:  "git provider only",
 					Flags:  observeFlags(),
@@ -955,6 +1079,7 @@ func NewApp(version string) *cli.App {
 						newObservationFileFlag(),
 						newBranchFlag(),
 						newPRNumberFlag(),
+						newCompactFlag(),
 						newFailOnNonResolvedFlag(),
 					},
 					Action: RunContextBuild,

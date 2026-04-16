@@ -29,6 +29,10 @@ func newPRNumberFlag() *cli.IntFlag {
 	return &cli.IntFlag{Name: "pr", Usage: "observe GitHub facets for this pull request number"}
 }
 
+func newViewFlag() *cli.StringFlag {
+	return &cli.StringFlag{Name: "view", Usage: "observation depth/profile (summary, inbox, full)"}
+}
+
 func newFailOnNonResolvedFlag() *cli.BoolFlag {
 	return &cli.BoolFlag{
 		Name:  "fail-on-non-resolved",
@@ -96,8 +100,13 @@ func observeFlags() []cli.Flag {
 		newConfigDirFlag(),
 		newBranchFlag(),
 		newPRNumberFlag(),
+		newViewFlag(),
 		newFailOnNonResolvedFlag(),
 	}
+}
+
+func newCompactFlag() *cli.BoolFlag {
+	return &cli.BoolFlag{Name: "compact", Usage: "trim high-volume observation payload while keeping composed context fields"}
 }
 
 // newHelpFlag returns a fresh help flag instance. urfave/cli keeps its default

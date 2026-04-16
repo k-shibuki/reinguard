@@ -2,6 +2,16 @@ package observe
 
 import "context"
 
+// View describes the requested observation depth for CLI-driven collection.
+type View string
+
+// Supported observation views.
+const (
+	ViewSummary View = "summary"
+	ViewInbox   View = "inbox"
+	ViewFull    View = "full"
+)
+
 // Diagnostic records a non-fatal observation issue (provider failure, warning, or fragment-level detail).
 type Diagnostic struct {
 	Severity string `json:"severity"`
@@ -41,6 +51,7 @@ type Options struct {
 	WorkDir       string
 	GitHubFacet   string
 	DefaultBranch string
+	View          View
 	Scope         Scope
 	Serial        bool
 }

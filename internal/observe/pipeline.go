@@ -18,6 +18,7 @@ type LoadSignalsOptions struct {
 	// Branch observes GitHub PR linkage for a specific branch.
 	// When empty, live collection uses the checked-out branch.
 	Branch string
+	View   View
 	// PRNumber observes GitHub PR-scoped facets for a specific pull request.
 	// When zero, live collection does not force a PR number.
 	PRNumber int
@@ -47,6 +48,7 @@ func LoadSignalsFileOrCollect(ctx context.Context, root *config.Root, opts LoadS
 	return engine.Collect(ctx, root, Options{
 		WorkDir: opts.WorkDir,
 		Scope:   Scope{Branch: opts.Branch, PRNumber: opts.PRNumber},
+		View:    opts.View,
 		Serial:  opts.Serial,
 	})
 }

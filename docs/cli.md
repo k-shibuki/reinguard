@@ -47,19 +47,19 @@ rgd schema export [--dir DIR]
 rgd gate record <gate-id> --status pass|fail --check id:status:summary [--checks-file FILE]
 rgd gate status <gate-id>
 rgd gate show <gate-id>
-rgd observe [workflow-position]
-rgd observe git
-rgd observe github
-rgd observe github issues
-rgd observe github pull-requests
-rgd observe github ci
-rgd observe github reviews
+rgd observe [--view summary|full]
+rgd observe git [--view summary|full]
+rgd observe github [--view summary|full]
+rgd observe github issues [--view summary|full]
+rgd observe github pull-requests [--view summary|full]
+rgd observe github ci [--view summary|full]
+rgd observe github reviews [--view summary|inbox|full]
 rgd state eval [--observation-file FILE]
 rgd route select [--observation-file FILE] [--state-file FILE]
 rgd guard eval <guard-id> [flags...]
 rgd knowledge index
 rgd knowledge pack [--query STRING] [--observation-file FILE]
-rgd context build [--observation-file FILE]
+rgd context build [--observation-file FILE] [--compact]
 rgd review reply-thread --pr N --in-reply-to ID --commit-sha SHA --path FILE --line N (--body TEXT | --body-file FILE)
 rgd review resolve-thread --thread-id ID
 rgd ensure-labels
@@ -112,6 +112,28 @@ Runs configured providers (from `reinguard.yaml`) unless a subcommand
 narrows scope. Emits one **observation document** JSON object (see schema
 `observation-document.json`).
 
+### Declarative axes
+
+`rgd observe` is the canonical raw-observation API. The invoked command line
+fully declares:
+
+- **Scope** — provider / facet (`git`, `github`, `github ci`, `github reviews`, ...)
+- **Depth** — `--view`
+- **Pipeline** — raw observation only (`observe`), not composed operational context
+
+### `--view`
+
+`--view` defaults to **`summary`** for `rgd observe`.
+
+| Command family | Supported views | Notes |
+|------|------|-------------|
+| `rgd observe`, `rgd observe git`, `rgd observe github`, `rgd observe github issues`, `rgd observe github pull-requests`, `rgd observe github ci` | `summary`, `full` | `summary` is the cheapest useful view. |
+| `rgd observe github reviews` | `summary`, `inbox`, `full` | `inbox` is review-work oriented; `full` includes conversation bodies. |
+
+`--view inbox` is valid only for `rgd observe github reviews`.
+
+Observation output records the chosen view under `meta.view`.
+
 ### Explicit GitHub PR scope
 
 Live observation commands accept optional GitHub scope flags:
@@ -150,7 +172,7 @@ already fixed by the saved observation document.
 | `signals` | object | Namespaced provider outputs (`git`, `github`, …) |
 | `diagnostics` | array | Optional structured messages |
 | `degraded` | boolean | True if any provider failed or returned partial data |
-| `meta` | object | Optional; may include `degraded_sources` (string array) |
+| `meta` | object | Optional; may include `degraded_sources` (string array) and `view` (chosen observe depth) |
 
 ### Non-fatal provider failure
 
@@ -195,7 +217,16 @@ In restricted environments (e.g. sandboxes where `gh repo view` or GraphQL retur
 
 ### `signals.github.pull_requests` (GitHub provider, pull-requests facet)
 
-The **pull-requests** facet always includes REST-derived fields for the current branch. When `pr_exists_for_branch` is true, the provider also runs a **GraphQL** query (same request family as the reviews facet) and merges the following fields into `pull_requests`:
+The **pull-requests** facet always includes REST-derived scope fields for the
+current branch / explicit PR.
+
+View behavior:
+
+- **`summary`** — uses REST only. When a PR is resolved for the effective scope,
+  it adds PR state / mergeability summary without the full review-context
+  GraphQL path.
+- **`full`** — may use the review-context GraphQL path and includes linked
+  closing issues in addition to the summary fields.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -203,43 +234,56 @@ The **pull-requests** facet always includes REST-derived fields for the current 
 | `current_branch` | string | Effective branch used for PR observation. Defaults to the checked-out branch; with `--branch` (and no `--pr`), the requested branch; with `--pr` (regardless of `--branch`), the PR head branch. |
 | `pr_exists_for_branch` | boolean | Whether an open PR exists for the effective scope (resolved branch or explicit `--pr`). |
 | `pr_number_for_branch` | number | Resolved PR number for the effective scope, or `0`. |
-| `state` | string | GraphQL PR state lowercased: `open`, `closed`, `merged`. |
-| `draft` | boolean | Draft flag. |
-| `title` | string | PR title. |
-| `base_ref` | string | Base branch name (`baseRefName`). |
-| `head_ref` | string | PR head branch name (`headRefName`). |
-| `head_sha` | string | Head commit OID. |
-| `mergeable` | string | `mergeable`, `conflicting`, or `unknown` (from GraphQL `mergeable`). |
-| `merge_state_status` | string | GraphQL `mergeStateStatus` lowercased (e.g. `clean`, `dirty`, `blocked`, `unstable`, `behind`). |
-| `labels` | string array | Label names (first page, up to 20). |
-| `closing_issue_numbers` | number array | Linked issues from `closingIssuesReferences` (first page, up to 20). |
+| `state` | string | Present in `summary` and `full` when a PR is resolved. Lowercased PR state (`open`, `closed`, `merged`). |
+| `draft` | boolean | Present in `summary` and `full` when a PR is resolved. |
+| `title` | string | Present in `summary` and `full` when a PR is resolved. |
+| `base_ref` | string | Present in `summary` and `full` when a PR is resolved. |
+| `head_ref` | string | Present in `summary` and `full` when a PR is resolved. |
+| `head_sha` | string | Present in `summary` and `full` when a PR is resolved. |
+| `head_repo_owner` | string | Present in `summary` and `full` when a PR is resolved and the head repository is known. |
+| `head_repo_name` | string | Present in `summary` and `full` when a PR is resolved and the head repository is known. |
+| `mergeable` | string | Present in `summary` and `full` when a PR is resolved: `mergeable`, `conflicting`, or `unknown`. |
+| `merge_state_status` | string | Present in `summary` and `full` when a PR is resolved (for example `clean`, `dirty`, `blocked`, `unstable`, `behind`). |
+| `labels` | string array | Present in `summary` and `full` when a PR is resolved (first page, up to 20). |
+| `closing_issue_numbers` | number array | Present only in `full`; linked issues from `closingIssuesReferences` (first page, up to 20). |
 | `observed_scope` | object | Scope metadata for intent checks. See [Observed scope fields (detail)](#observed-scope-fields-detail) below. |
 
 ### `signals.github.ci` (GitHub provider, ci facet)
 
 Populated when the **ci** facet runs. Uses the observed head commit SHA (from git `HEAD`, an explicit scoped override, or the resolved PR head when scoped).
 
+View behavior:
+
+- **`summary`** — cheap CI rollup only (`ci_status`, `head_sha`)
+- **`full`** — summary fields plus `check_runs`
+
 | Field | Type | Description |
 |-------|------|-------------|
 | `ci_status` | string | Lowercased rollup from `GET /repos/{owner}/{repo}/commits/{sha}/status` (`state` field), or `unknown` when the SHA cannot be resolved. |
 | `head_sha` | string | Commit SHA used for status and check-run queries. |
-| `check_runs` | array | Check runs from `GET /repos/{owner}/{repo}/commits/{sha}/check-runs` (first page, `per_page=100`). Each element is an object with `name` (string), `status` (string, lowercased), and `conclusion` (string lowercased when present, or JSON `null` while the run has not finished). No check output bodies are included. If the request fails, the array is empty and a warning is recorded. When GitHub reports `total_count` greater than the number of returned runs, observation records a **truncation warning** (for example `github ci: check-runs response truncated (100 of N)`); treat rollup and `check_runs` as potentially incomplete for that head. |
+| `check_runs` | array | Present only in `full`. Check runs from `GET /repos/{owner}/{repo}/commits/{sha}/check-runs` (first page, `per_page=100`). Each element is an object with `name` (string), `status` (string, lowercased), and `conclusion` (string lowercased when present, or JSON `null` while the run has not finished). No check output bodies are included. If the request fails, the array is empty and a warning is recorded. When GitHub reports `total_count` greater than the number of returned runs, observation records a **truncation warning** (for example `github ci: check-runs response truncated (100 of N)`); treat rollup and `check_runs` as potentially incomplete for that head. |
 
 ### `signals.github.reviews` (GitHub provider, reviews facet)
 
 Populated when the `reviews` facet runs (see `rgd observe github reviews`). Data comes from a unified GraphQL **PR context** query: `reviewThreads` (`isResolved`), `latestReviews`, and optional PR issue `comments` for configured `bot_reviewers` (ADR-0012).
+
+View behavior:
+
+- **`summary`** — polling-oriented review state. Includes counts / bot aggregates, omits `review_inbox` detail and conversation bodies.
+- **`inbox`** — summary fields plus actionable `review_inbox` thread anchors.
+- **`full`** — inbox fields plus `conversation_comments` bodies.
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `review_threads_total` | number | Threads fetched for the current PR after pagination (or up to the engine page cap). |
 | `review_threads_unresolved` | number | Threads where `isResolved` is false. Used by `merge-readiness`. |
 | `pagination_incomplete` | boolean | True if not all thread pages could be read (e.g. pagination capped). |
-| `review_inbox` | array | Unresolved thread records for agent action. See [Review inbox fields (detail)](#review-inbox-fields-detail) below. |
+| `review_inbox` | array | Present in `inbox` and `full`. Unresolved thread records for agent action. See [Review inbox fields (detail)](#review-inbox-fields-detail) below. |
 | `review_decisions_total` | number | Count of nodes returned from `latestReviews` (latest decision per reviewer). |
 | `review_decisions_approved` | number | Count with state `APPROVED`. |
 | `review_decisions_changes_requested` | number | Count with state `CHANGES_REQUESTED`. |
 | `review_decisions_truncated` | boolean | True if `latestReviews` reports `hasNextPage` (more than one page of decisions not fetched). |
-| `conversation_comments` | array | PR issue comments merged for observation (GraphQL `pullRequest.comments` window, including backward paging for configured bots). Each element has `author` (login string, when present), `body` (string), and `updated_at` (ISO8601 from GraphQL `updatedAt`). The same timestamp is also emitted as `updatedAt` (duplicate key, same string) for consumers that key off the GraphQL field name. |
+| `conversation_comments` | array | Present only in `full`. PR issue comments merged for observation (GraphQL `pullRequest.comments` window, including backward paging for configured bots). Each element has `author` (login string, when present), `body` (string), and `updated_at` (ISO8601 from GraphQL `updatedAt`). The same timestamp is also emitted as `updatedAt` (duplicate key, same string) for consumers that key off the GraphQL field name. |
 | `conversation_comments_incomplete` | boolean | True when older `pullRequest.comments` pages exist beyond what was merged (seed `hasPreviousPage` or backward paging stopped before the oldest page).<br>When true, finding-conversation counts and non-thread aggregates may be partial; `bot_review_diagnostics.non_thread_findings_present` is fail-closed **true** if any **required** bot is configured. |
 | `bot_reviewer_status` | array | One object per configured `bot_reviewers` entry. See [Bot reviewer fields (detail)](#bot-reviewer-fields-detail) below. |
 | `bot_review_diagnostics` | object | Aggregated booleans over **required** bots only. See [Bot review diagnostics (detail)](#bot-review-diagnostics-detail) below. |
@@ -548,6 +592,15 @@ guard steps use that flat map; they do not see route/guard outcomes inside
   GitHub PR scope into the observe step using the same precedence as
   [`rgd observe`](#explicit-github-pr-scope). Rejected with
   `--observation-file`.
+- **Live observe depth**: `context build` uses the equivalent of
+  **`rgd observe --view full`** internally when it performs live collection.
+  It does **not** silently promote a provided `--observation-file`; if the file
+  lacks required evidence, downstream state/route/guard results fail or degrade
+  based on the supplied document only.
+- **`--compact`**: keeps the composed output (`state`, `routes`, `guards`,
+  filtered `knowledge.entries`, diagnostics) but trims high-volume nested
+  observation payload from `observation.signals` (for example `check_runs`,
+  `review_inbox`, and `conversation_comments`).
 - **`--fail-on-non-resolved`**: writes the operational-context JSON to stdout,
   then exits `2` when either the embedded `state` result or `routes[0]` result
   is `ambiguous`, `degraded`, or `unsupported`.

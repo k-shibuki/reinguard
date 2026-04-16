@@ -37,7 +37,7 @@ func TestCollect_prForBranch_usesPullsListExactHead(t *testing.T) {
 
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "tok", BaseURL: srv.URL}
 	// When: Collect runs
-	m, scope, warns, err := Collect(context.Background(), c, "o", "r", dir, ScopeOptions{})
+	m, scope, warns, err := Collect(context.Background(), c, "o", "r", dir, ScopeOptions{}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ func TestCollect_withGitRepo(t *testing.T) {
 
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "tok", BaseURL: srv.URL}
 	// When: Collect runs
-	m, scope, warns, err := Collect(context.Background(), c, "o", "r", dir, ScopeOptions{})
+	m, scope, warns, err := Collect(context.Background(), c, "o", "r", dir, ScopeOptions{}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +137,7 @@ func TestCollect_detachedHeadWarning(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "tok", BaseURL: srv.URL}
 	// When: Collect runs
-	_, _, warns, err := Collect(context.Background(), c, "o", "r", dir, ScopeOptions{})
+	_, _, warns, err := Collect(context.Background(), c, "o", "r", dir, ScopeOptions{}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +173,7 @@ func TestCollect_explicitBranchOverridesLocalBranch(t *testing.T) {
 
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "tok", BaseURL: srv.URL}
 	// When: Collect runs with an explicit branch override
-	m, scope, warns, err := Collect(context.Background(), c, "o", "r", dir, ScopeOptions{Branch: "feature/review"})
+	m, scope, warns, err := Collect(context.Background(), c, "o", "r", dir, ScopeOptions{Branch: "feature/review"}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -222,7 +222,7 @@ func TestCollect_explicitPROpensRequestedPR(t *testing.T) {
 
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "tok", BaseURL: srv.URL}
 	// When: Collect runs with an explicit PR number
-	m, scope, warns, err := Collect(context.Background(), c, "o", "r", dir, ScopeOptions{PRNumber: 18})
+	m, scope, warns, err := Collect(context.Background(), c, "o", "r", dir, ScopeOptions{PRNumber: 18}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -250,6 +250,66 @@ func TestCollect_explicitPROpensRequestedPR(t *testing.T) {
 	}
 }
 
+func TestCollect_summaryViewAddsRESTPullMetadata(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	run(t, "git", dir, "init")
+	run(t, "git", dir, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "init")
+	run(t, "git", dir, "branch", "-M", "main")
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/search/issues":
+			_, _ = w.Write([]byte(`{"total_count":2,"items":[{"number":17},{"number":18}]}`))
+		case "/repos/o/r/pulls/18":
+			_, _ = w.Write([]byte(`{
+				"number":18,
+				"state":"open",
+				"title":"feat: summary pull metadata",
+				"draft":false,
+				"mergeable":true,
+				"mergeable_state":"clean",
+				"base":{"ref":"main"},
+				"head":{
+					"ref":"feature/scoped",
+					"sha":"0123456789abcdef0123456789abcdef01234567",
+					"repo":{"name":"fork-repo","owner":{"login":"fork-owner"}}
+				},
+				"labels":[{"name":"feat"}]
+			}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "tok", BaseURL: srv.URL}
+	m, _, warns, err := Collect(context.Background(), c, "o", "r", dir, ScopeOptions{PRNumber: 18}, ViewSummary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warns) != 0 {
+		t.Fatalf("%v", warns)
+	}
+	pr, ok := m["pull_requests"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected pull_requests map, got %T", m["pull_requests"])
+	}
+	if pr["head_sha"] != "0123456789abcdef0123456789abcdef01234567" {
+		t.Fatalf("pull_requests=%+v", pr)
+	}
+	if pr["mergeable"] != "mergeable" || pr["merge_state_status"] != "clean" {
+		t.Fatalf("pull_requests=%+v", pr)
+	}
+	if pr["head_repo_owner"] != "fork-owner" || pr["head_repo_name"] != "fork-repo" {
+		t.Fatalf("pull_requests=%+v", pr)
+	}
+	labels, ok := pr["labels"].([]any)
+	if !ok || len(labels) != 1 || labels[0] != "feat" {
+		t.Fatalf("labels=%+v", pr["labels"])
+	}
+}
+
 func TestCollect_explicitPRNotFoundReturnsError(t *testing.T) {
 	t.Parallel()
 	// Given: local repo on main and an explicit PR target that the API cannot find
@@ -272,7 +332,7 @@ func TestCollect_explicitPRNotFoundReturnsError(t *testing.T) {
 
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "tok", BaseURL: srv.URL}
 	// When: Collect runs with an unknown explicit PR number
-	_, _, _, err := Collect(context.Background(), c, "o", "r", dir, ScopeOptions{PRNumber: 99})
+	_, _, _, err := Collect(context.Background(), c, "o", "r", dir, ScopeOptions{PRNumber: 99}, "")
 
 	// Then: the missing PR surfaces as an error
 	if err == nil || !strings.Contains(err.Error(), "404") {
@@ -302,7 +362,7 @@ func TestCollect_explicitPRClosedReturnsError(t *testing.T) {
 
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "tok", BaseURL: srv.URL}
 	// When: Collect runs with a closed explicit PR number
-	_, _, _, err := Collect(context.Background(), c, "o", "r", dir, ScopeOptions{PRNumber: 18})
+	_, _, _, err := Collect(context.Background(), c, "o", "r", dir, ScopeOptions{PRNumber: 18}, "")
 
 	// Then: the helper rejects the non-open PR
 	if err == nil || !strings.Contains(err.Error(), "not open") {
@@ -336,7 +396,7 @@ func TestCollect_explicitBranchWithoutMatchingPROmitsResolution(t *testing.T) {
 
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "tok", BaseURL: srv.URL}
 	// When: Collect runs with an explicit branch that has no matching PR
-	m, scope, warns, err := Collect(context.Background(), c, "o", "r", dir, ScopeOptions{Branch: "feature/missing"})
+	m, scope, warns, err := Collect(context.Background(), c, "o", "r", dir, ScopeOptions{Branch: "feature/missing"}, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -385,7 +445,7 @@ func TestCollect_explicitPRWinsOverRequestedBranchForEffectiveBranch(t *testing.
 	m, scope, warns, err := Collect(context.Background(), c, "o", "r", dir, ScopeOptions{
 		Branch:   "feature/ignored",
 		PRNumber: 18,
-	})
+	}, "")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -2,6 +2,7 @@ package rgdcli
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -31,6 +32,14 @@ func TestRunObserve_gitOnlyProvider(t *testing.T) {
 	// Then: stdout contains git provider and signals
 	if !bytes.Contains(buf.Bytes(), []byte(`"git"`)) || !bytes.Contains(buf.Bytes(), []byte(`"signals"`)) {
 		t.Fatalf("%s", buf.String())
+	}
+	var out map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	meta, ok := out["meta"].(map[string]any)
+	if !ok || meta["view"] != "summary" {
+		t.Fatalf("want meta.view=summary, got %v", out["meta"])
 	}
 }
 

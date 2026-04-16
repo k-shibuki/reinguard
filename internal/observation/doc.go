@@ -8,15 +8,18 @@ import (
 )
 
 // Document builds an observation document map (validated against observation schema by caller).
-func Document(signals map[string]any, diags []observe.Diagnostic, degraded bool) map[string]any {
+func Document(signals map[string]any, diags []observe.Diagnostic, degraded bool, meta map[string]any) map[string]any {
 	srcs := degradedSources(diags, degraded)
-	meta := map[string]any{}
+	mergedMeta := map[string]any{}
+	for k, v := range meta {
+		mergedMeta[k] = v
+	}
 	if len(srcs) > 0 {
 		list := make([]any, len(srcs))
 		for i, s := range srcs {
 			list[i] = s
 		}
-		meta["degraded_sources"] = list
+		mergedMeta["degraded_sources"] = list
 	}
 	doc := map[string]any{
 		"schema_version": schema.CurrentSchemaVersion,
@@ -36,8 +39,8 @@ func Document(signals map[string]any, diags []observe.Diagnostic, degraded bool)
 		}
 		doc["diagnostics"] = ds
 	}
-	if len(meta) > 0 {
-		doc["meta"] = meta
+	if len(mergedMeta) > 0 {
+		doc["meta"] = mergedMeta
 	}
 	return doc
 }

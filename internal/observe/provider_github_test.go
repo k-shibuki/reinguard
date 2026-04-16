@@ -576,6 +576,93 @@ exit 1
 	}
 }
 
+func TestGitHubProvider_Collect_scopedCISummaryUsesRESTHeadLookupOnly(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake gh executable is a Unix #!/bin/sh script")
+	}
+	tmp := t.TempDir()
+	ghBin := filepath.Join(tmp, "gh")
+	script := `#!/bin/sh
+if [ "$1" = "auth" ] && [ "$2" = "token" ]; then
+  echo testtoken
+  exit 0
+fi
+if [ "$1" = "repo" ] && [ "$2" = "view" ]; then
+  echo "octocat/hello-world"
+  exit 0
+fi
+exit 1
+`
+	if err := os.WriteFile(ghBin, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", tmp+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	repoDir := t.TempDir()
+	runGitCmd(t, repoDir, "init")
+	runGitCmd(t, repoDir, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "--allow-empty", "-m", "init")
+
+	var graphQLCalls int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/search/issues":
+			_, _ = w.Write([]byte(`{"total_count":1,"items":[{"number":18}]}`))
+		case r.URL.Path == "/repos/octocat/hello-world/pulls/18":
+			_, _ = w.Write([]byte(`{
+				"number":18,
+				"state":"open",
+				"title":"feat: summary ci scope",
+				"draft":false,
+				"mergeable":true,
+				"mergeable_state":"clean",
+				"base":{"ref":"main"},
+				"head":{
+					"ref":"feature/scoped",
+					"sha":"0123456789abcdef0123456789abcdef01234567",
+					"repo":{"name":"hello-world","owner":{"login":"octocat"}}
+				},
+				"labels":[]
+			}`))
+		case r.URL.Path == "/repos/octocat/hello-world/commits/0123456789abcdef0123456789abcdef01234567/status":
+			_, _ = w.Write([]byte(`{"state":"success"}`))
+		case strings.Contains(r.URL.Path, "/check-runs"):
+			t.Fatalf("summary CI view must not fetch check-runs: %s", r.URL.Path)
+		case r.URL.Path == "/graphql":
+			graphQLCalls++
+			t.Fatalf("summary CI scope must not use GraphQL")
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	p := NewGitHubProvider()
+	p.APIBase = srv.URL
+
+	frag, err := p.Collect(context.Background(), Options{
+		WorkDir:     repoDir,
+		GitHubFacet: "ci",
+		Scope:       Scope{PRNumber: 18},
+		View:        ViewSummary,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if frag.Degraded {
+		t.Fatalf("unexpected degraded fragment: %+v", frag)
+	}
+	if graphQLCalls != 0 {
+		t.Fatalf("graphql calls = %d, want 0", graphQLCalls)
+	}
+	ciMap, ok := frag.Signals["ci"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing ci signals: %+v", frag.Signals)
+	}
+	if ciMap["head_sha"] != "0123456789abcdef0123456789abcdef01234567" || ciMap["ci_status"] != "success" {
+		t.Fatalf("ci signals: %+v", ciMap)
+	}
+}
+
 func TestHeadRepoForCIStatus(t *testing.T) {
 	t.Parallel()
 	t.Run("fork_head_repo", func(t *testing.T) {

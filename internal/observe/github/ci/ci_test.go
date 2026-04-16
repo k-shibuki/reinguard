@@ -30,7 +30,7 @@ func TestCollect_status(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
 	// When: Collect runs
-	m, warns, err := Collect(context.Background(), c, "o", "r", dir, "")
+	m, warns, err := Collect(context.Background(), c, "o", "r", dir, "", ViewFull)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestCollect_checkRunsMapping(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
 	// When: Collect runs
-	m, warns, err := Collect(context.Background(), c, "o", "r", dir, "")
+	m, warns, err := Collect(context.Background(), c, "o", "r", dir, "", ViewFull)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,6 +97,35 @@ func TestCollect_checkRunsMapping(t *testing.T) {
 	}
 }
 
+func TestCollect_summaryOmitsCheckRuns(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	gitInit(t, dir)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/check-runs") {
+			t.Fatalf("summary view must not fetch check-runs: %s", r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`{"state":"success"}`))
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+
+	m, warns, err := Collect(context.Background(), c, "o", "r", dir, "", ViewSummary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(warns) != 0 {
+		t.Fatalf("%v", warns)
+	}
+	cimap, ok := m["ci"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected ci map, got %T", m["ci"])
+	}
+	if _, exists := cimap["check_runs"]; exists {
+		t.Fatalf("summary view must omit check_runs: %+v", cimap)
+	}
+}
+
 func TestCollect_checkRunsFailureFallsBackToWarning(t *testing.T) {
 	t.Parallel()
 	// Given: check-runs endpoint errors but commit status succeeds
@@ -112,7 +141,7 @@ func TestCollect_checkRunsFailureFallsBackToWarning(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
 	// When: Collect runs
-	m, warns, err := Collect(context.Background(), c, "o", "r", dir, "")
+	m, warns, err := Collect(context.Background(), c, "o", "r", dir, "", ViewFull)
 	// Then: warning is recorded and check_runs is empty
 	if err != nil {
 		t.Fatal(err)
@@ -146,7 +175,7 @@ func TestCollect_checkRunsTruncationWarning(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
-	m, warns, err := Collect(context.Background(), c, "o", "r", dir, "")
+	m, warns, err := Collect(context.Background(), c, "o", "r", dir, "", ViewFull)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,7 +203,7 @@ func TestCollect_http500(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
 	// When: Collect runs
-	_, _, err := Collect(context.Background(), c, "o", "r", dir, "")
+	_, _, err := Collect(context.Background(), c, "o", "r", dir, "", ViewFull)
 	// Then: error mentions 500
 	if err == nil || !strings.Contains(err.Error(), "500") {
 		t.Fatalf("got %v", err)
@@ -187,7 +216,7 @@ func TestCollect_nonGitWorkDir(t *testing.T) {
 	dir := t.TempDir()
 	c := &githubapi.Client{HTTP: http.DefaultClient, Token: "t", BaseURL: "http://unused.invalid"}
 	// When: Collect runs
-	m, warns, err := Collect(context.Background(), c, "o", "r", dir, "")
+	m, warns, err := Collect(context.Background(), c, "o", "r", dir, "", ViewFull)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +248,7 @@ func TestCollect_statusEndpointUsesOwnerRepoArguments(t *testing.T) {
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
 	head := "abcd0123456789abcdef0123456789abcdef01"
 	// When: Collect is called with head repo owner/name (not the base repo)
-	m, warns, err := Collect(context.Background(), c, "fork-owner", "fork-repo", dir, head)
+	m, warns, err := Collect(context.Background(), c, "fork-owner", "fork-repo", dir, head, ViewFull)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -271,7 +300,7 @@ func TestCollect_usesHeadSHAOverride(t *testing.T) {
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
 	override := "0123456789abcdef0123456789abcdef01234567"
 	// When: Collect runs with the override
-	m, warns, err := Collect(context.Background(), c, "o", "r", dir, override)
+	m, warns, err := Collect(context.Background(), c, "o", "r", dir, override, ViewFull)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -303,7 +332,7 @@ func TestCollect_whitespaceHeadSHAOverrideFallsBackToHEAD(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
 	// When: Collect runs with whitespace-only override
-	m, warns, err := Collect(context.Background(), c, "o", "r", dir, "   ")
+	m, warns, err := Collect(context.Background(), c, "o", "r", dir, "   ", ViewFull)
 	if err != nil {
 		t.Fatal(err)
 	}

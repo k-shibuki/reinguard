@@ -12,7 +12,7 @@ func TestDocument_andDegradedSet(t *testing.T) {
 	// Given: signals, provider_failed diagnostic, degraded flag
 	diags := []observe.Diagnostic{{Severity: "error", Message: "x", Provider: "git", Code: "provider_failed"}}
 	// When: Document and DegradedSet are built
-	doc := Document(map[string]any{"a": 1}, diags, true)
+	doc := Document(map[string]any{"a": 1}, diags, true, nil)
 	ds := DegradedSet(diags, true)
 	// Then: degraded true and git in set
 	if doc["degraded"] != true {
@@ -30,7 +30,7 @@ func TestDocument_noDiagnosticsNoMeta(t *testing.T) {
 	t.Parallel()
 	// Given: no diagnostics
 	// When: Document is built
-	doc := Document(map[string]any{"k": 2}, nil, false)
+	doc := Document(map[string]any{"k": 2}, nil, false, nil)
 	// Then: no diagnostics key required in map — implementation omits empty diagnostics
 	if _, ok := doc["diagnostics"]; ok {
 		t.Fatal("expected no diagnostics key when empty")
@@ -87,7 +87,7 @@ func TestDocument_withDiagnosticsAndMeta(t *testing.T) {
 		{Severity: "warn", Message: "m2", Provider: "github", Code: "provider_degraded"},
 	}
 	// When: Document is built with degraded=true
-	doc := Document(map[string]any{"x": 1}, diags, true)
+	doc := Document(map[string]any{"x": 1}, diags, true, nil)
 	// Then: diagnostics array has 2 entries
 	raw, ok := doc["diagnostics"].([]any)
 	if !ok || len(raw) != 2 {

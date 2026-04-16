@@ -127,3 +127,54 @@ func TestParseObserveScopeFlags(t *testing.T) {
 		})
 	}
 }
+
+func TestParseObserveViewFlag(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name          string
+		view          string
+		gitHubFacet   string
+		want          string
+		wantErrSubstr string
+	}{
+		{name: "default summary", want: "summary"},
+		{name: "explicit full", view: "full", want: "full"},
+		{name: "reviews inbox", view: "inbox", gitHubFacet: "reviews", want: "inbox"},
+		{name: "invalid name", view: "tiny", wantErrSubstr: "--view must be one of summary, inbox, or full"},
+		{name: "inbox wrong facet", view: "inbox", gitHubFacet: "ci", wantErrSubstr: "--view inbox is only supported for rgd observe github reviews"},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			set := flag.NewFlagSet("test", flag.ContinueOnError)
+			if err := newViewFlag().Apply(set); err != nil {
+				t.Fatal(err)
+			}
+			if err := set.Parse(nil); err != nil {
+				t.Fatal(err)
+			}
+			if tc.view != "" {
+				if err := set.Set("view", tc.view); err != nil {
+					t.Fatal(err)
+				}
+			}
+			ctx := cli.NewContext(cli.NewApp(), set, nil)
+
+			got, err := parseObserveViewFlag(ctx, tc.gitHubFacet, nil, "summary")
+
+			if tc.wantErrSubstr != "" {
+				if err == nil || !strings.Contains(err.Error(), tc.wantErrSubstr) {
+					t.Fatalf("expected error containing %q, got %v", tc.wantErrSubstr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(got) != tc.want {
+				t.Fatalf("got %q want %q", got, tc.want)
+			}
+		})
+	}
+}

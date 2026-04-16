@@ -289,6 +289,71 @@ func TestRunContextBuild_rejectsScopeFlagsWithObservationFile(t *testing.T) {
 	}
 }
 
+func TestRunContextBuild_compactTrimsHighVolumeObservationFields(t *testing.T) {
+	t.Parallel()
+	cfgDir := t.TempDir()
+	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
+	writeFile(t, filepath.Join(cfgDir, "control", "states", "default.yaml"), []byte(testFixtureRulesStateIdle))
+	writeFile(t, filepath.Join(cfgDir, "control", "routes", "default.yaml"), []byte(testFixtureControlRoutesNext))
+	if err := os.Mkdir(filepath.Join(cfgDir, "knowledge"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(cfgDir, "knowledge", "manifest.json"), []byte(`{"schema_version":"0.7.0","entries":[]}`))
+	obsPath := filepath.Join(t.TempDir(), "observation.json")
+	writeFile(t, obsPath, []byte(`{
+	  "schema_version":"0.7.0",
+	  "signals":{
+	    "git":{"branch":"main","working_tree_clean":true},
+	    "github":{
+	      "repository":{"owner":"acme","name":"widget","identity_source":"local_git"},
+	      "ci":{"ci_status":"success","head_sha":"abc","check_runs":[{"name":"ci","status":"completed","conclusion":"success"}]},
+	      "reviews":{
+	        "review_threads_total":1,
+	        "review_threads_unresolved":0,
+	        "pagination_incomplete":false,
+	        "review_inbox":[{"thread_id":"T1","path":"a.go"}],
+	        "conversation_comments":[{"body":"heavy"}],
+	        "conversation_comments_incomplete":false,
+	        "review_decisions_total":1,
+	        "review_decisions_approved":1,
+	        "review_decisions_changes_requested":0,
+	        "review_decisions_truncated":false,
+	        "bot_reviewer_status":[{"login":"coderabbitai[bot]","status":"completed_clean"}],
+	        "bot_review_diagnostics":{"bot_review_pending":false,"bot_review_terminal":true,"bot_review_failed":false,"bot_review_stale":false,"non_thread_findings_present":false}
+	      }
+	    }
+	  },
+	  "degraded":false,
+	  "meta":{"view":"full"}
+	}`))
+
+	var buf bytes.Buffer
+	app := NewApp("test")
+	app.Writer = &buf
+	if err := app.Run([]string{"rgd", "context", "build", "--config-dir", cfgDir, "--observation-file", obsPath, "--compact"}); err != nil {
+		t.Fatal(err)
+	}
+	var out map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	assertStateIdleRouteNext(t, out)
+	obs := mustMap(t, out["observation"], "observation")
+	signals := mustMap(t, obs["signals"], "signals")
+	gh := mustMap(t, signals["github"], "signals.github")
+	ci := mustMap(t, gh["ci"], "github.ci")
+	if _, ok := ci["check_runs"]; ok {
+		t.Fatalf("compact observation must omit check_runs: %+v", ci)
+	}
+	reviews := mustMap(t, gh["reviews"], "github.reviews")
+	if _, ok := reviews["review_inbox"]; ok {
+		t.Fatalf("compact observation must omit review_inbox: %+v", reviews)
+	}
+	if _, ok := reviews["conversation_comments"]; ok {
+		t.Fatalf("compact observation must omit conversation_comments: %+v", reviews)
+	}
+}
+
 func assertObservationDegradedWithLocalGitHubRepo(t *testing.T, out map[string]any) {
 	t.Helper()
 	obs := mustMap(t, out["observation"], "observation")
