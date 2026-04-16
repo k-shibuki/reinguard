@@ -65,13 +65,19 @@ Prefer `rgd observe github reviews --view summary` for cheap bot-status polling.
 
 ## Act
 
-1. Run `rgd observe github reviews --view summary` (or `rgd context build --compact` when you also need composed state / route / guard output) and confirm the review payload matches the FSM state. Read `signals.github.reviews.bot_reviewer_status` / `signals.github.reviews.bot_review_diagnostics` from `rgd observe`, or `observation.signals.github.reviews.bot_reviewer_status` / `observation.signals.github.reviews.bot_review_diagnostics` from `rgd context build`. For substring flags and issue-comment enrichment, use `status_comment_at` / `status_comment_source` (not `latest_comment_at` alone) per `docs/cli.md`.
-2. Apply the **row** for your `state_id` above; use **only** PR conversation / documented triggers — do not rely on thread replies for Codex rerun.
-3. For `waiting_bot_stale`, the required bot completed its review on a **previous** HEAD. Re-trigger review per bot docs (same re-trigger path as `waiting_bot_failed` when head moved) and poll until terminal or a different FSM state applies.
-4. For `waiting_bot_run`, poll every **30 seconds** for up to **20 minutes**. Stop immediately if the required bot becomes terminal, actionable review work appears, or the FSM should hand off to another procedure.
-5. For `waiting_bot_rate_limited`, take **`cooldown_sec`** from `rate_limit_remaining_seconds` when present (it is **elapsed-adjusted** from **`status_comment_at`** per `docs/cli.md`); else parse wait duration from the **selected status comment** body and subtract elapsed time since **`status_comment_at`** (same source as Act step 1). **Sleep `cooldown_sec + 30` seconds** before posting `@coderabbitai review` — **30** matches the local gate default **`RATE_LIMIT_RETRY_BUFFER_SEC`** in `.reinguard/scripts/check-local-review.sh` (same formula as local `--retry-on-rate-limit`). Then follow the one-retry recovery path in `review--bot-operations.md` instead of the generic 30-second poll cadence during the cool-down window.
-6. **Polling vs delegation:** Use the timing in steps 4–5 as the normative wait model. This repository does not yet define a separate delegation/subagent policy as its own SSOT (see `next-orchestration.md` § CI and bot wait); do not branch this procedure on adapter-specific delegation mechanics. If your execution environment can run the wait in a delegated worker instead of blocking the main agent, you may do so without changing the sleep/trigger semantics above.
-7. When bots are terminal and review threads still exist, switch to `review-address.md`.
+1. Select the command that matches the need:
+   - Bot-status polling only: `rgd observe github reviews --view summary`
+   - Bot status plus composed state / route / guard output: `rgd context build --compact`
+2. Confirm the review payload matches the FSM state:
+   - From `rgd observe`: `signals.github.reviews.bot_reviewer_status` / `signals.github.reviews.bot_review_diagnostics`
+   - From `rgd context build`: `observation.signals.github.reviews.bot_reviewer_status` / `observation.signals.github.reviews.bot_review_diagnostics`
+   For substring flags and issue-comment enrichment, use `status_comment_at` / `status_comment_source` (not `latest_comment_at` alone) per `docs/cli.md`.
+3. Apply the **row** for your `state_id` above; use **only** PR conversation / documented triggers — do not rely on thread replies for Codex rerun.
+4. For `waiting_bot_stale`, the required bot completed its review on a **previous** HEAD. Re-trigger review per bot docs (same re-trigger path as `waiting_bot_failed` when head moved) and poll until terminal or a different FSM state applies.
+5. For `waiting_bot_run`, poll every **30 seconds** for up to **20 minutes**. Stop immediately if the required bot becomes terminal, actionable review work appears, or the FSM should hand off to another procedure.
+6. For `waiting_bot_rate_limited`, take **`cooldown_sec`** from `rate_limit_remaining_seconds` when present (it is **elapsed-adjusted** from **`status_comment_at`** per `docs/cli.md`); else parse wait duration from the **selected status comment** body and subtract elapsed time since **`status_comment_at`** (same source as Act step 2). **Sleep `cooldown_sec + 30` seconds** before posting `@coderabbitai review` — **30** matches the local gate default **`RATE_LIMIT_RETRY_BUFFER_SEC`** in `.reinguard/scripts/check-local-review.sh` (same formula as local `--retry-on-rate-limit`). Then follow the one-retry recovery path in `review--bot-operations.md` instead of the generic 30-second poll cadence during the cool-down window.
+7. **Polling vs delegation:** Use the timing in steps 5–6 as the normative wait model. This repository does not yet define a separate delegation/subagent policy as its own SSOT (see `next-orchestration.md` § CI and bot wait); do not branch this procedure on adapter-specific delegation mechanics. If your execution environment can run the wait in a delegated worker instead of blocking the main agent, you may do so without changing the sleep/trigger semantics above.
+8. When bots are terminal and review threads still exist, switch to `review-address.md`.
 
 ## Output
 

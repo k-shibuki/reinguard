@@ -30,7 +30,7 @@ when:
 - **`rgd config validate`** checks the manifest schema, that paths exist, that the manifest
   matches front matter (freshness), statically validates each `when` (known `op` and operands,
   `eval:` registry, `path` prefixes `git.` / `github.` / `state.` / `$`), validates control YAML, and emits optional size/trigger-count hints.
-- **`rgd context build`** emits **`knowledge.entries`** filtered by each entry’s `when` against observation + merged **`state.*`** signals (`docs/cli.md`). Prefer `rgd context build --compact` for agent-facing operational context when you do not need the full nested observation payload.
+- **`rgd context build --compact`** emits **`knowledge.entries`** filtered by each entry’s `when` against observation + merged **`state.*`** signals (`docs/cli.md`). This is the recommended default for agent-facing operational context. Use `rgd context build` without `--compact` when you need the full nested observation payload.
 - **`rgd knowledge pack`** lists manifest entries; with **`--observation-file`**, applies `when` against nested **`signals`** only; optional **`--query`** OR-unions trigger substring matches (`docs/cli.md`).
 
 ## Practical retrieval flow

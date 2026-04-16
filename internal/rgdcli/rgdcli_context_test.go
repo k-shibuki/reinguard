@@ -356,51 +356,67 @@ func TestRunContextBuild_compactTrimsHighVolumeObservationFields(t *testing.T) {
 
 func TestRunContextBuild_observationFileInvalidViewFallsBackWithWarning(t *testing.T) {
 	t.Parallel()
-	cfgDir := t.TempDir()
-	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
-	writeFile(t, filepath.Join(cfgDir, "control", "states", "default.yaml"), []byte(testFixtureRulesStateIdle))
-	writeFile(t, filepath.Join(cfgDir, "control", "routes", "default.yaml"), []byte(testFixtureControlRoutesNext))
-	if err := os.Mkdir(filepath.Join(cfgDir, "knowledge"), 0o755); err != nil {
-		t.Fatal(err)
+	tests := []struct {
+		name        string
+		invalidView string
+	}{
+		{name: "tiny", invalidView: "tiny"},
+		{name: "unknown", invalidView: "unknown"},
+		{name: "empty", invalidView: ""},
+		{name: "invalid", invalidView: "invalid"},
 	}
-	writeFile(t, filepath.Join(cfgDir, "knowledge", "manifest.json"), []byte(`{"schema_version":"0.7.0","entries":[]}`))
-	obsPath := filepath.Join(t.TempDir(), "observation.json")
-	writeFile(t, obsPath, []byte(`{
-	  "schema_version":"0.7.0",
-	  "signals":{"git":{"branch":"main","working_tree_clean":true}},
-	  "degraded":false,
-	  "meta":{"view":"tiny"}
-	}`))
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			cfgDir := t.TempDir()
+			writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
+			writeFile(t, filepath.Join(cfgDir, "control", "states", "default.yaml"), []byte(testFixtureRulesStateIdle))
+			writeFile(t, filepath.Join(cfgDir, "control", "routes", "default.yaml"), []byte(testFixtureControlRoutesNext))
+			if err := os.Mkdir(filepath.Join(cfgDir, "knowledge"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			writeFile(t, filepath.Join(cfgDir, "knowledge", "manifest.json"), []byte(`{"schema_version":"0.7.0","entries":[]}`))
+			obsPath := filepath.Join(t.TempDir(), "observation.json")
+			obsJSON := `{
+  "schema_version":"0.7.0",
+  "signals":{"git":{"branch":"main","working_tree_clean":true}},
+  "degraded":false,
+  "meta":{"view":"` + tc.invalidView + `"}
+}`
+			writeFile(t, obsPath, []byte(obsJSON))
 
-	var buf bytes.Buffer
-	app := NewApp("test")
-	app.Writer = &buf
-	// When: context build reads an observation file with an invalid meta.view value
-	if err := app.Run([]string{"rgd", "context", "build", "--config-dir", cfgDir, "--observation-file", obsPath}); err != nil {
-		t.Fatal(err)
-	}
-	var out map[string]any
-	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
-		t.Fatal(err)
-	}
+			var buf bytes.Buffer
+			app := NewApp("test")
+			app.Writer = &buf
+			// When: context build reads an observation file with an invalid meta.view value
+			if err := app.Run([]string{"rgd", "context", "build", "--config-dir", cfgDir, "--observation-file", obsPath}); err != nil {
+				t.Fatal(err)
+			}
+			var out map[string]any
+			if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+				t.Fatal(err)
+			}
 
-	// Then: the command falls back to the default view and emits a warning diagnostic
-	obs := mustMap(t, out["observation"], "observation")
-	meta := mustMap(t, obs["meta"], "observation.meta")
-	if meta["view"] != "full" {
-		t.Fatalf("meta.view=%v", meta["view"])
-	}
-	diags := mustSlice(t, obs["diagnostics"], "observation.diagnostics")
-	var sawInvalidView bool
-	for _, d := range diags {
-		dm := mustMap(t, d, "observation.diagnostics[]")
-		if dm["code"] == "invalid_observation_view" {
-			sawInvalidView = true
-			break
-		}
-	}
-	if !sawInvalidView {
-		t.Fatalf("expected invalid_observation_view diagnostic, got %+v", diags)
+			// Then: the command falls back to the default view and emits a warning diagnostic
+			obs := mustMap(t, out["observation"], "observation")
+			meta := mustMap(t, obs["meta"], "observation.meta")
+			if meta["view"] != "full" {
+				t.Fatalf("meta.view=%v", meta["view"])
+			}
+			diags := mustSlice(t, obs["diagnostics"], "observation.diagnostics")
+			var sawInvalidView bool
+			for _, d := range diags {
+				dm := mustMap(t, d, "observation.diagnostics[]")
+				if dm["code"] == "invalid_observation_view" {
+					sawInvalidView = true
+					break
+				}
+			}
+			if !sawInvalidView {
+				t.Fatalf("expected invalid_observation_view diagnostic, got %+v", diags)
+			}
+		})
 	}
 }
 
