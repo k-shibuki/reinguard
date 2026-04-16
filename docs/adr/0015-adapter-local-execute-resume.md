@@ -63,14 +63,17 @@ orchestration state, not repository workflow position.
    In particular, the approved contract is evidence for the Adapter only and
    must not be promoted into `gates.*`, `state_id`, `route_id`, or guard
    inputs.
+8. **Transient command payloads** (for example gate `checks[]` authoring) are
+   not part of this Adapter-local contract. Prefer stdin or inline flags instead
+   of writing scratch JSON under `.reinguard/local/` unless a separate bounded
+   runtime contract explicitly permits it.
 
 ### Current layout
 
 - **Durable Adapter continuity state:** `.reinguard/local/adapter/`
 - **Durable Substrate gate state:** `.reinguard/local/gates/`
 - **Workspace-local caches and tool homes:** `.tmp/`
-- **Transient command payloads:** prefer stdin or inline flags; they are not
-  part of the default contract for `.reinguard/local/`
+- **Transient command payloads:** Decision §8 (stdin/inline; not default `.reinguard/local/` contract)
 
 ### Schema versioning
 

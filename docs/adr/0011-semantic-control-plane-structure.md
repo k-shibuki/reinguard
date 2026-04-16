@@ -61,7 +61,7 @@ Without explicit structure:
    - Must be followed as a norm → `policy/`
    - State / route / guard meaning in match YAML → `control/`
    - Repeatable agent procedure bound to state/route → `procedure/`
-   - Substrate operational state under bounded contract → `local/`
+   - Substrate or Adapter operational state under bounded contract → `local/`
    - Client-specific bridge only (no SSOT prose) → Adapter layer (`.cursor/`)
 
 1. **Adapter layer** — `.cursor/` remains thin: bridge files and commands

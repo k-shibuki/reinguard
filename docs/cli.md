@@ -30,7 +30,7 @@ before `state`.
 |------|---------|
 | 0 | Success |
 | 1 | Error (config, I/O, observation failure, invalid usage, validation failure, or other command error) |
-| 2 | Non-resolved outcome only when `--fail-on-non-resolved` is set on a command that supports it |
+| 2 | Non-resolved evaluation outcome when `--fail-on-non-resolved` is set on a supported command |
 
 Commands that support `--fail-on-non-resolved`:
 

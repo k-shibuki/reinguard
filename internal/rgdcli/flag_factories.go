@@ -127,7 +127,7 @@ func newRootVersionFlag() *cli.BoolFlag {
 
 // addHelpFlagOnCommands stops urfave from appending package-global cli.HelpFlag to
 // each subcommand (which would race under concurrent App.Run). Users still get
-// top-level help via root newRootHelpFlag and subcommand help via fresh
+// top-level help via root newHelpFlag and subcommand help via fresh
 // per-command help flags, without sharing cli.HelpFlag across App instances.
 func addHelpFlagOnCommands(cmds []*cli.Command) {
 	for _, c := range cmds {

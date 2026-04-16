@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -49,6 +50,7 @@ func TestExitStatus(t *testing.T) {
 	}{
 		{name: "nil", err: nil, wantCode: 0, wantContains: ""},
 		{name: "cli exit", err: cli.Exit("", 2), wantCode: 2, wantContains: ""},
+		{name: "cli exit with message", err: cli.Exit("cli error", 2), wantCode: 2, wantContains: "cli error"},
 		{name: "generic error", err: errors.New("boom"), wantCode: 1, wantContains: "boom"},
 	}
 
@@ -300,8 +302,8 @@ func buildRGDBinary(t *testing.T) string {
 		}
 		cmd := exec.Command("go", "build", "-o", bin, "./cmd/rgd")
 		cmd.Dir = root
-		if out, err := cmd.CombinedOutput(); err != nil {
-			buildRGDBinaryErr = errors.New(string(out))
+		if out, buildErr := cmd.CombinedOutput(); buildErr != nil {
+			buildRGDBinaryErr = fmt.Errorf("%w: %s", buildErr, out)
 			return
 		}
 		buildRGDBinaryPath = bin

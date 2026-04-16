@@ -13,6 +13,7 @@ func TestSubcommandsSupportHelpFlag(t *testing.T) {
 		name string
 		args []string
 	}{
+		{name: "root", args: []string{"--help"}},
 		{name: "config validate", args: []string{"config", "validate", "--help"}},
 		{name: "schema export", args: []string{"schema", "export", "--help"}},
 		{name: "observe", args: []string{"observe", "--help"}},

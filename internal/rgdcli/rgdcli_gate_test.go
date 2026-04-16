@@ -319,26 +319,40 @@ func TestRunGateRecord_inlineChecksAndFileChecks(t *testing.T) {
 
 func TestRunGateRecord_inlineCheckJSONBadFormat(t *testing.T) {
 	t.Parallel()
-	repo := initGitRepoForGateCLI(t)
-	cfgDir := t.TempDir()
-
-	var buf bytes.Buffer
-	app := NewApp("t")
-	app.Writer = &buf
-	err := app.Run([]string{
-		"rgd", "gate", "record",
-		"--config-dir", cfgDir,
-		"--cwd", repo,
-		"--status", "pass",
-		"--producer-procedure", "implement",
-		"--check-json", `{`,
-		"local-verification",
-	})
-	if err == nil {
-		t.Fatal("expected error for malformed --check-json value")
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{name: "invalid_syntax", input: `{`},
+		{name: "json_string", input: `"not-an-object"`},
+		{name: "json_number", input: `42`},
+		{name: "json_bool", input: `true`},
 	}
-	if !strings.Contains(err.Error(), "--check-json must decode") {
-		t.Fatalf("unexpected error: %v", err)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			repo := initGitRepoForGateCLI(t)
+			cfgDir := t.TempDir()
+
+			var buf bytes.Buffer
+			app := NewApp("t")
+			app.Writer = &buf
+			err := app.Run([]string{
+				"rgd", "gate", "record",
+				"--config-dir", cfgDir,
+				"--cwd", repo,
+				"--status", "pass",
+				"--producer-procedure", "implement",
+				"--check-json", tc.input,
+				"local-verification",
+			})
+			if err == nil {
+				t.Fatalf("expected error for --check-json value %q", tc.input)
+			}
+			if !strings.Contains(err.Error(), "--check-json must decode") {
+				t.Fatalf("unexpected error for %q: %v", tc.input, err)
+			}
+		})
 	}
 }
 
