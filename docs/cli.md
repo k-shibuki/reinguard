@@ -223,8 +223,8 @@ current branch / explicit PR.
 View behavior:
 
 - **`summary`** — uses REST only. When a PR is resolved for the effective scope,
-  it adds PR state / mergeability summary without the full review-context
-  GraphQL path.
+  it adds PR state / mergeability summary without invoking the full
+  review-context GraphQL code path.
 - **`full`** — may use the review-context GraphQL path and includes linked
   closing issues in addition to the summary fields.
 

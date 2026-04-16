@@ -49,7 +49,7 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir, hea
 		return nil, nil, fmt.Errorf("nil client")
 	}
 	var warnings []string
-	view = strings.TrimSpace(view)
+	view = strings.ToLower(strings.TrimSpace(view))
 	if view == "" {
 		view = ViewFull
 	}

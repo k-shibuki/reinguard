@@ -84,6 +84,7 @@ const (
 	SelectionCurrentBranch  = "current_branch"
 	SelectionNone           = "none"
 
+	// ViewSummary requests the summary-only pull-request output contract.
 	ViewSummary = "summary"
 )
 
@@ -235,6 +236,8 @@ func (s Scope) signalMap() map[string]any {
 	return out
 }
 
+// mergePullSummary populates dst with normalized PR detail fields.
+// It overwrites current_branch with the authoritative head_ref from the PR.
 func mergePullSummary(dst map[string]any, pull pullGet) {
 	dst["state"] = strings.ToLower(strings.TrimSpace(pull.State))
 	dst["draft"] = pull.Draft

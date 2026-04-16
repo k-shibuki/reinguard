@@ -730,12 +730,20 @@ func parseObserveViewFlag(c *cli.Context, gitHubFacet string, defaultView observ
 	}
 	view := observe.View(raw)
 	if !view.Valid() {
-		return "", fmt.Errorf("--view must be one of summary, inbox, or full")
+		return "", fmt.Errorf("--view must be one of %s", strings.Join(observeViewChoices(), ", "))
 	}
 	if view == observe.ViewInbox && gitHubFacet != "reviews" {
 		return "", fmt.Errorf("--view inbox is only supported for rgd observe github reviews")
 	}
 	return view, nil
+}
+
+func observeViewChoices() []string {
+	return []string{
+		string(observe.ViewSummary),
+		string(observe.ViewInbox),
+		string(observe.ViewFull),
+	}
 }
 
 func compactObservationDocument(doc map[string]any) map[string]any {

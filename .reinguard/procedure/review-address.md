@@ -47,7 +47,7 @@ rgd context build --compact
 
 Use `knowledge.entries` when a PR exists for the branch (review entries match `github.pull_requests.pr_exists_for_branch`). Open each `entries[].path` returned (typically includes `review--incremental-fix-flow.md`, `review--multi-source-review-signals.md`, `review--bot-operations.md`, `review--github-thread-api.md`). Use those docs for API channels, re-review triggers, REST vs GraphQL for `isResolved`, and outside-diff-range collection.
 
-Optional trigger pass: `rgd observe --view summary > /tmp/rgd-observe.json` then `rgd knowledge pack --observation-file /tmp/rgd-observe.json --query "review"`.
+Optional trigger pass: `rgd observe github reviews --view summary > /tmp/rgd-observe.json` then `rgd knowledge pack --observation-file /tmp/rgd-observe.json --query "review"`.
 
 **Already in context** (always-active Adapter rule): HS-* codes, catalogs, workflow & commit policy.
 

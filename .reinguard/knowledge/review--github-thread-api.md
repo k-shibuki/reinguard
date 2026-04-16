@@ -31,11 +31,15 @@ conversation threads.
 To enumerate threads and read `isResolved`, use the **GraphQL** API:
 `repository.pullRequest.reviewThreads`.
 
-When available, prefer `rgd observe github reviews --view inbox` /
-`rgd context build --compact` for the structured `review_inbox` read model and `rgd review reply-thread` /
-`rgd review resolve-thread` for the covered happy-path transport. Use the raw
-GraphQL flow below as the fallback and truth source for cases not yet surfaced
-by `rgd`.
+When available, prefer `rgd` commands for review thread operations:
+
+- Read threads with `rgd observe github reviews --view inbox` or
+  `rgd context build --compact` for the structured `review_inbox` read model.
+- Reply and resolve with `rgd review reply-thread` and
+  `rgd review resolve-thread` for the covered happy-path transport.
+
+Use the raw GraphQL flow below as the fallback and truth source for cases not
+yet surfaced by `rgd`.
 
 ## Enumerate threads with resolution state
 

@@ -38,8 +38,11 @@ func TestRunObserve_gitOnlyProvider(t *testing.T) {
 		t.Fatal(err)
 	}
 	meta, ok := out["meta"].(map[string]any)
-	if !ok || meta["view"] != "summary" {
-		t.Fatalf("want meta.view=summary, got %v", out["meta"])
+	if !ok {
+		t.Fatalf("want meta to be map[string]any, got %T: %v", out["meta"], out["meta"])
+	}
+	if meta["view"] != "summary" {
+		t.Fatalf("want meta.view=summary, got %v", meta["view"])
 	}
 }
 

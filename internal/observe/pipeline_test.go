@@ -87,6 +87,9 @@ func TestParseObservationDocument_metaPreserved(t *testing.T) {
 	if got := stringField(doc.Meta, "view"); got != "summary" {
 		t.Fatalf("view=%q", got)
 	}
+	if ds, ok := doc.Meta["degraded_sources"].([]any); !ok || len(ds) != 1 || ds[0] != "github" {
+		t.Fatalf("degraded_sources=%v", doc.Meta["degraded_sources"])
+	}
 }
 
 func TestParseObservationJSON_errors(t *testing.T) {
