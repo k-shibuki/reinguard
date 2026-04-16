@@ -54,8 +54,16 @@ func TestSubcommandsSupportHelpFlag(t *testing.T) {
 			if err := app.Run(args); err != nil {
 				t.Fatalf("unexpected help error: %v", err)
 			}
-			if !strings.Contains(out.String(), "NAME:") {
-				t.Fatalf("expected help output for %v, got %q", args, out.String())
+			cmdPath := []string{"rgd"}
+			for _, a := range tc.args {
+				if strings.HasPrefix(a, "-") {
+					break
+				}
+				cmdPath = append(cmdPath, a)
+			}
+			rendered := out.String()
+			if !strings.Contains(rendered, "NAME:") || !strings.Contains(rendered, strings.Join(cmdPath, " ")) {
+				t.Fatalf("expected help output for %v, got %q", args, rendered)
 			}
 		})
 	}

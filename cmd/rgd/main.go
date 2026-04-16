@@ -13,7 +13,8 @@ import (
 // Set at link time: go build -ldflags "-X main.version=1.2.3".
 var version = "dev"
 
-// main runs the urfave/cli app and logs fatal errors to stderr.
+// main runs the urfave/cli app, logs non-empty error messages to stderr,
+// and exits with the mapped status code.
 func main() {
 	if err := run(os.Args, version); err != nil {
 		exitCode, message := exitStatus(err)

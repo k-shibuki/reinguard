@@ -266,6 +266,36 @@ func TestRunGateRecord_inlineCheckJSON(t *testing.T) {
 	}
 }
 
+func TestRunGateRecord_inlineCheckJSONArray(t *testing.T) {
+	t.Parallel()
+	repo := initGitRepoForGateCLI(t)
+	cfgDir := t.TempDir()
+
+	var buf bytes.Buffer
+	app := NewApp("t")
+	app.Writer = &buf
+	if err := app.Run([]string{
+		"rgd", "gate", "record",
+		"--config-dir", cfgDir,
+		"--cwd", repo,
+		"--status", "pass",
+		"--producer-procedure", "implement",
+		"--check-json", `[{"id":"a","status":"pass","summary":"s1"},{"id":"b","status":"pass","summary":"s2"}]`,
+		"local-verification",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	var out map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatalf("json: %v raw=%s", err, buf.String())
+	}
+	checks, ok := out["checks"].([]any)
+	if !ok || len(checks) != 2 {
+		t.Fatalf("expected 2 JSON checks from array, got %v", out)
+	}
+}
+
 func TestRunGateRecord_inlineChecksAndFileChecks(t *testing.T) {
 	t.Parallel()
 	repo := initGitRepoForGateCLI(t)
