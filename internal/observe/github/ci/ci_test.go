@@ -100,6 +100,7 @@ func TestCollect_checkRunsMapping(t *testing.T) {
 
 func TestCollect_summaryOmitsCheckRuns(t *testing.T) {
 	t.Parallel()
+	// Given: git repo with HEAD and API that errors on check-runs
 	dir := t.TempDir()
 	gitInit(t, dir)
 	var checkRunsRequested atomic.Bool
@@ -114,10 +115,12 @@ func TestCollect_summaryOmitsCheckRuns(t *testing.T) {
 	t.Cleanup(srv.Close)
 	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
 
+	// When: Collect runs with ViewSummary
 	m, warns, err := Collect(context.Background(), c, "o", "r", dir, "", ViewSummary)
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Then: check-runs endpoint not hit, no warnings, check_runs key absent
 	if checkRunsRequested.Load() {
 		t.Fatal("summary view must not fetch check-runs")
 	}

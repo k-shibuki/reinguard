@@ -55,7 +55,8 @@ type Scope struct {
 
 // Options configure a collect run: working directory, optional GitHub facet filter, default
 // branch from config, optional provider ID restriction, explicit PR/branch scope, and serial
-// vs parallel execution.
+// vs parallel execution. View defaults are selected by callers; the zero value is not valid on
+// its own.
 type Options struct {
 	ProviderIDs   []string
 	WorkDir       string

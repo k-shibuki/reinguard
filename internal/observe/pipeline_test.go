@@ -95,14 +95,13 @@ func TestParseObservationDocument_meta(t *testing.T) {
 				"signals":  map[string]any{"a": true},
 				"degraded": tc.wantDegraded,
 			}
-			if tc.includeMeta {
-				payload["meta"] = map[string]any{}
-			}
 			if tc.metaHasValues {
 				payload["meta"] = map[string]any{
 					"view":             "summary",
 					"degraded_sources": []any{"github"},
 				}
+			} else if tc.includeMeta {
+				payload["meta"] = map[string]any{}
 			}
 			data, err := json.Marshal(payload)
 			if err != nil {

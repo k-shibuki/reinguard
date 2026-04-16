@@ -87,8 +87,7 @@ func ParseObservationDocument(data []byte) (ParsedObservation, error) {
 		return ParsedObservation{}, fmt.Errorf("observation JSON field %q must be an object", "signals")
 	}
 	out := ParsedObservation{
-		Signals:  signals,
-		Degraded: false,
+		Signals: signals,
 	}
 	out.Degraded, _ = doc["degraded"].(bool)
 	if rawMeta, ok := doc["meta"].(map[string]any); ok {

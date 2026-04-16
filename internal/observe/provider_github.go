@@ -350,6 +350,9 @@ func (p *GitHubProvider) githubCollectPRGraph(ctx context.Context, client *githu
 }
 
 func (p *GitHubProvider) githubCollectReviewSignalsByView(ctx context.Context, client *githubapi.Client, owner, repo string, prNum int, prLookupOK bool, view View, wantPull, wantRev bool, signals map[string]any, diags *[]Diagnostic, degraded *bool, opts Options) (headSHA string, statusOwner string, statusRepo string) {
+	// For ViewFull, collect both PR detail (wantPull) and reviews (wantRev) via full graph.
+	// For other views, only reviews are collected; wantPull is intentionally skipped
+	// because PR summary data is already available from githubCollectPullRequestsAndPRNum.
 	if view == ViewFull {
 		return p.githubCollectPRGraph(ctx, client, owner, repo, prNum, wantPull, wantRev, prLookupOK, signals, diags, degraded, opts)
 	}

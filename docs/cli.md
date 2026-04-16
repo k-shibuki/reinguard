@@ -119,7 +119,7 @@ fully declares:
 
 - **Scope** — provider / facet (`git`, `github`, `github ci`, `github reviews`, ...)
 - **Depth** — `--view`
-- **Pipeline** — raw observation only (`observe`), not composed operational context
+- **Pipeline** — raw observation only (via `observe` commands), not composed operational context
 
 ### `--view`
 
@@ -223,8 +223,8 @@ current branch / explicit PR.
 View behavior:
 
 - **`summary`** — uses REST only. When a PR is resolved for the effective scope,
-  it adds PR state / mergeability summary without invoking the full
-  review-context GraphQL code path.
+    it adds PR state / mergeability summary without invoking the full
+    review-context GraphQL code path.
 - **`full`** — may use the review-context GraphQL path and includes linked
   closing issues in addition to the summary fields.
 
@@ -255,7 +255,7 @@ Populated when the **ci** facet runs. Uses the observed head commit SHA (from gi
 View behavior:
 
 - **`summary`** — cheap CI rollup only (`ci_status`, `head_sha`)
-- **`full`** — summary fields plus `check_runs`
+  - **`full`** — summary fields plus `check_runs`
 
 | Field | Type | Description |
 |-------|------|-------------|
