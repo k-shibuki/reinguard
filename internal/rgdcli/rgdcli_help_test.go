@@ -14,7 +14,9 @@ func TestSubcommandsSupportHelpFlag(t *testing.T) {
 		args []string
 	}{
 		{name: "root", args: []string{"--help"}},
+		{name: "root short", args: []string{"-h"}},
 		{name: "config validate", args: []string{"config", "validate", "--help"}},
+		{name: "config validate short", args: []string{"config", "validate", "-h"}},
 		{name: "schema export", args: []string{"schema", "export", "--help"}},
 		{name: "observe", args: []string{"observe", "--help"}},
 		{name: "observe workflow-position", args: []string{"observe", "workflow-position", "--help"}},
