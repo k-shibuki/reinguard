@@ -16,9 +16,9 @@ This policy applies to **committed** `.cursor/sandbox.json` at the repository ro
 
 - Keep **only** repository-safe, machine-independent settings.
 - Do **not** commit user-specific absolute paths (e.g. `/home/<user>/...`).
-- **`additionalReadwritePaths`:** may include workspace-relative paths such as `".tmp"` (tool caches: pre-commit, golangci-lint, Go build cache, CodeRabbit CLI when routed via `with-repo-local-state.sh`) and `".reinguard/local"` (gitignored substrate gates, Adapter resume, scratch). Machine-specific home paths belong in user-level `~/.cursor/sandbox.json`, not in the repo.
+- **`additionalReadwritePaths`:** may include workspace-relative paths such as `".tmp"` (tool caches: pre-commit, golangci-lint, Go build cache, CodeRabbit CLI when routed via `with-repo-local-state.sh`) and `".reinguard/local"` (gitignored runtime state such as substrate gates and Adapter resume). Machine-specific home paths belong in user-level `~/.cursor/sandbox.json`, not in the repo.
 - **`networkPolicy.allow`:** may list **portable** hostnames needed for local verification in this repo (for example `api.github.com`, `github.com`, Go module hosts, and CodeRabbit CLI endpoints). WebSocket/proxy limits can still block the CodeRabbit CLI inside the sandbox even when hosts are allowed; see `review--local-coderabbit-cli.md`.
-- Prefer repo-local writable caches under `/.tmp/` (workspace-relative) for local verification commands (for example via `.reinguard/scripts/with-repo-local-state.sh`) instead of depending on user-home cache paths. Reinguard-owned local state (gates, Adapter resume) lives under `/.reinguard/local/` (see ADR-0011, ADR-0014, ADR-0015).
+- Prefer repo-local writable caches under `.tmp/` for local verification commands (for example via `.reinguard/scripts/with-repo-local-state.sh`) instead of depending on user-home cache paths. Reinguard-owned local state (gates, Adapter resume) lives under `.reinguard/local/` and should remain durable runtime state, not a default scratch area for transient command payloads (see ADR-0011, ADR-0014, ADR-0015).
 
 ## User-level overrides
 

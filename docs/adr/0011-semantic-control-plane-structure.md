@@ -36,32 +36,35 @@ Without explicit structure:
      (`.cursor/commands/rgd-next.md`); `cursor-plan` handles deep planning via
      `CreatePlan` only, embedding Issue-creation steps when issue-first
      (`.cursor/commands/cursor-plan.md`).
-   - `local/` — **gitignored operational state** written by the Substrate
-     when a bounded runtime contract explicitly allows it (for example runtime
-     gate artifacts; see ADR-0014). This directory is **not** Semantics
-     content, is not indexed as knowledge, and is not part of control-rule
-     validation. Physical placement under `.reinguard/` is for repository-local
-     discovery only; semantic ownership remains Substrate/runtime, not
-     Semantics.
+   - `local/` — **gitignored operational state** written by the Substrate or
+     Adapter when a bounded runtime contract explicitly allows it (for example
+     runtime gate artifacts and Adapter resume state; see ADR-0014 and
+     ADR-0015). This directory is **not** Semantics content, is not indexed as
+     knowledge, and is not part of control-rule validation. Physical placement
+     under `.reinguard/` is for repository-local discovery only; semantic
+     ownership remains Substrate/runtime or Adapter/runtime, not Semantics.
+     Transient command inputs, scratch payloads, and tool caches do **not**
+     belong here; use workspace-relative paths such as `.tmp/` for those
+     artifacts unless a bounded runtime contract explicitly says otherwise.
 
-2. **No `.reinguard/rules/`** — Replaced by `control/` subdirectories to
+1. **No `.reinguard/rules/`** — Replaced by `control/` subdirectories to
    avoid ambiguous naming.
 
-3. **Unified priority space** — ADR-0004 unchanged: all rules from the
+1. **Unified priority space** — ADR-0004 unchanged: all rules from the
    three `control/` subtrees share one priority namespace. Each YAML
    file's `type` field must match its subdirectory, and validation
    enforces that consistency.
 
-4. **Placement heuristics** — When adding or moving documents:
+1. **Placement heuristics** — When adding or moving documents:
 
    - Improves judgment when read → `knowledge/`
    - Must be followed as a norm → `policy/`
    - State / route / guard meaning in match YAML → `control/`
    - Repeatable agent procedure bound to state/route → `procedure/`
-   - Substrate operational state under bounded contract → `local/`
+   - Substrate or Adapter operational state under bounded contract → `local/`
    - Client-specific bridge only (no SSOT prose) → Adapter layer (`.cursor/`)
 
-5. **Adapter layer** — `.cursor/` remains thin: bridge files and commands
+1. **Adapter layer** — `.cursor/` remains thin: bridge files and commands
    reference `.reinguard/` paths; they do not restate Semantics-layer body
    text as SSOT.
 
@@ -81,11 +84,13 @@ Without explicit structure:
 ## Migration note
 
 The on-disk directory for substrate-owned gate artifacts was renamed from
-`runtime/` to `local/` so that reinguard-owned local state (gates, Adapter
-resume, scratch) lives under one gitignored tree (`.reinguard/local/`) and
-stays distinct from workspace-relative tool caches (`.tmp/`). Existing
-`.reinguard/runtime/gates/*.json` files are not read; re-record with
-`rgd gate record` after updating `rgd`.
+`runtime/` to `local/` so that reinguard-owned local state (gates and Adapter
+resume) lives under one gitignored tree (`.reinguard/local/`) and stays
+distinct from workspace-relative tool caches (`.tmp/`). Scratch artifacts
+previously written to `runtime/` other than gate records are no longer
+supported and can be safely deleted. Existing
+`.reinguard/runtime/gates/*.json` files are not read by updated tooling;
+re-record them with `rgd gate record` after updating `rgd`.
 
 ## Refs
 
@@ -94,3 +99,4 @@ stays distinct from workspace-relative tool caches (`.tmp/`). Existing
 - ADR-0010 (knowledge format and manifest)
 - ADR-0013 (FSM workflow states and Adapter mapping)
 - ADR-0014 (runtime gate artifacts)
+- ADR-0015 (Adapter-local execute resume)

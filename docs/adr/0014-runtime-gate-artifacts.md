@@ -69,6 +69,15 @@ but it must not become a workflow brain or execute arbitrary repository scripts.
 `rgd config validate` and the checked-in `reinguard.yaml`; changes that alter
 workflow meaning should be traceable (issue / ADR per repository policy).
 
+### Current layout
+
+- **Durable local state owned by reinguard / Adapter:** `.reinguard/local/`
+  (for example `.reinguard/local/gates/` and `.reinguard/local/adapter/`)
+- **Workspace-local tool caches:** `.tmp/`
+- **Transient gate-input payloads:** prefer stdin or inline flags; do not treat
+  `.reinguard/local/` as the default scratch area for short-lived `checks[]`
+  authoring
+
 ### Extension contract (runtime gates)
 
 When adding or changing a **runtime gate** (`gate_id`):
@@ -95,7 +104,7 @@ Operational checklist: `.reinguard/knowledge/workflow--state-gate-guard-extensio
 
 Gate files on disk moved from `.reinguard/runtime/gates/` to
 `.reinguard/local/gates/` (breaking). Rationale: consolidate reinguard-owned
-local state under `.reinguard/local/` and reserve `/.tmp/` for tool caches only.
+local state under `.reinguard/local/` and reserve `.tmp/` for tool caches only.
 Re-run `rgd gate record <gate-id>` on the current HEAD after upgrading `rgd`.
 
 The gate artifact JSON shape also moved **`branch` / `head_sha` under

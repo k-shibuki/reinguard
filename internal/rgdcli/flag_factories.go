@@ -32,7 +32,7 @@ func newPRNumberFlag() *cli.IntFlag {
 func newFailOnNonResolvedFlag() *cli.BoolFlag {
 	return &cli.BoolFlag{
 		Name:  "fail-on-non-resolved",
-		Usage: "exit non-zero for ambiguous, degraded, or unsupported outcomes where applicable",
+		Usage: "exit 2 for ambiguous, degraded, or unsupported outcomes where applicable",
 	}
 }
 
@@ -57,11 +57,15 @@ func newGateStatusFlag() *cli.StringFlag {
 }
 
 func newGateChecksFileFlag() *cli.StringFlag {
-	return &cli.StringFlag{Name: "checks-file", Usage: "JSON file containing gate check results (alternative to --check)"}
+	return &cli.StringFlag{Name: "checks-file", Usage: "JSON file containing a gate check array; use - to read the same array format from stdin"}
 }
 
 func newGateCheckFlag() *cli.StringSliceFlag {
 	return &cli.StringSliceFlag{Name: "check", Usage: "inline check as id:status:summary (repeatable; alternative to --checks-file)"}
+}
+
+func newGateCheckJSONFlag() *cli.StringFlag {
+	return &cli.StringFlag{Name: "check-json", Usage: "inline JSON for gate checks (one object or an array; supports evidence without a temp file)"}
 }
 
 func newGateInputsFileFlag() *cli.StringFlag {
@@ -96,11 +100,10 @@ func observeFlags() []cli.Flag {
 	}
 }
 
-// Root-only clones of urfave's default HelpFlag / VersionFlag. The library keeps
-// those as package globals; appending them to multiple App instances causes
-// data races under concurrent Run. HideHelp/HideVersion on the App plus these
-// per-NewApp flags preserves behavior without sharing *BoolFlag with other Apps.
-func newRootHelpFlag() *cli.BoolFlag {
+// newHelpFlag returns a fresh help flag instance. urfave/cli keeps its default
+// help flag as a package global, so callers must avoid sharing pointers across
+// App instances or command flag slices.
+func newHelpFlag() *cli.BoolFlag {
 	return &cli.BoolFlag{
 		Name:               "help",
 		Aliases:            []string{"h"},
@@ -109,6 +112,10 @@ func newRootHelpFlag() *cli.BoolFlag {
 	}
 }
 
+// Root-only clone of urfave's default VersionFlag. The library keeps that as a
+// package global; appending it to multiple App instances causes data races
+// under concurrent Run. HideVersion on the App plus this per-NewApp flag
+// preserves behavior without sharing *BoolFlag with other Apps.
 func newRootVersionFlag() *cli.BoolFlag {
 	return &cli.BoolFlag{
 		Name:               "version",
@@ -118,13 +125,14 @@ func newRootVersionFlag() *cli.BoolFlag {
 	}
 }
 
-// hideHelpOnCommands stops urfave from appending package-global cli.HelpFlag to
+// addHelpFlagOnCommands stops urfave from appending package-global cli.HelpFlag to
 // each subcommand (which would race under concurrent App.Run). Users still get
-// top-level help via root newRootHelpFlag; adding a fresh help BoolFlag per
-// subcommand's Flags slice is the extension path for `subcmd --help`.
-func hideHelpOnCommands(cmds []*cli.Command) {
+// top-level help via root newHelpFlag and subcommand help via fresh
+// per-command help flags, without sharing cli.HelpFlag across App instances.
+func addHelpFlagOnCommands(cmds []*cli.Command) {
 	for _, c := range cmds {
+		c.Flags = append(c.Flags, newHelpFlag())
 		c.HideHelp = true
-		hideHelpOnCommands(c.Subcommands)
+		addHelpFlagOnCommands(c.Subcommands)
 	}
 }

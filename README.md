@@ -72,7 +72,7 @@ Start with:
 
 - **Go**: 1.25.8+ (CI: 1.26.1; see [`go.mod`](go.mod))
 - **Build**: `go build -o rgd ./cmd/rgd`
-- **Test / vet / lint**: `make check` (uses `.reinguard/scripts/with-repo-local-state.sh` so caches stay under repo-local `/.tmp/`; see [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md))
+- **Test / vet / lint**: `make check` (uses `.reinguard/scripts/with-repo-local-state.sh` so caches stay under repo-local `.tmp/`; see [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md))
 
 Smoke check:
 

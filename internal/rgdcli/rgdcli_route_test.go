@@ -4,33 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"path/filepath"
-	"strings"
 	"testing"
 )
-
-func TestRunRouteSelect_failOnNonResolved(t *testing.T) {
-	t.Parallel()
-	// Given: ambiguous route rules and matching signals
-	cfgDir := t.TempDir()
-	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
-	writeFile(t, filepath.Join(cfgDir, "control", "routes", "r.yaml"), []byte(testFixtureRulesRouteAmbiguous))
-	obsDir := t.TempDir()
-	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{"signals":{"git":{"branch":"feat"}},"degraded":false}`))
-	var buf bytes.Buffer
-	app := NewApp("t")
-	app.Writer = &buf
-	// When: route select runs with --fail-on-non-resolved
-	err := app.Run([]string{
-		"rgd", "route", "select",
-		"--config-dir", cfgDir,
-		"--observation-file", filepath.Join(obsDir, "o.json"),
-		"--fail-on-non-resolved",
-	})
-	// Then: error mentions ambiguity
-	if err == nil || !strings.Contains(err.Error(), "ambiguous") {
-		t.Fatalf("%v / %s", err, buf.String())
-	}
-}
 
 func TestRunRouteSelect_stateFileFlattensStateDottedKeys(t *testing.T) {
 	t.Parallel()

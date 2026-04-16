@@ -20,7 +20,10 @@ etc.); details delegated to Knowledge documents where noted.
 
 Run the applicable subset before each push:
 
-- **Go code changed**: `bash .reinguard/scripts/with-repo-local-state.sh -- go test ./... -race`, same wrapper for `go vet ./...` and `golangci-lint run` (keeps caches under repo-local `/.tmp/`, not under `.reinguard/local/`)
+- **Go code changed** (wrapper keeps caches under repo-local `.tmp/`, not under `.reinguard/local/`):
+  - `bash .reinguard/scripts/with-repo-local-state.sh -- go test ./... -race`
+  - `bash .reinguard/scripts/with-repo-local-state.sh -- go vet ./...`
+  - `bash .reinguard/scripts/with-repo-local-state.sh -- golangci-lint run`
 - **Markdown changed**: `bash .reinguard/scripts/with-repo-local-state.sh -- pre-commit run markdownlint-cli2 --all-files` (pinned hook version from `.pre-commit-config.yaml`; no ad-hoc `npx @latest` installs)
 - **Config / schemas / knowledge changed**: `rgd config validate` from repo root
 
@@ -75,6 +78,10 @@ bash .reinguard/scripts/with-repo-local-state.sh --home-subdir cr-home -- \
   (`workflow.runtime_gate_roles.pre_pr_ai_review`; default gate id:
   `local-coderabbit`) for that same subject, including producer and check
   evidence, before `pr-readiness` can become `pass` when that role is required.
+- Prefer stdin or inline CLI inputs when recording transient `checks[]`
+  payloads for runtime gates. `.reinguard/local/` is reserved for durable local
+  runtime state such as gate artifacts and Adapter continuity, not as the
+  default location for short-lived JSON input files.
 - Review findings are dispositioned in `change-inspect` using the shared
   four-category model from
   `.reinguard/policy/review--disposition-categories.md`; do not
