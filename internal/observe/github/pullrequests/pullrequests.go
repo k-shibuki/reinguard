@@ -154,9 +154,10 @@ func resolvePRSelection(ctx context.Context, c *githubapi.Client, owner, repo, b
 		scope.EffectiveBranch = strings.TrimSpace(pull.Head.Ref)
 		return true, pull.Number, &pull, nil
 	case branch != "":
-		scope.Selection = SelectionCurrentBranch
 		if scope.RequestedBranch != "" {
 			scope.Selection = SelectionExplicitBranch
+		} else {
+			scope.Selection = SelectionCurrentBranch
 		}
 		// Issue search `head:<branch>` matches by prefix; use List Pulls with
 		// head=owner:branch for an exact head ref (GitHub REST).
@@ -273,7 +274,7 @@ func mergePullSummary(dst map[string]any, pull pullGet) {
 	if mergeState := strings.TrimSpace(pull.MergeableState); mergeState != "" {
 		dst["merge_state_status"] = strings.ToLower(mergeState)
 	}
-	labels := make([]any, 0, len(pull.Labels))
+	labels := make([]string, 0, len(pull.Labels))
 	for _, label := range pull.Labels {
 		if name := strings.TrimSpace(label.Name); name != "" {
 			labels = append(labels, name)

@@ -37,7 +37,7 @@ when:
 
 1. **Default composed path:** run **`rgd context build --compact`** and read **`knowledge.entries`** from stdout JSON (`id`, `path`, `description`, `triggers`, `when`).
 2. **Catalog without running observe:** open `.reinguard/knowledge/manifest.json` for the same fields (entries are not signal-filtered until you run `context build` or `pack --observation-file`).
-3. **Optional keyword pass / raw observation:** `rgd observe --view summary > /tmp/rgd-observe.json` then `rgd knowledge pack --observation-file /tmp/rgd-observe.json --query '<keyword>'`.
+3. **Optional keyword pass / raw observation:** `rgd observe --view summary > /tmp/rgd-observe.json` (produces summary-view observation JSON) then `rgd knowledge pack --observation-file /tmp/rgd-observe.json --query '<keyword>'`.
 4. Read only the Markdown paths you need for the current task.
 
 For ad-hoc read-only **`gh`** / **`git`** checks when not driving `rgd`, follow [ADR-0006](../../docs/adr/0006-gh-cli-as-sole-authentication.md) and [AGENTS.md](../../AGENTS.md) (observation boundaries); normative CLI surface is [`docs/cli.md`](../../docs/cli.md).

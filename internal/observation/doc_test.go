@@ -116,8 +116,9 @@ func TestDocument_withDiagnosticsAndMeta(t *testing.T) {
 func TestDocument_preservesProvidedViewMeta(t *testing.T) {
 	t.Parallel()
 	// Given: caller-provided meta.view
-	doc := Document(map[string]any{"x": 1}, nil, false, map[string]any{"view": "summary"})
+	inputMeta := map[string]any{"view": "summary"}
 	// When: the observation document is built
+	doc := Document(map[string]any{"x": 1}, nil, false, inputMeta)
 	meta, ok := doc["meta"].(map[string]any)
 	if !ok {
 		t.Fatal("expected meta")

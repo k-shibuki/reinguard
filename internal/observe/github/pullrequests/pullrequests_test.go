@@ -307,7 +307,7 @@ func TestCollect_summaryViewAddsRESTPullMetadata(t *testing.T) {
 	if pr["head_repo_owner"] != "fork-owner" || pr["head_repo_name"] != "fork-repo" {
 		t.Fatalf("pull_requests=%+v", pr)
 	}
-	labels, ok := pr["labels"].([]any)
+	labels, ok := pr["labels"].([]string)
 	if !ok || len(labels) != 1 || labels[0] != "feat" {
 		t.Fatalf("labels=%+v", pr["labels"])
 	}

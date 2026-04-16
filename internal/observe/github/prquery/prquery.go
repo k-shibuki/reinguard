@@ -318,6 +318,9 @@ func CollectWithOptions(ctx context.Context, c *githubapi.Client, owner, repo st
 }
 
 // CollectReviewsWithView returns only the github.reviews subtree for summary/inbox/full polling.
+// Valid view values are ReviewViewSummary ("summary"), ReviewViewInbox ("inbox"), and
+// ReviewViewFull ("full"); unknown values default to full. The summary view omits
+// review_inbox and conversation_comments, and the inbox view omits conversation_comments.
 func CollectReviewsWithView(ctx context.Context, c *githubapi.Client, owner, repo string, prNumber int, bots []BotReviewer, view string) (map[string]any, error) {
 	_, reviewsInner, err := collectWithView(ctx, c, owner, repo, prNumber, bots, view, false, nil)
 	return reviewsInner, err

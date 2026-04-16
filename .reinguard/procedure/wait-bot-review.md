@@ -50,6 +50,8 @@ rgd context build --compact
 ```
 
 Use `knowledge.entries` (typically includes `review--bot-operations.md`, `review--github-thread-api.md`, `review--multi-source-review-signals.md`).
+Prefer `rgd observe github reviews --view summary` for cheap bot-status polling. Use
+`rgd context build --compact` when you also need FSM state / route / guard output.
 
 ## Map state → first action
 
@@ -63,7 +65,7 @@ Use `knowledge.entries` (typically includes `review--bot-operations.md`, `review
 
 ## Act
 
-1. Run `rgd observe github reviews --view summary` (or `rgd context build --compact` when you also need composed state / route / guard output) and confirm `github.reviews.bot_reviewer_status` / `bot_review_diagnostics` match the FSM state. For substring flags and issue-comment enrichment, use `status_comment_at` / `status_comment_source` (not `latest_comment_at` alone) per `docs/cli.md`.
+1. Run `rgd observe github reviews --view summary` (or `rgd context build --compact` when you also need composed state / route / guard output) and confirm the review payload matches the FSM state. Read `signals.github.reviews.bot_reviewer_status` / `signals.github.reviews.bot_review_diagnostics` from `rgd observe`, or `observation.signals.github.reviews.bot_reviewer_status` / `observation.signals.github.reviews.bot_review_diagnostics` from `rgd context build`. For substring flags and issue-comment enrichment, use `status_comment_at` / `status_comment_source` (not `latest_comment_at` alone) per `docs/cli.md`.
 2. Apply the **row** for your `state_id` above; use **only** PR conversation / documented triggers — do not rely on thread replies for Codex rerun.
 3. For `waiting_bot_stale`, the required bot completed its review on a **previous** HEAD. Re-trigger review per bot docs (same re-trigger path as `waiting_bot_failed` when head moved) and poll until terminal or a different FSM state applies.
 4. For `waiting_bot_run`, poll every **30 seconds** for up to **20 minutes**. Stop immediately if the required bot becomes terminal, actionable review work appears, or the FSM should hand off to another procedure.

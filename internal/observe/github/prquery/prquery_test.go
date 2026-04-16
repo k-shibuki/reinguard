@@ -298,6 +298,7 @@ func TestCollectReviewsWithView_compactViews(t *testing.T) {
 	tests := []struct {
 		graphQLResponse   map[string]any
 		validateInbox     func(*testing.T, []any)
+		validateComments  func(*testing.T, []any)
 		name              string
 		view              string
 		wantThreadsUnres  int
@@ -330,6 +331,8 @@ func TestCollectReviewsWithView_compactViews(t *testing.T) {
 			},
 			wantThreadsUnres:  1,
 			wantDecisionsAppr: 1,
+			wantInboxLen:      0,
+			wantCommentsLen:   0,
 		},
 		{
 			name: "inbox includes thread anchors but omits conversation bodies",
@@ -366,13 +369,85 @@ func TestCollectReviewsWithView_compactViews(t *testing.T) {
 					},
 				},
 			},
-			wantInboxLen:    1,
-			wantCommentsLen: 0,
+			wantThreadsUnres: 1,
+			wantInboxLen:     1,
+			wantCommentsLen:  0,
 			validateInbox: func(t *testing.T, inbox []any) {
 				t.Helper()
 				thread := inbox[0].(map[string]any)
 				if thread["thread_id"] != "THREAD_2" || thread["path"] != "internal/rgdcli/rgdcli.go" {
 					t.Fatalf("thread=%+v", thread)
+				}
+			},
+		},
+		{
+			name: "invalid view defaults to full",
+			view: "tiny",
+			graphQLResponse: map[string]any{
+				"data": map[string]any{
+					"repository": map[string]any{
+						"pullRequest": map[string]any{
+							"latestReviews": map[string]any{
+								"pageInfo": map[string]any{"hasNextPage": false},
+								"nodes": []map[string]any{
+									{"state": "APPROVED", "author": map[string]any{"login": "alice"}},
+								},
+							},
+							"reviewThreads": map[string]any{
+								"pageInfo": map[string]any{"hasNextPage": false, "endCursor": ""},
+								"nodes": []map[string]any{
+									{
+										"id":         "THREAD_3",
+										"isResolved": false,
+										"isOutdated": false,
+										"comments": map[string]any{
+											"nodes": []map[string]any{
+												{
+													"databaseId":     303,
+													"body":           "follow up",
+													"path":           "internal/observe/github/prquery/prquery.go",
+													"line":           320,
+													"commit":         map[string]any{"oid": "0123456789abcdef0123456789abcdef01234567"},
+													"originalCommit": map[string]any{"oid": "89abcdef0123456789abcdef0123456789abcdef"},
+													"originalLine":   318,
+													"author":         map[string]any{"login": "coderabbitai[bot]"},
+												},
+											},
+										},
+									},
+								},
+							},
+							"comments": map[string]any{
+								"pageInfo": map[string]any{"hasPreviousPage": false, "startCursor": nil},
+								"nodes": []map[string]any{
+									{
+										"databaseId": 401,
+										"body":       "non-thread finding",
+										"author":     map[string]any{"login": "coderabbitai[bot]"},
+										"createdAt":  "2026-04-16T00:00:00Z",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantThreadsUnres:  1,
+			wantDecisionsAppr: 1,
+			wantInboxLen:      1,
+			wantCommentsLen:   1,
+			validateInbox: func(t *testing.T, inbox []any) {
+				t.Helper()
+				thread := inbox[0].(map[string]any)
+				if thread["thread_id"] != "THREAD_3" || thread["body"] != "follow up" {
+					t.Fatalf("thread=%+v", thread)
+				}
+			},
+			validateComments: func(t *testing.T, comments []any) {
+				t.Helper()
+				comment := comments[0].(map[string]any)
+				if comment["body"] != "non-thread finding" || comment["author"] != "coderabbitai[bot]" {
+					t.Fatalf("comment=%+v", comment)
 				}
 			},
 		},
@@ -382,40 +457,53 @@ func TestCollectReviewsWithView_compactViews(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-				w.Header().Set("Content-Type", "application/json")
-				if err := json.NewEncoder(w).Encode(tt.graphQLResponse); err != nil {
-					t.Errorf("encode response: %v", err)
-				}
-			}))
-			t.Cleanup(srv.Close)
-
-			c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
-			rev, err := CollectReviewsWithView(context.Background(), c, "o", "r", 1, nil, tt.view)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			if tt.wantThreadsUnres > 0 && rev["review_threads_unresolved"].(int) != tt.wantThreadsUnres {
-				t.Errorf("review_threads_unresolved=%d, want %d", rev["review_threads_unresolved"].(int), tt.wantThreadsUnres)
-			}
-			if tt.wantDecisionsAppr > 0 && rev["review_decisions_approved"].(int) != tt.wantDecisionsAppr {
-				t.Errorf("review_decisions_approved=%d, want %d", rev["review_decisions_approved"].(int), tt.wantDecisionsAppr)
-			}
-
-			inbox := rev["review_inbox"].([]any)
-			if len(inbox) != tt.wantInboxLen {
-				t.Fatalf("inbox len=%d, want %d: %+v", len(inbox), tt.wantInboxLen, inbox)
-			}
-			if tt.validateInbox != nil {
-				tt.validateInbox(t, inbox)
-			}
-
-			comments := rev["conversation_comments"].([]any)
-			if len(comments) != tt.wantCommentsLen {
-				t.Fatalf("comments len=%d, want %d: %+v", len(comments), tt.wantCommentsLen, comments)
-			}
+			rev := collectReviewsWithViewForTest(t, tt.view, tt.graphQLResponse)
+			assertCollectedReviewView(t, rev, tt.wantThreadsUnres, tt.wantDecisionsAppr, tt.wantInboxLen, tt.wantCommentsLen, tt.validateInbox, tt.validateComments)
 		})
+	}
+}
+
+func collectReviewsWithViewForTest(t *testing.T, view string, graphQLResponse map[string]any) map[string]any {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(graphQLResponse); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	rev, err := CollectReviewsWithView(context.Background(), c, "o", "r", 1, nil, view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return rev
+}
+
+func assertCollectedReviewView(t *testing.T, rev map[string]any, wantThreadsUnres, wantDecisionsAppr, wantInboxLen, wantCommentsLen int, validateInbox, validateComments func(*testing.T, []any)) {
+	t.Helper()
+	if rev["review_threads_unresolved"].(int) != wantThreadsUnres {
+		t.Errorf("review_threads_unresolved=%d, want %d", rev["review_threads_unresolved"].(int), wantThreadsUnres)
+	}
+	if rev["review_decisions_approved"].(int) != wantDecisionsAppr {
+		t.Errorf("review_decisions_approved=%d, want %d", rev["review_decisions_approved"].(int), wantDecisionsAppr)
+	}
+
+	inbox := rev["review_inbox"].([]any)
+	if len(inbox) != wantInboxLen {
+		t.Fatalf("inbox len=%d, want %d: %+v", len(inbox), wantInboxLen, inbox)
+	}
+	if validateInbox != nil {
+		validateInbox(t, inbox)
+	}
+
+	comments := rev["conversation_comments"].([]any)
+	if len(comments) != wantCommentsLen {
+		t.Fatalf("comments len=%d, want %d: %+v", len(comments), wantCommentsLen, comments)
+	}
+	if validateComments != nil {
+		validateComments(t, comments)
 	}
 }
 
