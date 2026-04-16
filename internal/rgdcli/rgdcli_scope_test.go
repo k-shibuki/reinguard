@@ -137,17 +137,18 @@ func TestParseObserveViewFlag(t *testing.T) {
 		want          string
 		wantErrSubstr string
 	}{
-		{name: "default summary", want: "summary"},
-		{name: "explicit full", view: "full", want: "full"},
-		{name: "reviews inbox", view: "inbox", gitHubFacet: "reviews", want: "inbox"},
-		{name: "invalid name", view: "tiny", wantErrSubstr: "--view must be one of summary, inbox, full"},
-		{name: "inbox wrong facet", view: "inbox", gitHubFacet: "ci", wantErrSubstr: "--view inbox is only supported for rgd observe github reviews"},
-		{name: "inbox empty facet", view: "inbox", wantErrSubstr: "--view inbox is only supported for rgd observe github reviews"},
+		{name: "given no view flag when parsing then default summary returned", want: "summary"},
+		{name: "given view=full when parsing then full returned", view: "full", want: "full"},
+		{name: "given view=inbox with reviews facet when parsing then inbox returned", view: "inbox", gitHubFacet: "reviews", want: "inbox"},
+		{name: "given invalid view name when parsing then error", view: "tiny", wantErrSubstr: "--view must be one of summary, inbox, full"},
+		{name: "given view=inbox with non-reviews facet when parsing then error", view: "inbox", gitHubFacet: "ci", wantErrSubstr: "--view inbox is only supported for rgd observe github reviews"},
+		{name: "given view=inbox with empty facet when parsing then error", view: "inbox", wantErrSubstr: "--view inbox is only supported for rgd observe github reviews"},
 	}
 	for _, tc := range tests {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+			// Given: a CLI context with the --view flag registered
 			set := flag.NewFlagSet("test", flag.ContinueOnError)
 			if err := newViewFlag().Apply(set); err != nil {
 				t.Fatal(err)
@@ -162,8 +163,10 @@ func TestParseObserveViewFlag(t *testing.T) {
 			}
 			ctx := cli.NewContext(cli.NewApp(), set, nil)
 
+			// When: parseObserveViewFlag validates the selected view
 			got, err := parseObserveViewFlag(ctx, tc.gitHubFacet, "summary")
 
+			// Then: the parsed value or validation error matches the contract
 			if tc.wantErrSubstr != "" {
 				if err == nil || !strings.Contains(err.Error(), tc.wantErrSubstr) {
 					t.Fatalf("expected error containing %q, got %v", tc.wantErrSubstr, err)

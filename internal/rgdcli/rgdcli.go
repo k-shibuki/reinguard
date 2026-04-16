@@ -398,6 +398,12 @@ func loadContextObservation(ctx context.Context, root *config.Root, opts observe
 	if raw, ok := doc.Meta["view"].(string); ok {
 		if detected := observe.View(strings.TrimSpace(raw)); detected.Valid() {
 			view = detected
+		} else {
+			doc.Diagnostics = append(doc.Diagnostics, observe.Diagnostic{
+				Severity: "warning",
+				Message:  fmt.Sprintf("observation file contains invalid view %q, using default", raw),
+				Code:     "invalid_observation_view",
+			})
 		}
 	}
 	return doc.Signals, doc.Diagnostics, doc.Degraded, view, nil
