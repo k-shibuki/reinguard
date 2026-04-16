@@ -128,3 +128,26 @@ func TestDocument_preservesProvidedViewMeta(t *testing.T) {
 		t.Fatalf("view=%v", got)
 	}
 }
+
+func TestDocument_overwritesProvidedDegradedSources(t *testing.T) {
+	t.Parallel()
+	// Given: caller-provided degraded_sources without computed degraded providers
+	doc := Document(
+		map[string]any{"x": 1},
+		nil,
+		false,
+		map[string]any{
+			"view":             "summary",
+			"degraded_sources": []any{"stale"},
+		},
+	)
+	// When: the observation document is built
+	meta, ok := doc["meta"].(map[string]any)
+	if !ok {
+		t.Fatal("expected meta")
+	}
+	// Then: reserved degraded_sources is removed when no computed sources exist
+	if _, exists := meta["degraded_sources"]; exists {
+		t.Fatalf("unexpected degraded_sources=%v", meta["degraded_sources"])
+	}
+}

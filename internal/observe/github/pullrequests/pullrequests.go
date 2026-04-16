@@ -85,6 +85,7 @@ const (
 	SelectionNone           = "none"
 
 	// ViewSummary requests the summary-only pull-request output contract.
+	// Mirrors observe.ViewSummary for package-local use.
 	ViewSummary = "summary"
 )
 

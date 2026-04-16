@@ -40,7 +40,8 @@ This guard does **not** prove that non-thread findings from the current PR
 review cycle have been dispositioned; that remains part of review closure
 per [`../policy/review--consensus-protocol.md`](../policy/review--consensus-protocol.md).
 
-Optional full pipeline: `rgd context build --compact` (observe → state → route → guard → knowledge entries).
+Optional composed pipeline: `rgd context build --compact` (observe → state → route → guard → knowledge entries).
+Use `rgd context build` (without `--compact`) only when full nested observation payload is required.
 
 **Cross-check:** `gh pr checks <N>` (especially **`ci-pass`**) and `gh pr view <N>` for mergeable state and branch protection (guard may not mirror every GitHub rule).
 

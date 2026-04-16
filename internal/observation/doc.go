@@ -16,6 +16,8 @@ func Document(signals map[string]any, diags []observe.Diagnostic, degraded bool,
 	for k, v := range meta {
 		mergedMeta[k] = v
 	}
+	// Reserved key: always recompute from diagnostics/degraded.
+	delete(mergedMeta, "degraded_sources")
 	if len(srcs) > 0 {
 		list := make([]any, len(srcs))
 		for i, s := range srcs {
