@@ -113,41 +113,71 @@ func TestDocument_withDiagnosticsAndMeta(t *testing.T) {
 	}
 }
 
-func TestDocument_preservesProvidedViewMeta(t *testing.T) {
+func TestDocument_metaContract(t *testing.T) {
 	t.Parallel()
-	// Given: caller-provided meta.view
-	inputMeta := map[string]any{"view": "summary"}
-	// When: the observation document is built
-	doc := Document(map[string]any{"x": 1}, nil, false, inputMeta)
-	meta, ok := doc["meta"].(map[string]any)
-	if !ok {
-		t.Fatal("expected meta")
-	}
-	// Then: view is preserved for downstream commands
-	if got := meta["view"]; got != "summary" {
-		t.Fatalf("view=%v", got)
-	}
-}
-
-func TestDocument_overwritesProvidedDegradedSources(t *testing.T) {
-	t.Parallel()
-	// Given: caller-provided degraded_sources without computed degraded providers
-	doc := Document(
-		map[string]any{"x": 1},
-		nil,
-		false,
-		map[string]any{
-			"view":             "summary",
-			"degraded_sources": []any{"stale"},
+	tests := map[string]func(*testing.T){
+		"preserves view": func(t *testing.T) {
+			t.Helper()
+			doc := Document(map[string]any{"x": 1}, nil, false, map[string]any{"view": "summary"})
+			meta, ok := doc["meta"].(map[string]any)
+			if !ok {
+				t.Fatal("expected meta")
+			}
+			if got := meta["view"]; got != "summary" {
+				t.Fatalf("view=%v", got)
+			}
 		},
-	)
-	// When: the observation document is built
-	meta, ok := doc["meta"].(map[string]any)
-	if !ok {
-		t.Fatal("expected meta")
+		"removes stale degraded_sources when recomputation is empty": func(t *testing.T) {
+			t.Helper()
+			doc := Document(
+				map[string]any{"x": 1},
+				nil,
+				false,
+				map[string]any{"view": "summary", "degraded_sources": []any{"stale"}},
+			)
+			meta, ok := doc["meta"].(map[string]any)
+			if !ok {
+				t.Fatal("expected meta")
+			}
+			if got := meta["view"]; got != "summary" {
+				t.Fatalf("view=%v", got)
+			}
+			if _, exists := meta["degraded_sources"]; exists {
+				t.Fatalf("unexpected degraded_sources=%v", meta["degraded_sources"])
+			}
+		},
+		"overwrites stale degraded_sources with recomputed sources": func(t *testing.T) {
+			t.Helper()
+			doc := Document(
+				map[string]any{"x": 1},
+				[]observe.Diagnostic{
+					{Provider: "git", Code: "provider_failed", Severity: "error", Message: "m"},
+				},
+				true,
+				map[string]any{"view": "summary", "degraded_sources": []any{"stale"}},
+			)
+			meta, ok := doc["meta"].(map[string]any)
+			if !ok {
+				t.Fatal("expected meta")
+			}
+			if got := meta["view"]; got != "summary" {
+				t.Fatalf("view=%v", got)
+			}
+			srcs, ok := meta["degraded_sources"].([]any)
+			if !ok || len(srcs) != 1 {
+				t.Fatalf("degraded_sources=%v", meta["degraded_sources"])
+			}
+			if srcs[0] != "git" {
+				t.Fatalf("degraded_sources[0]=%v, want=%q", srcs[0], "git")
+			}
+		},
 	}
-	// Then: reserved degraded_sources is removed when no computed sources exist
-	if _, exists := meta["degraded_sources"]; exists {
-		t.Fatalf("unexpected degraded_sources=%v", meta["degraded_sources"])
+	for name, run := range tests {
+		name := name
+		run := run
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			run(t)
+		})
 	}
 }
