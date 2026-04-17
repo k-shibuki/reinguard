@@ -91,6 +91,24 @@ func TestComputeBotReviewDiagnostics_requiredReviewPausedBlocked(t *testing.T) {
 	assertDiagBool(t, got, "bot_review_failed", false)
 }
 
+func TestComputeBotReviewDiagnostics_requiredMixedBlockedReasons(t *testing.T) {
+	t.Parallel()
+	// Given: two required bots blocked for different reasons (rate-limited + review-paused)
+	// When: ComputeBotReviewDiagnostics aggregates them
+	// Then: blocked=true and reason collapses to "mixed" so downstream guards see a single
+	// non-terminal blocker string; terminal stays false and failed/pending stay false.
+	got := ComputeBotReviewDiagnostics([]any{
+		map[string]any{"required": true, "status": BotStatusRateLimited},
+		map[string]any{"required": true, "status": BotStatusReviewPaused},
+	}, "abc123", false)
+	assertDiagBool(t, got, "bot_review_completed", false)
+	assertDiagBool(t, got, "bot_review_pending", false)
+	assertDiagBool(t, got, "bot_review_terminal", false)
+	assertDiagBool(t, got, "bot_review_blocked", true)
+	assertDiagString(t, got, "bot_review_block_reason", "mixed")
+	assertDiagBool(t, got, "bot_review_failed", false)
+}
+
 func TestComputeBotReviewDiagnostics_requiredCompletedStale(t *testing.T) {
 	t.Parallel()
 	// Given: completed bot review on an older commit

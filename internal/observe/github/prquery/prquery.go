@@ -331,7 +331,7 @@ func collectWithView(ctx context.Context, c *githubapi.Client, owner, repo strin
 		return nil, nil, fmt.Errorf("nil client")
 	}
 	view = normalizeReviewView(view)
-	reviewsInner = emptyReviewsInner()
+	reviewsInner = emptyReviewsInner(view)
 	if prNumber <= 0 {
 		return nil, reviewsInner, nil
 	}
@@ -354,12 +354,16 @@ func collectWithView(ctx context.Context, c *githubapi.Client, owner, repo strin
 	reviewsInner["review_threads_total"] = total
 	reviewsInner["review_threads_unresolved"] = unresolved
 	reviewsInner["pagination_incomplete"] = incomplete
-	reviewsInner["review_inbox"] = reviewInboxForView(view, inbox)
+	if v, ok := reviewInboxForView(view, inbox); ok {
+		reviewsInner["review_inbox"] = v
+	}
 	commentNodes, conversationIncomplete, err := mergeCommentNodesForBots(ctx, c, owner, repo, prNumber, firstPR.Comments, bots)
 	if err != nil {
 		return nil, nil, err
 	}
-	reviewsInner["conversation_comments"] = conversationCommentsForView(view, commentNodes)
+	if v, ok := conversationCommentsForView(view, commentNodes); ok {
+		reviewsInner["conversation_comments"] = v
+	}
 	reviewsInner["conversation_comments_incomplete"] = conversationIncomplete
 	statusList := buildBotReviewerStatus(firstPR, bots, commentNodes, now)
 	reviewsInner["bot_reviewer_status"] = statusList
@@ -375,21 +379,26 @@ func nowFromCollectOptions(opts *CollectOptions) time.Time {
 	return time.Now().UTC()
 }
 
-func reviewInboxForView(view string, inbox []any) []any {
+// reviewInboxForView returns the review_inbox payload for the given view.
+// The boolean is false when the contract says the key must be omitted (summary view),
+// so callers can skip setting it instead of emitting an empty array.
+func reviewInboxForView(view string, inbox []any) ([]any, bool) {
 	if view == ReviewViewSummary {
-		return []any{}
+		return nil, false
 	}
 	if inbox == nil {
-		return []any{}
+		return []any{}, true
 	}
-	return inbox
+	return inbox, true
 }
 
-func conversationCommentsForView(view string, nodes []prCommentNode) []any {
+// conversationCommentsForView returns the conversation_comments payload for the given view.
+// The boolean is false when the contract says the key must be omitted (summary / inbox views).
+func conversationCommentsForView(view string, nodes []prCommentNode) ([]any, bool) {
 	if view != ReviewViewFull {
-		return []any{}
+		return nil, false
 	}
-	return buildConversationCommentsReadModel(nodes)
+	return buildConversationCommentsReadModel(nodes), true
 }
 
 // paginatePRContext walks review-thread GraphQL pages until the inbox is complete or the
@@ -451,13 +460,13 @@ func paginatePRContext(ctx context.Context, c *githubapi.Client, owner, repo str
 }
 
 // emptyReviewsInner returns a zeroed github.reviews subtree used when no PR exists.
-func emptyReviewsInner() map[string]any {
-	return map[string]any{
+// Keys are emitted per the view contract in docs/cli.md: review_inbox is present in
+// inbox / full only, and conversation_comments is present in full only.
+func emptyReviewsInner(view string) map[string]any {
+	out := map[string]any{
 		"review_threads_total":               0,
 		"review_threads_unresolved":          0,
 		"pagination_incomplete":              false,
-		"review_inbox":                       []any{},
-		"conversation_comments":              []any{},
 		"conversation_comments_incomplete":   false,
 		"review_decisions_total":             0,
 		"review_decisions_approved":          0,
@@ -468,12 +477,21 @@ func emptyReviewsInner() map[string]any {
 			"bot_review_completed":        true,
 			"bot_review_pending":          false,
 			"bot_review_terminal":         true,
+			"bot_review_blocked":          false,
+			"bot_review_block_reason":     "",
 			"bot_review_failed":           false,
 			"bot_review_stale":            false,
 			"duplicate_findings_detected": false,
 			"non_thread_findings_present": false,
 		},
 	}
+	if view != ReviewViewSummary {
+		out["review_inbox"] = []any{}
+	}
+	if view == ReviewViewFull {
+		out["conversation_comments"] = []any{}
+	}
+	return out
 }
 
 // applyHeadRepositorySignals copies fork head owner/name from GraphQL into pull-request signals.

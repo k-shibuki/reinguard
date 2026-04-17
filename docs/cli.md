@@ -611,7 +611,12 @@ guard steps use that flat map; they do not see route/guard outcomes inside
 - **`--compact`**: keeps the composed output (`state`, `routes`, `guards`,
   filtered `knowledge.entries`, diagnostics) but trims high-volume nested
   observation payload from `observation.signals` (for example `check_runs`,
-  `review_inbox`, and `conversation_comments`).
+  `review_inbox`, and `conversation_comments`). Workflow-driving signals are
+  preserved, including `github.reviews.bot_reviewer_status` alongside
+  `bot_review_diagnostics` so `waiting_bot_rate_limited` /
+  `waiting_bot_paused` rationale (per
+  `.reinguard/procedure/wait-bot-review.md`) remains readable from compact
+  payloads.
 - **`--fail-on-non-resolved`**: writes the operational-context JSON to stdout,
   then exits `2` when either the embedded `state` result or `routes[0]` result
   is `ambiguous`, `degraded`, or `unsupported`.

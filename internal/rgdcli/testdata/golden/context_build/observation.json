@@ -20,6 +20,9 @@
         "review_decisions_changes_requested": 0,
         "pagination_incomplete": false,
         "review_decisions_truncated": false,
+        "bot_reviewer_status": [
+          {"login": "coderabbitai[bot]", "status": "completed_clean"}
+        ],
         "bot_review_diagnostics": {
           "bot_review_pending": false,
           "bot_review_blocked": false,

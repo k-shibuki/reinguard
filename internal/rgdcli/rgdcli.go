@@ -822,6 +822,11 @@ func compactObservationSignals(signalsAny map[string]any) map[string]any {
 		"review_threads_total", "review_threads_unresolved", "pagination_incomplete",
 		"review_decisions_total", "review_decisions_approved", "review_decisions_changes_requested",
 		"review_decisions_truncated", "bot_review_diagnostics",
+		// bot_reviewer_status is preserved in compact mode because wait-bot-review.md
+		// (.reinguard/procedure/wait-bot-review.md) instructs agents to read it from
+		// observation.signals.github.reviews.bot_reviewer_status — including out of
+		// --compact payloads — to explain waiting_bot_rate_limited / waiting_bot_paused.
+		"bot_reviewer_status",
 	); len(reviews) > 0 {
 		ghOut["reviews"] = reviews
 	}

@@ -59,6 +59,12 @@
             "bot_review_terminal": true,
             "non_thread_findings_present": false
           },
+          "bot_reviewer_status": [
+            {
+              "login": "coderabbitai[bot]",
+              "status": "completed_clean"
+            }
+          ],
           "pagination_incomplete": false,
           "review_decisions_changes_requested": 0,
           "review_decisions_truncated": false,

@@ -340,8 +340,9 @@ func TestCollectReviewsWithView_compactViews(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			rev := collectReviewsWithViewForTest(t, reviewViewForCase(tt.viewCase), reviewGraphQLResponseForCase(tt.viewCase))
-			assertCollectedReviewView(t, rev, tt.wantThreadsUnres, tt.wantDecisionsAppr, tt.wantInboxLen, tt.wantCommentsLen, nil, nil)
+			view := reviewViewForCase(tt.viewCase)
+			rev := collectReviewsWithViewForTest(t, view, reviewGraphQLResponseForCase(tt.viewCase))
+			assertCollectedReviewView(t, rev, view, tt.wantThreadsUnres, tt.wantDecisionsAppr, tt.wantInboxLen, tt.wantCommentsLen)
 			validateReviewCase(t, tt.viewCase, rev)
 		})
 	}
@@ -508,7 +509,11 @@ func collectReviewsWithViewForTest(t *testing.T, view string, graphQLResponse ma
 	return rev
 }
 
-func assertCollectedReviewView(t *testing.T, rev map[string]any, wantThreadsUnres, wantDecisionsAppr, wantInboxLen, wantCommentsLen int, validateInbox, validateComments func(*testing.T, []any)) {
+// assertCollectedReviewView checks the shape of rev for the given view, asserting
+// presence/absence of review_inbox and conversation_comments per the docs/cli.md
+// contract (review_inbox: inbox|full only; conversation_comments: full only). Length
+// expectations are only asserted when the key must be present for the view.
+func assertCollectedReviewView(t *testing.T, rev map[string]any, view string, wantThreadsUnres, wantDecisionsAppr, wantInboxLen, wantCommentsLen int) {
 	t.Helper()
 	if rev["review_threads_unresolved"].(int) != wantThreadsUnres {
 		t.Errorf("review_threads_unresolved=%d, want %d", rev["review_threads_unresolved"].(int), wantThreadsUnres)
@@ -517,20 +522,50 @@ func assertCollectedReviewView(t *testing.T, rev map[string]any, wantThreadsUnre
 		t.Errorf("review_decisions_approved=%d, want %d", rev["review_decisions_approved"].(int), wantDecisionsAppr)
 	}
 
-	inbox := rev["review_inbox"].([]any)
-	if len(inbox) != wantInboxLen {
-		t.Fatalf("inbox len=%d, want %d: %+v", len(inbox), wantInboxLen, inbox)
-	}
-	if validateInbox != nil {
-		validateInbox(t, inbox)
-	}
+	normalized := normalizeReviewView(view)
+	assertReviewInboxForView(t, rev, normalized, wantInboxLen)
+	assertConversationCommentsForView(t, rev, normalized, wantCommentsLen)
+}
 
-	comments := rev["conversation_comments"].([]any)
-	if len(comments) != wantCommentsLen {
-		t.Fatalf("comments len=%d, want %d: %+v", len(comments), wantCommentsLen, comments)
+func assertReviewInboxForView(t *testing.T, rev map[string]any, view string, wantLen int) {
+	t.Helper()
+	raw, present := rev["review_inbox"]
+	if view == ReviewViewSummary {
+		if present {
+			t.Fatalf("review_inbox: expected absent for view=%q, got %+v", view, raw)
+		}
+		return
 	}
-	if validateComments != nil {
-		validateComments(t, comments)
+	if !present {
+		t.Fatalf("review_inbox: expected present for view=%q, got absent", view)
+	}
+	inbox, ok := raw.([]any)
+	if !ok {
+		t.Fatalf("review_inbox: expected []any for view=%q, got %T", view, raw)
+	}
+	if len(inbox) != wantLen {
+		t.Fatalf("review_inbox len=%d, want %d: %+v", len(inbox), wantLen, inbox)
+	}
+}
+
+func assertConversationCommentsForView(t *testing.T, rev map[string]any, view string, wantLen int) {
+	t.Helper()
+	raw, present := rev["conversation_comments"]
+	if view != ReviewViewFull {
+		if present {
+			t.Fatalf("conversation_comments: expected absent for view=%q, got %+v", view, raw)
+		}
+		return
+	}
+	if !present {
+		t.Fatalf("conversation_comments: expected present for view=%q, got absent", view)
+	}
+	comments, ok := raw.([]any)
+	if !ok {
+		t.Fatalf("conversation_comments: expected []any for view=%q, got %T", view, raw)
+	}
+	if len(comments) != wantLen {
+		t.Fatalf("conversation_comments len=%d, want %d: %+v", len(comments), wantLen, comments)
 	}
 }
 

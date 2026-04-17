@@ -363,6 +363,19 @@ func TestRunContextBuild_compactTrimsHighVolumeObservationFields(t *testing.T) {
 	if _, ok := reviews["conversation_comments"]; ok {
 		t.Fatalf("compact observation must omit conversation_comments: %+v", reviews)
 	}
+	// bot_reviewer_status is preserved: wait-bot-review.md reads it out of the compact
+	// payload to classify waiting_bot_rate_limited / waiting_bot_paused rationale.
+	botStatuses, ok := reviews["bot_reviewer_status"].([]any)
+	if !ok {
+		t.Fatalf("compact observation must preserve bot_reviewer_status, got %T: %+v", reviews["bot_reviewer_status"], reviews)
+	}
+	if len(botStatuses) != 1 {
+		t.Fatalf("bot_reviewer_status len=%d, want 1: %+v", len(botStatuses), botStatuses)
+	}
+	first := botStatuses[0].(map[string]any)
+	if first["login"] != "coderabbitai[bot]" || first["status"] != "completed_clean" {
+		t.Fatalf("bot_reviewer_status[0]=%+v", first)
+	}
 }
 
 func TestRunContextBuild_observationFileInvalidViewFallsBackWithWarning(t *testing.T) {

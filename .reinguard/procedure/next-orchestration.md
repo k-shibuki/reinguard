@@ -92,7 +92,6 @@ After approval, the agent **must** drive toward **Per-unit Definition of Done** 
 
 - **Hard Stops** (**HS-***) in [`../policy/safety--agent-invariants.md`](../policy/safety--agent-invariants.md).
 - **Genuine cannot proceed** — missing credentials, org enforcement, unrecoverable GitHub block — report with **evidence** and stop.
-- **Tooling / session limits** — chat session ended, tooling unavailable, or context limits make further tool use impossible **in this session**. Long CI or bot duration is **not** an excuse to exit the path; follow the mapped procedure. On tooling/session limits only, **resume the same approved path** on the next turn **without** re-opening the approval gate (unless the user revokes or changes scope).
 
 Adapters may persist this approval continuity locally so the next turn can
 resume the same approved path. Such persistence is **Adapter-local** and must
