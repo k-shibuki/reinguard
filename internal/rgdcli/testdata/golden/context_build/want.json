@@ -46,8 +46,13 @@
           "ci_status": "success",
           "head_sha": "deadbeef"
         },
+        "pull_requests": {
+          "merge_state_status": "clean"
+        },
         "reviews": {
           "bot_review_diagnostics": {
+            "bot_review_block_reason": "",
+            "bot_review_blocked": false,
             "bot_review_failed": false,
             "bot_review_pending": false,
             "bot_review_stale": false,

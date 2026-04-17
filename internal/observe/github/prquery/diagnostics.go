@@ -21,14 +21,41 @@ func IsReviewedTier(s string) bool {
 	}
 }
 
-// IsFailedTier reports whether s is a terminal-failure bot review status.
-func IsFailedTier(s string) bool {
+// IsBlockedTier reports whether s is a non-terminal blocked bot review status.
+func IsBlockedTier(s string) bool {
 	switch s {
-	case BotStatusRateLimited, BotStatusReviewPaused, BotStatusReviewFailed:
+	case BotStatusRateLimited, BotStatusReviewPaused:
 		return true
 	default:
 		return false
 	}
+}
+
+// IsFailedTier reports whether s is a terminal-failure bot review status.
+func IsFailedTier(s string) bool {
+	switch s {
+	case BotStatusReviewFailed:
+		return true
+	default:
+		return false
+	}
+}
+
+func blockedReasonForStatus(s string) string {
+	if !IsBlockedTier(s) {
+		return ""
+	}
+	return s
+}
+
+func combineBlockedReason(current, next string) string {
+	if next == "" || next == current {
+		return current
+	}
+	if current == "" {
+		return next
+	}
+	return "mixed"
 }
 
 // duplicateFindingsDetected reports whether any required bot reviewer has a positive
@@ -113,6 +140,76 @@ func aggregateNonThreadFindings(statusList []any, conversationCommentsIncomplete
 	return n
 }
 
+type botReviewAggregate struct {
+	blockedReason string
+	sawRequired   bool
+	anyBlocked    bool
+	anyFailed     bool
+	allReviewed   bool
+	anyStale      bool
+}
+
+func newBotReviewAggregate() botReviewAggregate {
+	return botReviewAggregate{allReviewed: true}
+}
+
+func accumulateRequiredBotReviewState(agg *botReviewAggregate, m map[string]any, headSHA string) {
+	req, ok := m["required"].(bool)
+	if !ok || !req {
+		return
+	}
+	agg.sawRequired = true
+	st, _ := m["status"].(string)
+	switch {
+	case IsBlockedTier(st):
+		agg.anyBlocked = true
+		agg.allReviewed = false
+		agg.blockedReason = combineBlockedReason(agg.blockedReason, blockedReasonForStatus(st))
+	case IsFailedTier(st):
+		agg.anyFailed = true
+		agg.allReviewed = false
+	case IsReviewedTier(st):
+		reviewSHA, _ := m["review_commit_sha"].(string)
+		if headSHA != "" && (reviewSHA == "" || reviewSHA != headSHA) {
+			agg.anyStale = true
+		}
+	default:
+		agg.allReviewed = false
+	}
+}
+
+func buildBotReviewDiagnostics(agg botReviewAggregate, duplicateFindings, nonThreadFindings bool) map[string]any {
+	if !agg.sawRequired {
+		return map[string]any{
+			"bot_review_completed":        true,
+			"bot_review_pending":          false,
+			"bot_review_terminal":         true,
+			"bot_review_blocked":          false,
+			"bot_review_block_reason":     "",
+			"bot_review_failed":           false,
+			"bot_review_stale":            false,
+			"duplicate_findings_detected": duplicateFindings,
+			"non_thread_findings_present": nonThreadFindings,
+		}
+	}
+
+	completed := !agg.anyFailed && !agg.anyBlocked && agg.allReviewed
+	terminal := agg.anyFailed || completed
+	pending := !terminal && !agg.anyBlocked
+
+	return map[string]any{
+		"bot_review_completed":        completed,
+		"bot_review_pending":          pending,
+		"bot_review_terminal":         terminal,
+		"bot_review_blocked":          agg.anyBlocked,
+		"bot_review_block_reason":     agg.blockedReason,
+		"bot_review_failed":           agg.anyFailed,
+		"bot_review_stale":            agg.anyStale,
+		"duplicate_findings_detected": duplicateFindings,
+		"non_thread_findings_present": nonThreadFindings,
+	}
+}
+
 // intFromStatusMapOrZeroAny returns the first matching key's int value, or 0.
 func intFromStatusMapOrZeroAny(m map[string]any, keys ...string) int {
 	n, ok := intFromStatusMapAny(m, keys...)
@@ -129,65 +226,19 @@ func intFromStatusMapOrZeroAny(m map[string]any, keys ...string) int {
 // When conversationCommentsIncomplete is true, non-thread counts may be partial;
 // non_thread_findings_present is fail-closed true if any required bot is configured.
 func ComputeBotReviewDiagnostics(statusList []any, headSHA string, conversationCommentsIncomplete bool) map[string]any {
-	var sawRequired bool
-	anyFailed := false
-	allReviewed := true
-	anyStale := false
 	duplicateFindings := duplicateFindingsDetected(statusList)
 	nonThreadFindings := aggregateNonThreadFindings(statusList, conversationCommentsIncomplete)
+	agg := newBotReviewAggregate()
 
 	for _, elt := range statusList {
 		m, ok := elt.(map[string]any)
 		if !ok {
 			continue
 		}
-		req, ok := m["required"].(bool)
-		if !ok || !req {
-			continue
-		}
-		sawRequired = true
-		st, _ := m["status"].(string)
-		if IsFailedTier(st) {
-			anyFailed = true
-			allReviewed = false
-			continue
-		}
-		if !IsReviewedTier(st) {
-			allReviewed = false
-		}
-		if IsReviewedTier(st) {
-			reviewSHA, _ := m["review_commit_sha"].(string)
-			if headSHA != "" && (reviewSHA == "" || reviewSHA != headSHA) {
-				anyStale = true
-			}
-		}
+		accumulateRequiredBotReviewState(&agg, m, headSHA)
 	}
 
-	if !sawRequired {
-		return map[string]any{
-			"bot_review_completed":        true,
-			"bot_review_pending":          false,
-			"bot_review_terminal":         true,
-			"bot_review_failed":           false,
-			"bot_review_stale":            false,
-			"duplicate_findings_detected": duplicateFindings,
-			"non_thread_findings_present": nonThreadFindings,
-		}
-	}
-
-	completed := !anyFailed && allReviewed
-	terminal := anyFailed || completed
-	pending := !terminal
-
-	return map[string]any{
-		"bot_review_completed":        completed,
-		"bot_review_pending":          pending,
-		"bot_review_terminal":         terminal,
-		"bot_review_failed":           anyFailed,
-		"bot_review_stale":            anyStale,
-		"duplicate_findings_detected": duplicateFindings,
-		"non_thread_findings_present": nonThreadFindings,
-	}
+	return buildBotReviewDiagnostics(agg, duplicateFindings, nonThreadFindings)
 }
 
 // intFromStatusMapAny returns the first present key among keys that holds an int-like value.

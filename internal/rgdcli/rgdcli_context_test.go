@@ -291,6 +291,7 @@ func TestRunContextBuild_rejectsScopeFlagsWithObservationFile(t *testing.T) {
 
 func TestRunContextBuild_compactTrimsHighVolumeObservationFields(t *testing.T) {
 	t.Parallel()
+	// Given: config with minimal rules and observation containing high-volume GitHub fields
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
 	writeFile(t, filepath.Join(cfgDir, "control", "states", "default.yaml"), []byte(testFixtureRulesStateIdle))
@@ -306,6 +307,7 @@ func TestRunContextBuild_compactTrimsHighVolumeObservationFields(t *testing.T) {
 	    "git":{"branch":"main","working_tree_clean":true},
 	    "github":{
 	      "repository":{"owner":"acme","name":"widget","identity_source":"local_git"},
+	      "pull_requests":{"merge_state_status":"clean"},
 	      "ci":{"ci_status":"success","head_sha":"abc","check_runs":[{"name":"ci","status":"completed","conclusion":"success"}]},
 	      "reviews":{
 	        "review_threads_total":1,
@@ -319,7 +321,7 @@ func TestRunContextBuild_compactTrimsHighVolumeObservationFields(t *testing.T) {
 	        "review_decisions_changes_requested":0,
 	        "review_decisions_truncated":false,
 	        "bot_reviewer_status":[{"login":"coderabbitai[bot]","status":"completed_clean"}],
-	        "bot_review_diagnostics":{"bot_review_pending":false,"bot_review_terminal":true,"bot_review_failed":false,"bot_review_stale":false,"non_thread_findings_present":false}
+	        "bot_review_diagnostics":{"bot_review_pending":false,"bot_review_blocked":false,"bot_review_block_reason":"","bot_review_terminal":true,"bot_review_failed":false,"bot_review_stale":false,"non_thread_findings_present":false}
 	      }
 	    }
 	  },
@@ -327,6 +329,7 @@ func TestRunContextBuild_compactTrimsHighVolumeObservationFields(t *testing.T) {
 	  "meta":{"view":"full"}
 	}`))
 
+	// When: context build runs with --compact flag
 	var buf bytes.Buffer
 	app := NewApp("test")
 	app.Writer = &buf
@@ -337,6 +340,8 @@ func TestRunContextBuild_compactTrimsHighVolumeObservationFields(t *testing.T) {
 	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
 		t.Fatal(err)
 	}
+
+	// Then: output omits high-volume fields but preserves compact workflow signals
 	assertStateIdleRouteNext(t, out)
 	obs := mustMap(t, out["observation"], "observation")
 	signals := mustMap(t, obs["signals"], "signals")
@@ -344,6 +349,12 @@ func TestRunContextBuild_compactTrimsHighVolumeObservationFields(t *testing.T) {
 	ci := mustMap(t, gh["ci"], "github.ci")
 	if _, ok := ci["check_runs"]; ok {
 		t.Fatalf("compact observation must omit check_runs: %+v", ci)
+	}
+	if ci["ci_status"] != "success" {
+		t.Fatalf("compact observation must preserve ci_status: %+v", ci)
+	}
+	if ci["head_sha"] != "abc" {
+		t.Fatalf("compact observation must preserve head_sha: %+v", ci)
 	}
 	reviews := mustMap(t, gh["reviews"], "github.reviews")
 	if _, ok := reviews["review_inbox"]; ok {
@@ -369,6 +380,7 @@ func TestRunContextBuild_observationFileInvalidViewFallsBackWithWarning(t *testi
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
+			// Given: config and observation file carrying an invalid meta.view value
 			cfgDir := t.TempDir()
 			writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
 			writeFile(t, filepath.Join(cfgDir, "control", "states", "default.yaml"), []byte(testFixtureRulesStateIdle))

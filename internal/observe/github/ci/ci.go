@@ -33,6 +33,7 @@ type checkRunsAPIResponse struct {
 }
 
 // Supported CI facet views.
+// Mirrors observe.ViewSummary and observe.ViewFull for package-local use.
 const (
 	ViewSummary = "summary"
 	ViewFull    = "full"

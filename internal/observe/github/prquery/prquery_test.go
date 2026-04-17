@@ -295,161 +295,44 @@ func TestCollect_onePage_threadsAndDetail(t *testing.T) {
 
 func TestCollectReviewsWithView_compactViews(t *testing.T) {
 	t.Parallel()
+	// Given: CollectReviewsWithView is called with different view parameters.
+	// When: GraphQL returns review data with various structures.
+	// Then: normalized results reflect view-specific filtering.
+	const (
+		viewCaseSummary = iota
+		viewCaseInbox
+		viewCaseInvalid
+	)
 	tests := []struct {
-		graphQLResponse   map[string]any
-		validateInbox     func(*testing.T, []any)
-		validateComments  func(*testing.T, []any)
 		name              string
-		view              string
+		viewCase          int
 		wantThreadsUnres  int
 		wantDecisionsAppr int
 		wantInboxLen      int
 		wantCommentsLen   int
 	}{
 		{
-			name: "summary omits inbox and conversation bodies",
-			view: ReviewViewSummary,
-			graphQLResponse: map[string]any{
-				"data": map[string]any{
-					"repository": map[string]any{
-						"pullRequest": map[string]any{
-							"latestReviews": map[string]any{
-								"pageInfo": map[string]any{"hasNextPage": false},
-								"nodes": []map[string]any{
-									{"state": "APPROVED", "author": map[string]any{"login": "alice"}},
-								},
-							},
-							"reviewThreads": map[string]any{
-								"pageInfo": map[string]any{"hasNextPage": false, "endCursor": ""},
-								"nodes": []map[string]any{
-									{"id": "THREAD_1", "isResolved": false, "isOutdated": false},
-								},
-							},
-						},
-					},
-				},
-			},
+			name:              "summary omits inbox and conversation bodies",
+			viewCase:          viewCaseSummary,
 			wantThreadsUnres:  1,
 			wantDecisionsAppr: 1,
 			wantInboxLen:      0,
 			wantCommentsLen:   0,
 		},
 		{
-			name: "inbox includes thread anchors but omits conversation bodies",
-			view: ReviewViewInbox,
-			graphQLResponse: map[string]any{
-				"data": map[string]any{
-					"repository": map[string]any{
-						"pullRequest": map[string]any{
-							"latestReviews": map[string]any{
-								"pageInfo": map[string]any{"hasNextPage": false},
-								"nodes":    []any{},
-							},
-							"reviewThreads": map[string]any{
-								"pageInfo": map[string]any{"hasNextPage": false, "endCursor": ""},
-								"nodes": []map[string]any{
-									{
-										"id":         "THREAD_2",
-										"isResolved": false,
-										"isOutdated": true,
-										"comments": map[string]any{
-											"nodes": []map[string]any{
-												{
-													"databaseId": 202,
-													"body":       "please update scope",
-													"path":       "internal/rgdcli/rgdcli.go",
-													"line":       42,
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
+			name:             "inbox includes thread anchors but omits conversation bodies",
+			viewCase:         viewCaseInbox,
 			wantThreadsUnres: 1,
 			wantInboxLen:     1,
 			wantCommentsLen:  0,
-			validateInbox: func(t *testing.T, inbox []any) {
-				t.Helper()
-				thread := inbox[0].(map[string]any)
-				if thread["thread_id"] != "THREAD_2" || thread["path"] != "internal/rgdcli/rgdcli.go" {
-					t.Fatalf("thread=%+v", thread)
-				}
-			},
 		},
 		{
-			name: "invalid view defaults to full",
-			view: "tiny",
-			graphQLResponse: map[string]any{
-				"data": map[string]any{
-					"repository": map[string]any{
-						"pullRequest": map[string]any{
-							"latestReviews": map[string]any{
-								"pageInfo": map[string]any{"hasNextPage": false},
-								"nodes": []map[string]any{
-									{"state": "APPROVED", "author": map[string]any{"login": "alice"}},
-								},
-							},
-							"reviewThreads": map[string]any{
-								"pageInfo": map[string]any{"hasNextPage": false, "endCursor": ""},
-								"nodes": []map[string]any{
-									{
-										"id":         "THREAD_3",
-										"isResolved": false,
-										"isOutdated": false,
-										"comments": map[string]any{
-											"nodes": []map[string]any{
-												{
-													"databaseId":     303,
-													"body":           "follow up",
-													"path":           "internal/observe/github/prquery/prquery.go",
-													"line":           320,
-													"commit":         map[string]any{"oid": "0123456789abcdef0123456789abcdef01234567"},
-													"originalCommit": map[string]any{"oid": "89abcdef0123456789abcdef0123456789abcdef"},
-													"originalLine":   318,
-													"author":         map[string]any{"login": "coderabbitai[bot]"},
-												},
-											},
-										},
-									},
-								},
-							},
-							"comments": map[string]any{
-								"pageInfo": map[string]any{"hasPreviousPage": false, "startCursor": nil},
-								"nodes": []map[string]any{
-									{
-										"databaseId": 401,
-										"body":       "non-thread finding",
-										"author":     map[string]any{"login": "coderabbitai[bot]"},
-										"createdAt":  "2026-04-16T00:00:00Z",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
+			name:              "invalid view defaults to full",
+			viewCase:          viewCaseInvalid,
 			wantThreadsUnres:  1,
 			wantDecisionsAppr: 1,
 			wantInboxLen:      1,
 			wantCommentsLen:   1,
-			validateInbox: func(t *testing.T, inbox []any) {
-				t.Helper()
-				thread := inbox[0].(map[string]any)
-				if thread["thread_id"] != "THREAD_3" || thread["body"] != "follow up" {
-					t.Fatalf("thread=%+v", thread)
-				}
-			},
-			validateComments: func(t *testing.T, comments []any) {
-				t.Helper()
-				comment := comments[0].(map[string]any)
-				if comment["body"] != "non-thread finding" || comment["author"] != "coderabbitai[bot]" {
-					t.Fatalf("comment=%+v", comment)
-				}
-			},
 		},
 	}
 
@@ -457,9 +340,153 @@ func TestCollectReviewsWithView_compactViews(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			rev := collectReviewsWithViewForTest(t, tt.view, tt.graphQLResponse)
-			assertCollectedReviewView(t, rev, tt.wantThreadsUnres, tt.wantDecisionsAppr, tt.wantInboxLen, tt.wantCommentsLen, tt.validateInbox, tt.validateComments)
+			rev := collectReviewsWithViewForTest(t, reviewViewForCase(tt.viewCase), reviewGraphQLResponseForCase(tt.viewCase))
+			assertCollectedReviewView(t, rev, tt.wantThreadsUnres, tt.wantDecisionsAppr, tt.wantInboxLen, tt.wantCommentsLen, nil, nil)
+			validateReviewCase(t, tt.viewCase, rev)
 		})
+	}
+}
+
+func reviewViewForCase(viewCase int) string {
+	switch viewCase {
+	case 0:
+		return ReviewViewSummary
+	case 1:
+		return ReviewViewInbox
+	default:
+		return "tiny"
+	}
+}
+
+func reviewGraphQLResponseForCase(viewCase int) map[string]any {
+	switch viewCase {
+	case 0:
+		return map[string]any{
+			"data": map[string]any{
+				"repository": map[string]any{
+					"pullRequest": map[string]any{
+						"latestReviews": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false},
+							"nodes": []map[string]any{
+								{"state": "APPROVED", "author": map[string]any{"login": "alice"}},
+							},
+						},
+						"reviewThreads": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false, "endCursor": ""},
+							"nodes": []map[string]any{
+								{"id": "THREAD_1", "isResolved": false, "isOutdated": false},
+							},
+						},
+					},
+				},
+			},
+		}
+	case 1:
+		return map[string]any{
+			"data": map[string]any{
+				"repository": map[string]any{
+					"pullRequest": map[string]any{
+						"latestReviews": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false},
+							"nodes":    []any{},
+						},
+						"reviewThreads": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false, "endCursor": ""},
+							"nodes": []map[string]any{
+								{
+									"id":         "THREAD_2",
+									"isResolved": false,
+									"isOutdated": true,
+									"comments": map[string]any{
+										"nodes": []map[string]any{
+											{
+												"databaseId": 202,
+												"body":       "please update scope",
+												"path":       "internal/rgdcli/rgdcli.go",
+												"line":       42,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	default:
+		return map[string]any{
+			"data": map[string]any{
+				"repository": map[string]any{
+					"pullRequest": map[string]any{
+						"latestReviews": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false},
+							"nodes": []map[string]any{
+								{"state": "APPROVED", "author": map[string]any{"login": "alice"}},
+							},
+						},
+						"reviewThreads": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false, "endCursor": ""},
+							"nodes": []map[string]any{
+								{
+									"id":         "THREAD_3",
+									"isResolved": false,
+									"isOutdated": false,
+									"comments": map[string]any{
+										"nodes": []map[string]any{
+											{
+												"databaseId":     303,
+												"body":           "follow up",
+												"path":           "internal/observe/github/prquery/prquery.go",
+												"line":           320,
+												"commit":         map[string]any{"oid": "0123456789abcdef0123456789abcdef01234567"},
+												"originalCommit": map[string]any{"oid": "89abcdef0123456789abcdef0123456789abcdef"},
+												"originalLine":   318,
+												"author":         map[string]any{"login": "coderabbitai[bot]"},
+											},
+										},
+									},
+								},
+							},
+						},
+						"comments": map[string]any{
+							"pageInfo": map[string]any{"hasPreviousPage": false, "startCursor": nil},
+							"nodes": []map[string]any{
+								{
+									"databaseId": 401,
+									"body":       "non-thread finding",
+									"author":     map[string]any{"login": "coderabbitai[bot]"},
+									"createdAt":  "2026-04-16T00:00:00Z",
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+}
+
+func validateReviewCase(t *testing.T, viewCase int, rev map[string]any) {
+	t.Helper()
+	switch viewCase {
+	case 1:
+		inbox := rev["review_inbox"].([]any)
+		thread := inbox[0].(map[string]any)
+		if thread["thread_id"] != "THREAD_2" || thread["path"] != "internal/rgdcli/rgdcli.go" {
+			t.Fatalf("thread=%+v", thread)
+		}
+	case 2:
+		inbox := rev["review_inbox"].([]any)
+		thread := inbox[0].(map[string]any)
+		if thread["thread_id"] != "THREAD_3" || thread["body"] != "follow up" {
+			t.Fatalf("thread=%+v", thread)
+		}
+		comments := rev["conversation_comments"].([]any)
+		comment := comments[0].(map[string]any)
+		if comment["body"] != "non-thread finding" || comment["author"] != "coderabbitai[bot]" {
+			t.Fatalf("comment=%+v", comment)
+		}
 	}
 }
 
@@ -682,7 +709,13 @@ func TestCollect_botReviewer_rateLimitAndEnrich(t *testing.T) {
 		t.Fatalf("status: %+v", m)
 	}
 	diag := rev["bot_review_diagnostics"].(map[string]any)
-	if diag["bot_review_failed"].(bool) != true || diag["bot_review_pending"].(bool) != false {
+	if diag["bot_review_blocked"].(bool) != true || diag["bot_review_block_reason"].(string) != BotStatusRateLimited {
+		t.Fatalf("diag: %+v", diag)
+	}
+	if diag["bot_review_failed"].(bool) != false || diag["bot_review_pending"].(bool) != false {
+		t.Fatalf("diag: %+v", diag)
+	}
+	if diag["bot_review_terminal"].(bool) != false {
 		t.Fatalf("diag: %+v", diag)
 	}
 }
@@ -1178,6 +1211,9 @@ func TestCollect_botReviewer_completedClean(t *testing.T) {
 	if diag["bot_review_failed"].(bool) {
 		t.Fatalf("want bot_review_failed=false, got %+v", diag)
 	}
+	if diag["bot_review_blocked"].(bool) {
+		t.Fatalf("want bot_review_blocked=false, got %+v", diag)
+	}
 	if diag["bot_review_stale"].(bool) {
 		t.Fatalf("want bot_review_stale=false, got %+v", diag)
 	}
@@ -1253,6 +1289,9 @@ func TestCollect_botReviewer_commentOnlyNoReviewClean(t *testing.T) {
 	diag := rev["bot_review_diagnostics"].(map[string]any)
 	if !diag["bot_review_completed"].(bool) || diag["bot_review_pending"].(bool) {
 		t.Fatalf("diag: %+v", diag)
+	}
+	if diag["bot_review_blocked"].(bool) {
+		t.Fatalf("want bot_review_blocked=false, got %+v", diag)
 	}
 	if diag["bot_review_stale"].(bool) {
 		t.Fatalf("want bot_review_stale=false, got %+v", diag)

@@ -100,7 +100,7 @@ Each `providers[]` entry may include `options` (object). Built-in factories cons
 | Provider `id` | Key | Type | Description |
 |---------------|-----|------|-------------|
 | `github` | `api_base` | string | Optional GitHub REST API root override (e.g. `httptest` or a host whose REST root is `https://HOST/api/v3`); GraphQL uses `https://api.github.com/graphql` by default and maps `.../api/v3` → `.../api/graphql` for that Enterprise Server shape; leading/trailing space trimmed |
-| `github` | `bot_reviewers` | array | Optional. Each element: `id` (string, required, `^[a-z0-9_]+$`, unique), `login` (string, required), `required` (boolean, required — whether this bot participates in aggregate diagnostics), `enrich` (optional string array of built-in enrichment names). Drives `signals.github.reviews.bot_reviewer_status` and `bot_review_diagnostics`. Unknown `enrich` names fail `rgd config validate` / provider build. Built-in enrichments: `coderabbit` (rate-limit seconds, CodeRabbit Review Status markers, review-body and conversation-comment markers per `docs/cli.md`, `StatusClassifier`). |
+| `github` | `bot_reviewers` | array | Optional. Each element: `id` (string, required, `^[a-z0-9_]+$`, unique), `login` (string, required), `required` (boolean, required — whether this bot participates in aggregate diagnostics), `enrich` (optional string array of built-in enrichment names). Drives `signals.github.reviews.bot_reviewer_status` and `bot_review_diagnostics`. The same configured set is used by top-level `rgd observe`, by `rgd observe github reviews`, and by `rgd context build` including compact output; provider filtering must not drop these options. Unknown `enrich` names fail `rgd config validate` / provider build. Built-in enrichments: `coderabbit` (rate-limit seconds, CodeRabbit Review Status markers, review-body and conversation-comment markers per `docs/cli.md`, `StatusClassifier`). |
 
 The `git` provider accepts `options` for forward compatibility; keys are currently unused.
 
@@ -259,7 +259,7 @@ View behavior:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `ci_status` | string | Lowercased rollup from `GET /repos/{owner}/{repo}/commits/{sha}/status` (`state` field), or `unknown` when the SHA cannot be resolved. |
+| `ci_status` | string | Lowercased rollup from `GET /repos/{owner}/{repo}/commits/{sha}/status` (`state` field), or `unknown` when the SHA cannot be resolved. This is only the CI rollup signal; **`success` does not imply merge-ready or merge-safe** without review, bot, and mergeability signals. |
 | `head_sha` | string | Commit SHA used for status and check-run queries. |
 | `check_runs` | array | Present only in `full`. Check runs from `GET /repos/{owner}/{repo}/commits/{sha}/check-runs` (first page, `per_page=100`). Each element is an object with `name` (string), `status` (string, lowercased), and `conclusion` (string lowercased when present, or JSON `null` while the run has not finished). No check output bodies are included. If the request fails, the array is empty and a warning is recorded. When GitHub reports `total_count` greater than the number of returned runs, observation records a **truncation warning** (for example `github ci: check-runs response truncated (100 of N)`); treat rollup and `check_runs` as potentially incomplete for that head. |
 
@@ -342,6 +342,9 @@ Each element of `bot_reviewer_status` includes:
 Object keys:
 
 - **`bot_review_completed`**, **`bot_review_pending`**, **`bot_review_terminal`**, **`bot_review_failed`**, **`bot_review_stale`:** booleans aggregated over **required** bots only.
+- **`bot_review_blocked`:** true when any **required** bot is blocked in a non-terminal way (currently `rate_limited` or `review_paused`). Blocked is intentionally **not** folded into `bot_review_failed`.
+- **`bot_review_block_reason`:** string reason for `bot_review_blocked`; currently `rate_limited`, `review_paused`, or `mixed` when multiple blocked reasons coexist across required bots. Empty string when `bot_review_blocked` is false.
+- **Lifecycle contract:** `bot_review_terminal` is true only for terminal success (`bot_review_completed`) or terminal failure (`bot_review_failed`). A blocked review is **not terminal** and **not pending**; it is represented by `bot_review_blocked=true`.
 - **`bot_review_stale` (fail-closed):** true when any **required** bot is considered to have completed a review but the effective review commit does not match the current PR head, **or** when a completed review is expected but `review_commit_sha` is still empty after `latestReviews` and CodeRabbit enrichment fallback. If no required bots are configured, `bot_review_stale` is vacuously false.
 - **`duplicate_findings_detected`:** true when any **required** bot has `duplicate_findings_count` > 0 in `bot_reviewer_status` (for CodeRabbit this corresponds to the duplicate-comments summary in the review body). Optional-only duplicate signals do not set this flag.
 - **`non_thread_findings_present`:** true when **any required** bot has any of `actionable_findings_count`, `outside_diff_findings_count`, `duplicate_findings_count`, or `finding_conversation_comments_count` greater than zero in `bot_reviewer_status`, **or** when `conversation_comments_incomplete` is true and a required bot exists (fail-closed: partial comment history). When no required bots are configured, this is vacuously false (incomplete pagination alone does not set the flag). The name is intentionally **not** `bot_review_*`-prefixed: it is a derived aggregate over enrichment counts, not part of the `bot_review_pending` / `bot_review_terminal` / … lifecycle tuple.
@@ -506,29 +509,37 @@ Prints the validated raw artifact JSON.
 |------|----------|-------------|
 | `--observation-file` | yes | Observation JSON path |
 
-Evaluates merge signals. All conditions must be true for `ok == true`:
+Evaluates merge signals as a **merge-safe gate**, not as a CI summary. `ok == true`
+means the observation is safe to read as merge-ready on the checked signals;
+`github.ci.ci_status == success` alone is never enough.
+
+All conditions must be true for `ok == true`:
 
 | # | Signal path | Condition | Fail reason |
 |---|-------------|-----------|-------------|
 | 1 | `git.working_tree_clean` | `== true` | git working tree not clean |
-| 2 | `github.ci.ci_status` | `== "success"` (case-insensitive) | ci status is "X", want success |
-| 3 | `github.reviews.review_threads_unresolved` | `== 0` | unresolved review threads: N |
-| 4 | `github.reviews.bot_review_diagnostics.bot_review_pending` | `== false` | required bot review still pending |
-| 5 | `github.reviews.bot_review_diagnostics.bot_review_terminal` | `== true` | required bot review not terminal |
-| 6 | `github.reviews.bot_review_diagnostics.bot_review_failed` | `== false` | required bot review failed |
-| 7 | `github.reviews.bot_review_diagnostics.bot_review_stale` | `== false` | required bot review is stale or missing review commit SHA |
-| 8 | `github.reviews.bot_review_diagnostics.non_thread_findings_present` | `== false` | non-thread review findings present for a required bot |
+| 2 | `github.reviews.review_threads_unresolved` | `== 0` | unresolved review threads: N |
+| 3 | `github.reviews.bot_review_diagnostics.bot_review_pending` | `== false` | required bot review still pending |
+| 4 | `github.reviews.bot_review_diagnostics.bot_review_blocked` | `== false` | required bot review rate-limited / paused / blocked |
+| 5 | `github.reviews.bot_review_diagnostics.non_thread_findings_present` | `== false` | non-thread review findings present for a required bot |
+| 6 | `github.reviews.bot_review_diagnostics.bot_review_terminal` | `== true` | required bot review not terminal |
+| 7 | `github.reviews.bot_review_diagnostics.bot_review_failed` | `== false` | required bot review failed |
+| 8 | `github.reviews.bot_review_diagnostics.bot_review_stale` | `== false` | required bot review is stale or missing review commit SHA |
 | 9 | `github.reviews.review_decisions_changes_requested` | `== 0` | changes requested: N |
 | 10 | `github.reviews.pagination_incomplete` | `== false` | review thread pagination incomplete |
 | 11 | `github.reviews.review_decisions_truncated` | `== false` | review decisions truncated |
+| 12 | `github.pull_requests.merge_state_status` | `== "clean"` (case-insensitive) | merge state status is "X", want clean |
+| 13 | `github.ci.ci_status` | `== "success"` (case-insensitive) | ci status is "X", want success |
 
 All signals fail closed on missing or invalid values (guard returns `ok: false`).
 
-`merge-readiness` is a deterministic merge gate for the signals above,
-including **`non_thread_findings_present`** (derived from CodeRabbit enrichment
-counts — see `bot_review_diagnostics`). Formal human review closure and
-disposition semantics remain policy / procedure responsibilities beyond these
-platform facts.
+`merge-readiness` is a deterministic merge-safe gate for the signals above.
+It prefers review and bot blockers over CI in both evaluation order and failure
+reason, so agents must not treat `ci_status=success` as the primary decision
+signal. This includes **`non_thread_findings_present`** (derived from CodeRabbit
+enrichment counts — see `bot_review_diagnostics`). Formal human review closure
+and disposition semantics remain policy / procedure responsibilities beyond
+these platform facts.
 
 ### Output
 

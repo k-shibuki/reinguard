@@ -63,6 +63,7 @@ func TestRunGuardEval_relativeObservationFileWithCwd(t *testing.T) {
 	  "signals": {
 	    "git": {"working_tree_clean": true, "detached_head": false},
 	    "github": {
+	      "pull_requests": {"merge_state_status": "clean"},
 	      "ci": {"ci_status": "success"},
 	      "reviews": {
 	        "review_threads_unresolved": 0,
@@ -71,6 +72,8 @@ func TestRunGuardEval_relativeObservationFileWithCwd(t *testing.T) {
 	        "review_decisions_truncated": false,
 	        "bot_review_diagnostics": {
 	          "bot_review_pending": false,
+	          "bot_review_blocked": false,
+	          "bot_review_block_reason": "",
 	          "bot_review_terminal": true,
 	          "bot_review_failed": false,
 	          "bot_review_stale": false,
@@ -116,6 +119,7 @@ func TestRunGuardEval_ok(t *testing.T) {
 	  "signals": {
 	    "git": {"working_tree_clean": true, "detached_head": false},
 	    "github": {
+	      "pull_requests": {"merge_state_status": "clean"},
 	      "ci": {"ci_status": "success"},
 	      "reviews": {
 	        "review_threads_unresolved": 0,
@@ -124,6 +128,8 @@ func TestRunGuardEval_ok(t *testing.T) {
 	        "review_decisions_truncated": false,
 	        "bot_review_diagnostics": {
 	          "bot_review_pending": false,
+	          "bot_review_blocked": false,
+	          "bot_review_block_reason": "",
 	          "bot_review_terminal": true,
 	          "bot_review_failed": false,
 	          "bot_review_stale": false,
@@ -151,6 +157,57 @@ func TestRunGuardEval_ok(t *testing.T) {
 	}
 	if !out.OK {
 		t.Fatalf("expected ok=true, got %+v", buf.String())
+	}
+}
+
+func TestRunGuardEval_mergeReadinessBlockedReason(t *testing.T) {
+	t.Parallel()
+	// Given: an observation file where bot review is blocked due to rate limiting
+	tmp := t.TempDir()
+	p := filepath.Join(tmp, "o.json")
+	writeFile(t, p, []byte(`{
+	  "signals": {
+	    "git": {"working_tree_clean": true, "detached_head": false},
+	    "github": {
+	      "pull_requests": {"merge_state_status": "clean"},
+	      "ci": {"ci_status": "success"},
+	      "reviews": {
+	        "review_threads_unresolved": 0,
+	        "review_decisions_changes_requested": 0,
+	        "pagination_incomplete": false,
+	        "review_decisions_truncated": false,
+	        "bot_review_diagnostics": {
+	          "bot_review_pending": false,
+	          "bot_review_blocked": true,
+	          "bot_review_block_reason": "rate_limited",
+	          "bot_review_terminal": false,
+	          "bot_review_failed": false,
+	          "bot_review_stale": false,
+	          "non_thread_findings_present": false
+	        }
+	      }
+	    }
+	  }
+	}`))
+
+	// When: guard eval is invoked for merge-readiness
+	var buf bytes.Buffer
+	app := NewApp("t")
+	app.Writer = &buf
+	if err := app.Run([]string{"rgd", "guard", "eval", "--observation-file", p, "merge-readiness"}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Then: output has ok=false with the expected block reason
+	var out struct {
+		Reason string `json:"reason"`
+		OK     bool   `json:"ok"`
+	}
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatalf("invalid JSON output: %v; raw=%s", err, buf.String())
+	}
+	if out.OK || out.Reason != "required bot review rate-limited" {
+		t.Fatalf("unexpected output: %+v raw=%s", out, buf.String())
 	}
 }
 

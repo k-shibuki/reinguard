@@ -26,6 +26,8 @@ func TestEvalWithRules(t *testing.T) {
 			"review_decisions_truncated":         false,
 			"bot_review_diagnostics": map[string]any{
 				"bot_review_pending":          false,
+				"bot_review_blocked":          false,
+				"bot_review_block_reason":     "",
 				"bot_review_terminal":         true,
 				"bot_review_failed":           false,
 				"bot_review_stale":            false,
@@ -36,29 +38,63 @@ func TestEvalWithRules(t *testing.T) {
 	baseSignals := map[string]any{
 		"git": map[string]any{"working_tree_clean": true},
 		"github": map[string]any{
-			"ci":      map[string]any{"ci_status": "success"},
-			"reviews": readyReviews(false),
+			"pull_requests": map[string]any{"merge_state_status": "clean"},
+			"ci":            map[string]any{"ci_status": "success"},
+			"reviews":       readyReviews(false),
 		},
 	}
 	detachedSignals := map[string]any{
 		"git": map[string]any{"working_tree_clean": true, "detached_head": true},
 		"github": map[string]any{
-			"ci":      map[string]any{"ci_status": "success"},
-			"reviews": readyReviews(false),
+			"pull_requests": map[string]any{"merge_state_status": "clean"},
+			"ci":            map[string]any{"ci_status": "success"},
+			"reviews":       readyReviews(false),
 		},
 	}
 	attachedSignals := map[string]any{
 		"git": map[string]any{"working_tree_clean": true, "detached_head": false},
 		"github": map[string]any{
-			"ci":      map[string]any{"ci_status": "success"},
-			"reviews": readyReviews(false),
+			"pull_requests": map[string]any{"merge_state_status": "clean"},
+			"ci":            map[string]any{"ci_status": "success"},
+			"reviews":       readyReviews(false),
 		},
 	}
 	nonThreadSignals := map[string]any{
 		"git": map[string]any{"working_tree_clean": true, "detached_head": false},
 		"github": map[string]any{
-			"ci":      map[string]any{"ci_status": "success"},
-			"reviews": readyReviews(true),
+			"pull_requests": map[string]any{"merge_state_status": "clean"},
+			"ci":            map[string]any{"ci_status": "success"},
+			"reviews":       readyReviews(true),
+		},
+	}
+	blockedReviewSignals := map[string]any{
+		"git": map[string]any{"working_tree_clean": true, "detached_head": false},
+		"github": map[string]any{
+			"pull_requests": map[string]any{"merge_state_status": "clean"},
+			"ci":            map[string]any{"ci_status": "success"},
+			"reviews": map[string]any{
+				"review_threads_unresolved":          0,
+				"review_decisions_changes_requested": 0,
+				"pagination_incomplete":              false,
+				"review_decisions_truncated":         false,
+				"bot_review_diagnostics": map[string]any{
+					"bot_review_pending":          false,
+					"bot_review_blocked":          true,
+					"bot_review_block_reason":     "rate_limited",
+					"bot_review_terminal":         false,
+					"bot_review_failed":           false,
+					"bot_review_stale":            false,
+					"non_thread_findings_present": false,
+				},
+			},
+		},
+	}
+	blockedMergeSignals := map[string]any{
+		"git": map[string]any{"working_tree_clean": true, "detached_head": false},
+		"github": map[string]any{
+			"pull_requests": map[string]any{"merge_state_status": "blocked"},
+			"ci":            map[string]any{"ci_status": "success"},
+			"reviews":       readyReviews(false),
 		},
 	}
 	// Given: merge-readiness guard, optional declarative rules, signal variants
@@ -96,6 +132,20 @@ func TestEvalWithRules(t *testing.T) {
 			rules:            decl,
 			wantOK:           false,
 			wantReasonSubstr: "non-thread review findings",
+		},
+		{
+			signals:          blockedReviewSignals,
+			name:             "declarative_match_blocks_on_bot_review_blocked",
+			rules:            decl,
+			wantOK:           false,
+			wantReasonSubstr: "bot review rate-limited",
+		},
+		{
+			signals:          blockedMergeSignals,
+			name:             "declarative_match_blocks_on_merge_state_blocked",
+			rules:            decl,
+			wantOK:           false,
+			wantReasonSubstr: "merge state status is",
 		},
 	}
 	for _, tt := range tests {

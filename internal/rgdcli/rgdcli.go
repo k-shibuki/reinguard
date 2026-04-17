@@ -144,9 +144,9 @@ func RunObserve(c *cli.Context, gitHubFacet string, providerOverride []string) e
 	}
 	root := loaded.Root
 	if len(providerOverride) > 0 {
-		var ps []config.ProviderSpec
-		for _, id := range providerOverride {
-			ps = append(ps, config.ProviderSpec{ID: id, Enabled: true})
+		ps, selectErr := selectProviderSpecs(loaded.Root.Providers, providerOverride)
+		if selectErr != nil {
+			return selectErr
 		}
 		root = config.Root{SchemaVersion: loaded.Root.SchemaVersion, DefaultBranch: loaded.Root.DefaultBranch, Providers: ps}
 	}
@@ -176,6 +176,26 @@ func RunObserve(c *cli.Context, gitHubFacet string, providerOverride []string) e
 	}
 	doc := observation.Document(signals, diags, deg, map[string]any{"view": string(view)})
 	return writeJSON(c.App.Writer, doc)
+}
+
+func selectProviderSpecs(specs []config.ProviderSpec, providerIDs []string) ([]config.ProviderSpec, error) {
+	selected := make([]config.ProviderSpec, 0, len(providerIDs))
+	for _, wantID := range providerIDs {
+		matched := false
+		for _, spec := range specs {
+			if spec.ID != wantID {
+				continue
+			}
+			selected = append(selected, spec)
+			matched = true
+			break
+		}
+		if matched {
+			continue
+		}
+		return nil, fmt.Errorf("provider override %q is not configured", wantID)
+	}
+	return selected, nil
 }
 
 // RunStateEval loads signals from --observation-file or live collect, then runs resolve on
