@@ -40,7 +40,7 @@ func (coderabbitEnrichment) EnrichReviewBody(reviewBody string) map[string]any {
 	out := make(map[string]any)
 	if isCoderabbitRateLimitNotice(body) {
 		out["review_rate_limit_notice"] = true
-		out["cr_review_is_rate_limit_notice"] = true
+		out["cr_review_rate_limit_notice"] = true
 	}
 	if n := parseCoderabbitDuplicateCount(body); n > 0 {
 		out["duplicate_findings_count"] = n
@@ -238,7 +238,7 @@ func classifyCoderabbitStatusWithBasis(m map[string]any) (status string, basis s
 	if n, ok := intFromStatusMapAny(m, "rate_limit_remaining_seconds"); ok && n > 0 {
 		return BotStatusRateLimited, "active_rate_limit_cooldown"
 	}
-	if signalBool(m, "cr_review_is_rate_limit_notice") || signalBool(m, "review_rate_limit_notice") {
+	if signalBool(m, "cr_review_rate_limit_notice") || signalBool(m, "review_rate_limit_notice") {
 		return BotStatusPending, "review_rate_limit_notice"
 	}
 	if signalBool(m, "has_review") {

@@ -176,8 +176,8 @@ func TestCoderabbitEnrichment_EnrichReviewBody_rateLimitNotice(t *testing.T) {
 	if got == nil {
 		t.Fatal("got nil")
 	}
-	if v, ok := got["cr_review_is_rate_limit_notice"].(bool); !ok || !v {
-		t.Fatalf("want cr_review_is_rate_limit_notice=true, got %+v", got)
+	if v, ok := got["cr_review_rate_limit_notice"].(bool); !ok || !v {
+		t.Fatalf("want cr_review_rate_limit_notice=true, got %+v", got)
 	}
 	if v, ok := got["review_rate_limit_notice"].(bool); !ok || !v {
 		t.Fatalf("want review_rate_limit_notice=true, got %+v", got)
@@ -417,10 +417,10 @@ func TestCoderabbitEnrichment_ClassifyStatus_order(t *testing.T) {
 	if g := e.ClassifyStatus(map[string]any{"has_review": true, "cr_review_completed_clean": true}); g != BotStatusCompletedClean {
 		t.Fatalf("got %q", g)
 	}
-	if g := e.ClassifyStatus(map[string]any{"has_review": true, "cr_review_is_rate_limit_notice": true, "latest_comment_at": "2026-01-01T00:00:00Z"}); g != BotStatusPending {
+	if g := e.ClassifyStatus(map[string]any{"has_review": true, "cr_review_rate_limit_notice": true, "latest_comment_at": "2026-01-01T00:00:00Z"}); g != BotStatusPending {
 		t.Fatalf("got %q", g)
 	}
-	if s, basis := classifyCoderabbitStatusWithBasis(map[string]any{"has_review": true, "cr_review_is_rate_limit_notice": true, "latest_comment_at": "2026-01-01T00:00:00Z"}); s != BotStatusPending || basis != "review_rate_limit_notice" {
+	if s, basis := classifyCoderabbitStatusWithBasis(map[string]any{"has_review": true, "cr_review_rate_limit_notice": true, "latest_comment_at": "2026-01-01T00:00:00Z"}); s != BotStatusPending || basis != "review_rate_limit_notice" {
 		t.Fatalf("basis got %q %q", s, basis)
 	}
 	if g := e.ClassifyStatus(map[string]any{"has_review": true}); g != BotStatusCompleted {
