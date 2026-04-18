@@ -168,6 +168,22 @@ func TestCoderabbitEnrichment_EnrichReviewBody(t *testing.T) {
 	}
 }
 
+func TestCoderabbitEnrichment_EnrichReviewBody_rateLimitNotice(t *testing.T) {
+	t.Parallel()
+	e := coderabbitEnrichment{}
+	body := "Rate limit exceeded. Please try again in 2 minutes and 5 seconds"
+	got := e.EnrichReviewBody(body)
+	if got == nil {
+		t.Fatal("got nil")
+	}
+	if v, ok := got["cr_review_is_rate_limit_notice"].(bool); !ok || !v {
+		t.Fatalf("want cr_review_is_rate_limit_notice=true, got %+v", got)
+	}
+	if v, ok := got["review_rate_limit_notice"].(bool); !ok || !v {
+		t.Fatalf("want review_rate_limit_notice=true, got %+v", got)
+	}
+}
+
 func TestCoderabbitEnrichment_Enrich_providerNeutralIssueCommentAliases(t *testing.T) {
 	t.Parallel()
 	e := coderabbitEnrichment{}
@@ -380,6 +396,8 @@ func TestCoderabbitIssueCommentMaxTier_decisiveStatusesShareTierSix(t *testing.T
 func TestCoderabbitEnrichment_ClassifyStatus_order(t *testing.T) {
 	t.Parallel()
 	e := coderabbitEnrichment{}
+	// Given/When/Then: classify order keeps active cooldown rate-limited, rate-limit review notices
+	// non-terminal after cooldown expiry, and clean markers above generic has_review completion.
 	// Processing is evaluated before active cooldown; both signals need not conflict.
 	if g := e.ClassifyStatus(map[string]any{"contains_rate_limit": true, "cr_review_processing": true}); g != BotStatusPending {
 		t.Fatalf("got %q", g)
@@ -398,6 +416,12 @@ func TestCoderabbitEnrichment_ClassifyStatus_order(t *testing.T) {
 	}
 	if g := e.ClassifyStatus(map[string]any{"has_review": true, "cr_review_completed_clean": true}); g != BotStatusCompletedClean {
 		t.Fatalf("got %q", g)
+	}
+	if g := e.ClassifyStatus(map[string]any{"has_review": true, "cr_review_is_rate_limit_notice": true, "latest_comment_at": "2026-01-01T00:00:00Z"}); g != BotStatusPending {
+		t.Fatalf("got %q", g)
+	}
+	if s, basis := classifyCoderabbitStatusWithBasis(map[string]any{"has_review": true, "cr_review_is_rate_limit_notice": true, "latest_comment_at": "2026-01-01T00:00:00Z"}); s != BotStatusPending || basis != "review_rate_limit_notice" {
+		t.Fatalf("basis got %q %q", s, basis)
 	}
 	if g := e.ClassifyStatus(map[string]any{"has_review": true}); g != BotStatusCompleted {
 		t.Fatalf("got %q", g)
