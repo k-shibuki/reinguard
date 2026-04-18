@@ -48,7 +48,7 @@ func TestRunKnowledgePack_observationFileFiltersWhen(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(kdir, "manifest.json"), []byte(`{
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "entries": [
     {
       "id": "on-main",
@@ -68,7 +68,7 @@ func TestRunKnowledgePack_observationFileFiltersWhen(t *testing.T) {
 }`))
 	obsDir := t.TempDir()
 	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "signals": {"git": {"branch": "main"}},
   "degraded": false
 }`))
@@ -104,7 +104,7 @@ func TestRunKnowledgePack_observationFileAndQueryUnion(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(kdir, "manifest.json"), []byte(`{
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "entries": [
     {
       "id": "on-main",
@@ -124,7 +124,7 @@ func TestRunKnowledgePack_observationFileAndQueryUnion(t *testing.T) {
 }`))
 	obsDir := t.TempDir()
 	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "signals": {"git": {"branch": "main"}},
   "degraded": false
 }`))
@@ -160,7 +160,7 @@ func TestRunKnowledgePack_rejectsInvalidScopePR(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(cfgDir, "knowledge", "manifest.json"), []byte(`{
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "entries": []
 }`))
 	app := NewApp("t")
@@ -184,7 +184,7 @@ func TestRunKnowledgePack_queryFilter(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(cfgDir, "knowledge", "manifest.json"), []byte(`{
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "entries": [
     {
       "id": "a",
@@ -332,7 +332,7 @@ when:
 ---
 `))
 	writeFile(t, filepath.Join(kdir, "manifest.json"), []byte(`{
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "entries": [{
     "id": "wrong",
     "path": "knowledge/only.md",
@@ -364,7 +364,7 @@ func TestRunConfigValidate_knowledgeMissingPath(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, filepath.Join(kdir, "manifest.json"), []byte(`{
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "entries": [{
     "id": "ghost",
     "path": "knowledge/missing.md",

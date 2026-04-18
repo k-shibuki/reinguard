@@ -399,6 +399,56 @@ func TestGitHubProviderFactory_botReviewers_unknownEnrich(t *testing.T) {
 	}
 }
 
+func TestGitHubProviderFactory_botReviewers_reviewTriggers_validation(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name    string
+		value   any
+		wantErr string
+	}{
+		{name: "not_array", value: "review", wantErr: "review_triggers must be an array"},
+		{name: "non_string_entry", value: []any{123}, wantErr: "review_triggers[0] must be a string"},
+		{name: "blank_entry", value: []any{"  "}, wantErr: "review_triggers[0] must be non-empty"},
+		{name: "bad_regex", value: []any{"("}, wantErr: `"("`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := GitHubProviderFactory(map[string]any{
+				"bot_reviewers": []any{
+					map[string]any{"id": "x", "login": "x", "required": true, "review_triggers": tt.value},
+				},
+			})
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("got %v, want error containing %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestGitHubProviderFactory_botReviewers_reviewTriggers_ok(t *testing.T) {
+	t.Parallel()
+	p, err := GitHubProviderFactory(map[string]any{
+		"bot_reviewers": []any{
+			map[string]any{
+				"id": "x", "login": "somebot[bot]", "required": true,
+				"review_triggers": []any{`(?i)@somebot\s+review\b`},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	gp, ok := p.(*GitHubProvider)
+	if !ok || len(gp.BotReviewers) != 1 {
+		t.Fatalf("got %T %+v", p, gp)
+	}
+	tr := gp.BotReviewers[0].ReviewTriggers
+	if len(tr) != 1 || tr[0] == nil || tr[0].String() == "" {
+		t.Fatalf("ReviewTriggers: %+v", tr)
+	}
+}
+
 func TestGitHubProviderFactory_botReviewers_badShape(t *testing.T) {
 	t.Parallel()
 	_, err := GitHubProviderFactory(map[string]any{"bot_reviewers": "nope"})

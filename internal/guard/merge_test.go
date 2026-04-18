@@ -18,13 +18,14 @@ func fullReadySignals() map[string]any {
 				"pagination_incomplete":              false,
 				"review_decisions_truncated":         false,
 				"bot_review_diagnostics": map[string]any{
-					"bot_review_pending":          false,
-					"bot_review_blocked":          false,
-					"bot_review_block_reason":     "",
-					"bot_review_terminal":         true,
-					"bot_review_failed":           false,
-					"bot_review_stale":            false,
-					"non_thread_findings_present": false,
+					"bot_review_pending":              false,
+					"bot_review_blocked":              false,
+					"bot_review_block_reason":         "",
+					"bot_review_terminal":             true,
+					"bot_review_failed":               false,
+					"bot_review_stale":                false,
+					"bot_review_trigger_awaiting_ack": false,
+					"non_thread_findings_present":     false,
 				},
 			},
 		},
@@ -187,13 +188,14 @@ func TestEvalMergeReadiness_botReviewPending(t *testing.T) {
 	// Given: bot review is still pending
 	s := fullReadySignals()
 	s["github"].(map[string]any)["reviews"].(map[string]any)["bot_review_diagnostics"] = map[string]any{
-		"bot_review_pending":          true,
-		"bot_review_blocked":          false,
-		"bot_review_block_reason":     "",
-		"bot_review_terminal":         false,
-		"bot_review_failed":           false,
-		"bot_review_stale":            false,
-		"non_thread_findings_present": false,
+		"bot_review_pending":              true,
+		"bot_review_blocked":              false,
+		"bot_review_block_reason":         "",
+		"bot_review_terminal":             false,
+		"bot_review_failed":               false,
+		"bot_review_stale":                false,
+		"bot_review_trigger_awaiting_ack": false,
+		"non_thread_findings_present":     false,
 	}
 	// When: EvalMergeReadiness runs
 	r := EvalMergeReadiness(s)
@@ -207,13 +209,14 @@ func TestEvalMergeReadiness_botReviewBlockedRateLimited(t *testing.T) {
 	t.Parallel()
 	s := fullReadySignals()
 	s["github"].(map[string]any)["reviews"].(map[string]any)["bot_review_diagnostics"] = map[string]any{
-		"bot_review_pending":          false,
-		"bot_review_blocked":          true,
-		"bot_review_block_reason":     "rate_limited",
-		"bot_review_terminal":         false,
-		"bot_review_failed":           false,
-		"bot_review_stale":            false,
-		"non_thread_findings_present": false,
+		"bot_review_pending":              false,
+		"bot_review_blocked":              true,
+		"bot_review_block_reason":         "rate_limited",
+		"bot_review_terminal":             false,
+		"bot_review_failed":               false,
+		"bot_review_stale":                false,
+		"bot_review_trigger_awaiting_ack": false,
+		"non_thread_findings_present":     false,
 	}
 	r := EvalMergeReadiness(s)
 	if r.OK || !strings.Contains(r.Reason, "required bot review rate-limited") {
@@ -226,13 +229,14 @@ func TestEvalMergeReadiness_botReviewBlockedBeatsCI(t *testing.T) {
 	s := fullReadySignals()
 	s["github"].(map[string]any)["ci"] = map[string]any{"ci_status": "failure"}
 	s["github"].(map[string]any)["reviews"].(map[string]any)["bot_review_diagnostics"] = map[string]any{
-		"bot_review_pending":          false,
-		"bot_review_blocked":          true,
-		"bot_review_block_reason":     "review_paused",
-		"bot_review_terminal":         false,
-		"bot_review_failed":           false,
-		"bot_review_stale":            false,
-		"non_thread_findings_present": false,
+		"bot_review_pending":              false,
+		"bot_review_blocked":              true,
+		"bot_review_block_reason":         "review_paused",
+		"bot_review_terminal":             false,
+		"bot_review_failed":               false,
+		"bot_review_stale":                false,
+		"bot_review_trigger_awaiting_ack": false,
+		"non_thread_findings_present":     false,
 	}
 	r := EvalMergeReadiness(s)
 	if r.OK || !strings.Contains(r.Reason, "required bot review paused") {
@@ -244,13 +248,14 @@ func TestEvalMergeReadiness_botReviewBlockedMissingReason(t *testing.T) {
 	t.Parallel()
 	s := fullReadySignals()
 	s["github"].(map[string]any)["reviews"].(map[string]any)["bot_review_diagnostics"] = map[string]any{
-		"bot_review_pending":          false,
-		"bot_review_blocked":          true,
-		"bot_review_block_reason":     "",
-		"bot_review_terminal":         false,
-		"bot_review_failed":           false,
-		"bot_review_stale":            false,
-		"non_thread_findings_present": false,
+		"bot_review_pending":              false,
+		"bot_review_blocked":              true,
+		"bot_review_block_reason":         "",
+		"bot_review_terminal":             false,
+		"bot_review_failed":               false,
+		"bot_review_stale":                false,
+		"bot_review_trigger_awaiting_ack": false,
+		"non_thread_findings_present":     false,
 	}
 	r := EvalMergeReadiness(s)
 	if r.OK || !strings.Contains(r.Reason, "missing github.reviews.bot_review_diagnostics.bot_review_block_reason") {
@@ -263,13 +268,14 @@ func TestEvalMergeReadiness_botReviewNotTerminal(t *testing.T) {
 	// Given: bot review is not pending and not blocked, but not yet terminal
 	s := fullReadySignals()
 	s["github"].(map[string]any)["reviews"].(map[string]any)["bot_review_diagnostics"] = map[string]any{
-		"bot_review_pending":          false,
-		"bot_review_blocked":          false,
-		"bot_review_block_reason":     "",
-		"bot_review_terminal":         false,
-		"bot_review_failed":           false,
-		"bot_review_stale":            false,
-		"non_thread_findings_present": false,
+		"bot_review_pending":              false,
+		"bot_review_blocked":              false,
+		"bot_review_block_reason":         "",
+		"bot_review_terminal":             false,
+		"bot_review_failed":               false,
+		"bot_review_stale":                false,
+		"bot_review_trigger_awaiting_ack": false,
+		"non_thread_findings_present":     false,
 	}
 	// When: EvalMergeReadiness runs
 	r := EvalMergeReadiness(s)
@@ -284,12 +290,13 @@ func TestEvalMergeReadiness_botReviewTerminalMissing(t *testing.T) {
 	// Given: bot_review_terminal is absent
 	s := fullReadySignals()
 	s["github"].(map[string]any)["reviews"].(map[string]any)["bot_review_diagnostics"] = map[string]any{
-		"bot_review_pending":          false,
-		"bot_review_blocked":          false,
-		"bot_review_block_reason":     "",
-		"bot_review_failed":           false,
-		"bot_review_stale":            false,
-		"non_thread_findings_present": false,
+		"bot_review_pending":              false,
+		"bot_review_blocked":              false,
+		"bot_review_block_reason":         "",
+		"bot_review_failed":               false,
+		"bot_review_stale":                false,
+		"bot_review_trigger_awaiting_ack": false,
+		"non_thread_findings_present":     false,
 	}
 	// When: EvalMergeReadiness runs
 	r := EvalMergeReadiness(s)
@@ -304,13 +311,14 @@ func TestEvalMergeReadiness_botReviewFailed(t *testing.T) {
 	// Given: bot review failed
 	s := fullReadySignals()
 	s["github"].(map[string]any)["reviews"].(map[string]any)["bot_review_diagnostics"] = map[string]any{
-		"bot_review_pending":          false,
-		"bot_review_blocked":          false,
-		"bot_review_block_reason":     "",
-		"bot_review_terminal":         true,
-		"bot_review_failed":           true,
-		"bot_review_stale":            false,
-		"non_thread_findings_present": false,
+		"bot_review_pending":              false,
+		"bot_review_blocked":              false,
+		"bot_review_block_reason":         "",
+		"bot_review_terminal":             true,
+		"bot_review_failed":               true,
+		"bot_review_stale":                false,
+		"bot_review_trigger_awaiting_ack": false,
+		"non_thread_findings_present":     false,
 	}
 	// When: EvalMergeReadiness runs
 	r := EvalMergeReadiness(s)
@@ -324,13 +332,14 @@ func TestEvalMergeReadiness_botReviewStale(t *testing.T) {
 	t.Parallel()
 	s := fullReadySignals()
 	s["github"].(map[string]any)["reviews"].(map[string]any)["bot_review_diagnostics"] = map[string]any{
-		"bot_review_pending":          false,
-		"bot_review_blocked":          false,
-		"bot_review_block_reason":     "",
-		"bot_review_terminal":         true,
-		"bot_review_failed":           false,
-		"bot_review_stale":            true,
-		"non_thread_findings_present": false,
+		"bot_review_pending":              false,
+		"bot_review_blocked":              false,
+		"bot_review_block_reason":         "",
+		"bot_review_terminal":             true,
+		"bot_review_failed":               false,
+		"bot_review_stale":                true,
+		"bot_review_trigger_awaiting_ack": false,
+		"non_thread_findings_present":     false,
 	}
 	r := EvalMergeReadiness(s)
 	if r.OK || !strings.Contains(r.Reason, "required bot review is stale") {
@@ -343,12 +352,13 @@ func TestEvalMergeReadiness_botReviewFailedMissing(t *testing.T) {
 	// Given: bot_review_failed is absent
 	s := fullReadySignals()
 	s["github"].(map[string]any)["reviews"].(map[string]any)["bot_review_diagnostics"] = map[string]any{
-		"bot_review_pending":          false,
-		"bot_review_blocked":          false,
-		"bot_review_block_reason":     "",
-		"bot_review_terminal":         true,
-		"bot_review_stale":            false,
-		"non_thread_findings_present": false,
+		"bot_review_pending":              false,
+		"bot_review_blocked":              false,
+		"bot_review_block_reason":         "",
+		"bot_review_terminal":             true,
+		"bot_review_stale":                false,
+		"bot_review_trigger_awaiting_ack": false,
+		"non_thread_findings_present":     false,
 	}
 	// When: EvalMergeReadiness runs
 	r := EvalMergeReadiness(s)
@@ -362,12 +372,13 @@ func TestEvalMergeReadiness_botReviewStaleMissing(t *testing.T) {
 	t.Parallel()
 	s := fullReadySignals()
 	s["github"].(map[string]any)["reviews"].(map[string]any)["bot_review_diagnostics"] = map[string]any{
-		"bot_review_pending":          false,
-		"bot_review_blocked":          false,
-		"bot_review_block_reason":     "",
-		"bot_review_terminal":         true,
-		"bot_review_failed":           false,
-		"non_thread_findings_present": false,
+		"bot_review_pending":              false,
+		"bot_review_blocked":              false,
+		"bot_review_block_reason":         "",
+		"bot_review_terminal":             true,
+		"bot_review_failed":               false,
+		"bot_review_trigger_awaiting_ack": false,
+		"non_thread_findings_present":     false,
 	}
 	r := EvalMergeReadiness(s)
 	if r.OK || !strings.Contains(r.Reason, "missing github.reviews.bot_review_diagnostics.bot_review_stale (fail closed)") {
@@ -471,12 +482,13 @@ func TestEvalMergeReadiness_nonThreadFindingsMissing(t *testing.T) {
 	// Given: non_thread_findings_present is absent from bot_review_diagnostics
 	s := fullReadySignals()
 	s["github"].(map[string]any)["reviews"].(map[string]any)["bot_review_diagnostics"] = map[string]any{
-		"bot_review_pending":      false,
-		"bot_review_blocked":      false,
-		"bot_review_block_reason": "",
-		"bot_review_terminal":     true,
-		"bot_review_failed":       false,
-		"bot_review_stale":        false,
+		"bot_review_pending":              false,
+		"bot_review_blocked":              false,
+		"bot_review_block_reason":         "",
+		"bot_review_terminal":             true,
+		"bot_review_failed":               false,
+		"bot_review_stale":                false,
+		"bot_review_trigger_awaiting_ack": false,
 	}
 	// When: EvalMergeReadiness runs
 	r := EvalMergeReadiness(s)
@@ -491,18 +503,56 @@ func TestEvalMergeReadiness_nonThreadFindingsPresent(t *testing.T) {
 	// Given: non-thread review findings are present
 	s := fullReadySignals()
 	s["github"].(map[string]any)["reviews"].(map[string]any)["bot_review_diagnostics"] = map[string]any{
+		"bot_review_pending":              false,
+		"bot_review_blocked":              false,
+		"bot_review_block_reason":         "",
+		"bot_review_terminal":             true,
+		"bot_review_failed":               false,
+		"bot_review_stale":                false,
+		"bot_review_trigger_awaiting_ack": false,
+		"non_thread_findings_present":     true,
+	}
+	// When: EvalMergeReadiness runs
+	r := EvalMergeReadiness(s)
+	// Then: not OK
+	if r.OK || !strings.Contains(r.Reason, "non-thread review findings present") {
+		t.Fatalf("%+v", r)
+	}
+}
+
+func TestEvalMergeReadiness_botReviewTriggerAwaitingAck(t *testing.T) {
+	t.Parallel()
+	s := fullReadySignals()
+	s["github"].(map[string]any)["reviews"].(map[string]any)["bot_review_diagnostics"] = map[string]any{
+		"bot_review_pending":              false,
+		"bot_review_blocked":              false,
+		"bot_review_block_reason":         "",
+		"bot_review_terminal":             true,
+		"bot_review_failed":               false,
+		"bot_review_stale":                false,
+		"bot_review_trigger_awaiting_ack": true,
+		"non_thread_findings_present":     false,
+	}
+	r := EvalMergeReadiness(s)
+	if r.OK || !strings.Contains(r.Reason, "bot review trigger awaiting acknowledgement") {
+		t.Fatalf("%+v", r)
+	}
+}
+
+func TestEvalMergeReadiness_botReviewTriggerAwaitingAckMissing(t *testing.T) {
+	t.Parallel()
+	s := fullReadySignals()
+	s["github"].(map[string]any)["reviews"].(map[string]any)["bot_review_diagnostics"] = map[string]any{
 		"bot_review_pending":          false,
 		"bot_review_blocked":          false,
 		"bot_review_block_reason":     "",
 		"bot_review_terminal":         true,
 		"bot_review_failed":           false,
 		"bot_review_stale":            false,
-		"non_thread_findings_present": true,
+		"non_thread_findings_present": false,
 	}
-	// When: EvalMergeReadiness runs
 	r := EvalMergeReadiness(s)
-	// Then: not OK
-	if r.OK || !strings.Contains(r.Reason, "non-thread review findings present") {
+	if r.OK || !strings.Contains(r.Reason, "missing github.reviews.bot_review_diagnostics.bot_review_trigger_awaiting_ack (fail closed)") {
 		t.Fatalf("%+v", r)
 	}
 }

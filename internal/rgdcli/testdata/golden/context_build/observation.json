@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "signals": {
     "git": {
       "branch": "main",
@@ -30,6 +30,7 @@
           "bot_review_terminal": true,
           "bot_review_failed": false,
           "bot_review_stale": false,
+          "bot_review_trigger_awaiting_ack": false,
           "non_thread_findings_present": false
         }
       }

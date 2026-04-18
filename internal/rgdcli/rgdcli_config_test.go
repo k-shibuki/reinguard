@@ -24,7 +24,7 @@ func TestRunConfigValidate_deprecatedLegacyToolHints(t *testing.T) {
 	t.Parallel()
 	// Given: valid config with legacy_tool_hints set
 	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.7.0"
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(`schema_version: "0.8.0"
 default_branch: main
 providers: []
 legacy_tool_hints:

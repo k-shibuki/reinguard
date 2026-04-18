@@ -135,7 +135,7 @@ func TestRecord_allowsPRReadinessWhenPrePRAIReviewOptional(t *testing.T) {
 	// Given: config with pre_pr_ai_review.required=false and local-verification proof inputs
 	repo := initGitRepo(t)
 	cfgDir := t.TempDir()
-	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(`schema_version: "0.7.0"
+	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(`schema_version: "0.8.0"
 default_branch: main
 workflow:
   runtime_gate_roles:
@@ -224,7 +224,7 @@ func TestStatus_classifiesArtifacts(t *testing.T) {
 					t.Fatal(err)
 				}
 				writeFile(t, path, marshalArtifactForTest(t, Artifact{
-					SchemaVersion: "0.7.0",
+					SchemaVersion: "0.8.0",
 					GateID:        "other-gate",
 					Status:        StatusPass,
 					RecordedAt:    time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),
@@ -242,7 +242,7 @@ func TestStatus_classifiesArtifacts(t *testing.T) {
 			gateID: "local-verification",
 			prepare: func(t *testing.T, cfgDir string) {
 				writeArtifactForTest(t, cfgDir, Artifact{
-					SchemaVersion: "0.7.0",
+					SchemaVersion: "0.8.0",
 					GateID:        "local-verification",
 					Status:        StatusPass,
 					RecordedAt:    time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),
@@ -260,7 +260,7 @@ func TestStatus_classifiesArtifacts(t *testing.T) {
 			gateID: "local-verification",
 			prepare: func(t *testing.T, cfgDir string) {
 				writeArtifactForTest(t, cfgDir, Artifact{
-					SchemaVersion: "0.7.0",
+					SchemaVersion: "0.8.0",
 					GateID:        "local-verification",
 					Status:        StatusPass,
 					RecordedAt:    time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),
@@ -278,7 +278,7 @@ func TestStatus_classifiesArtifacts(t *testing.T) {
 			gateID: "local-verification",
 			prepare: func(t *testing.T, cfgDir string) {
 				writeArtifactForTest(t, cfgDir, Artifact{
-					SchemaVersion: "0.7.0",
+					SchemaVersion: "0.8.0",
 					GateID:        "local-verification",
 					Status:        StatusPass,
 					RecordedAt:    time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),
@@ -295,7 +295,7 @@ func TestStatus_classifiesArtifacts(t *testing.T) {
 			gateID: "local-verification",
 			prepare: func(t *testing.T, cfgDir string) {
 				writeArtifactForTest(t, cfgDir, Artifact{
-					SchemaVersion: "0.7.0",
+					SchemaVersion: "0.8.0",
 					GateID:        "local-verification",
 					Status:        StatusFail,
 					RecordedAt:    time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),
@@ -316,7 +316,7 @@ func TestStatus_classifiesArtifacts(t *testing.T) {
 					t.Fatal(err)
 				}
 				writeFile(t, path, marshalArtifactForTest(t, Artifact{
-					SchemaVersion: "0.7.0",
+					SchemaVersion: "0.8.0",
 					GateID:        "local-coderabbit",
 					Status:        StatusPass,
 					RecordedAt:    time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),
@@ -359,7 +359,7 @@ func TestLoadSignals_injectsDerivedStatuses(t *testing.T) {
 	branch := currentBranchForTest(t, repo)
 	head := currentHeadForTest(t, repo)
 	writeArtifactForTest(t, cfgDir, Artifact{
-		SchemaVersion: "0.7.0",
+		SchemaVersion: "0.8.0",
 		GateID:        "local-verification",
 		Status:        StatusPass,
 		RecordedAt:    time.Date(2026, 4, 3, 12, 0, 0, 0, time.UTC).Format(time.RFC3339),

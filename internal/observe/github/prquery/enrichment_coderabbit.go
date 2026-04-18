@@ -233,6 +233,9 @@ func classifyCoderabbitStatusWithBasis(m map[string]any) (status string, basis s
 	if statusMapBoolAny(m, true, "cr_review_processing", "review_processing") {
 		return BotStatusPending, "review_processing"
 	}
+	if signalBool(m, "review_trigger_awaiting_ack") {
+		return BotStatusPending, "review_triggered_awaiting_ack"
+	}
 	// Terminal clean from issue-comment markers (e.g. "no actionable comments") — wins over stale rate-limit wording.
 	if statusMapBoolAny(m, true, "cr_review_completed_clean", "review_completed_clean") {
 		return BotStatusCompletedClean, "review_completed_clean"

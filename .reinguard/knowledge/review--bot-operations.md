@@ -50,6 +50,13 @@ Both read `AGENTS.md` and apply its review guidelines.
   force a pass when auto-review was skipped (org/UI override, rate limit,
   voided review after head moved), after `@coderabbitai resume`, or when
   you want an explicit re-run alongside auto behavior.
+- **Observation contract:** After posting a re-review trigger on the **same**
+  HEAD, keep polling `rgd observe github reviews` / `rgd context build` until
+  `bot_review_trigger_awaiting_ack` is **false** (or the bot reaches a terminal
+  tier you can act on). Do not treat `merge-readiness` / `merge_ready` as
+  authoritative while a required bot still shows a pending trigger acknowledgement
+  — see `docs/cli.md` (`latest_review_trigger_at`, `review_trigger_awaiting_ack`,
+  `merge-readiness`).
 - **Codex**: User instruction only — the agent never triggers Codex
   autonomously.
 

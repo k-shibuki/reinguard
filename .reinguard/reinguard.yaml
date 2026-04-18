@@ -1,5 +1,5 @@
 # Minimal repo-local config (ADR-0008). See pkg/schema/reinguard-config.json.
-schema_version: "0.7.0"
+schema_version: "0.8.0"
 default_branch: main
 workflow:
   runtime_gate_roles:
@@ -27,8 +27,14 @@ providers:
           login: "coderabbitai[bot]"
           required: true
           enrich: [coderabbit]
+          review_triggers:
+            - "(?i)@coderabbitai(?:\\[[^\\]]+\\])?\\s+review\\b"
+            - "(?i)@coderabbitai(?:\\[[^\\]]+\\])?\\s+resume\\b"
+            - "(?i)@coderabbitai(?:\\[[^\\]]+\\])?\\s+full\\s+review\\b"
         # Optional: no enrich — generic classifier (latestReviews + issue comments).
         # Verify `login` matches the GitHub user shown on PR activity (org/app may differ).
         - id: codex
           login: "chatgpt-codex-connector[bot]"
           required: false
+          review_triggers:
+            - "(?i)@codex\\s+review\\b"

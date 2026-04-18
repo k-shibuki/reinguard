@@ -1317,7 +1317,7 @@ func assertReinguardControlCatalogWorkflowEntries(t *testing.T, reinguardDir str
 func TestEffectiveRuntimeGateRoles_explicitEmptyPassRequiresRoles(t *testing.T) {
 	t.Parallel()
 	// Given: explicit empty pass_requires_roles for pr_readiness in YAML
-	cfg := `schema_version: "0.7.0"
+	cfg := `schema_version: "0.8.0"
 default_branch: main
 workflow:
   runtime_gate_roles:

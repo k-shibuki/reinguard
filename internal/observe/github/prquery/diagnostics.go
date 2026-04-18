@@ -129,6 +129,24 @@ func hasRequiredBot(statusList []any) bool {
 	return false
 }
 
+func requiredBotTriggerAwaitingAck(statusList []any) bool {
+	for _, elt := range statusList {
+		m, ok := elt.(map[string]any)
+		if !ok {
+			continue
+		}
+		req, ok := m["required"].(bool)
+		if !ok || !req {
+			continue
+		}
+		v, ok := m["review_trigger_awaiting_ack"].(bool)
+		if ok && v {
+			return true
+		}
+	}
+	return false
+}
+
 // aggregateNonThreadFindings combines per-bot non-thread signals. When conversation
 // comments were not fully paginated, it fails closed: true if any required bot exists
 // even when counts may be partial.
@@ -178,18 +196,19 @@ func accumulateRequiredBotReviewState(agg *botReviewAggregate, m map[string]any,
 	}
 }
 
-func buildBotReviewDiagnostics(agg botReviewAggregate, duplicateFindings, nonThreadFindings bool) map[string]any {
+func buildBotReviewDiagnostics(agg botReviewAggregate, duplicateFindings, nonThreadFindings, triggerAwaitingAck bool) map[string]any {
 	if !agg.sawRequired {
 		return map[string]any{
-			"bot_review_completed":        true,
-			"bot_review_pending":          false,
-			"bot_review_terminal":         true,
-			"bot_review_blocked":          false,
-			"bot_review_block_reason":     "",
-			"bot_review_failed":           false,
-			"bot_review_stale":            false,
-			"duplicate_findings_detected": duplicateFindings,
-			"non_thread_findings_present": nonThreadFindings,
+			"bot_review_completed":            true,
+			"bot_review_pending":              false,
+			"bot_review_terminal":             true,
+			"bot_review_blocked":              false,
+			"bot_review_block_reason":         "",
+			"bot_review_failed":               false,
+			"bot_review_stale":                false,
+			"bot_review_trigger_awaiting_ack": false,
+			"duplicate_findings_detected":     duplicateFindings,
+			"non_thread_findings_present":     nonThreadFindings,
 		}
 	}
 
@@ -198,15 +217,16 @@ func buildBotReviewDiagnostics(agg botReviewAggregate, duplicateFindings, nonThr
 	pending := !terminal && !agg.anyBlocked
 
 	return map[string]any{
-		"bot_review_completed":        completed,
-		"bot_review_pending":          pending,
-		"bot_review_terminal":         terminal,
-		"bot_review_blocked":          agg.anyBlocked,
-		"bot_review_block_reason":     agg.blockedReason,
-		"bot_review_failed":           agg.anyFailed,
-		"bot_review_stale":            agg.anyStale,
-		"duplicate_findings_detected": duplicateFindings,
-		"non_thread_findings_present": nonThreadFindings,
+		"bot_review_completed":            completed,
+		"bot_review_pending":              pending,
+		"bot_review_terminal":             terminal,
+		"bot_review_blocked":              agg.anyBlocked,
+		"bot_review_block_reason":         agg.blockedReason,
+		"bot_review_failed":               agg.anyFailed,
+		"bot_review_stale":                agg.anyStale,
+		"bot_review_trigger_awaiting_ack": triggerAwaitingAck,
+		"duplicate_findings_detected":     duplicateFindings,
+		"non_thread_findings_present":     nonThreadFindings,
 	}
 }
 
@@ -238,7 +258,8 @@ func ComputeBotReviewDiagnostics(statusList []any, headSHA string, conversationC
 		accumulateRequiredBotReviewState(&agg, m, headSHA)
 	}
 
-	return buildBotReviewDiagnostics(agg, duplicateFindings, nonThreadFindings)
+	triggerAwaiting := requiredBotTriggerAwaitingAck(statusList)
+	return buildBotReviewDiagnostics(agg, duplicateFindings, nonThreadFindings, triggerAwaiting)
 }
 
 // intFromStatusMapAny returns the first present key among keys that holds an int-like value.

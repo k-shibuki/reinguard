@@ -78,7 +78,7 @@ when:
 ---
 `))
 	writeFile(t, filepath.Join(kdir, "manifest.json"), []byte(`{
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "entries": [{
     "id": "doc1",
     "path": "knowledge/doc.md",
@@ -168,7 +168,7 @@ func TestRunContextBuild_procedureHint_omitsWhenRouteDoesNotMatchProcFilter(t *t
 	if err := os.Mkdir(filepath.Join(cfgDir, "knowledge"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(cfgDir, "knowledge", "manifest.json"), []byte(`{"schema_version":"0.7.0","entries":[]}`))
+	writeFile(t, filepath.Join(cfgDir, "knowledge", "manifest.json"), []byte(`{"schema_version":"0.8.0","entries":[]}`))
 	if err := os.Mkdir(filepath.Join(cfgDir, "procedure"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -217,7 +217,7 @@ func TestRunContextBuild_procedureHint_omitsWhenStateAmbiguous(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(cfgDir, "knowledge"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(cfgDir, "knowledge", "manifest.json"), []byte(`{"schema_version":"0.7.0","entries":[]}`))
+	writeFile(t, filepath.Join(cfgDir, "knowledge", "manifest.json"), []byte(`{"schema_version":"0.8.0","entries":[]}`))
 	if err := os.Mkdir(filepath.Join(cfgDir, "procedure"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -231,7 +231,7 @@ applies_to:
 ---
 `))
 	obsPath := filepath.Join(t.TempDir(), "obs.json")
-	writeFile(t, obsPath, []byte(`{"schema_version":"0.7.0","signals":{"git":{"branch":"feat"}},"degraded":false}`))
+	writeFile(t, obsPath, []byte(`{"schema_version":"0.8.0","signals":{"git":{"branch":"feat"}},"degraded":false}`))
 	var buf bytes.Buffer
 	app := NewApp("test")
 	app.Writer = &buf
@@ -271,7 +271,7 @@ func TestRunContextBuild_rejectsScopeFlagsWithObservationFile(t *testing.T) {
 			writeFile(t, filepath.Join(cfgDir, "control", "states", "default.yaml"), []byte(testFixtureRulesStateIdle))
 			writeFile(t, filepath.Join(cfgDir, "control", "routes", "default.yaml"), []byte(testFixtureControlRoutesNext))
 			obsPath := filepath.Join(t.TempDir(), "observation.json")
-			writeFile(t, obsPath, []byte(`{"schema_version":"0.7.0","signals":{"git":{"branch":"main"}},"degraded":false}`))
+			writeFile(t, obsPath, []byte(`{"schema_version":"0.8.0","signals":{"git":{"branch":"main"}},"degraded":false}`))
 
 			// When: context build runs with --observation-file and a scope flag
 			app := NewApp("test")
@@ -299,10 +299,10 @@ func TestRunContextBuild_compactTrimsHighVolumeObservationFields(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(cfgDir, "knowledge"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(cfgDir, "knowledge", "manifest.json"), []byte(`{"schema_version":"0.7.0","entries":[]}`))
+	writeFile(t, filepath.Join(cfgDir, "knowledge", "manifest.json"), []byte(`{"schema_version":"0.8.0","entries":[]}`))
 	obsPath := filepath.Join(t.TempDir(), "observation.json")
 	writeFile(t, obsPath, []byte(`{
-	  "schema_version":"0.7.0",
+	  "schema_version":"0.8.0",
 	  "signals":{
 	    "git":{"branch":"main","working_tree_clean":true},
 	    "github":{
@@ -321,7 +321,7 @@ func TestRunContextBuild_compactTrimsHighVolumeObservationFields(t *testing.T) {
 	        "review_decisions_changes_requested":0,
 	        "review_decisions_truncated":false,
 	        "bot_reviewer_status":[{"login":"coderabbitai[bot]","status":"completed_clean"}],
-	        "bot_review_diagnostics":{"bot_review_pending":false,"bot_review_blocked":false,"bot_review_block_reason":"","bot_review_terminal":true,"bot_review_failed":false,"bot_review_stale":false,"non_thread_findings_present":false}
+	        "bot_review_diagnostics":{"bot_review_pending":false,"bot_review_blocked":false,"bot_review_block_reason":"","bot_review_terminal":true,"bot_review_failed":false,"bot_review_stale":false,"bot_review_trigger_awaiting_ack":false,"non_thread_findings_present":false}
 	      }
 	    }
 	  },
@@ -401,10 +401,10 @@ func TestRunContextBuild_observationFileInvalidViewFallsBackWithWarning(t *testi
 			if err := os.Mkdir(filepath.Join(cfgDir, "knowledge"), 0o755); err != nil {
 				t.Fatal(err)
 			}
-			writeFile(t, filepath.Join(cfgDir, "knowledge", "manifest.json"), []byte(`{"schema_version":"0.7.0","entries":[]}`))
+			writeFile(t, filepath.Join(cfgDir, "knowledge", "manifest.json"), []byte(`{"schema_version":"0.8.0","entries":[]}`))
 			obsPath := filepath.Join(t.TempDir(), "observation.json")
 			obsJSON := `{
-  "schema_version":"0.7.0",
+  "schema_version":"0.8.0",
   "signals":{"git":{"branch":"main","working_tree_clean":true}},
   "degraded":false,
   "meta":{"view":"` + tc.invalidView + `"}
