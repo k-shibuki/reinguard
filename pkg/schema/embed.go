@@ -20,7 +20,7 @@ const (
 	OperationalContext   = "operational-context.json"
 	LabelsConfig         = "labels-config.json"
 	GateArtifact         = "gate-artifact.json"
-	CurrentSchemaVersion = "0.7.0"
+	CurrentSchemaVersion = "0.8.0"
 )
 
 // Files returns the embedded JSON Schema filesystem (read-only).

@@ -15,7 +15,7 @@ func TestRunStateEval_observationFile(t *testing.T) {
 	writeFile(t, filepath.Join(cfgDir, "control", "states", "r.yaml"), []byte(testFixtureRulesStateIdle))
 	obsDir := t.TempDir()
 	writeFile(t, filepath.Join(obsDir, "o.json"), []byte(`{
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "signals": {"git": {"branch": "main"}},
   "degraded": false
 }`))
@@ -50,7 +50,7 @@ func TestRunStateEval_unsupportedJSONOmitsEmptyFields(t *testing.T) {
 	// Given: same when as TestRunStateEval_failOnUnsupported (valid at config load; fails at match eval)
 	cfgDir := t.TempDir()
 	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
-	writeFile(t, filepath.Join(cfgDir, "control", "states", "bad.yaml"), []byte(`schema_version: "0.7.0"
+	writeFile(t, filepath.Join(cfgDir, "control", "states", "bad.yaml"), []byte(`schema_version: "0.8.0"
 rules:
   - type: state
     id: bad

@@ -57,7 +57,7 @@ func TestRunObserve_providerOverridePreservesConfiguredOptions(t *testing.T) {
 	if err := os.MkdirAll(cfg, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(cfg, "reinguard.yaml"), []byte(`schema_version: "0.7.0"
+	writeFile(t, filepath.Join(cfg, "reinguard.yaml"), []byte(`schema_version: "0.8.0"
 default_branch: main
 providers:
   - id: git

@@ -33,7 +33,7 @@ func NewGitHubProvider() *GitHubProvider {
 }
 
 // GitHubProviderFactory builds a GitHub provider from config options (ADR-0009).
-// Supported keys: api_base (string); bot_reviewers (array of { id, login, required, enrich? }).
+// Supported keys: api_base (string); bot_reviewers (array of { id, login, required, enrich?, review_triggers? }).
 func GitHubProviderFactory(opts map[string]any) (Provider, error) {
 	p := NewGitHubProvider()
 	if len(opts) == 0 {
@@ -107,10 +107,14 @@ func parseBotReviewers(opts map[string]any) ([]prquery.BotReviewer, error) {
 		if err != nil {
 			return nil, err
 		}
+		triggers, err := parseBotReviewerReviewTriggers(i, m)
+		if err != nil {
+			return nil, err
+		}
 		if err := prquery.ValidateEnrichmentNames(enrich); err != nil {
 			return nil, fmt.Errorf("github provider: options.bot_reviewers[%d]: %w", i, err)
 		}
-		out = append(out, prquery.BotReviewer{ID: id, Login: login, Enrich: enrich, Required: required})
+		out = append(out, prquery.BotReviewer{ID: id, Login: login, Enrich: enrich, Required: required, ReviewTriggers: triggers})
 	}
 	return out, nil
 }
@@ -125,6 +129,34 @@ func parseBotReviewerRequiredFlag(i int, m map[string]any) (bool, error) {
 		return false, fmt.Errorf("github provider: options.bot_reviewers[%d].required must be a boolean", i)
 	}
 	return required, nil
+}
+
+func parseBotReviewerReviewTriggers(i int, m map[string]any) ([]*regexp.Regexp, error) {
+	raw, ok := m["review_triggers"]
+	if !ok || raw == nil {
+		return nil, nil
+	}
+	arr, ok := raw.([]any)
+	if !ok {
+		return nil, fmt.Errorf("github provider: options.bot_reviewers[%d].review_triggers must be an array", i)
+	}
+	out := make([]*regexp.Regexp, 0, len(arr))
+	for j, item := range arr {
+		pat, ok := item.(string)
+		if !ok {
+			return nil, fmt.Errorf("github provider: options.bot_reviewers[%d].review_triggers[%d] must be a string", i, j)
+		}
+		pat = strings.TrimSpace(pat)
+		if pat == "" {
+			return nil, fmt.Errorf("github provider: options.bot_reviewers[%d].review_triggers[%d] must be non-empty", i, j)
+		}
+		re, err := regexp.Compile(pat)
+		if err != nil {
+			return nil, fmt.Errorf("github provider: options.bot_reviewers[%d].review_triggers[%d]: %w", i, j, err)
+		}
+		out = append(out, re)
+	}
+	return out, nil
 }
 
 func parseBotReviewerEnrichList(i int, m map[string]any) ([]string, error) {

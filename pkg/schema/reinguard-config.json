@@ -129,6 +129,14 @@
                         "minLength": 1
                       },
                       "description": "Optional built-in enrichment plugin names (e.g. coderabbit)."
+                    },
+                    "review_triggers": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "description": "Optional regex patterns (Go regexp syntax) matched against PR conversation comments not authored by this bot; drives latest_review_trigger_at and review_trigger_awaiting_ack in observation (ADR-0012)."
                     }
                   }
                 }

@@ -28,7 +28,7 @@
     "meta": {
       "view": "full"
     },
-    "schema_version": "0.7.0",
+    "schema_version": "0.8.0",
     "signals": {
       "git": {
         "ahead_of_upstream": 0,
@@ -57,6 +57,7 @@
             "bot_review_pending": false,
             "bot_review_stale": false,
             "bot_review_terminal": true,
+            "bot_review_trigger_awaiting_ack": false,
             "non_thread_findings_present": false
           },
           "bot_reviewer_status": [
@@ -89,7 +90,7 @@
       ]
     }
   ],
-  "schema_version": "0.7.0",
+  "schema_version": "0.8.0",
   "state": {
     "kind": "resolved",
     "state_id": "Idle",

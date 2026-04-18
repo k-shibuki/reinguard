@@ -77,6 +77,7 @@ func TestRunGuardEval_relativeObservationFileWithCwd(t *testing.T) {
 	          "bot_review_terminal": true,
 	          "bot_review_failed": false,
 	          "bot_review_stale": false,
+	          "bot_review_trigger_awaiting_ack": false,
 	          "non_thread_findings_present": false
 	        }
 	      }
@@ -133,6 +134,7 @@ func TestRunGuardEval_ok(t *testing.T) {
 	          "bot_review_terminal": true,
 	          "bot_review_failed": false,
 	          "bot_review_stale": false,
+	          "bot_review_trigger_awaiting_ack": false,
 	          "non_thread_findings_present": false
 	        }
 	      }
@@ -183,6 +185,7 @@ func TestRunGuardEval_mergeReadinessBlockedReason(t *testing.T) {
 	          "bot_review_terminal": false,
 	          "bot_review_failed": false,
 	          "bot_review_stale": false,
+	          "bot_review_trigger_awaiting_ack": false,
 	          "non_thread_findings_present": false
 	        }
 	      }

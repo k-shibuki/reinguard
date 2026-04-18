@@ -39,6 +39,9 @@ func classifyBotStatusGeneric(m map[string]any) string {
 	if signalBool(m, "contains_review_failed") {
 		return BotStatusReviewFailed
 	}
+	if signalBool(m, "review_trigger_awaiting_ack") {
+		return BotStatusPending
+	}
 	if signalBool(m, "has_review") {
 		return BotStatusCompleted
 	}

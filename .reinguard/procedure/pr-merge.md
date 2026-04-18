@@ -35,7 +35,7 @@ rgd observe --view summary > /tmp/obs.json
 rgd guard eval --observation-file /tmp/obs.json merge-readiness
 ```
 
-Interpret JSON: `"ok": true` only when CI success, zero unresolved review threads, required bot review terminal (not pending), no formal `CHANGES_REQUESTED`, and clean working tree — see [`docs/cli.md`](../../docs/cli.md) § `merge-readiness`.
+Interpret JSON: `"ok": true` only when CI success, zero unresolved review threads, required bot review terminal (not pending), no `bot_review_trigger_awaiting_ack` after a posted re-review trigger, no formal `CHANGES_REQUESTED`, and clean working tree — see [`docs/cli.md`](../../docs/cli.md) § `merge-readiness`.
 This guard does **not** prove that non-thread findings from the current PR
 review cycle have been dispositioned; that remains part of review closure
 per [`../policy/review--consensus-protocol.md`](../policy/review--consensus-protocol.md).

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -1911,6 +1912,94 @@ func TestCollect_configLoginBotSuffix_graphQLLoginPlain(t *testing.T) {
 	wantTS := "2026-03-28T12:00:00Z"
 	if ent["updated_at"].(string) != wantTS || ent["updatedAt"].(string) != wantTS {
 		t.Fatalf("want updated_at and updatedAt %q, got %+v", wantTS, ent)
+	}
+}
+
+func TestCollect_botReviewer_reviewTriggerAwaitingAckAfterRateLimitDecay(t *testing.T) {
+	t.Parallel()
+	// Given: CodeRabbit rate-limit status comment fully decayed, latest review on HEAD,
+	// and a newer human @coderabbitai review trigger before any fresh bot acknowledgement.
+	// When: Collect runs with review_triggers and coderabbit enrichment.
+	// Then: status is pending with basis review_triggered_awaiting_ack; aggregate trigger flag is true.
+	head := "head_sha_trigger_race_01"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		resp := map[string]any{
+			"data": map[string]any{
+				"repository": map[string]any{
+					"pullRequest": map[string]any{
+						"state": "OPEN", "isDraft": false, "title": "t",
+						"mergeable": "UNKNOWN", "mergeStateStatus": "UNKNOWN",
+						"baseRefName": "main", "headRefOid": head,
+						"labels":                  map[string]any{"nodes": []any{}},
+						"closingIssuesReferences": map[string]any{"nodes": []any{}},
+						"latestReviews": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false},
+							"nodes": []any{
+								map[string]any{
+									"submittedAt": "2026-03-20T10:00:00Z",
+									"state":       "COMMENTED",
+									"author":      map[string]any{"login": "coderabbitai"},
+									"body":        "",
+									"commit":      map[string]any{"oid": head},
+								},
+							},
+						},
+						"comments": map[string]any{
+							"nodes": []map[string]any{
+								{
+									"author":    map[string]any{"login": "coderabbitai[bot]"},
+									"body":      "Rate limit exceeded. Please try again in 1 minute",
+									"updatedAt": "2026-03-20T09:00:00Z",
+								},
+								{
+									"author":    map[string]any{"login": "contributor"},
+									"body":      "@coderabbitai review",
+									"updatedAt": "2026-03-20T10:30:00Z",
+								},
+							},
+						},
+						"reviewThreads": map[string]any{"pageInfo": map[string]any{"hasNextPage": false}, "nodes": []any{}},
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	tr := regexp.MustCompile(`(?i)@coderabbitai(?:\[[^\]]+\])?\s+review\b`)
+	bots := []BotReviewer{{ID: "cr", Login: "coderabbitai[bot]", Required: true, Enrich: []string{"coderabbit"}, ReviewTriggers: []*regexp.Regexp{tr}}}
+	obsAt := time.Date(2026, 3, 20, 12, 0, 0, 0, time.UTC)
+	_, rev, err := CollectWithOptions(context.Background(), c, "o", "r", 1, bots, &CollectOptions{Now: &obsAt})
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := rev["bot_reviewer_status"].([]any)
+	if len(st) != 1 {
+		t.Fatalf("status len: %v", st)
+	}
+	m := st[0].(map[string]any)
+	if m["status"].(string) != BotStatusPending {
+		t.Fatalf("status: %+v", m)
+	}
+	if m["status_class_basis"].(string) != "review_triggered_awaiting_ack" {
+		t.Fatalf("basis: %+v", m)
+	}
+	if m["latest_review_trigger_at"].(string) != "2026-03-20T10:30:00Z" {
+		t.Fatalf("latest_review_trigger_at: %+v", m)
+	}
+	if !m["review_trigger_awaiting_ack"].(bool) {
+		t.Fatalf("review_trigger_awaiting_ack: %+v", m)
+	}
+	diag := rev["bot_review_diagnostics"].(map[string]any)
+	if !diag["bot_review_trigger_awaiting_ack"].(bool) {
+		t.Fatalf("diag trigger awaiting: %+v", diag)
+	}
+	if !diag["bot_review_pending"].(bool) {
+		t.Fatalf("diag pending: %+v", diag)
 	}
 }
 

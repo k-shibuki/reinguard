@@ -56,6 +56,7 @@ func (mergeReadinessGuard) Eval(sigs map[string]any) MergeReadinessResult {
 // github.reviews.bot_review_diagnostics.bot_review_terminal must be true (fail closed when missing),
 // github.reviews.bot_review_diagnostics.bot_review_failed must be false (fail closed when missing),
 // github.reviews.bot_review_diagnostics.bot_review_stale must be false (fail closed when missing),
+// github.reviews.bot_review_diagnostics.bot_review_trigger_awaiting_ack must be false (fail closed when missing),
 // github.reviews.review_decisions_changes_requested must be zero (fail closed when missing),
 // github.reviews.pagination_incomplete must be false (fail closed when missing), and
 // github.reviews.review_decisions_truncated must be false (fail closed when missing),
@@ -156,6 +157,11 @@ func checkBotReviewDiagnostics(sigs map[string]any) string {
 		return "missing github.reviews.bot_review_diagnostics.non_thread_findings_present (fail closed)"
 	} else if nonThread {
 		return "non-thread review findings present for a required bot"
+	}
+	if triggerAwait, ok := signals.GetBool(sigs, "github.reviews.bot_review_diagnostics.bot_review_trigger_awaiting_ack"); !ok {
+		return "missing github.reviews.bot_review_diagnostics.bot_review_trigger_awaiting_ack (fail closed)"
+	} else if triggerAwait {
+		return "bot review trigger awaiting acknowledgement"
 	}
 	if botTerminal, ok := signals.GetBool(sigs, "github.reviews.bot_review_diagnostics.bot_review_terminal"); !ok {
 		return "missing github.reviews.bot_review_diagnostics.bot_review_terminal (fail closed)"

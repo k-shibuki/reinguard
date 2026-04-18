@@ -6,6 +6,7 @@ package prquery
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -13,11 +14,14 @@ import (
 )
 
 // BotReviewer is one github provider option entry for bot / AI reviewer observation.
+//
+//nolint:govet // fieldalignment: keep readable field order; slice fields dominate size
 type BotReviewer struct {
-	ID       string
-	Login    string
-	Enrich   []string
-	Required bool
+	ID             string
+	Login          string
+	Required       bool
+	Enrich         []string
+	ReviewTriggers []*regexp.Regexp
 }
 
 // enrichmentNameCoderabbit is the registered enrichment plugin id for CodeRabbit (reinguard.yaml enrich[]).
@@ -80,6 +84,7 @@ const prContextQuery = `query PRContext(
       }
       latestReviews(first: 100) @include(if: $includeSummary) {
         nodes {
+          submittedAt
           state
           body
           author { login }
@@ -201,9 +206,10 @@ type closingIssuesConn struct {
 //nolint:govet // fieldalignment: keep aligned with GraphQL response shape
 type latestReviewsConn struct {
 	Nodes []struct {
-		State  string `json:"state"`
-		Body   string `json:"body"`
-		Author *struct {
+		SubmittedAt string `json:"submittedAt"`
+		State       string `json:"state"`
+		Body        string `json:"body"`
+		Author      *struct {
 			Login string `json:"login"`
 		} `json:"author"`
 		Commit *struct {
@@ -474,15 +480,16 @@ func emptyReviewsInner(view string) map[string]any {
 		"review_decisions_truncated":         false,
 		"bot_reviewer_status":                []any{},
 		"bot_review_diagnostics": map[string]any{
-			"bot_review_completed":        true,
-			"bot_review_pending":          false,
-			"bot_review_terminal":         true,
-			"bot_review_blocked":          false,
-			"bot_review_block_reason":     "",
-			"bot_review_failed":           false,
-			"bot_review_stale":            false,
-			"duplicate_findings_detected": false,
-			"non_thread_findings_present": false,
+			"bot_review_completed":            true,
+			"bot_review_pending":              false,
+			"bot_review_terminal":             true,
+			"bot_review_blocked":              false,
+			"bot_review_block_reason":         "",
+			"bot_review_failed":               false,
+			"bot_review_stale":                false,
+			"bot_review_trigger_awaiting_ack": false,
+			"duplicate_findings_detected":     false,
+			"non_thread_findings_present":     false,
 		},
 	}
 	if view != ReviewViewSummary {
@@ -993,6 +1000,45 @@ func headRefOIDFromPR(pr *prPullRequestNode) string {
 	return strings.TrimSpace(*pr.HeadRefOid)
 }
 
+// reviewPick is the newest latestReviews node per normalized bot login (by submittedAt).
+type reviewPick struct {
+	state       string
+	commitOid   string
+	body        string
+	submittedAt string
+}
+
+func reviewsByBotLogin(pr *prPullRequestNode) map[string]reviewPick {
+	out := map[string]reviewPick{}
+	if pr == nil || pr.LatestReviews == nil {
+		return out
+	}
+	for _, n := range pr.LatestReviews.Nodes {
+		if n.Author == nil {
+			continue
+		}
+		login := n.Author.Login
+		if login == "" {
+			continue
+		}
+		ri := reviewPick{state: n.State, body: n.Body, submittedAt: strings.TrimSpace(n.SubmittedAt)}
+		if n.Commit != nil {
+			ri.commitOid = n.Commit.Oid
+		}
+		key := normalizeGitHubActorLogin(login)
+		if prev, ok := out[key]; ok {
+			switch {
+			case ri.submittedAt == "" && prev.submittedAt != "":
+				continue
+			case ri.submittedAt != "" && prev.submittedAt != "" && ri.submittedAt < prev.submittedAt:
+				continue
+			}
+		}
+		out[key] = ri
+	}
+	return out
+}
+
 // buildBotReviewerStatus builds one status map per configured bot: latest review, issue-comment
 // enrichment, finding-conversation counts, rate-limit age adjustment, and ClassifyBotStatus.
 func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNodes []prCommentNode, now time.Time) []any {
@@ -1000,28 +1046,7 @@ func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNo
 		return []any{}
 	}
 	headSHA := headRefOIDFromPR(pr)
-	type reviewInfo struct {
-		State     string
-		CommitOid string
-		Body      string
-	}
-	reviewByLogin := map[string]reviewInfo{}
-	if pr.LatestReviews != nil {
-		for _, n := range pr.LatestReviews.Nodes {
-			if n.Author == nil {
-				continue
-			}
-			login := n.Author.Login
-			if login == "" {
-				continue
-			}
-			ri := reviewInfo{State: n.State, Body: n.Body}
-			if n.Commit != nil {
-				ri.CommitOid = n.Commit.Oid
-			}
-			reviewByLogin[normalizeGitHubActorLogin(login)] = ri
-		}
-	}
+	reviewByLogin := reviewsByBotLogin(pr)
 	nodes := commentNodes
 	out := make([]any, 0, len(bots))
 	for _, br := range bots {
@@ -1031,7 +1056,7 @@ func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNo
 		}
 		key := normalizeGitHubActorLogin(login)
 		ri, hasRev := reviewByLogin[key]
-		state := ri.State
+		state := ri.state
 		if !hasRev {
 			state = ""
 		}
@@ -1044,7 +1069,7 @@ func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNo
 			"required":               br.Required,
 			"has_review":             hasRev,
 			"review_state":           state,
-			"review_commit_sha":      ri.CommitOid,
+			"review_commit_sha":      ri.commitOid,
 			"latest_comment_at":      latestAt,
 			"status_comment_at":      statusAt,
 			"status_comment_source":  statusSrc,
@@ -1052,12 +1077,15 @@ func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNo
 			"contains_review_paused": strings.Contains(statusLower, "review paused") || strings.Contains(statusLower, "review pause"),
 			"contains_review_failed": reviewFailedFromComment(statusLower),
 		}
+		if ri.submittedAt != "" {
+			status["review_submitted_at"] = ri.submittedAt
+		}
 		if extra := applyEnrichments(statusBody, br.Enrich); len(extra) > 0 {
 			for k, v := range extra {
 				status[k] = v
 			}
 		}
-		if extra := applyReviewBodyEnrichments(ri.Body, br.Enrich); len(extra) > 0 {
+		if extra := applyReviewBodyEnrichments(ri.body, br.Enrich); len(extra) > 0 {
 			for k, v := range extra {
 				status[k] = v
 			}
@@ -1065,6 +1093,7 @@ func buildBotReviewerStatus(pr *prPullRequestNode, bots []BotReviewer, commentNo
 		applyFindingConversationCountIfNeeded(status, br.Enrich, nodes, login)
 		adjustRateLimitRemainingForStatusCommentAge(status, now)
 		applyReviewCommitSHAFromEnrichedComment(status, headSHA)
+		applyReviewTriggerFields(status, nodes, br, statusAt, ri.submittedAt)
 		status["status"] = ClassifyBotStatus(status, br.Enrich)
 		applyCoderabbitStatusClassBasis(status, br.Enrich)
 		out = append(out, status)

@@ -19,12 +19,12 @@ func writeFile(t *testing.T, path string, data []byte) {
 // Shared fixtures for CLI tests: keep rule shapes aligned with config.Load expectations
 // (schema_version, default_branch, providers, control/{states,routes,guards}/*.yaml).
 
-const testFixtureReinguardRoot = `schema_version: "0.7.0"
+const testFixtureReinguardRoot = `schema_version: "0.8.0"
 default_branch: main
 providers: []
 `
 
-const testFixtureReinguardGitOnly = `schema_version: "0.7.0"
+const testFixtureReinguardGitOnly = `schema_version: "0.8.0"
 default_branch: main
 providers:
   - id: git
@@ -32,7 +32,7 @@ providers:
 `
 
 // Git + GitHub providers enabled for context-build tests that need both local and remote-style signals.
-const testFixtureReinguardGitAndGitHub = `schema_version: "0.7.0"
+const testFixtureReinguardGitAndGitHub = `schema_version: "0.8.0"
 default_branch: main
 providers:
   - id: git
@@ -42,7 +42,7 @@ providers:
 `
 
 // Single state rule: branch main -> Idle (used by state eval / context build smoke tests).
-const testFixtureRulesStateIdle = `schema_version: "0.7.0"
+const testFixtureRulesStateIdle = `schema_version: "0.8.0"
 rules:
   - type: state
     id: idle
@@ -55,7 +55,7 @@ rules:
 `
 
 // Route rule for context build (keys off resolved state.kind, id: r1); pair with testFixtureRulesStateIdle.
-const testFixtureControlRoutesNext = `schema_version: "0.7.0"
+const testFixtureControlRoutesNext = `schema_version: "0.8.0"
 rules:
   - type: route
     id: r1
@@ -68,7 +68,7 @@ rules:
 `
 
 // Two state rules with same priority and overlapping when -> ambiguous with fail-on-non-resolved.
-const testFixtureRulesStateAmbiguous = `schema_version: "0.7.0"
+const testFixtureRulesStateAmbiguous = `schema_version: "0.8.0"
 rules:
   - type: state
     id: a
@@ -82,4 +82,4 @@ rules:
     when: {op: eq, path: git.branch, value: feat}
 `
 
-const testFixtureRulesEmpty = "schema_version: \"0.7.0\"\nrules: []\n"
+const testFixtureRulesEmpty = "schema_version: \"0.8.0\"\nrules: []\n"

@@ -79,8 +79,8 @@ func TestCLIStateEval_failOnNonResolved_exitsTwoWithJSON(t *testing.T) {
 	t.Parallel()
 
 	cfgDir := t.TempDir()
-	writeTestFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte("schema_version: \"0.7.0\"\ndefault_branch: main\nproviders: []\n"))
-	writeTestFile(t, filepath.Join(cfgDir, "control", "states", "rules.yaml"), []byte(`schema_version: "0.7.0"
+	writeTestFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte("schema_version: \"0.8.0\"\ndefault_branch: main\nproviders: []\n"))
+	writeTestFile(t, filepath.Join(cfgDir, "control", "states", "rules.yaml"), []byte(`schema_version: "0.8.0"
 rules:
   - type: state
     id: a
@@ -94,7 +94,7 @@ rules:
     when: {op: eq, path: git.branch, value: feat}
 `))
 	obsPath := filepath.Join(t.TempDir(), "observation.json")
-	writeTestFile(t, obsPath, []byte(`{"schema_version":"0.7.0","signals":{"git":{"branch":"feat"}},"degraded":false}`))
+	writeTestFile(t, obsPath, []byte(`{"schema_version":"0.8.0","signals":{"git":{"branch":"feat"}},"degraded":false}`))
 
 	stdout, stderr, exitCode := runRGDBinary(t, "state", "eval", "--config-dir", cfgDir, "--observation-file", obsPath, "--fail-on-non-resolved")
 	if exitCode != 2 {
@@ -113,8 +113,8 @@ func TestCLIRouteSelect_failOnNonResolved_exitsTwoWithJSON(t *testing.T) {
 	t.Parallel()
 
 	cfgDir := t.TempDir()
-	writeTestFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte("schema_version: \"0.7.0\"\ndefault_branch: main\nproviders: []\n"))
-	writeTestFile(t, filepath.Join(cfgDir, "control", "routes", "rules.yaml"), []byte(`schema_version: "0.7.0"
+	writeTestFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte("schema_version: \"0.8.0\"\ndefault_branch: main\nproviders: []\n"))
+	writeTestFile(t, filepath.Join(cfgDir, "control", "routes", "rules.yaml"), []byte(`schema_version: "0.8.0"
 rules:
   - type: route
     id: a
@@ -128,7 +128,7 @@ rules:
     when: {op: eq, path: git.branch, value: feat}
 `))
 	obsPath := filepath.Join(t.TempDir(), "observation.json")
-	writeTestFile(t, obsPath, []byte(`{"schema_version":"0.7.0","signals":{"git":{"branch":"feat"}},"degraded":false}`))
+	writeTestFile(t, obsPath, []byte(`{"schema_version":"0.8.0","signals":{"git":{"branch":"feat"}},"degraded":false}`))
 
 	stdout, stderr, exitCode := runRGDBinary(t, "route", "select", "--config-dir", cfgDir, "--observation-file", obsPath, "--fail-on-non-resolved")
 	if exitCode != 2 {
@@ -147,8 +147,8 @@ func TestCLIContextBuild_failOnNonResolvedState_exitsTwoWithJSON(t *testing.T) {
 	t.Parallel()
 
 	cfgDir := t.TempDir()
-	writeTestFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte("schema_version: \"0.7.0\"\ndefault_branch: main\nproviders: []\n"))
-	writeTestFile(t, filepath.Join(cfgDir, "control", "states", "rules.yaml"), []byte(`schema_version: "0.7.0"
+	writeTestFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte("schema_version: \"0.8.0\"\ndefault_branch: main\nproviders: []\n"))
+	writeTestFile(t, filepath.Join(cfgDir, "control", "states", "rules.yaml"), []byte(`schema_version: "0.8.0"
 rules:
   - type: state
     id: a
@@ -161,7 +161,7 @@ rules:
     state_id: B
     when: {op: eq, path: git.branch, value: feat}
 `))
-	writeTestFile(t, filepath.Join(cfgDir, "control", "routes", "rules.yaml"), []byte(`schema_version: "0.7.0"
+	writeTestFile(t, filepath.Join(cfgDir, "control", "routes", "rules.yaml"), []byte(`schema_version: "0.8.0"
 rules:
   - type: route
     id: next
@@ -169,9 +169,9 @@ rules:
     route_id: next
     when: {op: eq, path: state.kind, value: resolved}
 `))
-	writeTestFile(t, filepath.Join(cfgDir, "knowledge", "manifest.json"), []byte(`{"schema_version":"0.7.0","entries":[]}`))
+	writeTestFile(t, filepath.Join(cfgDir, "knowledge", "manifest.json"), []byte(`{"schema_version":"0.8.0","entries":[]}`))
 	obsPath := filepath.Join(t.TempDir(), "observation.json")
-	writeTestFile(t, obsPath, []byte(`{"schema_version":"0.7.0","signals":{"git":{"branch":"feat"}},"degraded":false}`))
+	writeTestFile(t, obsPath, []byte(`{"schema_version":"0.8.0","signals":{"git":{"branch":"feat"}},"degraded":false}`))
 
 	stdout, stderr, exitCode := runRGDBinary(t, "context", "build", "--config-dir", cfgDir, "--observation-file", obsPath, "--fail-on-non-resolved")
 	if exitCode != 2 {
@@ -191,8 +191,8 @@ func TestCLIContextBuild_failOnNonResolvedRoute_exitsTwoWithJSON(t *testing.T) {
 	t.Parallel()
 
 	cfgDir := t.TempDir()
-	writeTestFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte("schema_version: \"0.7.0\"\ndefault_branch: main\nproviders: []\n"))
-	writeTestFile(t, filepath.Join(cfgDir, "control", "states", "rules.yaml"), []byte(`schema_version: "0.7.0"
+	writeTestFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte("schema_version: \"0.8.0\"\ndefault_branch: main\nproviders: []\n"))
+	writeTestFile(t, filepath.Join(cfgDir, "control", "states", "rules.yaml"), []byte(`schema_version: "0.8.0"
 rules:
   - type: state
     id: idle
@@ -200,10 +200,10 @@ rules:
     state_id: Idle
     when: {op: eq, path: git.branch, value: main}
 `))
-	writeTestFile(t, filepath.Join(cfgDir, "control", "routes", "rules.yaml"), []byte("schema_version: \"0.7.0\"\nrules: []\n"))
-	writeTestFile(t, filepath.Join(cfgDir, "knowledge", "manifest.json"), []byte(`{"schema_version":"0.7.0","entries":[]}`))
+	writeTestFile(t, filepath.Join(cfgDir, "control", "routes", "rules.yaml"), []byte("schema_version: \"0.8.0\"\nrules: []\n"))
+	writeTestFile(t, filepath.Join(cfgDir, "knowledge", "manifest.json"), []byte(`{"schema_version":"0.8.0","entries":[]}`))
 	obsPath := filepath.Join(t.TempDir(), "observation.json")
-	writeTestFile(t, obsPath, []byte(`{"schema_version":"0.7.0","signals":{"git":{"branch":"main"}},"degraded":false}`))
+	writeTestFile(t, obsPath, []byte(`{"schema_version":"0.8.0","signals":{"git":{"branch":"main"}},"degraded":false}`))
 
 	stdout, stderr, exitCode := runRGDBinary(t, "context", "build", "--config-dir", cfgDir, "--observation-file", obsPath, "--fail-on-non-resolved")
 	if exitCode != 2 {

@@ -399,6 +399,18 @@ func TestGitHubProviderFactory_botReviewers_unknownEnrich(t *testing.T) {
 	}
 }
 
+func TestGitHubProviderFactory_botReviewers_badReviewTriggerRegex(t *testing.T) {
+	t.Parallel()
+	_, err := GitHubProviderFactory(map[string]any{
+		"bot_reviewers": []any{
+			map[string]any{"id": "x", "login": "x", "required": true, "review_triggers": []any{"("}},
+		},
+	})
+	if err == nil {
+		t.Fatal("want error from invalid regexp")
+	}
+}
+
 func TestGitHubProviderFactory_botReviewers_badShape(t *testing.T) {
 	t.Parallel()
 	_, err := GitHubProviderFactory(map[string]any{"bot_reviewers": "nope"})
