@@ -289,6 +289,162 @@ func TestRunContextBuild_rejectsScopeFlagsWithObservationFile(t *testing.T) {
 	}
 }
 
+func TestRunContextBuild_compactTrimsHighVolumeObservationFields(t *testing.T) {
+	t.Parallel()
+	// Given: config with minimal rules and observation containing high-volume GitHub fields
+	cfgDir := t.TempDir()
+	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
+	writeFile(t, filepath.Join(cfgDir, "control", "states", "default.yaml"), []byte(testFixtureRulesStateIdle))
+	writeFile(t, filepath.Join(cfgDir, "control", "routes", "default.yaml"), []byte(testFixtureControlRoutesNext))
+	if err := os.Mkdir(filepath.Join(cfgDir, "knowledge"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(cfgDir, "knowledge", "manifest.json"), []byte(`{"schema_version":"0.7.0","entries":[]}`))
+	obsPath := filepath.Join(t.TempDir(), "observation.json")
+	writeFile(t, obsPath, []byte(`{
+	  "schema_version":"0.7.0",
+	  "signals":{
+	    "git":{"branch":"main","working_tree_clean":true},
+	    "github":{
+	      "repository":{"owner":"acme","name":"widget","identity_source":"local_git"},
+	      "pull_requests":{"merge_state_status":"clean"},
+	      "ci":{"ci_status":"success","head_sha":"abc","check_runs":[{"name":"ci","status":"completed","conclusion":"success"}]},
+	      "reviews":{
+	        "review_threads_total":1,
+	        "review_threads_unresolved":0,
+	        "pagination_incomplete":false,
+	        "review_inbox":[{"thread_id":"T1","path":"a.go"}],
+	        "conversation_comments":[{"body":"heavy"}],
+	        "conversation_comments_incomplete":false,
+	        "review_decisions_total":1,
+	        "review_decisions_approved":1,
+	        "review_decisions_changes_requested":0,
+	        "review_decisions_truncated":false,
+	        "bot_reviewer_status":[{"login":"coderabbitai[bot]","status":"completed_clean"}],
+	        "bot_review_diagnostics":{"bot_review_pending":false,"bot_review_blocked":false,"bot_review_block_reason":"","bot_review_terminal":true,"bot_review_failed":false,"bot_review_stale":false,"non_thread_findings_present":false}
+	      }
+	    }
+	  },
+	  "degraded":false,
+	  "meta":{"view":"full"}
+	}`))
+
+	// When: context build runs with --compact flag
+	var buf bytes.Buffer
+	app := NewApp("test")
+	app.Writer = &buf
+	if err := app.Run([]string{"rgd", "context", "build", "--config-dir", cfgDir, "--observation-file", obsPath, "--compact"}); err != nil {
+		t.Fatal(err)
+	}
+	var out map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+
+	// Then: output omits high-volume fields but preserves compact workflow signals
+	assertStateIdleRouteNext(t, out)
+	obs := mustMap(t, out["observation"], "observation")
+	signals := mustMap(t, obs["signals"], "signals")
+	gh := mustMap(t, signals["github"], "signals.github")
+	ci := mustMap(t, gh["ci"], "github.ci")
+	if _, ok := ci["check_runs"]; ok {
+		t.Fatalf("compact observation must omit check_runs: %+v", ci)
+	}
+	if ci["ci_status"] != "success" {
+		t.Fatalf("compact observation must preserve ci_status: %+v", ci)
+	}
+	if ci["head_sha"] != "abc" {
+		t.Fatalf("compact observation must preserve head_sha: %+v", ci)
+	}
+	reviews := mustMap(t, gh["reviews"], "github.reviews")
+	if _, ok := reviews["review_inbox"]; ok {
+		t.Fatalf("compact observation must omit review_inbox: %+v", reviews)
+	}
+	if _, ok := reviews["conversation_comments"]; ok {
+		t.Fatalf("compact observation must omit conversation_comments: %+v", reviews)
+	}
+	// bot_reviewer_status is preserved: wait-bot-review.md reads it out of the compact
+	// payload to classify waiting_bot_rate_limited / waiting_bot_paused rationale.
+	botStatuses, ok := reviews["bot_reviewer_status"].([]any)
+	if !ok {
+		t.Fatalf("compact observation must preserve bot_reviewer_status, got %T: %+v", reviews["bot_reviewer_status"], reviews)
+	}
+	if len(botStatuses) != 1 {
+		t.Fatalf("bot_reviewer_status len=%d, want 1: %+v", len(botStatuses), botStatuses)
+	}
+	first := botStatuses[0].(map[string]any)
+	if first["login"] != "coderabbitai[bot]" || first["status"] != "completed_clean" {
+		t.Fatalf("bot_reviewer_status[0]=%+v", first)
+	}
+}
+
+func TestRunContextBuild_observationFileInvalidViewFallsBackWithWarning(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name        string
+		invalidView string
+	}{
+		{name: "tiny", invalidView: "tiny"},
+		{name: "unknown", invalidView: "unknown"},
+		{name: "empty", invalidView: ""},
+		{name: "invalid", invalidView: "invalid"},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			// Given: config and observation file carrying an invalid meta.view value
+			cfgDir := t.TempDir()
+			writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
+			writeFile(t, filepath.Join(cfgDir, "control", "states", "default.yaml"), []byte(testFixtureRulesStateIdle))
+			writeFile(t, filepath.Join(cfgDir, "control", "routes", "default.yaml"), []byte(testFixtureControlRoutesNext))
+			if err := os.Mkdir(filepath.Join(cfgDir, "knowledge"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			writeFile(t, filepath.Join(cfgDir, "knowledge", "manifest.json"), []byte(`{"schema_version":"0.7.0","entries":[]}`))
+			obsPath := filepath.Join(t.TempDir(), "observation.json")
+			obsJSON := `{
+  "schema_version":"0.7.0",
+  "signals":{"git":{"branch":"main","working_tree_clean":true}},
+  "degraded":false,
+  "meta":{"view":"` + tc.invalidView + `"}
+}`
+			writeFile(t, obsPath, []byte(obsJSON))
+
+			var buf bytes.Buffer
+			app := NewApp("test")
+			app.Writer = &buf
+			// When: context build reads an observation file with an invalid meta.view value
+			if err := app.Run([]string{"rgd", "context", "build", "--config-dir", cfgDir, "--observation-file", obsPath}); err != nil {
+				t.Fatal(err)
+			}
+			var out map[string]any
+			if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+				t.Fatal(err)
+			}
+
+			// Then: the command falls back to the default view and emits a warning diagnostic
+			obs := mustMap(t, out["observation"], "observation")
+			meta := mustMap(t, obs["meta"], "observation.meta")
+			if meta["view"] != "full" {
+				t.Fatalf("meta.view=%v", meta["view"])
+			}
+			diags := mustSlice(t, obs["diagnostics"], "observation.diagnostics")
+			var sawInvalidView bool
+			for _, d := range diags {
+				dm := mustMap(t, d, "observation.diagnostics[]")
+				if dm["code"] == "invalid_observation_view" {
+					sawInvalidView = true
+					break
+				}
+			}
+			if !sawInvalidView {
+				t.Fatalf("expected invalid_observation_view diagnostic, got %+v", diags)
+			}
+		})
+	}
+}
+
 func assertObservationDegradedWithLocalGitHubRepo(t *testing.T, out map[string]any) {
 	t.Helper()
 	obs := mustMap(t, out["observation"], "observation")

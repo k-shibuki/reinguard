@@ -51,10 +51,12 @@ gh issue list --state open --limit 30 --json number,title,labels
 1. **Run operational context** (default path — knowledge entries are signal-filtered after state merge):
 
 ```bash
-rgd context build
+rgd context build --compact
 ```
 
 Parse stdout JSON: use `knowledge.entries` for `id`, `path`, `description`, `triggers`, and `when`. Open each Markdown path (repo-relative) as needed.
+
+Use `rgd observe ... --view <summary|full>` only when you need raw observation for one provider / facet; use `context build --compact` when you need composed workflow context.
 
 1. **Optional keyword safety net** — if you need trigger substring matching **OR**-unioned with the same observation signals (see `docs/cli.md`): save observation JSON once, then run pack with `--query` (matches **triggers** only, case-insensitive substring):
 

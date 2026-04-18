@@ -1,9 +1,9 @@
 // Package guard evaluates coarse guard predicates over flattened observation signals for the
 // semantic control plane (ADR-0011). Built-ins implement [Guard] and register on [DefaultRegistry];
 // declarative rules in control/guards/*.yaml gate when a built-in runs ([EvalWithRules]).
-// The merge-readiness built-in checks git cleanliness, CI success, unresolved thread count,
-// bot review diagnostics (pending, terminal, failed, stale), formal changes-requested count,
-// and review data completeness flags (pagination, decisions truncation).
+// The merge-readiness built-in checks git cleanliness, review blockers first,
+// PR mergeability, then CI success. It treats bot blocked states separately from
+// bot failures so "CI green" never reads as merge-safe by itself.
 //
 // # Inputs and outputs
 //
@@ -47,18 +47,20 @@ func (mergeReadinessGuard) Eval(sigs map[string]any) MergeReadinessResult {
 }
 
 // EvalMergeReadiness checks merge signals: git working_tree_clean must be true,
-// github.ci.ci_status must be "success" (case-insensitive),
 // github.reviews.review_threads_unresolved must be present, parseable as an integer
 // (int, int64, or JSON float64 per signals.GetInt), and zero,
 // github.reviews.bot_review_diagnostics.bot_review_pending must be false (fail closed when missing),
+// github.reviews.bot_review_diagnostics.bot_review_blocked must be false (fail closed when missing),
+// github.reviews.bot_review_diagnostics.bot_review_block_reason must be present when blocked,
+// github.reviews.bot_review_diagnostics.non_thread_findings_present must be false (fail closed when missing),
 // github.reviews.bot_review_diagnostics.bot_review_terminal must be true (fail closed when missing),
 // github.reviews.bot_review_diagnostics.bot_review_failed must be false (fail closed when missing),
 // github.reviews.bot_review_diagnostics.bot_review_stale must be false (fail closed when missing),
-// github.reviews.bot_review_diagnostics.non_thread_findings_present must be false (fail closed when missing),
 // github.reviews.review_decisions_changes_requested must be zero (fail closed when missing),
 // github.reviews.pagination_incomplete must be false (fail closed when missing), and
-// github.reviews.review_decisions_truncated must be false (fail closed when missing).
-// Missing or invalid values fail closed.
+// github.reviews.review_decisions_truncated must be false (fail closed when missing),
+// github.pull_requests.merge_state_status must be "clean", and github.ci.ci_status must be
+// "success" (case-insensitive). Missing or invalid values fail closed.
 func EvalMergeReadiness(sigs map[string]any) MergeReadinessResult {
 	return evalMergeReadiness(sigs)
 }
@@ -66,16 +68,22 @@ func EvalMergeReadiness(sigs map[string]any) MergeReadinessResult {
 func evalMergeReadiness(sigs map[string]any) MergeReadinessResult {
 	const id = "merge-readiness"
 
-	if reason := checkGitAndCI(sigs); reason != "" {
+	if reason := checkGit(sigs); reason != "" {
 		return MergeReadinessResult{GuardID: id, OK: false, Reason: reason}
 	}
 	if reason := checkReviewSignals(sigs); reason != "" {
 		return MergeReadinessResult{GuardID: id, OK: false, Reason: reason}
 	}
+	if reason := checkMergeState(sigs); reason != "" {
+		return MergeReadinessResult{GuardID: id, OK: false, Reason: reason}
+	}
+	if reason := checkCI(sigs); reason != "" {
+		return MergeReadinessResult{GuardID: id, OK: false, Reason: reason}
+	}
 	return MergeReadinessResult{GuardID: id, OK: true}
 }
 
-func checkGitAndCI(sigs map[string]any) string {
+func checkGit(sigs map[string]any) string {
 	clean, hasClean := signals.GetBool(sigs, "git.working_tree_clean")
 	if !hasClean {
 		return "missing or invalid git.working_tree_clean"
@@ -83,6 +91,21 @@ func checkGitAndCI(sigs map[string]any) string {
 	if !clean {
 		return "git working tree not clean"
 	}
+	return ""
+}
+
+func checkMergeState(sigs map[string]any) string {
+	mergeState, hasMergeState := signals.GetString(sigs, "github.pull_requests.merge_state_status")
+	if !hasMergeState {
+		return "missing or invalid github.pull_requests.merge_state_status"
+	}
+	if strings.ToLower(mergeState) != "clean" {
+		return fmt.Sprintf("merge state status is %q, want clean", mergeState)
+	}
+	return ""
+}
+
+func checkCI(sigs map[string]any) string {
 	status, hasStatus := signals.GetString(sigs, "github.ci.ci_status")
 	if !hasStatus {
 		return "missing or invalid github.ci.ci_status"
@@ -121,46 +144,64 @@ func checkReviewSignals(sigs map[string]any) string {
 }
 
 func checkBotReviewDiagnostics(sigs map[string]any) string {
-	botPending, hasBotPending := signals.GetBool(sigs, "github.reviews.bot_review_diagnostics.bot_review_pending")
-	if !hasBotPending {
+	if botPending, ok := signals.GetBool(sigs, "github.reviews.bot_review_diagnostics.bot_review_pending"); !ok {
 		return "missing github.reviews.bot_review_diagnostics.bot_review_pending (fail closed)"
-	}
-	if botPending {
+	} else if botPending {
 		return "required bot review still pending"
 	}
-
-	botTerminal, hasBotTerminal := signals.GetBool(sigs, "github.reviews.bot_review_diagnostics.bot_review_terminal")
-	if !hasBotTerminal {
-		return "missing github.reviews.bot_review_diagnostics.bot_review_terminal (fail closed)"
+	if reason := checkBlockedBotReview(sigs); reason != "" {
+		return reason
 	}
-	if !botTerminal {
-		return "required bot review not terminal"
-	}
-
-	botFailed, hasBotFailed := signals.GetBool(sigs, "github.reviews.bot_review_diagnostics.bot_review_failed")
-	if !hasBotFailed {
-		return "missing github.reviews.bot_review_diagnostics.bot_review_failed (fail closed)"
-	}
-	if botFailed {
-		return "required bot review failed"
-	}
-
-	botStale, hasBotStale := signals.GetBool(sigs, "github.reviews.bot_review_diagnostics.bot_review_stale")
-	if !hasBotStale {
-		return "missing github.reviews.bot_review_diagnostics.bot_review_stale (fail closed)"
-	}
-	if botStale {
-		return "required bot review is stale or missing review commit SHA"
-	}
-
-	nonThread, hasNonThread := signals.GetBool(sigs, "github.reviews.bot_review_diagnostics.non_thread_findings_present")
-	if !hasNonThread {
+	if nonThread, ok := signals.GetBool(sigs, "github.reviews.bot_review_diagnostics.non_thread_findings_present"); !ok {
 		return "missing github.reviews.bot_review_diagnostics.non_thread_findings_present (fail closed)"
-	}
-	if nonThread {
+	} else if nonThread {
 		return "non-thread review findings present for a required bot"
 	}
+	if botTerminal, ok := signals.GetBool(sigs, "github.reviews.bot_review_diagnostics.bot_review_terminal"); !ok {
+		return "missing github.reviews.bot_review_diagnostics.bot_review_terminal (fail closed)"
+	} else if !botTerminal {
+		return "required bot review not terminal"
+	}
+	if botFailed, ok := signals.GetBool(sigs, "github.reviews.bot_review_diagnostics.bot_review_failed"); !ok {
+		return "missing github.reviews.bot_review_diagnostics.bot_review_failed (fail closed)"
+	} else if botFailed {
+		return "required bot review failed"
+	}
+	if botStale, ok := signals.GetBool(sigs, "github.reviews.bot_review_diagnostics.bot_review_stale"); !ok {
+		return "missing github.reviews.bot_review_diagnostics.bot_review_stale (fail closed)"
+	} else if botStale {
+		return "required bot review is stale or missing review commit SHA"
+	}
 	return ""
+}
+
+func checkBlockedBotReview(sigs map[string]any) string {
+	botBlocked, ok := signals.GetBool(sigs, "github.reviews.bot_review_diagnostics.bot_review_blocked")
+	if !ok {
+		return "missing github.reviews.bot_review_diagnostics.bot_review_blocked (fail closed)"
+	}
+	if !botBlocked {
+		return ""
+	}
+
+	reason, hasReason := signals.GetString(sigs, "github.reviews.bot_review_diagnostics.bot_review_block_reason")
+	if !hasReason {
+		return "missing github.reviews.bot_review_diagnostics.bot_review_block_reason (fail closed)"
+	}
+	reason = strings.ToLower(strings.TrimSpace(reason))
+	if reason == "" {
+		return "missing github.reviews.bot_review_diagnostics.bot_review_block_reason (fail closed)"
+	}
+	switch reason {
+	case "rate_limited":
+		return "required bot review rate-limited"
+	case "review_paused":
+		return "required bot review paused"
+	case "mixed":
+		return "required bot review blocked by multiple reasons"
+	default:
+		return fmt.Sprintf("required bot review blocked (%s)", reason)
+	}
 }
 
 func checkReviewDataCompleteness(sigs map[string]any) string {

@@ -61,6 +61,81 @@ func TestParseObservationJSON_stringDiagnostics(t *testing.T) {
 	}
 }
 
+func TestParseObservationDocument_meta(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name          string
+		wantMetaView  string
+		wantDegraded  bool
+		includeMeta   bool
+		metaHasValues bool
+	}{
+		{
+			name:          "meta preserved with degraded",
+			wantDegraded:  true,
+			wantMetaView:  "summary",
+			includeMeta:   true,
+			metaHasValues: true,
+		},
+		{
+			name:         "missing meta object",
+			wantDegraded: false,
+		},
+		{
+			name:         "empty meta object",
+			wantDegraded: true,
+			includeMeta:  true,
+		},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			payload := map[string]any{
+				"signals":  map[string]any{"a": true},
+				"degraded": tc.wantDegraded,
+			}
+			if tc.metaHasValues {
+				payload["meta"] = map[string]any{
+					"view":             "summary",
+					"degraded_sources": []any{"github"},
+				}
+			} else if tc.includeMeta {
+				payload["meta"] = map[string]any{}
+			}
+			data, err := json.Marshal(payload)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// When: ParseObservationDocument runs
+			doc, err := ParseObservationDocument(data)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Then: optional meta is available to higher-level callers without reparsing
+			if doc.Degraded != tc.wantDegraded {
+				t.Fatalf("degraded=%v, want=%v", doc.Degraded, tc.wantDegraded)
+			}
+			if got := stringField(doc.Meta, "view"); got != tc.wantMetaView {
+				t.Fatalf("view=%q, want=%q", got, tc.wantMetaView)
+			}
+			rawSources, ok := doc.Meta["degraded_sources"].([]any)
+			if !tc.metaHasValues {
+				if ok {
+					t.Fatalf("unexpected degraded_sources=%v", rawSources)
+				}
+				return
+			}
+			if !ok || len(rawSources) != 1 {
+				t.Fatalf("degraded_sources=%v", doc.Meta["degraded_sources"])
+			}
+			if rawSources[0] != "github" {
+				t.Fatalf("degraded_sources[0]=%v, want=%q", rawSources[0], "github")
+			}
+		})
+	}
+}
+
 func TestParseObservationJSON_errors(t *testing.T) {
 	t.Parallel()
 	// Given: malformed observation JSON payloads

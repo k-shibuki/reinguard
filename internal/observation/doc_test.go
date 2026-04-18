@@ -12,7 +12,7 @@ func TestDocument_andDegradedSet(t *testing.T) {
 	// Given: signals, provider_failed diagnostic, degraded flag
 	diags := []observe.Diagnostic{{Severity: "error", Message: "x", Provider: "git", Code: "provider_failed"}}
 	// When: Document and DegradedSet are built
-	doc := Document(map[string]any{"a": 1}, diags, true)
+	doc := Document(map[string]any{"a": 1}, diags, true, nil)
 	ds := DegradedSet(diags, true)
 	// Then: degraded true and git in set
 	if doc["degraded"] != true {
@@ -30,7 +30,7 @@ func TestDocument_noDiagnosticsNoMeta(t *testing.T) {
 	t.Parallel()
 	// Given: no diagnostics
 	// When: Document is built
-	doc := Document(map[string]any{"k": 2}, nil, false)
+	doc := Document(map[string]any{"k": 2}, nil, false, nil)
 	// Then: no diagnostics key required in map — implementation omits empty diagnostics
 	if _, ok := doc["diagnostics"]; ok {
 		t.Fatal("expected no diagnostics key when empty")
@@ -87,7 +87,7 @@ func TestDocument_withDiagnosticsAndMeta(t *testing.T) {
 		{Severity: "warn", Message: "m2", Provider: "github", Code: "provider_degraded"},
 	}
 	// When: Document is built with degraded=true
-	doc := Document(map[string]any{"x": 1}, diags, true)
+	doc := Document(map[string]any{"x": 1}, diags, true, nil)
 	// Then: diagnostics array has 2 entries
 	raw, ok := doc["diagnostics"].([]any)
 	if !ok || len(raw) != 2 {
@@ -110,5 +110,74 @@ func TestDocument_withDiagnosticsAndMeta(t *testing.T) {
 	}
 	if !found["git"] || !found["github"] {
 		t.Fatalf("expected git and github in degraded_sources, got: %v", srcs)
+	}
+}
+
+func TestDocument_metaContract(t *testing.T) {
+	t.Parallel()
+	tests := map[string]func(*testing.T){
+		"preserves view": func(t *testing.T) {
+			t.Helper()
+			doc := Document(map[string]any{"x": 1}, nil, false, map[string]any{"view": "summary"})
+			meta, ok := doc["meta"].(map[string]any)
+			if !ok {
+				t.Fatal("expected meta")
+			}
+			if got := meta["view"]; got != "summary" {
+				t.Fatalf("view=%v", got)
+			}
+		},
+		"removes stale degraded_sources when recomputation is empty": func(t *testing.T) {
+			t.Helper()
+			doc := Document(
+				map[string]any{"x": 1},
+				nil,
+				false,
+				map[string]any{"view": "summary", "degraded_sources": []any{"stale"}},
+			)
+			meta, ok := doc["meta"].(map[string]any)
+			if !ok {
+				t.Fatal("expected meta")
+			}
+			if got := meta["view"]; got != "summary" {
+				t.Fatalf("view=%v", got)
+			}
+			if _, exists := meta["degraded_sources"]; exists {
+				t.Fatalf("unexpected degraded_sources=%v", meta["degraded_sources"])
+			}
+		},
+		"overwrites stale degraded_sources with recomputed sources": func(t *testing.T) {
+			t.Helper()
+			doc := Document(
+				map[string]any{"x": 1},
+				[]observe.Diagnostic{
+					{Provider: "git", Code: "provider_failed", Severity: "error", Message: "m"},
+				},
+				true,
+				map[string]any{"view": "summary", "degraded_sources": []any{"stale"}},
+			)
+			meta, ok := doc["meta"].(map[string]any)
+			if !ok {
+				t.Fatal("expected meta")
+			}
+			if got := meta["view"]; got != "summary" {
+				t.Fatalf("view=%v", got)
+			}
+			srcs, ok := meta["degraded_sources"].([]any)
+			if !ok || len(srcs) != 1 {
+				t.Fatalf("degraded_sources=%v", meta["degraded_sources"])
+			}
+			if srcs[0] != "git" {
+				t.Fatalf("degraded_sources[0]=%v, want=%q", srcs[0], "git")
+			}
+		},
+	}
+	for name, run := range tests {
+		name := name
+		run := run
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			run(t)
+		})
 	}
 }

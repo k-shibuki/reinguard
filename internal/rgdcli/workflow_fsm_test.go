@@ -97,7 +97,15 @@ var workflowFSMScenarioFixtures = []struct {
         "pagination_incomplete": false,
         "review_decisions_changes_requested": 0,
         "review_decisions_truncated": false,
-        "bot_reviewer_status": []
+        "bot_reviewer_status": [],
+        "bot_review_diagnostics": {
+          "bot_review_pending": false,
+          "bot_review_blocked": false,
+          "bot_review_block_reason": "",
+          "bot_review_failed": false,
+          "bot_review_stale": false,
+          "non_thread_findings_present": false
+        }
       }
     }
   },
@@ -193,6 +201,8 @@ var workflowFSMScenarioFixtures = []struct {
         "bot_reviewer_status": [],
         "bot_review_diagnostics": {
           "bot_review_pending": false,
+          "bot_review_blocked": false,
+          "bot_review_block_reason": "",
           "bot_review_terminal": true,
           "bot_review_failed": false,
           "bot_review_stale": false,
@@ -222,6 +232,8 @@ var workflowFSMScenarioFixtures = []struct {
           "bot_review_failed": false,
           "bot_review_completed": false,
           "bot_review_pending": true,
+          "bot_review_blocked": false,
+          "bot_review_block_reason": "",
           "bot_review_terminal": false
         }
       }
@@ -289,6 +301,8 @@ var workflowFSMScenarioFixtures = []struct {
           "bot_review_failed": true,
           "bot_review_completed": false,
           "bot_review_pending": false,
+          "bot_review_blocked": false,
+          "bot_review_block_reason": "",
           "bot_review_terminal": true
         }
       }
@@ -315,6 +329,8 @@ var workflowFSMScenarioFixtures = []struct {
           "bot_review_failed": false,
           "bot_review_completed": true,
           "bot_review_pending": false,
+          "bot_review_blocked": false,
+          "bot_review_block_reason": "",
           "bot_review_terminal": true
         }
       }
@@ -340,6 +356,8 @@ var workflowFSMScenarioFixtures = []struct {
           "bot_review_failed": false,
           "bot_review_completed": false,
           "bot_review_pending": true,
+          "bot_review_blocked": false,
+          "bot_review_block_reason": "",
           "bot_review_terminal": false
         }
       }

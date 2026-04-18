@@ -2,6 +2,26 @@ package observe
 
 import "context"
 
+// View describes the requested observation depth for CLI-driven collection.
+type View string
+
+// Supported observation views.
+const (
+	ViewSummary View = "summary"
+	ViewInbox   View = "inbox"
+	ViewFull    View = "full"
+)
+
+// Valid reports whether v is one of the supported observation views.
+func (v View) Valid() bool {
+	switch v {
+	case ViewSummary, ViewInbox, ViewFull:
+		return true
+	default:
+		return false
+	}
+}
+
 // Diagnostic records a non-fatal observation issue (provider failure, warning, or fragment-level detail).
 type Diagnostic struct {
 	Severity string `json:"severity"`
@@ -35,12 +55,14 @@ type Scope struct {
 
 // Options configure a collect run: working directory, optional GitHub facet filter, default
 // branch from config, optional provider ID restriction, explicit PR/branch scope, and serial
-// vs parallel execution.
+// vs parallel execution. View defaults are selected by callers; the zero value is not valid on
+// its own.
 type Options struct {
 	ProviderIDs   []string
 	WorkDir       string
 	GitHubFacet   string
 	DefaultBranch string
+	View          View
 	Scope         Scope
 	Serial        bool
 }

@@ -43,12 +43,12 @@ merge, or restructure commits (commit organization is `implement` step 7).
 **Knowledge discovery** (substrate):
 
 ```bash
-rgd context build
+rgd context build --compact
 ```
 
 Use `knowledge.entries` from stdout JSON (signal-filtered). Open each `entries[].path` as needed (testing strategy, defensive patterns, etc.).
 
-Optional: `rgd observe > /tmp/rgd-observe.json` then `rgd knowledge pack --observation-file /tmp/rgd-observe.json --query '<keyword from Issue>'` for trigger substring OR-union (`docs/cli.md`).
+Optional: `rgd observe --view summary > /tmp/rgd-observe.json` then `rgd knowledge pack --observation-file /tmp/rgd-observe.json --query '<keyword from Issue>'` for trigger substring OR-union (`docs/cli.md`).
 
 **Diff and metadata** (no PR required):
 

@@ -13,14 +13,20 @@
       "stale_remote_branches_count": 0
     },
     "github": {
+      "pull_requests": { "merge_state_status": "clean" },
       "ci": { "ci_status": "success", "head_sha": "deadbeef" },
       "reviews": {
         "review_threads_unresolved": 0,
         "review_decisions_changes_requested": 0,
         "pagination_incomplete": false,
         "review_decisions_truncated": false,
+        "bot_reviewer_status": [
+          {"login": "coderabbitai[bot]", "status": "completed_clean"}
+        ],
         "bot_review_diagnostics": {
           "bot_review_pending": false,
+          "bot_review_blocked": false,
+          "bot_review_block_reason": "",
           "bot_review_terminal": true,
           "bot_review_failed": false,
           "bot_review_stale": false,

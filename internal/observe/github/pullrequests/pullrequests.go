@@ -25,13 +25,34 @@ type searchResponse struct {
 
 // pullHead is the head branch ref on a pull request list item.
 type pullHead struct {
+	Repo *struct {
+		Owner *struct {
+			Login string `json:"login"`
+		} `json:"owner"`
+		Name string `json:"name"`
+	} `json:"repo"`
+	Ref string `json:"ref"`
+	SHA string `json:"sha"`
+}
+
+type pullBase struct {
 	Ref string `json:"ref"`
 }
 
+type pullLabel struct {
+	Name string `json:"name"`
+}
+
 type pullGet struct {
-	Head   pullHead `json:"head"`
-	State  string   `json:"state"`
-	Number int      `json:"number"`
+	Mergeable      *bool       `json:"mergeable"`
+	Head           pullHead    `json:"head"`
+	Base           pullBase    `json:"base"`
+	MergeableState string      `json:"mergeable_state"`
+	State          string      `json:"state"`
+	Title          string      `json:"title"`
+	Labels         []pullLabel `json:"labels"`
+	Number         int         `json:"number"`
+	Draft          bool        `json:"draft"`
 }
 
 // pullListItem is one element from GET /repos/{owner}/{repo}/pulls for branch matching.
@@ -62,10 +83,14 @@ const (
 	SelectionExplicitBranch = "explicit_branch"
 	SelectionCurrentBranch  = "current_branch"
 	SelectionNone           = "none"
+
+	// ViewSummary requests the summary-only pull-request output contract.
+	// Mirrors observe.ViewSummary for package-local use.
+	ViewSummary = "summary"
 )
 
 // Collect returns pull request signals for the effective observed branch / PR.
-func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir string, opts ScopeOptions) (map[string]any, Scope, []string, error) {
+func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir string, opts ScopeOptions, view string) (map[string]any, Scope, []string, error) {
 	if c == nil {
 		return nil, Scope{}, nil, fmt.Errorf("nil client")
 	}
@@ -90,21 +115,45 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir stri
 		branch = localBranch
 	}
 	scope.EffectiveBranch = branch
-	prForBranch := false
-	prNum := 0
+	prForBranch, prNum, explicitPull, err := resolvePRSelection(ctx, c, owner, repo, branch, &scope)
+	if err != nil {
+		return nil, scope, warnings, err
+	}
+	scope.ResolvedPRNumber = prNum
+
+	prSignals := map[string]any{
+		"open_count":           openOut.TotalCount,
+		"current_branch":       scope.EffectiveBranch,
+		"pr_exists_for_branch": prForBranch,
+		"pr_number_for_branch": prNum,
+		"observed_scope":       scope.signalMap(),
+	}
+	if prForBranch && strings.EqualFold(strings.TrimSpace(view), ViewSummary) {
+		detail, err := summaryPullDetail(ctx, c, owner, repo, prNum, explicitPull)
+		if err != nil {
+			return nil, scope, warnings, err
+		}
+		mergePullSummary(prSignals, detail)
+	}
+
+	return map[string]any{
+		"pull_requests": prSignals,
+	}, scope, warnings, nil
+}
+
+func resolvePRSelection(ctx context.Context, c *githubapi.Client, owner, repo, branch string, scope *Scope) (prForBranch bool, prNum int, explicitPull *pullGet, err error) {
 	switch {
 	case scope.RequestedPRNumber > 0:
 		scope.Selection = SelectionExplicitPR
 		pull, err := fetchPullRequest(ctx, c, owner, repo, scope.RequestedPRNumber)
 		if err != nil {
-			return nil, scope, warnings, err
+			return false, 0, nil, err
 		}
 		if !strings.EqualFold(strings.TrimSpace(pull.State), "open") {
-			return nil, scope, warnings, fmt.Errorf("pull request #%d is not open", scope.RequestedPRNumber)
+			return false, 0, nil, fmt.Errorf("pull request #%d is not open", scope.RequestedPRNumber)
 		}
-		prForBranch = true
-		prNum = pull.Number
 		scope.EffectiveBranch = strings.TrimSpace(pull.Head.Ref)
+		return true, pull.Number, &pull, nil
 	case branch != "":
 		if scope.RequestedBranch != "" {
 			scope.Selection = SelectionExplicitBranch
@@ -124,29 +173,25 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir stri
 		)
 		var pulls []pullListItem
 		if err := c.GetJSON(ctx, uPulls, &pulls); err != nil {
-			return nil, scope, warnings, err
+			return false, 0, nil, err
 		}
 		for _, p := range pulls {
 			if strings.EqualFold(p.Head.Ref, branch) {
-				prForBranch = true
-				prNum = p.Number
-				break
+				return true, p.Number, nil, nil
 			}
 		}
+		return false, 0, nil, nil
 	default:
 		scope.Selection = SelectionNone
+		return false, 0, nil, nil
 	}
-	scope.ResolvedPRNumber = prNum
+}
 
-	return map[string]any{
-		"pull_requests": map[string]any{
-			"open_count":           openOut.TotalCount,
-			"current_branch":       scope.EffectiveBranch,
-			"pr_exists_for_branch": prForBranch,
-			"pr_number_for_branch": prNum,
-			"observed_scope":       scope.signalMap(),
-		},
-	}, scope, warnings, nil
+func summaryPullDetail(ctx context.Context, c *githubapi.Client, owner, repo string, prNum int, explicitPull *pullGet) (pullGet, error) {
+	if explicitPull != nil {
+		return *explicitPull, nil
+	}
+	return fetchPullRequest(ctx, c, owner, repo, prNum)
 }
 
 // resolveBranch returns the current branch name or warnings for detached HEAD / errors.
@@ -191,4 +236,50 @@ func (s Scope) signalMap() map[string]any {
 		out["effective_branch"] = s.EffectiveBranch
 	}
 	return out
+}
+
+// mergePullSummary populates dst with normalized PR detail fields.
+// It overwrites current_branch with the authoritative head_ref from the PR.
+func mergePullSummary(dst map[string]any, pull pullGet) {
+	dst["state"] = strings.ToLower(strings.TrimSpace(pull.State))
+	dst["draft"] = pull.Draft
+	if title := strings.TrimSpace(pull.Title); title != "" {
+		dst["title"] = title
+	}
+	if baseRef := strings.TrimSpace(pull.Base.Ref); baseRef != "" {
+		dst["base_ref"] = baseRef
+	}
+	if headRef := strings.TrimSpace(pull.Head.Ref); headRef != "" {
+		dst["head_ref"] = headRef
+		dst["current_branch"] = headRef
+	}
+	if headSHA := strings.TrimSpace(pull.Head.SHA); headSHA != "" {
+		dst["head_sha"] = headSHA
+	}
+	if pull.Head.Repo != nil {
+		if owner := pull.Head.Repo.Owner; owner != nil && strings.TrimSpace(owner.Login) != "" {
+			dst["head_repo_owner"] = strings.TrimSpace(owner.Login)
+		}
+		if repoName := strings.TrimSpace(pull.Head.Repo.Name); repoName != "" {
+			dst["head_repo_name"] = repoName
+		}
+	}
+	switch {
+	case pull.Mergeable == nil:
+		dst["mergeable"] = "unknown"
+	case *pull.Mergeable:
+		dst["mergeable"] = "mergeable"
+	default:
+		dst["mergeable"] = "conflicting"
+	}
+	if mergeState := strings.TrimSpace(pull.MergeableState); mergeState != "" {
+		dst["merge_state_status"] = strings.ToLower(mergeState)
+	}
+	labels := make([]string, 0, len(pull.Labels))
+	for _, label := range pull.Labels {
+		if name := strings.TrimSpace(label.Name); name != "" {
+			labels = append(labels, name)
+		}
+	}
+	dst["labels"] = labels
 }

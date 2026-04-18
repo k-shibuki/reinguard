@@ -30,14 +30,14 @@ when:
 - **`rgd config validate`** checks the manifest schema, that paths exist, that the manifest
   matches front matter (freshness), statically validates each `when` (known `op` and operands,
   `eval:` registry, `path` prefixes `git.` / `github.` / `state.` / `$`), validates control YAML, and emits optional size/trigger-count hints.
-- **`rgd context build`** emits **`knowledge.entries`** filtered by each entry’s `when` against observation + merged **`state.*`** signals (`docs/cli.md`).
+- **`rgd context build --compact`** emits **`knowledge.entries`** filtered by each entry’s `when` against observation + merged **`state.*`** signals (`docs/cli.md`). This is the recommended default for agent-facing operational context. Use `rgd context build` without `--compact` when you need the full nested observation payload.
 - **`rgd knowledge pack`** lists manifest entries; with **`--observation-file`**, applies `when` against nested **`signals`** only; optional **`--query`** OR-unions trigger substring matches (`docs/cli.md`).
 
 ## Practical retrieval flow
 
-1. **Default:** run **`rgd context build`** and read **`knowledge.entries`** from stdout JSON (`id`, `path`, `description`, `triggers`, `when`).
+1. **Default composed path:** run **`rgd context build --compact`** and read **`knowledge.entries`** from stdout JSON (`id`, `path`, `description`, `triggers`, `when`).
 2. **Catalog without running observe:** open `.reinguard/knowledge/manifest.json` for the same fields (entries are not signal-filtered until you run `context build` or `pack --observation-file`).
-3. **Optional keyword pass:** `rgd observe > /tmp/rgd-observe.json` then `rgd knowledge pack --observation-file /tmp/rgd-observe.json --query '<keyword>'`.
+3. **Optional keyword pass / raw observation:** `rgd observe --view summary > /tmp/rgd-observe.json` (produces summary-view observation JSON) then `rgd knowledge pack --observation-file /tmp/rgd-observe.json --query '<keyword>'`.
 4. Read only the Markdown paths you need for the current task.
 
 For ad-hoc read-only **`gh`** / **`git`** checks when not driving `rgd`, follow [ADR-0006](../../docs/adr/0006-gh-cli-as-sole-authentication.md) and [AGENTS.md](../../AGENTS.md) (observation boundaries); normative CLI surface is [`docs/cli.md`](../../docs/cli.md).

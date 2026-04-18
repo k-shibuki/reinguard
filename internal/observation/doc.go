@@ -8,15 +8,22 @@ import (
 )
 
 // Document builds an observation document map (validated against observation schema by caller).
-func Document(signals map[string]any, diags []observe.Diagnostic, degraded bool) map[string]any {
+// Caller-provided meta is copied first; reserved keys such as degraded_sources are overwritten
+// by the computed observation metadata.
+func Document(signals map[string]any, diags []observe.Diagnostic, degraded bool, meta map[string]any) map[string]any {
 	srcs := degradedSources(diags, degraded)
-	meta := map[string]any{}
+	mergedMeta := map[string]any{}
+	for k, v := range meta {
+		mergedMeta[k] = v
+	}
+	// Reserved key: always recompute from diagnostics/degraded.
+	delete(mergedMeta, "degraded_sources")
 	if len(srcs) > 0 {
 		list := make([]any, len(srcs))
 		for i, s := range srcs {
 			list[i] = s
 		}
-		meta["degraded_sources"] = list
+		mergedMeta["degraded_sources"] = list
 	}
 	doc := map[string]any{
 		"schema_version": schema.CurrentSchemaVersion,
@@ -36,8 +43,8 @@ func Document(signals map[string]any, diags []observe.Diagnostic, degraded bool)
 		}
 		doc["diagnostics"] = ds
 	}
-	if len(meta) > 0 {
-		doc["meta"] = meta
+	if len(mergedMeta) > 0 {
+		doc["meta"] = mergedMeta
 	}
 	return doc
 }

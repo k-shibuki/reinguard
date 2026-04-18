@@ -49,6 +49,7 @@ through `rgd context build`, FSM rules, guards, or `gates.<id>.*`.
 ### GitHub and git observation
 
 - **Primary:** `rgd observe` and `rgd context build` — structured observation and FSM-facing signals (see [`docs/cli.md`](../../docs/cli.md), ADR-0006, ADR-0009).
+- **Use the cheaper surface when it is enough:** prefer `rgd observe ... --view summary|inbox|full` for raw polling or facet-specific checks; prefer `rgd context build --compact` when you need composed `state` / `routes` / `guards` / `knowledge.entries`.
 - **Supplementary:** `gh` and `git` for read-only GitHub or Git facts when you need ad-hoc checks or `rgd` is not available; GitHub tool auth uses `gh` per ADR-0006. Prefer stable behavior in tests and CI over one-off scripts.
 
 ### Agent procedure reference

@@ -293,6 +293,282 @@ func TestCollect_onePage_threadsAndDetail(t *testing.T) {
 	}
 }
 
+func TestCollectReviewsWithView_compactViews(t *testing.T) {
+	t.Parallel()
+	// Given: CollectReviewsWithView is called with different view parameters.
+	// When: GraphQL returns review data with various structures.
+	// Then: normalized results reflect view-specific filtering.
+	const (
+		viewCaseSummary = iota
+		viewCaseInbox
+		viewCaseInvalid
+	)
+	tests := []struct {
+		name              string
+		viewCase          int
+		wantThreadsUnres  int
+		wantDecisionsAppr int
+		wantInboxLen      int
+		wantCommentsLen   int
+	}{
+		{
+			name:              "summary omits inbox and conversation bodies",
+			viewCase:          viewCaseSummary,
+			wantThreadsUnres:  1,
+			wantDecisionsAppr: 1,
+			wantInboxLen:      0,
+			wantCommentsLen:   0,
+		},
+		{
+			name:             "inbox includes thread anchors but omits conversation bodies",
+			viewCase:         viewCaseInbox,
+			wantThreadsUnres: 1,
+			wantInboxLen:     1,
+			wantCommentsLen:  0,
+		},
+		{
+			name:              "invalid view defaults to full",
+			viewCase:          viewCaseInvalid,
+			wantThreadsUnres:  1,
+			wantDecisionsAppr: 1,
+			wantInboxLen:      1,
+			wantCommentsLen:   1,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			view := reviewViewForCase(tt.viewCase)
+			rev := collectReviewsWithViewForTest(t, view, reviewGraphQLResponseForCase(tt.viewCase))
+			assertCollectedReviewView(t, rev, view, tt.wantThreadsUnres, tt.wantDecisionsAppr, tt.wantInboxLen, tt.wantCommentsLen)
+			validateReviewCase(t, tt.viewCase, rev)
+		})
+	}
+}
+
+func reviewViewForCase(viewCase int) string {
+	switch viewCase {
+	case 0:
+		return ReviewViewSummary
+	case 1:
+		return ReviewViewInbox
+	default:
+		return "tiny"
+	}
+}
+
+func reviewGraphQLResponseForCase(viewCase int) map[string]any {
+	switch viewCase {
+	case 0:
+		return map[string]any{
+			"data": map[string]any{
+				"repository": map[string]any{
+					"pullRequest": map[string]any{
+						"latestReviews": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false},
+							"nodes": []map[string]any{
+								{"state": "APPROVED", "author": map[string]any{"login": "alice"}},
+							},
+						},
+						"reviewThreads": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false, "endCursor": ""},
+							"nodes": []map[string]any{
+								{"id": "THREAD_1", "isResolved": false, "isOutdated": false},
+							},
+						},
+					},
+				},
+			},
+		}
+	case 1:
+		return map[string]any{
+			"data": map[string]any{
+				"repository": map[string]any{
+					"pullRequest": map[string]any{
+						"latestReviews": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false},
+							"nodes":    []any{},
+						},
+						"reviewThreads": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false, "endCursor": ""},
+							"nodes": []map[string]any{
+								{
+									"id":         "THREAD_2",
+									"isResolved": false,
+									"isOutdated": true,
+									"comments": map[string]any{
+										"nodes": []map[string]any{
+											{
+												"databaseId": 202,
+												"body":       "please update scope",
+												"path":       "internal/rgdcli/rgdcli.go",
+												"line":       42,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	default:
+		return map[string]any{
+			"data": map[string]any{
+				"repository": map[string]any{
+					"pullRequest": map[string]any{
+						"latestReviews": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false},
+							"nodes": []map[string]any{
+								{"state": "APPROVED", "author": map[string]any{"login": "alice"}},
+							},
+						},
+						"reviewThreads": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false, "endCursor": ""},
+							"nodes": []map[string]any{
+								{
+									"id":         "THREAD_3",
+									"isResolved": false,
+									"isOutdated": false,
+									"comments": map[string]any{
+										"nodes": []map[string]any{
+											{
+												"databaseId":     303,
+												"body":           "follow up",
+												"path":           "internal/observe/github/prquery/prquery.go",
+												"line":           320,
+												"commit":         map[string]any{"oid": "0123456789abcdef0123456789abcdef01234567"},
+												"originalCommit": map[string]any{"oid": "89abcdef0123456789abcdef0123456789abcdef"},
+												"originalLine":   318,
+												"author":         map[string]any{"login": "coderabbitai[bot]"},
+											},
+										},
+									},
+								},
+							},
+						},
+						"comments": map[string]any{
+							"pageInfo": map[string]any{"hasPreviousPage": false, "startCursor": nil},
+							"nodes": []map[string]any{
+								{
+									"databaseId": 401,
+									"body":       "non-thread finding",
+									"author":     map[string]any{"login": "coderabbitai[bot]"},
+									"createdAt":  "2026-04-16T00:00:00Z",
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+}
+
+func validateReviewCase(t *testing.T, viewCase int, rev map[string]any) {
+	t.Helper()
+	switch viewCase {
+	case 1:
+		inbox := rev["review_inbox"].([]any)
+		thread := inbox[0].(map[string]any)
+		if thread["thread_id"] != "THREAD_2" || thread["path"] != "internal/rgdcli/rgdcli.go" {
+			t.Fatalf("thread=%+v", thread)
+		}
+	case 2:
+		inbox := rev["review_inbox"].([]any)
+		thread := inbox[0].(map[string]any)
+		if thread["thread_id"] != "THREAD_3" || thread["body"] != "follow up" {
+			t.Fatalf("thread=%+v", thread)
+		}
+		comments := rev["conversation_comments"].([]any)
+		comment := comments[0].(map[string]any)
+		if comment["body"] != "non-thread finding" || comment["author"] != "coderabbitai[bot]" {
+			t.Fatalf("comment=%+v", comment)
+		}
+	}
+}
+
+func collectReviewsWithViewForTest(t *testing.T, view string, graphQLResponse map[string]any) map[string]any {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(graphQLResponse); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	rev, err := CollectReviewsWithView(context.Background(), c, "o", "r", 1, nil, view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return rev
+}
+
+// assertCollectedReviewView checks the shape of rev for the given view, asserting
+// presence/absence of review_inbox and conversation_comments per the docs/cli.md
+// contract (review_inbox: inbox|full only; conversation_comments: full only). Length
+// expectations are only asserted when the key must be present for the view.
+func assertCollectedReviewView(t *testing.T, rev map[string]any, view string, wantThreadsUnres, wantDecisionsAppr, wantInboxLen, wantCommentsLen int) {
+	t.Helper()
+	if rev["review_threads_unresolved"].(int) != wantThreadsUnres {
+		t.Errorf("review_threads_unresolved=%d, want %d", rev["review_threads_unresolved"].(int), wantThreadsUnres)
+	}
+	if rev["review_decisions_approved"].(int) != wantDecisionsAppr {
+		t.Errorf("review_decisions_approved=%d, want %d", rev["review_decisions_approved"].(int), wantDecisionsAppr)
+	}
+
+	normalized := normalizeReviewView(view)
+	assertReviewInboxForView(t, rev, normalized, wantInboxLen)
+	assertConversationCommentsForView(t, rev, normalized, wantCommentsLen)
+}
+
+func assertReviewInboxForView(t *testing.T, rev map[string]any, view string, wantLen int) {
+	t.Helper()
+	raw, present := rev["review_inbox"]
+	if view == ReviewViewSummary {
+		if present {
+			t.Fatalf("review_inbox: expected absent for view=%q, got %+v", view, raw)
+		}
+		return
+	}
+	if !present {
+		t.Fatalf("review_inbox: expected present for view=%q, got absent", view)
+	}
+	inbox, ok := raw.([]any)
+	if !ok {
+		t.Fatalf("review_inbox: expected []any for view=%q, got %T", view, raw)
+	}
+	if len(inbox) != wantLen {
+		t.Fatalf("review_inbox len=%d, want %d: %+v", len(inbox), wantLen, inbox)
+	}
+}
+
+func assertConversationCommentsForView(t *testing.T, rev map[string]any, view string, wantLen int) {
+	t.Helper()
+	raw, present := rev["conversation_comments"]
+	if view != ReviewViewFull {
+		if present {
+			t.Fatalf("conversation_comments: expected absent for view=%q, got %+v", view, raw)
+		}
+		return
+	}
+	if !present {
+		t.Fatalf("conversation_comments: expected present for view=%q, got absent", view)
+	}
+	comments, ok := raw.([]any)
+	if !ok {
+		t.Fatalf("conversation_comments: expected []any for view=%q, got %T", view, raw)
+	}
+	if len(comments) != wantLen {
+		t.Fatalf("conversation_comments len=%d, want %d: %+v", len(comments), wantLen, comments)
+	}
+}
+
 func TestCollect_reviewThreadsPaginationIncomplete(t *testing.T) {
 	t.Parallel()
 	// Given: reviewThreads pagination continuously reports hasNextPage=true.
@@ -468,7 +744,13 @@ func TestCollect_botReviewer_rateLimitAndEnrich(t *testing.T) {
 		t.Fatalf("status: %+v", m)
 	}
 	diag := rev["bot_review_diagnostics"].(map[string]any)
-	if diag["bot_review_failed"].(bool) != true || diag["bot_review_pending"].(bool) != false {
+	if diag["bot_review_blocked"].(bool) != true || diag["bot_review_block_reason"].(string) != BotStatusRateLimited {
+		t.Fatalf("diag: %+v", diag)
+	}
+	if diag["bot_review_failed"].(bool) != false || diag["bot_review_pending"].(bool) != false {
+		t.Fatalf("diag: %+v", diag)
+	}
+	if diag["bot_review_terminal"].(bool) != false {
 		t.Fatalf("diag: %+v", diag)
 	}
 }
@@ -964,6 +1246,9 @@ func TestCollect_botReviewer_completedClean(t *testing.T) {
 	if diag["bot_review_failed"].(bool) {
 		t.Fatalf("want bot_review_failed=false, got %+v", diag)
 	}
+	if diag["bot_review_blocked"].(bool) {
+		t.Fatalf("want bot_review_blocked=false, got %+v", diag)
+	}
 	if diag["bot_review_stale"].(bool) {
 		t.Fatalf("want bot_review_stale=false, got %+v", diag)
 	}
@@ -1039,6 +1324,9 @@ func TestCollect_botReviewer_commentOnlyNoReviewClean(t *testing.T) {
 	diag := rev["bot_review_diagnostics"].(map[string]any)
 	if !diag["bot_review_completed"].(bool) || diag["bot_review_pending"].(bool) {
 		t.Fatalf("diag: %+v", diag)
+	}
+	if diag["bot_review_blocked"].(bool) {
+		t.Fatalf("want bot_review_blocked=false, got %+v", diag)
 	}
 	if diag["bot_review_stale"].(bool) {
 		t.Fatalf("want bot_review_stale=false, got %+v", diag)

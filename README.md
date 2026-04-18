@@ -36,7 +36,7 @@ reinguard spans three layers:
 Representative commands:
 
 ```text
-rgd observe workflow-position
+rgd observe --view summary
 rgd gate status local-verification
 rgd state eval
 rgd route select

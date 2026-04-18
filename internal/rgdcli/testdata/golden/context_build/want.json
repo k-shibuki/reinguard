@@ -25,6 +25,9 @@
   },
   "observation": {
     "degraded": false,
+    "meta": {
+      "view": "full"
+    },
     "schema_version": "0.7.0",
     "signals": {
       "git": {
@@ -43,14 +46,25 @@
           "ci_status": "success",
           "head_sha": "deadbeef"
         },
+        "pull_requests": {
+          "merge_state_status": "clean"
+        },
         "reviews": {
           "bot_review_diagnostics": {
+            "bot_review_block_reason": "",
+            "bot_review_blocked": false,
             "bot_review_failed": false,
             "bot_review_pending": false,
             "bot_review_stale": false,
             "bot_review_terminal": true,
             "non_thread_findings_present": false
           },
+          "bot_reviewer_status": [
+            {
+              "login": "coderabbitai[bot]",
+              "status": "completed_clean"
+            }
+          ],
           "pagination_incomplete": false,
           "review_decisions_changes_requested": 0,
           "review_decisions_truncated": false,

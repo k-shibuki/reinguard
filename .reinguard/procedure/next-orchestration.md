@@ -92,7 +92,6 @@ After approval, the agent **must** drive toward **Per-unit Definition of Done** 
 
 - **Hard Stops** (**HS-***) in [`../policy/safety--agent-invariants.md`](../policy/safety--agent-invariants.md).
 - **Genuine cannot proceed** — missing credentials, org enforcement, unrecoverable GitHub block — report with **evidence** and stop.
-- **Tooling / session limits** — chat session ended, tooling unavailable, or context limits make further tool use impossible **in this session**. Long CI or bot duration is **not** an excuse to exit the path; follow the mapped procedure. On tooling/session limits only, **resume the same approved path** on the next turn **without** re-opening the approval gate (unless the user revokes or changes scope).
 
 Adapters may persist this approval continuity locally so the next turn can
 resume the same approved path. Such persistence is **Adapter-local** and must
@@ -103,11 +102,11 @@ not be promoted into substrate workflow state, routes, guards, or
 
 Repeat until Per-unit Definition of Done is satisfied or an **allowed stop** fires:
 
-1. **Sense** — `rgd context build` (same cwd / `--config-dir` as the workflow’s initial context build from repo root).
+1. **Sense** — `rgd context build --compact` by default (same cwd / `--config-dir` as the workflow’s initial context build from repo root). Fall back to full `rgd context build` only when you need nested observation details that `--compact` intentionally trims (for example `check_runs`, `review_inbox`, `conversation_comments`) or when you are debugging observation / guard behavior against the untrimmed payload.
 2. **Parse** — `state`, `routes[0]` (interpret `routes[0].route_id` only when `routes[0].kind` is `resolved`), `guards`, `knowledge.entries`; record a short iteration context **agent-internally** (e.g. tool logs or internal notes). Whether any of that appears in a user-facing channel is defined by the Adapter (see [`../../.cursor/rules/reinguard-bridge.mdc`](../../.cursor/rules/reinguard-bridge.mdc) § **rgd-next Execute — Cursor chat transcript**); Semantics does not require per-iteration user-visible output.
 3. **Route** — Resolve procedure(s) from `.reinguard/procedure/` front matter (`applies_to`) consistent with ADR-0013 § 4. If `state.kind` is not `resolved`, follow ADR-0007 handoff; do not invent a winning state.
 4. **Act (procedure)** — Open the mapped procedure file(s) and **follow each procedure in full** (Context, Reads, Sense, Act, Output, Guard, front-matter `done_when` / `escalate_when` as applicable). Treat any “confirm” / “verify” language in mapped procedures as **agent self-checks** (evidence-backed), not a new user-approval gate, unless an **allowed stop** applies. Do not shortcut HS-*.
-5. **Refresh** — After any **material** remote or local change (push, merge, thread resolve batch, bot re-review when the procedure says so), run **`rgd context build` again** before the next Route.
+5. **Refresh** — After any **material** remote or local change (push, merge, thread resolve batch, bot re-review when the procedure says so), run **`rgd context build --compact` again** before the next Route.
 
 **Dirty working tree + `review-address`:** When `observation.signals.git.working_tree_clean` is `false` and the mapped procedure is `review-address`, run **Step 0** in `review-address.md` before disposition-heavy work. See `.reinguard/knowledge/review--incremental-fix-flow.md`.
 

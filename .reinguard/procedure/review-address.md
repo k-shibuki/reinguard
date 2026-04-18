@@ -42,31 +42,31 @@ escalate_when: Cannot reach consensus with bot reviewers per policy.
 **Review knowledge (discover via substrate):**
 
 ```bash
-rgd context build
+rgd context build --compact
 ```
 
 Use `knowledge.entries` when a PR exists for the branch (review entries match `github.pull_requests.pr_exists_for_branch`). Open each `entries[].path` returned (typically includes `review--incremental-fix-flow.md`, `review--multi-source-review-signals.md`, `review--bot-operations.md`, `review--github-thread-api.md`). Use those docs for API channels, re-review triggers, REST vs GraphQL for `isResolved`, and outside-diff-range collection.
 
-Optional trigger pass: `rgd observe > /tmp/rgd-observe.json` then `rgd knowledge pack --observation-file /tmp/rgd-observe.json --query "review"`.
+Optional trigger pass: `rgd observe github reviews --view summary > /tmp/rgd-observe.json` then `rgd knowledge pack --observation-file /tmp/rgd-observe.json --query "review"`.
 
 **Already in context** (always-active Adapter rule): HS-* codes, catalogs, workflow & commit policy.
 
 **Observation (initial):**
 
 ```bash
-rgd observe github reviews
+rgd observe github reviews --view inbox
 ```
 
-Use aggregate review / CI signals from observation JSON where helpful.
+Use `--view inbox` when you need actionable thread anchors. For cheap polling-only checks with no thread work, prefer `rgd observe github reviews --view summary`.
 
 **Thread-level work:** prefer the structured `signals.github.reviews.review_inbox`
-from `rgd observe github reviews` / `rgd context build` for actionable thread
+from `rgd observe github reviews --view inbox` / `rgd context build --compact` for actionable thread
 records. Use GraphQL enumeration from review knowledge only as a fallback when
 you need evidence outside the surfaced inbox (see `review--github-thread-api.md`).
 
-**When `state_id` is `waiting_ci` (`user-wait-ci`):** no open thread or formal changes-request work is implied by the FSM. Focus on **`gh pr checks`**, **`ci-pass`**, and mergeability (`gh pr view`); fix failing jobs or wait for pending checks. Re-run `rgd context build` after pushes.
+**When `state_id` is `waiting_ci` (`user-wait-ci`):** no open thread or formal changes-request work is implied by the FSM. Focus on **`gh pr checks`**, **`ci-pass`**, and mergeability (`gh pr view`); fix failing jobs or wait for pending checks. Re-run `rgd context build --compact` after pushes.
 
-**Aggregate + manual checks (after `rgd observe github reviews`):**
+**Aggregate + manual checks (after `rgd observe github reviews --view inbox` or `--view summary`):**
 
 - GitHub **Files changed** → each review thread; root comment **CodeRabbit**, **Codex / chatgpt-codex-connector**, or human.
 - `gh pr view <N> --comments` and `gh pr checks <N>` — failing checks vs review findings.
@@ -77,17 +77,17 @@ you need evidence outside the surfaced inbox (see `review--github-thread-api.md`
 
 ### 0. Local work gate (uncommitted changes)
 
-If `observation.signals.git.working_tree_clean` is `false` (from `rgd context build` or `rgd observe`):
+If `observation.signals.git.working_tree_clean` is `false` (from `rgd context build --compact` or `rgd observe`):
 
 1. Run [`change-inspect.md`](change-inspect.md) against **committed delta + staged + unstaged** (same dimensions as pre-PR in `review--self-inspection.md`, scoped to the incremental change).
 2. **Commit** fixes with `Refs: #<issue>` (no amend+force-push on the PR head).
-3. Re-run `rgd context build` (or `rgd observe`) to refresh signals before continuing below.
+3. Re-run `rgd context build --compact` (or `rgd observe github reviews --view inbox` / `--view summary`) to refresh signals before continuing below.
 
 This keeps review-sourced fixes inspected and committed before disposition-heavy steps. Full pattern: [`../knowledge/review--incremental-fix-flow.md`](../knowledge/review--incremental-fix-flow.md).
 
 ### 0.5 CodeRabbit duplicate-comment suppression (`duplicate_findings_detected`)
 
-After `rgd context build` / `rgd observe github reviews`, check `observation.signals.github.reviews.bot_review_diagnostics.duplicate_findings_detected`.
+After `rgd context build --compact` / `rgd observe github reviews --view inbox`, check `observation.signals.github.reviews.bot_review_diagnostics.duplicate_findings_detected`.
 
 When **true**, CodeRabbit’s latest `PullRequestReview` body listed one or more findings under **♻️ Duplicate comments (N)** — meaning the bot detected the same issue again but **did not open new inline threads** (deduplication). That is **not** evidence the issue was fixed; it often means a prior thread was resolved while the underlying problem remained.
 

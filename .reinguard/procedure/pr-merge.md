@@ -31,7 +31,7 @@ escalate_when: Checks red, threads unresolved, or policy exception required.
 **Merge readiness (substrate):** structured check before merge. From repo root with `rgd` on PATH:
 
 ```bash
-rgd observe > /tmp/obs.json
+rgd observe --view summary > /tmp/obs.json
 rgd guard eval --observation-file /tmp/obs.json merge-readiness
 ```
 
@@ -40,14 +40,15 @@ This guard does **not** prove that non-thread findings from the current PR
 review cycle have been dispositioned; that remains part of review closure
 per [`../policy/review--consensus-protocol.md`](../policy/review--consensus-protocol.md).
 
-Optional full pipeline: `rgd context build` (observe → state → route → guard → knowledge entries).
+Optional composed pipeline: `rgd context build --compact` (observe → state → route → guard → knowledge entries).
+Use `rgd context build` (without `--compact`) only when full nested observation payload is required.
 
 **Cross-check:** `gh pr checks <N>` (especially **`ci-pass`**) and `gh pr view <N>` for mergeable state and branch protection (guard may not mirror every GitHub rule).
 
 **Bot review status:** Verify required bots are terminal before merge:
 
 ```bash
-rgd context build | jq '.observation.signals.github.reviews.bot_review_diagnostics'
+rgd context build --compact | jq '.observation.signals.github.reviews.bot_review_diagnostics'
 ```
 
 `bot_review_pending` must be **false**, `bot_review_terminal` must be **true**, and `bot_review_failed` must be **false**. If pending is true, the FSM state should be `waiting_bot_*` — follow `wait-bot-review.md` instead. If terminal is false or failed is true, do **not** merge.

@@ -41,7 +41,23 @@ func applyCoderabbitStatusClassBasis(status map[string]any, enrich []string) {
 	status["status_class_basis"] = basis
 }
 
-const prContextQuery = `query PRContext($owner: String!, $name: String!, $number: Int!, $cursor: String, $includeDetail: Boolean!) {
+// Supported review facet views.
+const (
+	ReviewViewSummary = "summary"
+	ReviewViewInbox   = "inbox"
+	ReviewViewFull    = "full"
+)
+
+const prContextQuery = `query PRContext(
+  $owner: String!,
+  $name: String!,
+  $number: Int!,
+  $cursor: String,
+  $includeDetail: Boolean!,
+  $includeSummary: Boolean!,
+  $includeReviewInbox: Boolean!,
+  $includeComments: Boolean!
+) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $number) {
       state @include(if: $includeDetail)
@@ -51,7 +67,7 @@ const prContextQuery = `query PRContext($owner: String!, $name: String!, $number
       mergeStateStatus @include(if: $includeDetail)
       baseRefName @include(if: $includeDetail)
       headRefName @include(if: $includeDetail)
-      headRefOid @include(if: $includeDetail)
+      headRefOid
       headRepository @include(if: $includeDetail) {
         name
         owner { login }
@@ -62,7 +78,7 @@ const prContextQuery = `query PRContext($owner: String!, $name: String!, $number
       closingIssuesReferences(first: 20) @include(if: $includeDetail) {
         nodes { number }
       }
-      latestReviews(first: 100) @include(if: $includeDetail) {
+      latestReviews(first: 100) @include(if: $includeSummary) {
         nodes {
           state
           body
@@ -73,7 +89,7 @@ const prContextQuery = `query PRContext($owner: String!, $name: String!, $number
           hasNextPage
         }
       }
-      comments(last: 100) @include(if: $includeDetail) {
+      comments(last: 100) @include(if: $includeComments) {
         pageInfo {
           hasPreviousPage
           startCursor
@@ -93,7 +109,7 @@ const prContextQuery = `query PRContext($owner: String!, $name: String!, $number
           id
           isResolved
           isOutdated
-          comments(first: 1) {
+          comments(first: 1) @include(if: $includeReviewInbox) {
             nodes {
               databaseId
               body
@@ -276,6 +292,19 @@ type CollectOptions struct {
 	Now *time.Time
 }
 
+func normalizeReviewView(view string) string {
+	switch strings.TrimSpace(view) {
+	case "", ReviewViewFull:
+		return ReviewViewFull
+	case ReviewViewSummary:
+		return ReviewViewSummary
+	case ReviewViewInbox:
+		return ReviewViewInbox
+	default:
+		return ReviewViewFull
+	}
+}
+
 // Collect returns pull-request detail fields to merge into signals.github.pull_requests and
 // the inner map for signals.github.reviews. pullDetail is nil when there is nothing to merge.
 // reviewsInner is always non-nil when err is nil (empty maps on PR≤0 or missing PR).
@@ -285,25 +314,39 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo string, prNum
 
 // CollectWithOptions is like Collect but accepts optional opts (e.g. fixed clock for tests).
 func CollectWithOptions(ctx context.Context, c *githubapi.Client, owner, repo string, prNumber int, bots []BotReviewer, opts *CollectOptions) (pullDetail map[string]any, reviewsInner map[string]any, err error) {
+	return collectWithView(ctx, c, owner, repo, prNumber, bots, ReviewViewFull, true, opts)
+}
+
+// CollectReviewsWithView returns only the github.reviews subtree for summary/inbox/full polling.
+// Valid view values are ReviewViewSummary ("summary"), ReviewViewInbox ("inbox"), and
+// ReviewViewFull ("full"); unknown values default to full. The summary view omits
+// review_inbox and conversation_comments, and the inbox view omits conversation_comments.
+func CollectReviewsWithView(ctx context.Context, c *githubapi.Client, owner, repo string, prNumber int, bots []BotReviewer, view string) (map[string]any, error) {
+	_, reviewsInner, err := collectWithView(ctx, c, owner, repo, prNumber, bots, view, false, nil)
+	return reviewsInner, err
+}
+
+func collectWithView(ctx context.Context, c *githubapi.Client, owner, repo string, prNumber int, bots []BotReviewer, view string, includePullDetail bool, opts *CollectOptions) (pullDetail map[string]any, reviewsInner map[string]any, err error) {
 	if c == nil {
 		return nil, nil, fmt.Errorf("nil client")
 	}
-	reviewsInner = emptyReviewsInner()
+	view = normalizeReviewView(view)
+	reviewsInner = emptyReviewsInner(view)
 	if prNumber <= 0 {
 		return nil, reviewsInner, nil
 	}
-	firstPR, inbox, total, unresolved, incomplete, err := paginatePRContext(ctx, c, owner, repo, prNumber)
+	needComments := includePullDetail || len(bots) > 0 || view == ReviewViewFull
+	firstPR, inbox, total, unresolved, incomplete, err := paginatePRContext(ctx, c, owner, repo, prNumber, includePullDetail, view != ReviewViewSummary, needComments)
 	if err != nil {
 		return nil, nil, err
 	}
 	if firstPR == nil {
 		return nil, reviewsInner, nil
 	}
-	now := time.Now()
-	if opts != nil && opts.Now != nil {
-		now = opts.Now.UTC()
+	now := nowFromCollectOptions(opts)
+	if includePullDetail {
+		pullDetail = buildPullDetail(firstPR)
 	}
-	pullDetail = buildPullDetail(firstPR)
 	decisions := buildReviewDecisions(firstPR.LatestReviews)
 	for k, v := range decisions {
 		reviewsInner[k] = v
@@ -311,38 +354,69 @@ func CollectWithOptions(ctx context.Context, c *githubapi.Client, owner, repo st
 	reviewsInner["review_threads_total"] = total
 	reviewsInner["review_threads_unresolved"] = unresolved
 	reviewsInner["pagination_incomplete"] = incomplete
-	if inbox == nil {
-		inbox = []any{}
+	if v, ok := reviewInboxForView(view, inbox); ok {
+		reviewsInner["review_inbox"] = v
 	}
-	reviewsInner["review_inbox"] = inbox
 	commentNodes, conversationIncomplete, err := mergeCommentNodesForBots(ctx, c, owner, repo, prNumber, firstPR.Comments, bots)
 	if err != nil {
 		return nil, nil, err
 	}
-	reviewsInner["conversation_comments"] = buildConversationCommentsReadModel(commentNodes)
+	if v, ok := conversationCommentsForView(view, commentNodes); ok {
+		reviewsInner["conversation_comments"] = v
+	}
 	reviewsInner["conversation_comments_incomplete"] = conversationIncomplete
 	statusList := buildBotReviewerStatus(firstPR, bots, commentNodes, now)
 	reviewsInner["bot_reviewer_status"] = statusList
-	var headSHA string
-	if firstPR.HeadRefOid != nil {
-		headSHA = *firstPR.HeadRefOid
-	}
+	headSHA := headRefOIDFromPR(firstPR)
 	reviewsInner["bot_review_diagnostics"] = ComputeBotReviewDiagnostics(statusList, headSHA, conversationIncomplete)
 	return pullDetail, reviewsInner, nil
 }
 
+func nowFromCollectOptions(opts *CollectOptions) time.Time {
+	if opts != nil && opts.Now != nil {
+		return opts.Now.UTC()
+	}
+	return time.Now().UTC()
+}
+
+// reviewInboxForView returns the review_inbox payload for the given view.
+// The boolean is false when the contract says the key must be omitted (summary view),
+// so callers can skip setting it instead of emitting an empty array.
+func reviewInboxForView(view string, inbox []any) ([]any, bool) {
+	if view == ReviewViewSummary {
+		return nil, false
+	}
+	if inbox == nil {
+		return []any{}, true
+	}
+	return inbox, true
+}
+
+// conversationCommentsForView returns the conversation_comments payload for the given view.
+// The boolean is false when the contract says the key must be omitted (summary / inbox views).
+func conversationCommentsForView(view string, nodes []prCommentNode) ([]any, bool) {
+	if view != ReviewViewFull {
+		return nil, false
+	}
+	return buildConversationCommentsReadModel(nodes), true
+}
+
 // paginatePRContext walks review-thread GraphQL pages until the inbox is complete or the
 // page budget is hit; incomplete is true when older thread pages were not fetched.
-func paginatePRContext(ctx context.Context, c *githubapi.Client, owner, repo string, prNumber int) (firstPR *prPullRequestNode, inbox []any, total, unresolved int, incomplete bool, err error) {
+func paginatePRContext(ctx context.Context, c *githubapi.Client, owner, repo string, prNumber int, includePullDetail bool, includeReviewInbox bool, includeComments bool) (firstPR *prPullRequestNode, inbox []any, total, unresolved int, incomplete bool, err error) {
 	var cursor any
 	for page := 0; page < maxReviewThreadPages; page++ {
-		includeDetail := page == 0
+		includeDetail := page == 0 && includePullDetail
+		includeSummary := page == 0
 		vars := map[string]any{
-			"owner":         owner,
-			"name":          repo,
-			"number":        prNumber,
-			"cursor":        cursor,
-			"includeDetail": includeDetail,
+			"owner":              owner,
+			"name":               repo,
+			"number":             prNumber,
+			"cursor":             cursor,
+			"includeDetail":      includeDetail,
+			"includeSummary":     includeSummary,
+			"includeReviewInbox": includeReviewInbox,
+			"includeComments":    page == 0 && includeComments,
 		}
 		var data prContextResponse
 		if err := c.PostGraphQL(ctx, prContextQuery, vars, &data); err != nil {
@@ -352,7 +426,7 @@ func paginatePRContext(ctx context.Context, c *githubapi.Client, owner, repo str
 			return nil, nil, 0, 0, false, nil
 		}
 		pr := data.Repository.PullRequest
-		if includeDetail {
+		if page == 0 {
 			firstPR = pr
 		}
 		rt := pr.ReviewThreads
@@ -386,13 +460,13 @@ func paginatePRContext(ctx context.Context, c *githubapi.Client, owner, repo str
 }
 
 // emptyReviewsInner returns a zeroed github.reviews subtree used when no PR exists.
-func emptyReviewsInner() map[string]any {
-	return map[string]any{
+// Keys are emitted per the view contract in docs/cli.md: review_inbox is present in
+// inbox / full only, and conversation_comments is present in full only.
+func emptyReviewsInner(view string) map[string]any {
+	out := map[string]any{
 		"review_threads_total":               0,
 		"review_threads_unresolved":          0,
 		"pagination_incomplete":              false,
-		"review_inbox":                       []any{},
-		"conversation_comments":              []any{},
 		"conversation_comments_incomplete":   false,
 		"review_decisions_total":             0,
 		"review_decisions_approved":          0,
@@ -403,12 +477,21 @@ func emptyReviewsInner() map[string]any {
 			"bot_review_completed":        true,
 			"bot_review_pending":          false,
 			"bot_review_terminal":         true,
+			"bot_review_blocked":          false,
+			"bot_review_block_reason":     "",
 			"bot_review_failed":           false,
 			"bot_review_stale":            false,
 			"duplicate_findings_detected": false,
 			"non_thread_findings_present": false,
 		},
 	}
+	if view != ReviewViewSummary {
+		out["review_inbox"] = []any{}
+	}
+	if view == ReviewViewFull {
+		out["conversation_comments"] = []any{}
+	}
+	return out
 }
 
 // applyHeadRepositorySignals copies fork head owner/name from GraphQL into pull-request signals.

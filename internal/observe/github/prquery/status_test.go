@@ -4,30 +4,40 @@ import (
 	"testing"
 )
 
+func assertDiagBool(t *testing.T, got map[string]any, key string, want bool) {
+	t.Helper()
+	g, ok := got[key].(bool)
+	if !ok {
+		t.Fatalf("%s: expected bool, got %T in %+v", key, got[key], got)
+	}
+	if g != want {
+		t.Fatalf("%s: got %v, want %v", key, g, want)
+	}
+}
+
+func assertDiagString(t *testing.T, got map[string]any, key, want string) {
+	t.Helper()
+	g, ok := got[key].(string)
+	if !ok {
+		t.Fatalf("%s: expected string, got %T in %+v", key, got[key], got)
+	}
+	if g != want {
+		t.Fatalf("%s: got %q, want %q", key, g, want)
+	}
+}
+
 func TestComputeBotReviewDiagnostics_vacuousNoRequired(t *testing.T) {
 	t.Parallel()
 	got := ComputeBotReviewDiagnostics([]any{}, "abc123", false)
-	if g, ok := got["bot_review_completed"].(bool); !ok || !g {
-		t.Fatalf("completed: %+v", got)
-	}
-	if g, ok := got["bot_review_pending"].(bool); !ok || g {
-		t.Fatalf("pending: %+v", got)
-	}
-	if g, ok := got["bot_review_terminal"].(bool); !ok || !g {
-		t.Fatalf("terminal: %+v", got)
-	}
-	if g, ok := got["bot_review_failed"].(bool); !ok || g {
-		t.Fatalf("failed: %+v", got)
-	}
-	if g, ok := got["bot_review_stale"].(bool); !ok || g {
-		t.Fatalf("stale should be false for vacuous: %+v", got)
-	}
-	if g, ok := got["duplicate_findings_detected"].(bool); !ok || g {
-		t.Fatalf("duplicate_findings_detected should be false for vacuous: %+v", got)
-	}
-	if g, ok := got["non_thread_findings_present"].(bool); !ok || g {
-		t.Fatalf("non_thread_findings_present should be false for vacuous: %+v", got)
-	}
+	assertDiagBool(t, got, "bot_review_completed", true)
+	assertDiagBool(t, got, "bot_review_pending", false)
+	assertDiagBool(t, got, "bot_review_terminal", true)
+	assertDiagBool(t, got, "bot_review_blocked", false)
+	assertDiagString(t, got, "bot_review_block_reason", "")
+	assertDiagBool(t, got, "bot_review_failed", false)
+	assertDiagBool(t, got, "bot_review_stale", false)
+	assertDiagBool(t, got, "duplicate_findings_detected", false)
+	assertDiagBool(t, got, "non_thread_findings_present", false)
 }
 
 func TestComputeBotReviewDiagnostics_requiredPending(t *testing.T) {
@@ -35,18 +45,11 @@ func TestComputeBotReviewDiagnostics_requiredPending(t *testing.T) {
 	got := ComputeBotReviewDiagnostics([]any{
 		map[string]any{"required": true, "status": BotStatusPending},
 	}, "abc123", false)
-	if got["bot_review_completed"].(bool) != false {
-		t.Fatalf("%+v", got)
-	}
-	if got["bot_review_pending"].(bool) != true {
-		t.Fatalf("%+v", got)
-	}
-	if got["bot_review_terminal"].(bool) != false {
-		t.Fatalf("%+v", got)
-	}
-	if got["bot_review_failed"].(bool) != false {
-		t.Fatalf("%+v", got)
-	}
+	assertDiagBool(t, got, "bot_review_completed", false)
+	assertDiagBool(t, got, "bot_review_pending", true)
+	assertDiagBool(t, got, "bot_review_terminal", false)
+	assertDiagBool(t, got, "bot_review_failed", false)
+	assertDiagBool(t, got, "bot_review_blocked", false)
 }
 
 func TestComputeBotReviewDiagnostics_requiredCompleted(t *testing.T) {
@@ -54,15 +57,56 @@ func TestComputeBotReviewDiagnostics_requiredCompleted(t *testing.T) {
 	got := ComputeBotReviewDiagnostics([]any{
 		map[string]any{"required": true, "status": BotStatusCompleted, "review_commit_sha": "abc123"},
 	}, "abc123", false)
-	if got["bot_review_completed"].(bool) != true || got["bot_review_pending"].(bool) != false {
-		t.Fatalf("%+v", got)
-	}
-	if got["bot_review_failed"].(bool) != false || got["bot_review_terminal"].(bool) != true {
-		t.Fatalf("%+v", got)
-	}
-	if got["bot_review_stale"].(bool) != false {
-		t.Fatalf("matching SHA should not be stale: %+v", got)
-	}
+	assertDiagBool(t, got, "bot_review_completed", true)
+	assertDiagBool(t, got, "bot_review_pending", false)
+	assertDiagBool(t, got, "bot_review_terminal", true)
+	assertDiagBool(t, got, "bot_review_failed", false)
+	assertDiagBool(t, got, "bot_review_blocked", false)
+	assertDiagBool(t, got, "bot_review_stale", false)
+}
+
+func TestComputeBotReviewDiagnostics_requiredRateLimitedBlocked(t *testing.T) {
+	t.Parallel()
+	got := ComputeBotReviewDiagnostics([]any{
+		map[string]any{"required": true, "status": BotStatusRateLimited},
+	}, "abc123", false)
+	assertDiagBool(t, got, "bot_review_completed", false)
+	assertDiagBool(t, got, "bot_review_pending", false)
+	assertDiagBool(t, got, "bot_review_terminal", false)
+	assertDiagBool(t, got, "bot_review_blocked", true)
+	assertDiagString(t, got, "bot_review_block_reason", BotStatusRateLimited)
+	assertDiagBool(t, got, "bot_review_failed", false)
+}
+
+func TestComputeBotReviewDiagnostics_requiredReviewPausedBlocked(t *testing.T) {
+	t.Parallel()
+	got := ComputeBotReviewDiagnostics([]any{
+		map[string]any{"required": true, "status": BotStatusReviewPaused},
+	}, "abc123", false)
+	assertDiagBool(t, got, "bot_review_completed", false)
+	assertDiagBool(t, got, "bot_review_pending", false)
+	assertDiagBool(t, got, "bot_review_terminal", false)
+	assertDiagBool(t, got, "bot_review_blocked", true)
+	assertDiagString(t, got, "bot_review_block_reason", BotStatusReviewPaused)
+	assertDiagBool(t, got, "bot_review_failed", false)
+}
+
+func TestComputeBotReviewDiagnostics_requiredMixedBlockedReasons(t *testing.T) {
+	t.Parallel()
+	// Given: two required bots blocked for different reasons (rate-limited + review-paused)
+	// When: ComputeBotReviewDiagnostics aggregates them
+	// Then: blocked=true and reason collapses to "mixed" so downstream guards see a single
+	// non-terminal blocker string; terminal stays false and failed/pending stay false.
+	got := ComputeBotReviewDiagnostics([]any{
+		map[string]any{"required": true, "status": BotStatusRateLimited},
+		map[string]any{"required": true, "status": BotStatusReviewPaused},
+	}, "abc123", false)
+	assertDiagBool(t, got, "bot_review_completed", false)
+	assertDiagBool(t, got, "bot_review_pending", false)
+	assertDiagBool(t, got, "bot_review_terminal", false)
+	assertDiagBool(t, got, "bot_review_blocked", true)
+	assertDiagString(t, got, "bot_review_block_reason", "mixed")
+	assertDiagBool(t, got, "bot_review_failed", false)
 }
 
 func TestComputeBotReviewDiagnostics_requiredCompletedStale(t *testing.T) {
