@@ -866,6 +866,78 @@ func TestCollect_botReviewer_rateLimitAgeClampsToZero(t *testing.T) {
 	}
 }
 
+func TestCollect_botReviewer_rateLimitReviewNoticeDoesNotBecomeCompletedAfterCooldown(t *testing.T) {
+	t.Parallel()
+	// Given: a rate-limit issue comment and a COMMENTED CodeRabbit review whose body is only a rate-limit notice.
+	// When:  Collect runs after the cooldown has already elapsed.
+	// Then:  the bot stays non-terminal instead of falling through has_review -> completed.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"data": map[string]any{
+				"repository": map[string]any{
+					"pullRequest": map[string]any{
+						"state": "OPEN", "isDraft": false, "title": "t",
+						"mergeable": "UNKNOWN", "mergeStateStatus": "UNKNOWN",
+						"baseRefName": "main", "headRefOid": "head-sha",
+						"labels":                  map[string]any{"nodes": []any{}},
+						"closingIssuesReferences": map[string]any{"nodes": []any{}},
+						"latestReviews": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false},
+							"nodes": []any{
+								map[string]any{
+									"state":  "COMMENTED",
+									"body":   "Rate limit exceeded. Please try again in 2 minutes and 5 seconds",
+									"author": map[string]any{"login": "coderabbitai"},
+									"commit": map[string]any{"oid": "head-sha"},
+								},
+							},
+						},
+						"comments": map[string]any{
+							"nodes": []map[string]any{
+								{
+									"author":    map[string]any{"login": "coderabbitai[bot]"},
+									"body":      "Rate limit exceeded. Please try again in 2 minutes and 5 seconds",
+									"updatedAt": "2026-03-27T12:00:00Z",
+								},
+							},
+						},
+						"reviewThreads": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false},
+							"nodes":    []any{},
+						},
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	bots := []BotReviewer{{ID: "coderabbit", Login: "coderabbitai[bot]", Required: true, Enrich: []string{"coderabbit"}}}
+	obsAt := time.Date(2026, 3, 27, 12, 10, 0, 0, time.UTC)
+	_, rev, err := CollectWithOptions(context.Background(), c, "o", "r", 1, bots, &CollectOptions{Now: &obsAt})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := rev["bot_reviewer_status"].([]any)[0].(map[string]any)
+	if got := m["rate_limit_remaining_seconds"].(int); got != 0 {
+		t.Fatalf("want 0 remaining, got %+v", m)
+	}
+	if got := m["status"].(string); got != BotStatusPending {
+		t.Fatalf("want pending after expired cooldown review notice, got %+v", m)
+	}
+	if got := m["status_class_basis"].(string); got != "review_rate_limit_notice" {
+		t.Fatalf("status_class_basis: %+v", m)
+	}
+	diag := rev["bot_review_diagnostics"].(map[string]any)
+	if diag["bot_review_pending"].(bool) != true || diag["bot_review_terminal"].(bool) != false {
+		t.Fatalf("diag: %+v", diag)
+	}
+}
+
 func TestCollect_botReviewer_rateLimitWinsOverNewerAckComment(t *testing.T) {
 	t.Parallel()
 	// Given: an older issue comment with a rate-limit Review Status body and a newer short ack without markers.

@@ -168,6 +168,63 @@ func TestCoderabbitEnrichment_EnrichReviewBody(t *testing.T) {
 	}
 }
 
+func TestCoderabbitEnrichment_EnrichReviewBody_rateLimitNotice(t *testing.T) {
+	t.Parallel()
+	e := coderabbitEnrichment{}
+	// Given/When/Then: review-body rate-limit markers apply only to operational notices,
+	// not to real finding summaries or other bodies that merely contain duration text.
+	tests := []struct {
+		name           string
+		body           string
+		wantNoticeFlag bool
+	}{
+		{
+			name:           "operational_notice",
+			body:           "Rate limit exceeded. Please try again in 2 minutes and 5 seconds",
+			wantNoticeFlag: true,
+		},
+		{
+			name: "actionable_summary_with_duration_text",
+			body: "Actionable review comments (2)\nPlease wait 2 minutes before retrying the flaky test.\n",
+		},
+		{
+			name: "potential_issue_with_duration_text",
+			body: "`foo.go`: _⚠️ Potential issue_\nThis code can block in 2 minutes under load.\n",
+		},
+		{
+			name: "clean_summary_with_stale_wait_text",
+			body: "No issues found.\nPlease wait 2 minutes before merging.\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := e.EnrichReviewBody(tt.body)
+			if tt.wantNoticeFlag {
+				if got == nil {
+					t.Fatal("got nil")
+				}
+				if v, ok := got["cr_review_rate_limit_notice"].(bool); !ok || !v {
+					t.Fatalf("want cr_review_rate_limit_notice=true, got %+v", got)
+				}
+				if v, ok := got["review_rate_limit_notice"].(bool); !ok || !v {
+					t.Fatalf("want review_rate_limit_notice=true, got %+v", got)
+				}
+				return
+			}
+			if got == nil {
+				return
+			}
+			if _, exists := got["review_rate_limit_notice"]; exists {
+				t.Fatalf("unexpected review_rate_limit_notice in %+v", got)
+			}
+			if _, exists := got["cr_review_rate_limit_notice"]; exists {
+				t.Fatalf("unexpected cr_review_rate_limit_notice in %+v", got)
+			}
+		})
+	}
+}
+
 func TestCoderabbitEnrichment_Enrich_providerNeutralIssueCommentAliases(t *testing.T) {
 	t.Parallel()
 	e := coderabbitEnrichment{}
@@ -380,6 +437,8 @@ func TestCoderabbitIssueCommentMaxTier_decisiveStatusesShareTierSix(t *testing.T
 func TestCoderabbitEnrichment_ClassifyStatus_order(t *testing.T) {
 	t.Parallel()
 	e := coderabbitEnrichment{}
+	// Given/When/Then: classify order keeps active cooldown rate-limited, rate-limit review notices
+	// non-terminal after cooldown expiry, and clean markers above generic has_review completion.
 	// Processing is evaluated before active cooldown; both signals need not conflict.
 	if g := e.ClassifyStatus(map[string]any{"contains_rate_limit": true, "cr_review_processing": true}); g != BotStatusPending {
 		t.Fatalf("got %q", g)
@@ -398,6 +457,12 @@ func TestCoderabbitEnrichment_ClassifyStatus_order(t *testing.T) {
 	}
 	if g := e.ClassifyStatus(map[string]any{"has_review": true, "cr_review_completed_clean": true}); g != BotStatusCompletedClean {
 		t.Fatalf("got %q", g)
+	}
+	if g := e.ClassifyStatus(map[string]any{"has_review": true, "cr_review_rate_limit_notice": true, "latest_comment_at": "2026-01-01T00:00:00Z"}); g != BotStatusPending {
+		t.Fatalf("got %q", g)
+	}
+	if s, basis := classifyCoderabbitStatusWithBasis(map[string]any{"has_review": true, "cr_review_rate_limit_notice": true, "latest_comment_at": "2026-01-01T00:00:00Z"}); s != BotStatusPending || basis != "review_rate_limit_notice" {
+		t.Fatalf("basis got %q %q", s, basis)
 	}
 	if g := e.ClassifyStatus(map[string]any{"has_review": true}); g != BotStatusCompleted {
 		t.Fatalf("got %q", g)
