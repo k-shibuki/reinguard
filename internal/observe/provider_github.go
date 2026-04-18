@@ -152,7 +152,7 @@ func parseBotReviewerReviewTriggers(i int, m map[string]any) ([]*regexp.Regexp, 
 		}
 		re, err := regexp.Compile(pat)
 		if err != nil {
-			return nil, fmt.Errorf("github provider: options.bot_reviewers[%d].review_triggers[%d]: %w", i, j, err)
+			return nil, fmt.Errorf("github provider: options.bot_reviewers[%d].review_triggers[%d]: pattern %q: %w", i, j, pat, err)
 		}
 		out = append(out, re)
 	}

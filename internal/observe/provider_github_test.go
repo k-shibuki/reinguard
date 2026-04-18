@@ -409,6 +409,32 @@ func TestGitHubProviderFactory_botReviewers_badReviewTriggerRegex(t *testing.T) 
 	if err == nil {
 		t.Fatal("want error from invalid regexp")
 	}
+	if !strings.Contains(err.Error(), `"("`) {
+		t.Fatalf("want pattern quoted in error, got %v", err)
+	}
+}
+
+func TestGitHubProviderFactory_botReviewers_reviewTriggers_ok(t *testing.T) {
+	t.Parallel()
+	p, err := GitHubProviderFactory(map[string]any{
+		"bot_reviewers": []any{
+			map[string]any{
+				"id": "x", "login": "somebot[bot]", "required": true,
+				"review_triggers": []any{`(?i)@somebot\s+review\b`},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	gp, ok := p.(*GitHubProvider)
+	if !ok || len(gp.BotReviewers) != 1 {
+		t.Fatalf("got %T %+v", p, gp)
+	}
+	tr := gp.BotReviewers[0].ReviewTriggers
+	if len(tr) != 1 || tr[0] == nil || tr[0].String() == "" {
+		t.Fatalf("ReviewTriggers: %+v", tr)
+	}
 }
 
 func TestGitHubProviderFactory_botReviewers_badShape(t *testing.T) {
