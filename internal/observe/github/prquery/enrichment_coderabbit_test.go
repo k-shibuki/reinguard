@@ -171,16 +171,57 @@ func TestCoderabbitEnrichment_EnrichReviewBody(t *testing.T) {
 func TestCoderabbitEnrichment_EnrichReviewBody_rateLimitNotice(t *testing.T) {
 	t.Parallel()
 	e := coderabbitEnrichment{}
-	body := "Rate limit exceeded. Please try again in 2 minutes and 5 seconds"
-	got := e.EnrichReviewBody(body)
-	if got == nil {
-		t.Fatal("got nil")
+	// Given/When/Then: review-body rate-limit markers apply only to operational notices,
+	// not to real finding summaries or other bodies that merely contain duration text.
+	tests := []struct {
+		name           string
+		body           string
+		wantNoticeFlag bool
+	}{
+		{
+			name:           "operational_notice",
+			body:           "Rate limit exceeded. Please try again in 2 minutes and 5 seconds",
+			wantNoticeFlag: true,
+		},
+		{
+			name: "actionable_summary_with_duration_text",
+			body: "Actionable review comments (2)\nPlease wait 2 minutes before retrying the flaky test.\n",
+		},
+		{
+			name: "potential_issue_with_duration_text",
+			body: "`foo.go`: _⚠️ Potential issue_\nThis code can block in 2 minutes under load.\n",
+		},
+		{
+			name: "clean_summary_with_stale_wait_text",
+			body: "No issues found.\nPlease wait 2 minutes before merging.\n",
+		},
 	}
-	if v, ok := got["cr_review_rate_limit_notice"].(bool); !ok || !v {
-		t.Fatalf("want cr_review_rate_limit_notice=true, got %+v", got)
-	}
-	if v, ok := got["review_rate_limit_notice"].(bool); !ok || !v {
-		t.Fatalf("want review_rate_limit_notice=true, got %+v", got)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := e.EnrichReviewBody(tt.body)
+			if tt.wantNoticeFlag {
+				if got == nil {
+					t.Fatal("got nil")
+				}
+				if v, ok := got["cr_review_rate_limit_notice"].(bool); !ok || !v {
+					t.Fatalf("want cr_review_rate_limit_notice=true, got %+v", got)
+				}
+				if v, ok := got["review_rate_limit_notice"].(bool); !ok || !v {
+					t.Fatalf("want review_rate_limit_notice=true, got %+v", got)
+				}
+				return
+			}
+			if got == nil {
+				return
+			}
+			if _, exists := got["review_rate_limit_notice"]; exists {
+				t.Fatalf("unexpected review_rate_limit_notice in %+v", got)
+			}
+			if _, exists := got["cr_review_rate_limit_notice"]; exists {
+				t.Fatalf("unexpected cr_review_rate_limit_notice in %+v", got)
+			}
+		})
 	}
 }
 

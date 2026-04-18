@@ -38,19 +38,22 @@ func (coderabbitEnrichment) EnrichReviewBody(reviewBody string) map[string]any {
 		return nil
 	}
 	out := make(map[string]any)
-	if isCoderabbitRateLimitNotice(body) {
+	duplicateCount := parseCoderabbitDuplicateCount(body)
+	actionableCount := parseCoderabbitActionableCommentsCount(body)
+	outsideDiffCount := parseCoderabbitOutsideDiffCommentsCount(body)
+	if isCoderabbitRateLimitOnlyReviewNotice(body, duplicateCount, actionableCount, outsideDiffCount) {
 		out["review_rate_limit_notice"] = true
 		out["cr_review_rate_limit_notice"] = true
 	}
-	if n := parseCoderabbitDuplicateCount(body); n > 0 {
+	if n := duplicateCount; n > 0 {
 		out["duplicate_findings_count"] = n
 		out["cr_duplicate_findings_count"] = n
 	}
-	if n := parseCoderabbitActionableCommentsCount(body); n > 0 {
+	if n := actionableCount; n > 0 {
 		out["actionable_findings_count"] = n
 		out["cr_actionable_comments_count"] = n
 	}
-	if n := parseCoderabbitOutsideDiffCommentsCount(body); n > 0 {
+	if n := outsideDiffCount; n > 0 {
 		out["outside_diff_findings_count"] = n
 		out["cr_outside_diff_comments_count"] = n
 	}
@@ -60,11 +63,19 @@ func (coderabbitEnrichment) EnrichReviewBody(reviewBody string) map[string]any {
 	return out
 }
 
-func isCoderabbitRateLimitNotice(body string) bool {
-	if parseCoderabbitRateLimitSeconds(body) > 0 {
+func isCoderabbitRateLimitOnlyReviewNotice(body string, duplicateCount, actionableCount, outsideDiffCount int) bool {
+	if duplicateCount > 0 || actionableCount > 0 || outsideDiffCount > 0 {
+		return false
+	}
+	if reCRReviewClean.MatchString(body) || reCRReviewCompleted.MatchString(body) || reCRPotentialIssue.MatchString(body) {
+		return false
+	}
+	if reCRRateLimitNotice.MatchString(body) {
 		return true
 	}
-	return reCRRateLimitNotice.MatchString(body)
+	lower := strings.ToLower(body)
+	return (strings.Contains(lower, "please wait") || strings.Contains(lower, "try again")) &&
+		parseCoderabbitRateLimitSeconds(body) > 0
 }
 
 // parseCoderabbitDuplicateCount extracts N from a "♻️ Duplicate comments (N)" line in a review body.
