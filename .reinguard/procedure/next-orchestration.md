@@ -76,6 +76,19 @@ proposal fingerprint (SHA-256 hex of the newline-terminated fields written by
 `adapter-rgd-next-resume.sh` `compute_proposal_fingerprint`, ADR-0015) — so the
 artifact can later answer **what was approved**.
 
+### Resume eligibility contract
+
+If a later turn wants to reuse that approval continuity, the Adapter MUST
+re-validate it against **fresh observation** before resuming Execute. An
+`active` artifact alone is not sufficient. At minimum, resume stays closed
+unless current branch and `HEAD` still match the approved contract and fresh
+`rgd context build --compact` still resolves to the approved `state_id` (and
+approved `route_id` when one was recorded). Machine-readable diagnostics (for
+example `resume_reason_codes[]`) belong on that Adapter-local decision surface.
+When that re-validation fails, the Adapter does **not** continue Execute from
+continuity; it falls back to a fresh `rgd-next` proposal decision for the
+current observed state.
+
 Obtain **explicit user approval** to execute through that completion condition. **No per-procedure re-approval** after this gate (except Hard Stops and genuine blocks below).
 
 ## Post-approval execution contract
@@ -97,6 +110,10 @@ Adapters may persist this approval continuity locally so the next turn can
 resume the same approved path. Such persistence is **Adapter-local** and must
 not be promoted into substrate workflow state, routes, guards, or
 `gates.<id>.*` signals (ADR-0015).
+The same boundary applies to resume re-validation: the Adapter consumes fresh
+substrate observation as an input to decide whether continuity is still safe,
+but the artifact itself does not become substrate state, route, guard, or
+signal output.
 
 ## Loop semantics (after approval)
 

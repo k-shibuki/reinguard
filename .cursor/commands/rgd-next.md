@@ -11,8 +11,16 @@ artifact:
 bash .reinguard/scripts/adapter-rgd-next-resume.sh status
 ```
 
+Parse the Adapter-local status JSON here (`status`, `resume_eligible`,
+`resume_reason_codes[]`) before running substrate observation. These diagnostics
+come from the Adapter-local resume script, not from `rgd context build`.
+
 If that reports `status: "active"` and `resume_eligible: true`, resume the
 recorded approved Execute path instead of starting a new proposal cycle.
+Resume eligibility conditions, fail-closed behavior, and the
+`resume_reason_codes[]` diagnostic surface are defined in
+[`.reinguard/procedure/next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md)
+§ **Resume eligibility contract** and ADR-0015.
 If it reports `status: "pending_approval"`, a proposal artifact exists for the
 recorded unit but the user has not yet approved Execute; continue with **Propose**
 (do not treat as an approved run). This artifact is **Adapter-local only**
@@ -35,7 +43,7 @@ as substrate workflow position.
 
    (or `go run ./cmd/rgd context build --pr <N>` from repo root).
 
-2. Parse stdout JSON:
+2. Parse `rgd context build` stdout JSON:
    - `state.state_id`, `state.kind`
    - `routes[0].kind`, `routes[0].route_id` (when `routes[0].kind` is `resolved`)
    - `guards` (e.g. `merge-readiness` for summaries during **Execute**)
