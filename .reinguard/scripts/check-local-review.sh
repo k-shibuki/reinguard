@@ -137,24 +137,25 @@ echo "  Config file: $CONFIG_FILE"
 echo "  Supervisor: max ${LOCAL_CR_MAX_WAIT_SEC}s per attempt; heartbeat every ${LOCAL_CR_HEARTBEAT_SEC}s on stderr while running"
 echo
 
-# The last line containing "rate limit exceeded" (case-insensitive). Cooldown is parsed
-# from this line only so unrelated footer text (e.g. "finished in N seconds") cannot
-# satisfy extraction when the rate-limit line itself is unparseable.
-last_rate_limit_line_only() {
+# The last line containing an explicit cooldown instruction (case-insensitive). Retry uses
+# only this line so unrelated footer text (e.g. "finished in N seconds") cannot satisfy
+# extraction when the instruction line itself is unparseable. This avoids depending on
+# CodeRabbit's exact "rate limit" wording as long as the CLI emits try-after hints.
+last_cooldown_instruction_line_only() {
   local text="$1"
   local -a lines
-  local i start=-1
+  local i last=-1
 
   mapfile -t lines <<< "$(printf '%s\n' "$text")"
   for ((i = 0; i < ${#lines[@]}; i++)); do
-    if grep -qi "rate limit exceeded" <<< "${lines[$i]}"; then
-      start=$i
+    if grep -qiE 'try[[:space:]]+after|try[[:space:]]+again[[:space:]]+in|retry[[:space:]]+in' <<< "${lines[$i]}"; then
+      last=$i
     fi
   done
-  if [[ $start -lt 0 ]]; then
+  if [[ $last -lt 0 ]]; then
     return 1
   fi
-  printf '%s\n' "${lines[$start]}"
+  printf '%s\n' "${lines[$last]}"
 }
 
 # Parse hours/minutes/seconds from a single rate-limit snippet (one CLI message block).
@@ -164,12 +165,13 @@ extract_rate_limit_seconds() {
 
   lower="$(printf '%s\n' "$text" | tr '[:upper:]' '[:lower:]')"
   parse_target="$lower"
-  if [[ $parse_target == *"try after "* ]]; then
-    parse_target="${parse_target#*try after }"
-  elif [[ $parse_target == *"try again in "* ]]; then
-    parse_target="${parse_target#*try again in }"
-  elif [[ $parse_target == *"retry in "* ]]; then
-    parse_target="${parse_target#*retry in }"
+  # Strip the longest matching cooldown prefix (flexible whitespace in CLI text).
+  if [[ $parse_target =~ try[[:space:]]+after[[:space:]]+(.*) ]]; then
+    parse_target="${BASH_REMATCH[1]}"
+  elif [[ $parse_target =~ try[[:space:]]+again[[:space:]]+in[[:space:]]+(.*) ]]; then
+    parse_target="${BASH_REMATCH[1]}"
+  elif [[ $parse_target =~ retry[[:space:]]+in[[:space:]]+(.*) ]]; then
+    parse_target="${BASH_REMATCH[1]}"
   fi
   hours=0
   minutes=0
@@ -261,34 +263,52 @@ while true; do
   fi
 
   REVIEW_OUTPUT_CLEAN="$(strip_ansi_cr "$REVIEW_OUTPUT")"
-  if grep -qi "rate limit exceeded" <<< "$REVIEW_OUTPUT_CLEAN"; then
-    if [[ $RETRY_ON_RATE_LIMIT -eq 1 && $attempt -lt $max_attempts ]]; then
-      LATEST_RL_LINE=""
-      if LATEST_RL_LINE="$(last_rate_limit_line_only "$REVIEW_OUTPUT_CLEAN")"; then
-        wait_seconds=""
-        if wait_seconds="$(extract_rate_limit_seconds "$LATEST_RL_LINE")" && [[ "$wait_seconds" =~ ^[0-9]+$ ]]; then
-          total_sleep=$((wait_seconds + RATE_LIMIT_RETRY_BUFFER_SEC))
-          echo "" >&2
-          echo "Rate limit detected on attempt ${attempt}/${max_attempts} (using latest rate-limit line from this CLI run only; ignoring earlier text)." >&2
-          echo "Parsed cooldown: ${wait_seconds}s; safety buffer: ${RATE_LIMIT_RETRY_BUFFER_SEC}s; sleeping ${total_sleep}s before one automatic retry..." >&2
-          sleep "$total_sleep"
-          echo "Retrying CodeRabbit local review (attempt $((attempt + 1))/${max_attempts})..." >&2
-          attempt=$((attempt + 1))
-          continue
-        fi
-      fi
-      echo "ERROR: CodeRabbit CLI reported rate limit but cooldown could not be parsed from the latest rate-limit line in this CLI run. Re-run after cooldown or check CLI output." >&2
-      exit 2
-    else
-      if [[ $RETRY_ON_RATE_LIMIT -eq 1 && $attempt -eq $max_attempts ]]; then
-        echo "ERROR: CodeRabbit CLI is rate limited again after automatic retry (second consecutive). Wait for the reported cooldown and rerun manually." >&2
-      else
-        echo "ERROR: CodeRabbit CLI is rate limited. Pass --retry-on-rate-limit for one automatic cooldown wait, or wait and rerun manually." >&2
-      fi
-    fi
-  else
-    echo "ERROR: CodeRabbit local review failed. Resolve the CLI error and rerun before PR creation." >&2
+
+  LATEST_COOLDOWN_LINE=""
+  has_cooldown_line=0
+  if LATEST_COOLDOWN_LINE="$(last_cooldown_instruction_line_only "$REVIEW_OUTPUT_CLEAN")"; then
+    has_cooldown_line=1
   fi
+
+  wait_seconds=""
+  parse_ok=0
+  if [[ $has_cooldown_line -eq 1 ]]; then
+    if wait_seconds="$(extract_rate_limit_seconds "$LATEST_COOLDOWN_LINE")" && [[ "$wait_seconds" =~ ^[0-9]+$ ]]; then
+      parse_ok=1
+    fi
+  fi
+
+  if [[ $parse_ok -eq 1 && $RETRY_ON_RATE_LIMIT -eq 1 && $attempt -lt $max_attempts ]]; then
+    total_sleep=$((wait_seconds + RATE_LIMIT_RETRY_BUFFER_SEC))
+    echo "" >&2
+    echo "Cooldown instruction detected on attempt ${attempt}/${max_attempts} (using latest cooldown line from this CLI run only; ignoring earlier text)." >&2
+    echo "Parsed cooldown: ${wait_seconds}s; safety buffer: ${RATE_LIMIT_RETRY_BUFFER_SEC}s; sleeping ${total_sleep}s before one automatic retry..." >&2
+    sleep "$total_sleep"
+    echo "Retrying CodeRabbit local review (attempt $((attempt + 1))/${max_attempts})..." >&2
+    attempt=$((attempt + 1))
+    continue
+  fi
+
+  if [[ $parse_ok -eq 1 ]]; then
+    if [[ $RETRY_ON_RATE_LIMIT -eq 1 && $attempt -eq $max_attempts ]]; then
+      echo "ERROR: CodeRabbit CLI reported a cooldown again after automatic retry (second consecutive). Wait for the reported cooldown and rerun manually." >&2
+    else
+      echo "ERROR: CodeRabbit CLI reported a cooldown (backoff). Pass --retry-on-rate-limit for one automatic cooldown wait, or wait and rerun manually." >&2
+    fi
+    exit 2
+  fi
+
+  if [[ $has_cooldown_line -eq 1 && $RETRY_ON_RATE_LIMIT -eq 1 && $attempt -lt $max_attempts ]]; then
+    echo "ERROR: CodeRabbit CLI output included a cooldown hint but duration could not be parsed from the latest cooldown instruction line in this CLI run. Re-run after cooldown or check CLI output." >&2
+    exit 2
+  fi
+
+  if [[ $RETRY_ON_RATE_LIMIT -eq 1 && $attempt -eq $max_attempts ]]; then
+    echo "ERROR: CodeRabbit local review failed again after automatic retry. Wait for any reported cooldown and rerun manually." >&2
+    exit 2
+  fi
+
+  echo "ERROR: CodeRabbit local review failed. Resolve the CLI error and rerun before PR creation." >&2
   exit 2
 done
 

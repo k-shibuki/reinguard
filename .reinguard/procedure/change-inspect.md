@@ -87,11 +87,12 @@ bash .reinguard/scripts/with-repo-local-state.sh --home-subdir cr-home -- \
   bash .reinguard/scripts/check-local-review.sh --base main --retry-on-rate-limit
 ```
 
-If the CLI reports a rate limit, the script uses the **latest** rate-limit
-line in that run to parse the cooldown, adds a **safety buffer**, then
+If the CLI fails with a parseable cooldown on the **latest** line that
+contains a backoff hint (`try again in`, `try after`, or `retry in`), the
+script uses that line only to parse the wait, adds a **safety buffer**, then
 retries the review **once** (`--retry-on-rate-limit`). Treat
 installation/authentication/execution failures, unparsed cooldown, or a
-second consecutive rate limit, as a failed gate and do not proceed.
+failed second attempt, as a failed gate and do not proceed.
 While the command is running, treat sparse **stdout** from the CLI as normal;
 the script prints **stderr heartbeats** every **30 seconds** and enforces a
 **20-minute** wall-clock cap per attempt (defaults: `LOCAL_CR_HEARTBEAT_SEC`,
