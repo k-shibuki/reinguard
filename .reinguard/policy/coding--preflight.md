@@ -57,13 +57,15 @@ bash .reinguard/scripts/with-repo-local-state.sh --home-subdir cr-home -- \
   `.reinguard/policy/cursor-sandbox.md` (do not commit user-specific absolute
   paths; portable `networkPolicy.allow` entries are documented there).
 - The script standardizes installation/authentication checks and executes
-  the CLI review against the repository's `.coderabbit.yaml`. On a rate
-  limit, it parses the cooldown **only from the latest rate-limit line in
-  that CLI run** (so earlier log text does not affect the wait), adds a
-  small **safety buffer** (default 30s; override with
-  `RATE_LIMIT_RETRY_BUFFER_SEC`), then retries the review **once**
-  automatically. If the cooldown cannot be parsed from that line, or a
-  second consecutive rate limit occurs, treat the gate as failed.
+  the CLI review against the repository's `.coderabbit.yaml`. When the CLI
+  fails, it may retry **once** with `--retry-on-rate-limit` if it can parse a
+  cooldown from the **latest line that contains an explicit backoff hint**
+  (`try again in`, `try after`, or `retry in`) in that run (so earlier log text
+  and unrelated footers such as `finished in N seconds` do not affect the
+  wait). It adds a small **safety buffer** (default 30s; override with
+  `RATE_LIMIT_RETRY_BUFFER_SEC`) before the retry. If no parseable cooldown is
+  found on that line, or the review still fails after that single automatic
+  retry, treat the gate as failed.
 - The script supervises each `coderabbit review` attempt: stderr **heartbeat**
   every **30 seconds** (default `LOCAL_CR_HEARTBEAT_SEC=30`) and a **20-minute**
   wall-clock maximum per attempt (default `LOCAL_CR_MAX_WAIT_SEC=1200`), aligned

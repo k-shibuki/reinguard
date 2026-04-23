@@ -142,7 +142,7 @@ case "$subcmd" in
     ;;
   review)
     cat <<'EOF'
-[2026-04-03T00:00:00Z] ERROR: Rate limit exceeded, please wait for cooldown reset
+[2026-04-03T00:00:00Z] ERROR: Rate limit exceeded, please try after cooldown reset
 EOF
     exit 1
     ;;
@@ -165,12 +165,12 @@ printf '%s\n' "$1" >>"${TEST_SLEEP_FILE:?}"
 	// When: the local review script runs with automatic retry enabled.
 	out, err := runBashScript(t, repo, script, env, "--base", "main", "--retry-on-rate-limit")
 
-	// Then: it stops with a parse failure tied to the latest rate-limit line.
+	// Then: it stops with a parse failure tied to the latest cooldown instruction line.
 	if err == nil {
 		t.Fatalf("expected failure, got success:\n%s", out)
 	}
 	requireExitCode(t, err, 2, out)
-	if !strings.Contains(out, "could not be parsed from the latest rate-limit line") {
+	if !strings.Contains(out, "duration could not be parsed from the latest cooldown instruction line") {
 		t.Fatalf("expected parse failure message, got:\n%s", out)
 	}
 	if _, err := os.Stat(sleepFile); err == nil {
@@ -202,7 +202,7 @@ case "$subcmd" in
     ;;
   review)
     cat <<'EOF'
-[2026-04-03T00:00:00Z] ERROR: Rate limit exceeded, please wait for cooldown reset
+[2026-04-03T00:00:00Z] ERROR: Rate limit exceeded, please try after cooldown reset
 Job finished in 5 seconds
 EOF
     exit 1
@@ -228,7 +228,7 @@ printf '%s\n' "$1" >>"${TEST_SLEEP_FILE:?}"
 		t.Fatalf("expected failure, got success:\n%s", out)
 	}
 	requireExitCode(t, err, 2, out)
-	if !strings.Contains(out, "could not be parsed from the latest rate-limit line") {
+	if !strings.Contains(out, "duration could not be parsed from the latest cooldown instruction line") {
 		t.Fatalf("expected parse failure message, got:\n%s", out)
 	}
 	if _, err := os.Stat(sleepFile); err == nil {
@@ -333,5 +333,145 @@ esac
 	requireExitCode(t, err, 2, out)
 	if !strings.Contains(out, "CodeRabbit CLI is not authenticated") {
 		t.Fatalf("expected unauthenticated error, got:\n%s", out)
+	}
+}
+
+func TestCheckLocalReviewScript_TryAgainInWithoutRateLimitPhraseRetries(t *testing.T) {
+	t.Parallel()
+
+	script := scriptPath(t, "check-local-review.sh")
+	repo := setupLocalReviewRepo(t)
+
+	stubDir := t.TempDir()
+	logFile := filepath.Join(stubDir, "coderabbit.log")
+	countFile := filepath.Join(stubDir, "coderabbit-count.txt")
+	sleepFile := filepath.Join(stubDir, "sleep.log")
+
+	writeExecutable(t, stubDir, "coderabbit", `#!/usr/bin/env bash
+set -euo pipefail
+log_file="${TEST_LOG_FILE:?}"
+count_file="${TEST_COUNT_FILE:?}"
+subcmd="$1"
+shift
+case "$subcmd" in
+  auth)
+    echo "Authentication: logged in"
+    ;;
+  review)
+    count=0
+    if [[ -f "$count_file" ]]; then
+      count=$(cat "$count_file")
+    fi
+    count=$((count + 1))
+    printf '%s\n' "$count" >"$count_file"
+    echo "review attempt $count: $*" >>"$log_file"
+    if [[ $count -eq 1 ]]; then
+      cat <<'EOF'
+Your review has hit the rate limit for this repository. Please try again in 1 minute and 1 second.
+EOF
+      exit 1
+    fi
+    cat <<'EOF'
+Review completed: 0 findings
+EOF
+    ;;
+  *)
+    echo "unexpected subcommand: $subcmd" >&2
+    exit 1
+    ;;
+esac
+`)
+	writeExecutable(t, stubDir, "sleep", `#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$1" >>"${TEST_SLEEP_FILE:?}"
+`)
+
+	env := []string{
+		"PATH=" + stubDir + string(os.PathListSeparator) + os.Getenv("PATH"),
+		"TEST_LOG_FILE=" + logFile,
+		"TEST_COUNT_FILE=" + countFile,
+		"TEST_SLEEP_FILE=" + sleepFile,
+		"RATE_LIMIT_RETRY_BUFFER_SEC=30",
+	}
+
+	out, err := runBashScript(t, repo, script, env, "--base", "main", "--retry-on-rate-limit")
+	if err != nil {
+		t.Fatalf("check-local-review: %v\n%s", err, out)
+	}
+
+	sleepLog, err := os.ReadFile(sleepFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 1 minute + 1 second = 61s cooldown + 30s buffer
+	if got := strings.TrimSpace(string(sleepLog)); got != "91" {
+		t.Fatalf("sleep seconds = %q, want 91", got)
+	}
+	logData, err := os.ReadFile(logFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(string(logData), "review attempt") != 2 {
+		t.Fatalf("expected two review attempts, got log:\n%s", logData)
+	}
+	if !strings.Contains(out, "CodeRabbit local review completed.") {
+		t.Fatalf("expected completion message, got:\n%s", out)
+	}
+}
+
+func TestCheckLocalReviewScript_GeneralFailureWithoutCooldownHintFailsClosed(t *testing.T) {
+	t.Parallel()
+
+	script := scriptPath(t, "check-local-review.sh")
+	repo := setupLocalReviewRepo(t)
+
+	stubDir := t.TempDir()
+	sleepFile := filepath.Join(stubDir, "sleep.log")
+	writeExecutable(t, stubDir, "coderabbit", `#!/usr/bin/env bash
+set -euo pipefail
+subcmd="$1"
+shift
+case "$subcmd" in
+  auth)
+    echo "Authentication: logged in"
+    ;;
+  review)
+    cat <<'EOF'
+ERROR: Something went wrong while contacting the review service.
+EOF
+    exit 1
+    ;;
+  *)
+    exit 1
+    ;;
+esac
+`)
+	writeExecutable(t, stubDir, "sleep", `#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$1" >>"${TEST_SLEEP_FILE:?}"
+`)
+
+	env := []string{
+		"PATH=" + stubDir + string(os.PathListSeparator) + os.Getenv("PATH"),
+		"RATE_LIMIT_RETRY_BUFFER_SEC=30",
+		"TEST_SLEEP_FILE=" + sleepFile,
+	}
+
+	out, err := runBashScript(t, repo, script, env, "--base", "main", "--retry-on-rate-limit")
+	if err == nil {
+		t.Fatalf("expected failure, got success:\n%s", out)
+	}
+	requireExitCode(t, err, 2, out)
+	if !strings.Contains(out, "CodeRabbit local review failed. Resolve the CLI error") {
+		t.Fatalf("expected general failure message, got:\n%s", out)
+	}
+	if _, err := os.Stat(sleepFile); err == nil {
+		sleepLog, readErr := os.ReadFile(sleepFile)
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		t.Fatalf("expected fail-closed behavior without sleep, got sleep log:\n%s", sleepLog)
+	} else if !os.IsNotExist(err) {
+		t.Fatalf("unexpected error checking sleep file: %v", err)
 	}
 }

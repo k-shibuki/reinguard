@@ -42,6 +42,7 @@ artifact_last_recorded_at=""
 artifact_terminal_reason=""
 artifact_terminal_summary=""
 artifact_terminal_recorded_at=""
+status_reason_codes=()
 
 current_branch() {
   local branch
@@ -55,6 +56,21 @@ current_head_sha() {
   printf '%s' "$sha"
 }
 
+reset_status_reason_codes() {
+  status_reason_codes=()
+}
+
+append_status_reason_code() {
+  local code="$1"
+  local existing
+  for existing in ${status_reason_codes[@]+"${status_reason_codes[@]}"}; do
+    if [[ "$existing" == "$code" ]]; then
+      return 0
+    fi
+  done
+  status_reason_codes+=("$code")
+}
+
 compute_proposal_fingerprint() {
   printf '%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n' \
     "$artifact_branch" \
@@ -66,6 +82,105 @@ compute_proposal_fingerprint() {
     "$artifact_ordered_remainder" \
     "$artifact_completion_condition" \
     "$artifact_summary" | sha256sum | awk '{print $1}'
+}
+
+emit_json_string_array() {
+  local key="$1"
+  shift
+  local values=("$@")
+  local i
+  printf '  "%s": [' "$(json_escape "$key")"
+  for i in "${!values[@]}"; do
+    if (( i > 0 )); then
+      printf ', '
+    fi
+    printf '"%s"' "$(json_escape "${values[$i]}")"
+  done
+  printf ']'
+}
+
+build_resume_context_json() {
+  if [[ -n "${REINGUARD_RGD_NEXT_CONTEXT_BUILD_FILE:-}" ]]; then
+    require_file "$REINGUARD_RGD_NEXT_CONTEXT_BUILD_FILE" "resume context file is missing" 2
+    cat "$REINGUARD_RGD_NEXT_CONTEXT_BUILD_FILE"
+    return 0
+  fi
+  if command -v rgd >/dev/null 2>&1; then
+    (
+      cd "$REPO_ROOT" &&
+      rgd context build --compact
+    )
+    return
+  fi
+  if [[ -f "$REPO_ROOT/cmd/rgd/main.go" ]]; then
+    (
+      cd "$REPO_ROOT" &&
+      go run ./cmd/rgd context build --compact
+    )
+    return
+  fi
+  return 1
+}
+
+parse_resume_context_fields() {
+  local raw="$1"
+  python3 -c '
+import json
+import shlex
+import sys
+
+fields = {
+    "fresh_context_parse_error": "",
+    "fresh_state_kind": "",
+    "fresh_state_id": "",
+    "fresh_route_kind": "",
+    "fresh_route_id": "",
+    "fresh_review_trigger_awaiting_ack": "false",
+    "fresh_bot_review_trigger_awaiting_ack": "false",
+}
+
+try:
+    payload = json.load(sys.stdin)
+except Exception as exc:
+    fields["fresh_context_parse_error"] = str(exc)
+else:
+    state = payload.get("state") or {}
+    routes = payload.get("routes") or []
+    route = routes[0] if routes and isinstance(routes[0], dict) else {}
+    signals = (payload.get("observation") or {}).get("signals") or {}
+    github = signals.get("github") or {}
+    reviews = github.get("reviews") or {}
+    fields["fresh_state_kind"] = str(state.get("kind") or "")
+    fields["fresh_state_id"] = str(state.get("state_id") or "")
+    fields["fresh_route_kind"] = str(route.get("kind") or "")
+    fields["fresh_route_id"] = str(route.get("route_id") or "")
+    fields["fresh_review_trigger_awaiting_ack"] = "true" if bool(reviews.get("review_trigger_awaiting_ack")) else "false"
+    fields["fresh_bot_review_trigger_awaiting_ack"] = "true" if bool(reviews.get("bot_review_trigger_awaiting_ack")) else "false"
+
+for key, value in fields.items():
+    print(f"{key}={shlex.quote(value)}")
+' <<<"$raw"
+}
+
+resume_ttl_state() {
+  local approval_at="$1"
+  local ttl_seconds="$2"
+  python3 - "$approval_at" "$ttl_seconds" <<'PY'
+from datetime import datetime, timezone
+import sys
+
+approval_at = sys.argv[1]
+ttl_seconds = int(sys.argv[2])
+
+try:
+    approved = datetime.strptime(approval_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+except ValueError:
+    print("parse_error")
+    raise SystemExit(0)
+
+age = (datetime.now(timezone.utc) - approved).total_seconds()
+print("expired" if age > ttl_seconds else "valid")
+PY
 }
 
 require_positive_integer() {
@@ -192,13 +307,21 @@ emit_status_json() {
     printf '  "current_branch": "%s",\n' "$(json_escape "$current")"
     printf '  "status": "%s",\n' "$(json_escape "$status")"
     printf '  "resume_eligible": %s' "$resume_eligible"
-    if [[ -n "$reason" || -n "$artifact_branch" || -n "$artifact_issue" || -n "$artifact_pr" || -n "$artifact_summary" || -n "$artifact_approval_at" || -n "$artifact_created_at" || -n "$artifact_updated_at" || -n "$artifact_approved_head_sha" || -n "$artifact_last_state" || -n "$artifact_terminal_reason" ]]; then
+    if [[ -n "$reason" || ${#status_reason_codes[@]} -gt 0 || -n "$artifact_branch" || -n "$artifact_issue" || -n "$artifact_pr" || -n "$artifact_summary" || -n "$artifact_approval_at" || -n "$artifact_created_at" || -n "$artifact_updated_at" || -n "$artifact_approved_head_sha" || -n "$artifact_last_state" || -n "$artifact_terminal_reason" ]]; then
       printf ',\n'
     else
       printf '\n'
     fi
     if [[ -n "$reason" ]]; then
       printf '  "reason": "%s"' "$(json_escape "$reason")"
+      if [[ ${#status_reason_codes[@]} -gt 0 || -n "$artifact_branch" || -n "$artifact_issue" || -n "$artifact_pr" || -n "$artifact_summary" || -n "$artifact_approval_at" || -n "$artifact_created_at" || -n "$artifact_updated_at" || -n "$artifact_approved_head_sha" || -n "$artifact_last_state" || -n "$artifact_terminal_reason" ]]; then
+        printf ',\n'
+      else
+        printf '\n'
+      fi
+    fi
+    if [[ ${#status_reason_codes[@]} -gt 0 ]]; then
+      emit_json_string_array "resume_reason_codes" "${status_reason_codes[@]}"
       if [[ -n "$artifact_branch" || -n "$artifact_issue" || -n "$artifact_pr" || -n "$artifact_summary" || -n "$artifact_approval_at" || -n "$artifact_created_at" || -n "$artifact_updated_at" || -n "$artifact_approved_head_sha" || -n "$artifact_last_state" || -n "$artifact_terminal_reason" ]]; then
         printf ',\n'
       else
@@ -470,9 +593,14 @@ finish_cmd() {
 }
 
 status_cmd() {
-  local raw current
+  local raw current current_head current_context status_ttl_seconds ttl_state
+  local fresh_context_parse_error="" fresh_state_kind="" fresh_state_id="" fresh_route_kind="" fresh_route_id=""
+  local fresh_review_trigger_awaiting_ack="false" fresh_bot_review_trigger_awaiting_ack="false"
+  local recomputed_fingerprint=""
   local -a missing=()
   current="$(current_branch)"
+  current_head="$(current_head_sha)"
+  reset_status_reason_codes
 
   artifact_branch=""
   artifact_created_at=""
@@ -496,6 +624,7 @@ status_cmd() {
   artifact_terminal_recorded_at=""
 
   if [[ ! -f "$ARTIFACT_PATH" ]]; then
+    append_status_reason_code "artifact_missing"
     emit_status_json "missing" "false"
     return 0
   fi
@@ -507,30 +636,128 @@ status_cmd() {
     fi
   done
   if (( ${#missing[@]} > 0 )); then
+    append_status_reason_code "artifact_missing_required_keys"
     emit_status_json "invalid" "false" "missing required keys: $(IFS=', '; echo "${missing[*]}")"
     return 0
   fi
 
   load_artifact
   if [[ -z "$artifact_approved_head_sha" || -z "$artifact_approved_state" || -z "$artifact_ordered_remainder" || -z "$artifact_completion_condition" || -z "$artifact_proposal_fingerprint" ]]; then
+    append_status_reason_code "approved_contract_incomplete"
     emit_status_json "invalid" "false" "approved_contract is missing required fields"
     return 0
   fi
   if [[ "$(json_get_string "$raw" "artifact_type")" != "adapter_rgd_next_resume" || "$(json_get_string "$raw" "command")" != "rgd-next" ]]; then
+    append_status_reason_code "artifact_identity_mismatch"
     emit_status_json "invalid" "false" "unexpected artifact_type or command"
     return 0
   fi
   if [[ ( "$artifact_status" == "active" || "$artifact_status" == "pending_approval" ) && -n "$artifact_branch" ]]; then
     if [[ -z "$current" ]]; then
+      append_status_reason_code "detached_head"
       emit_status_json "stale" "false" "detached HEAD"
       return 0
     fi
     if [[ "$artifact_branch" != "$current" ]]; then
+      append_status_reason_code "branch_mismatch"
       emit_status_json "stale" "false" "branch mismatch"
       return 0
     fi
+    append_status_reason_code "branch_match"
   fi
   if [[ "$artifact_status" == "active" ]]; then
+    recomputed_fingerprint="$(compute_proposal_fingerprint)"
+    if [[ "$recomputed_fingerprint" != "$artifact_proposal_fingerprint" ]]; then
+      append_status_reason_code "proposal_fingerprint_mismatch"
+      emit_status_json "invalid" "false" "proposal fingerprint mismatch"
+      return 0
+    fi
+    append_status_reason_code "proposal_fingerprint_match"
+    if [[ -z "$artifact_approval_at" ]]; then
+      append_status_reason_code "approval_record_missing"
+      emit_status_json "invalid" "false" "active artifact is missing approval_recorded_at"
+      return 0
+    fi
+    if [[ -z "$current_head" ]]; then
+      append_status_reason_code "current_head_unavailable"
+      emit_status_json "stale" "false" "current HEAD is unavailable"
+      return 0
+    fi
+    if [[ "$current_head" != "$artifact_approved_head_sha" ]]; then
+      append_status_reason_code "head_mismatch"
+      emit_status_json "stale" "false" "head mismatch"
+      return 0
+    fi
+    append_status_reason_code "head_match"
+    status_ttl_seconds="${REINGUARD_RGD_NEXT_RESUME_TTL_SECONDS:-}"
+    if [[ -n "$status_ttl_seconds" ]]; then
+      if [[ ! "$status_ttl_seconds" =~ ^[0-9]+$ ]] || (( status_ttl_seconds <= 0 )); then
+        append_status_reason_code "ttl_config_invalid"
+        emit_status_json "invalid" "false" "REINGUARD_RGD_NEXT_RESUME_TTL_SECONDS must be a positive integer"
+        return 0
+      fi
+      ttl_state="$(resume_ttl_state "$artifact_approval_at" "$status_ttl_seconds")"
+      if [[ "$ttl_state" == "parse_error" ]]; then
+        append_status_reason_code "approval_record_invalid"
+        emit_status_json "invalid" "false" "approval_recorded_at is not RFC3339 UTC"
+        return 0
+      fi
+      if [[ "$ttl_state" == "expired" ]]; then
+        append_status_reason_code "ttl_expired"
+        emit_status_json "stale" "false" "resume TTL expired"
+        return 0
+      fi
+      append_status_reason_code "ttl_valid"
+    fi
+    if ! current_context="$(build_resume_context_json)"; then
+      append_status_reason_code "fresh_context_unavailable"
+      emit_status_json "stale" "false" "fresh context build failed"
+      return 0
+    fi
+    eval "$(parse_resume_context_fields "$current_context")"
+    if [[ -n "$fresh_context_parse_error" ]]; then
+      append_status_reason_code "fresh_context_invalid"
+      emit_status_json "stale" "false" "fresh context JSON could not be parsed"
+      return 0
+    fi
+    append_status_reason_code "fresh_context_loaded"
+    if [[ "$fresh_state_kind" != "resolved" ]]; then
+      append_status_reason_code "fresh_context_unresolved"
+      emit_status_json "stale" "false" "fresh context state is not resolved"
+      return 0
+    fi
+    append_status_reason_code "state_resolved"
+    if [[ "$fresh_state_id" != "$artifact_approved_state" ]]; then
+      append_status_reason_code "state_mismatch"
+      if [[ "$fresh_review_trigger_awaiting_ack" == "true" ]]; then
+        append_status_reason_code "review_trigger_awaiting_ack_true"
+      fi
+      if [[ "$fresh_bot_review_trigger_awaiting_ack" == "true" ]]; then
+        append_status_reason_code "bot_review_trigger_awaiting_ack_true"
+      fi
+      emit_status_json "stale" "false" "state mismatch"
+      return 0
+    fi
+    append_status_reason_code "state_match"
+    if [[ -n "$artifact_approved_route" ]]; then
+      if [[ "$fresh_route_kind" != "resolved" ]]; then
+        append_status_reason_code "route_unresolved"
+        emit_status_json "stale" "false" "fresh context route is not resolved"
+        return 0
+      fi
+      if [[ "$fresh_route_id" != "$artifact_approved_route" ]]; then
+        append_status_reason_code "route_mismatch"
+        if [[ "$fresh_review_trigger_awaiting_ack" == "true" ]]; then
+          append_status_reason_code "review_trigger_awaiting_ack_true"
+        fi
+        if [[ "$fresh_bot_review_trigger_awaiting_ack" == "true" ]]; then
+          append_status_reason_code "bot_review_trigger_awaiting_ack_true"
+        fi
+        emit_status_json "stale" "false" "route mismatch"
+        return 0
+      fi
+      append_status_reason_code "route_match"
+    fi
     emit_status_json "$artifact_status" "true"
     return 0
   fi

@@ -1,6 +1,7 @@
 package scripttest
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"os/exec"
@@ -28,16 +29,17 @@ type resumeScriptStatus struct {
 		Summary    string `json:"summary"`
 		RecordedAt string `json:"recorded_at"`
 	} `json:"terminal"`
-	ArtifactPath   string `json:"artifact_path"`
-	Status         string `json:"status"`
-	Reason         string `json:"reason"`
-	Branch         string `json:"branch"`
-	CurrentBranch  string `json:"current_branch"`
-	ApprovalAt     string `json:"approval_recorded_at"`
-	CreatedAt      string `json:"created_at"`
-	UpdatedAt      string `json:"updated_at"`
-	IssueNumber    int    `json:"issue_number"`
-	ResumeEligible bool   `json:"resume_eligible"`
+	ArtifactPath      string   `json:"artifact_path"`
+	Status            string   `json:"status"`
+	Reason            string   `json:"reason"`
+	Branch            string   `json:"branch"`
+	CurrentBranch     string   `json:"current_branch"`
+	ApprovalAt        string   `json:"approval_recorded_at"`
+	CreatedAt         string   `json:"created_at"`
+	UpdatedAt         string   `json:"updated_at"`
+	ResumeReasonCodes []string `json:"resume_reason_codes"`
+	IssueNumber       int      `json:"issue_number"`
+	ResumeEligible    bool     `json:"resume_eligible"`
 }
 
 func TestAdapterRgdNextResumeScript_ShellSyntax(t *testing.T) {
@@ -93,7 +95,8 @@ func TestAdapterRgdNextResumeScript_ProposalThenApprove(t *testing.T) {
 	if err != nil {
 		t.Fatalf("approve: %v\n%s", err, approveOut)
 	}
-	activeOut, err := runBashScript(t, repo, script, nil, "status")
+	activeEnv := resumeStatusEnv(t, repo, "working_no_pr", "user-implement", false, false)
+	activeOut, err := runBashScript(t, repo, script, activeEnv, "status")
 	if err != nil {
 		t.Fatalf("status after approve: %v\n%s", err, activeOut)
 	}
@@ -102,6 +105,10 @@ func TestAdapterRgdNextResumeScript_ProposalThenApprove(t *testing.T) {
 	if active.Status != "active" || !active.ResumeEligible || active.ApprovalAt == "" {
 		t.Fatalf("expected active after approve, got %+v", active)
 	}
+	assertHasReasonCode(t, active.ResumeReasonCodes, "branch_match")
+	assertHasReasonCode(t, active.ResumeReasonCodes, "head_match")
+	assertHasReasonCode(t, active.ResumeReasonCodes, "state_match")
+	assertHasReasonCode(t, active.ResumeReasonCodes, "route_match")
 	if active.ApprovedContract.StateID != "working_no_pr" || active.ApprovedContract.RouteID != "user-implement" {
 		t.Fatalf("approved_contract = %+v", active.ApprovedContract)
 	}
@@ -195,6 +202,7 @@ func TestAdapterRgdNextResumeScript_StatusStaleOnDetachedHead(t *testing.T) {
 	if got.Reason != "detached HEAD" {
 		t.Fatalf("reason = %q", got.Reason)
 	}
+	assertHasReasonCode(t, got.ResumeReasonCodes, "detached_head")
 }
 
 func TestAdapterRgdNextResumeScript_SummaryRoundTripWithQuotes(t *testing.T) {
@@ -282,6 +290,7 @@ func TestAdapterRgdNextResumeScript_StatusStaleOnBranchMismatch(t *testing.T) {
 	if got.Reason != "branch mismatch" || got.CurrentBranch != "main" {
 		t.Fatalf("stale metadata = %+v", got)
 	}
+	assertHasReasonCode(t, got.ResumeReasonCodes, "branch_mismatch")
 }
 
 func TestAdapterRgdNextResumeScript_StatusInvalidForMalformedArtifact(t *testing.T) {
@@ -311,9 +320,429 @@ func TestAdapterRgdNextResumeScript_StatusInvalidForMalformedArtifact(t *testing
 	if got.Status != "invalid" || got.ResumeEligible {
 		t.Fatalf("status = %+v", got)
 	}
+	assertHasReasonCode(t, got.ResumeReasonCodes, "artifact_missing_required_keys")
 	if !strings.Contains(got.Reason, "missing required keys") {
 		t.Fatalf("reason = %q", got.Reason)
 	}
+}
+
+func TestAdapterRgdNextResumeScript_StatusStaleOnHeadMismatch(t *testing.T) {
+	t.Parallel()
+
+	script := scriptPath(t, "adapter-rgd-next-resume.sh")
+	repo := setupLocalReviewRepo(t)
+	renameBranch(t, repo, "feature/104")
+
+	startOut, err := runBashScript(t, repo, script, nil,
+		"start",
+		"--branch", "feature/104",
+		"--issue", "104",
+		"--state-id", "working_no_pr",
+		"--route-id", "user-implement",
+		"--ordered-remainder", "implement -> change-inspect -> pr-create",
+		"--completion-condition", "Per-unit Definition of Done",
+	)
+	if err != nil {
+		t.Fatalf("start: %v\n%s", err, startOut)
+	}
+	approveOut, err := runBashScript(t, repo, script, nil, "approve")
+	if err != nil {
+		t.Fatalf("approve: %v\n%s", err, approveOut)
+	}
+	gitEmptyCommit(t, repo)
+
+	statusEnv := resumeStatusEnv(t, repo, "working_no_pr", "user-implement", false, false)
+	statusOut, err := runBashScript(t, repo, script, statusEnv, "status")
+	if err != nil {
+		t.Fatalf("status: %v\n%s", err, statusOut)
+	}
+
+	var got resumeScriptStatus
+	unmarshalJSON(t, statusOut, &got)
+	if got.Status != "stale" || got.ResumeEligible {
+		t.Fatalf("status = %+v", got)
+	}
+	if got.Reason != "head mismatch" {
+		t.Fatalf("reason = %q", got.Reason)
+	}
+	assertHasReasonCode(t, got.ResumeReasonCodes, "branch_match")
+	assertHasReasonCode(t, got.ResumeReasonCodes, "head_mismatch")
+}
+
+func TestAdapterRgdNextResumeScript_StatusStaleOnFreshStateMismatch(t *testing.T) {
+	t.Parallel()
+
+	script := scriptPath(t, "adapter-rgd-next-resume.sh")
+	repo := setupLocalReviewRepo(t)
+	renameBranch(t, repo, "feature/104")
+
+	startOut, err := runBashScript(t, repo, script, nil,
+		"start",
+		"--branch", "feature/104",
+		"--issue", "104",
+		"--state-id", "merge_ready",
+		"--route-id", "user-pr-merge",
+		"--ordered-remainder", "pr-merge -> branch cleanup",
+		"--completion-condition", "Per-unit Definition of Done",
+	)
+	if err != nil {
+		t.Fatalf("start: %v\n%s", err, startOut)
+	}
+	approveOut, err := runBashScript(t, repo, script, nil, "approve")
+	if err != nil {
+		t.Fatalf("approve: %v\n%s", err, approveOut)
+	}
+
+	statusEnv := resumeStatusEnv(t, repo, "waiting_bot_review", "user-wait-bot-review", false, false)
+	statusOut, err := runBashScript(t, repo, script, statusEnv, "status")
+	if err != nil {
+		t.Fatalf("status: %v\n%s", err, statusOut)
+	}
+
+	var got resumeScriptStatus
+	unmarshalJSON(t, statusOut, &got)
+	if got.Status != "stale" || got.ResumeEligible {
+		t.Fatalf("status = %+v", got)
+	}
+	if got.Reason != "state mismatch" {
+		t.Fatalf("reason = %q", got.Reason)
+	}
+	assertHasReasonCode(t, got.ResumeReasonCodes, "branch_match")
+	assertHasReasonCode(t, got.ResumeReasonCodes, "proposal_fingerprint_match")
+	assertHasReasonCode(t, got.ResumeReasonCodes, "head_match")
+	assertHasReasonCode(t, got.ResumeReasonCodes, "fresh_context_loaded")
+	assertHasReasonCode(t, got.ResumeReasonCodes, "state_resolved")
+	assertHasReasonCode(t, got.ResumeReasonCodes, "state_mismatch")
+	assertLacksReasonCode(t, got.ResumeReasonCodes, "state_match")
+	assertLacksReasonCode(t, got.ResumeReasonCodes, "route_match")
+	assertLacksReasonCode(t, got.ResumeReasonCodes, "route_mismatch")
+}
+
+func TestAdapterRgdNextResumeScript_StatusStaleOnRouteMismatch(t *testing.T) {
+	t.Parallel()
+
+	script := scriptPath(t, "adapter-rgd-next-resume.sh")
+	repo := setupLocalReviewRepo(t)
+	renameBranch(t, repo, "feature/104")
+
+	startOut, err := runBashScript(t, repo, script, nil,
+		"start",
+		"--branch", "feature/104",
+		"--issue", "104",
+		"--state-id", "merge_ready",
+		"--route-id", "user-pr-merge",
+		"--ordered-remainder", "pr-merge -> branch cleanup",
+		"--completion-condition", "Per-unit Definition of Done",
+	)
+	if err != nil {
+		t.Fatalf("start: %v\n%s", err, startOut)
+	}
+	approveOut, err := runBashScript(t, repo, script, nil, "approve")
+	if err != nil {
+		t.Fatalf("approve: %v\n%s", err, approveOut)
+	}
+
+	statusEnv := resumeStatusEnv(t, repo, "merge_ready", "user-monitor-pr", false, false)
+	statusOut, err := runBashScript(t, repo, script, statusEnv, "status")
+	if err != nil {
+		t.Fatalf("status: %v\n%s", err, statusOut)
+	}
+
+	var got resumeScriptStatus
+	unmarshalJSON(t, statusOut, &got)
+	if got.Status != "stale" || got.ResumeEligible {
+		t.Fatalf("status = %+v", got)
+	}
+	if got.Reason != "route mismatch" {
+		t.Fatalf("reason = %q", got.Reason)
+	}
+	assertHasReasonCode(t, got.ResumeReasonCodes, "branch_match")
+	assertHasReasonCode(t, got.ResumeReasonCodes, "proposal_fingerprint_match")
+	assertHasReasonCode(t, got.ResumeReasonCodes, "head_match")
+	assertHasReasonCode(t, got.ResumeReasonCodes, "fresh_context_loaded")
+	assertHasReasonCode(t, got.ResumeReasonCodes, "state_resolved")
+	assertHasReasonCode(t, got.ResumeReasonCodes, "state_match")
+	assertHasReasonCode(t, got.ResumeReasonCodes, "route_mismatch")
+	assertLacksReasonCode(t, got.ResumeReasonCodes, "state_mismatch")
+	assertLacksReasonCode(t, got.ResumeReasonCodes, "route_match")
+}
+
+func TestAdapterRgdNextResumeScript_StatusStaleOnFreshContextInvalid(t *testing.T) {
+	t.Parallel()
+
+	script := scriptPath(t, "adapter-rgd-next-resume.sh")
+	repo := setupLocalReviewRepo(t)
+	renameBranch(t, repo, "feature/104")
+
+	startOut, err := runBashScript(t, repo, script, nil,
+		"start",
+		"--branch", "feature/104",
+		"--issue", "104",
+		"--state-id", "working_no_pr",
+		"--route-id", "user-implement",
+		"--ordered-remainder", "implement -> change-inspect -> pr-create",
+		"--completion-condition", "Per-unit Definition of Done",
+	)
+	if err != nil {
+		t.Fatalf("start: %v\n%s", err, startOut)
+	}
+	approveOut, err := runBashScript(t, repo, script, nil, "approve")
+	if err != nil {
+		t.Fatalf("approve: %v\n%s", err, approveOut)
+	}
+
+	contextPath := writeTempFile(t, repo, "resume-context-*.json", "not json")
+	statusEnv := []string{"REINGUARD_RGD_NEXT_CONTEXT_BUILD_FILE=" + contextPath}
+	statusOut, err := runBashScript(t, repo, script, statusEnv, "status")
+	if err != nil {
+		t.Fatalf("status: %v\n%s", err, statusOut)
+	}
+
+	var got resumeScriptStatus
+	unmarshalJSON(t, statusOut, &got)
+	if got.Status != "stale" || got.ResumeEligible {
+		t.Fatalf("status = %+v", got)
+	}
+	if got.Reason != "fresh context JSON could not be parsed" {
+		t.Fatalf("reason = %q", got.Reason)
+	}
+	assertHasReasonCode(t, got.ResumeReasonCodes, "fresh_context_invalid")
+}
+
+func TestAdapterRgdNextResumeScript_StatusInvalidOnApprovedContractIncomplete(t *testing.T) {
+	t.Parallel()
+
+	script := scriptPath(t, "adapter-rgd-next-resume.sh")
+	repo := setupLocalReviewRepo(t)
+	renameBranch(t, repo, "feature/104")
+
+	startOut, err := runBashScript(t, repo, script, nil,
+		"start",
+		"--branch", "feature/104",
+		"--issue", "104",
+		"--state-id", "working_no_pr",
+		"--route-id", "user-implement",
+		"--ordered-remainder", "implement -> change-inspect -> pr-create",
+		"--completion-condition", "Per-unit Definition of Done",
+	)
+	if err != nil {
+		t.Fatalf("start: %v\n%s", err, startOut)
+	}
+	approveOut, err := runBashScript(t, repo, script, nil, "approve")
+	if err != nil {
+		t.Fatalf("approve: %v\n%s", err, approveOut)
+	}
+
+	artifactPath := filepath.Join(repo, ".reinguard", "local", "adapter", "rgd-next", "execute-resume.json")
+	mutateResumeArtifact(t, artifactPath, func(artifact map[string]any) {
+		approved, ok := artifact["approved_contract"].(map[string]any)
+		if !ok {
+			t.Fatalf("approved_contract missing: %+v", artifact)
+		}
+		delete(approved, "ordered_remainder")
+	})
+
+	statusOut, err := runBashScript(t, repo, script, nil, "status")
+	if err != nil {
+		t.Fatalf("status: %v\n%s", err, statusOut)
+	}
+
+	var got resumeScriptStatus
+	unmarshalJSON(t, statusOut, &got)
+	if got.Status != "invalid" || got.ResumeEligible {
+		t.Fatalf("status = %+v", got)
+	}
+	if got.Reason != "approved_contract is missing required fields" {
+		t.Fatalf("reason = %q", got.Reason)
+	}
+	assertHasReasonCode(t, got.ResumeReasonCodes, "approved_contract_incomplete")
+}
+
+func TestAdapterRgdNextResumeScript_StatusInvalidOnArtifactIdentityMismatch(t *testing.T) {
+	t.Parallel()
+
+	script := scriptPath(t, "adapter-rgd-next-resume.sh")
+	repo := setupLocalReviewRepo(t)
+	renameBranch(t, repo, "feature/104")
+
+	startOut, err := runBashScript(t, repo, script, nil,
+		"start",
+		"--branch", "feature/104",
+		"--issue", "104",
+		"--state-id", "working_no_pr",
+		"--route-id", "user-implement",
+		"--ordered-remainder", "implement -> change-inspect -> pr-create",
+		"--completion-condition", "Per-unit Definition of Done",
+	)
+	if err != nil {
+		t.Fatalf("start: %v\n%s", err, startOut)
+	}
+	approveOut, err := runBashScript(t, repo, script, nil, "approve")
+	if err != nil {
+		t.Fatalf("approve: %v\n%s", err, approveOut)
+	}
+
+	artifactPath := filepath.Join(repo, ".reinguard", "local", "adapter", "rgd-next", "execute-resume.json")
+	mutateResumeArtifact(t, artifactPath, func(artifact map[string]any) {
+		artifact["artifact_type"] = "wrong_type"
+	})
+
+	statusOut, err := runBashScript(t, repo, script, nil, "status")
+	if err != nil {
+		t.Fatalf("status: %v\n%s", err, statusOut)
+	}
+
+	var got resumeScriptStatus
+	unmarshalJSON(t, statusOut, &got)
+	if got.Status != "invalid" || got.ResumeEligible {
+		t.Fatalf("status = %+v", got)
+	}
+	if got.Reason != "unexpected artifact_type or command" {
+		t.Fatalf("reason = %q", got.Reason)
+	}
+	assertHasReasonCode(t, got.ResumeReasonCodes, "artifact_identity_mismatch")
+}
+
+func TestAdapterRgdNextResumeScript_StatusStaleOnStateMismatch_EmitsReviewAndBotReviewAwaitingAck(t *testing.T) {
+	t.Parallel()
+
+	script := scriptPath(t, "adapter-rgd-next-resume.sh")
+	repo := setupLocalReviewRepo(t)
+	renameBranch(t, repo, "feature/104")
+
+	startOut, err := runBashScript(t, repo, script, nil,
+		"start",
+		"--branch", "feature/104",
+		"--issue", "104",
+		"--state-id", "merge_ready",
+		"--route-id", "user-pr-merge",
+		"--ordered-remainder", "pr-merge -> branch cleanup",
+		"--completion-condition", "Per-unit Definition of Done",
+	)
+	if err != nil {
+		t.Fatalf("start: %v\n%s", err, startOut)
+	}
+	approveOut, err := runBashScript(t, repo, script, nil, "approve")
+	if err != nil {
+		t.Fatalf("approve: %v\n%s", err, approveOut)
+	}
+
+	statusEnv := resumeStatusEnv(t, repo, "waiting_bot_review", "user-wait-bot-review", true, true)
+	statusOut, err := runBashScript(t, repo, script, statusEnv, "status")
+	if err != nil {
+		t.Fatalf("status: %v\n%s", err, statusOut)
+	}
+
+	var got resumeScriptStatus
+	unmarshalJSON(t, statusOut, &got)
+	if got.Status != "stale" || got.ResumeEligible {
+		t.Fatalf("status = %+v", got)
+	}
+	assertHasReasonCode(t, got.ResumeReasonCodes, "state_mismatch")
+	assertHasReasonCode(t, got.ResumeReasonCodes, "review_trigger_awaiting_ack_true")
+	assertHasReasonCode(t, got.ResumeReasonCodes, "bot_review_trigger_awaiting_ack_true")
+}
+
+func TestAdapterRgdNextResumeScript_StatusStaleOnTTLExpiry(t *testing.T) {
+	t.Parallel()
+
+	script := scriptPath(t, "adapter-rgd-next-resume.sh")
+	repo := setupLocalReviewRepo(t)
+	renameBranch(t, repo, "feature/104")
+
+	startOut, err := runBashScript(t, repo, script, nil,
+		"start",
+		"--branch", "feature/104",
+		"--issue", "104",
+		"--state-id", "working_no_pr",
+		"--route-id", "user-implement",
+		"--ordered-remainder", "implement -> change-inspect -> pr-create",
+		"--completion-condition", "Per-unit Definition of Done",
+	)
+	if err != nil {
+		t.Fatalf("start: %v\n%s", err, startOut)
+	}
+	approveOut, err := runBashScript(t, repo, script, nil, "approve")
+	if err != nil {
+		t.Fatalf("approve: %v\n%s", err, approveOut)
+	}
+
+	artifactPath := filepath.Join(repo, ".reinguard", "local", "adapter", "rgd-next", "execute-resume.json")
+	mutateResumeArtifact(t, artifactPath, func(artifact map[string]any) {
+		if _, ok := artifact["approval_recorded_at"].(string); !ok {
+			t.Fatal("artifact missing or has invalid approval_recorded_at")
+		}
+		artifact["approval_recorded_at"] = "2000-01-01T00:00:00Z"
+	})
+
+	statusEnv := append(
+		resumeStatusEnv(t, repo, "working_no_pr", "user-implement", false, false),
+		"REINGUARD_RGD_NEXT_RESUME_TTL_SECONDS=60",
+	)
+	statusOut, err := runBashScript(t, repo, script, statusEnv, "status")
+	if err != nil {
+		t.Fatalf("status: %v\n%s", err, statusOut)
+	}
+
+	var got resumeScriptStatus
+	unmarshalJSON(t, statusOut, &got)
+	if got.Status != "stale" || got.ResumeEligible {
+		t.Fatalf("status = %+v", got)
+	}
+	if got.Reason != "resume TTL expired" {
+		t.Fatalf("reason = %q", got.Reason)
+	}
+	assertHasReasonCode(t, got.ResumeReasonCodes, "ttl_expired")
+}
+
+func TestAdapterRgdNextResumeScript_StatusInvalidOnProposalFingerprintMismatch(t *testing.T) {
+	t.Parallel()
+
+	script := scriptPath(t, "adapter-rgd-next-resume.sh")
+	repo := setupLocalReviewRepo(t)
+	renameBranch(t, repo, "feature/104")
+
+	startOut, err := runBashScript(t, repo, script, nil,
+		"start",
+		"--branch", "feature/104",
+		"--issue", "104",
+		"--state-id", "working_no_pr",
+		"--route-id", "user-implement",
+		"--ordered-remainder", "implement -> change-inspect -> pr-create",
+		"--completion-condition", "Per-unit Definition of Done",
+	)
+	if err != nil {
+		t.Fatalf("start: %v\n%s", err, startOut)
+	}
+	approveOut, err := runBashScript(t, repo, script, nil, "approve")
+	if err != nil {
+		t.Fatalf("approve: %v\n%s", err, approveOut)
+	}
+
+	artifactPath := filepath.Join(repo, ".reinguard", "local", "adapter", "rgd-next", "execute-resume.json")
+	mutateResumeArtifact(t, artifactPath, func(artifact map[string]any) {
+		approved, ok := artifact["approved_contract"].(map[string]any)
+		if !ok {
+			t.Fatalf("approved_contract missing or wrong type: %+v", artifact)
+		}
+		approved["proposal_fingerprint"] = strings.Repeat("0", 64)
+	})
+
+	statusEnv := resumeStatusEnv(t, repo, "working_no_pr", "user-implement", false, false)
+	statusOut, err := runBashScript(t, repo, script, statusEnv, "status")
+	if err != nil {
+		t.Fatalf("status: %v\n%s", err, statusOut)
+	}
+
+	var got resumeScriptStatus
+	unmarshalJSON(t, statusOut, &got)
+	if got.Status != "invalid" || got.ResumeEligible {
+		t.Fatalf("status = %+v", got)
+	}
+	if got.Reason != "proposal fingerprint mismatch" {
+		t.Fatalf("reason = %q", got.Reason)
+	}
+	assertHasReasonCode(t, got.ResumeReasonCodes, "proposal_fingerprint_mismatch")
 }
 
 func TestAdapterRgdNextResumeScript_FinishValidatesTerminalReason(t *testing.T) {
@@ -436,5 +865,84 @@ func unmarshalJSON(t *testing.T, raw string, target any) {
 	t.Helper()
 	if err := json.Unmarshal([]byte(raw), target); err != nil {
 		t.Fatalf("unmarshal JSON: %v\n%s", err, raw)
+	}
+}
+
+func mutateResumeArtifact(t *testing.T, path string, mutate func(map[string]any)) {
+	t.Helper()
+
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var artifact map[string]any
+	unmarshalJSON(t, string(raw), &artifact)
+	mutate(artifact)
+
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(artifact); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func resumeStatusEnv(t *testing.T, repo, stateID, routeID string, reviewAwaitingAck, botReviewAwaitingAck bool) []string {
+	t.Helper()
+	contextPath := writeTempFile(t, repo, "resume-context-*.json", resumeContextJSON(t, stateID, routeID, reviewAwaitingAck, botReviewAwaitingAck))
+	return []string{"REINGUARD_RGD_NEXT_CONTEXT_BUILD_FILE=" + contextPath}
+}
+
+func resumeContextJSON(t *testing.T, stateID, routeID string, reviewAwaitingAck, botReviewAwaitingAck bool) string {
+	t.Helper()
+	ctx := map[string]any{
+		"state": map[string]any{
+			"kind":     "resolved",
+			"state_id": stateID,
+		},
+		"routes": []any{
+			map[string]any{
+				"kind":     "resolved",
+				"route_id": routeID,
+			},
+		},
+		"observation": map[string]any{
+			"signals": map[string]any{
+				"github": map[string]any{
+					"reviews": map[string]any{
+						"review_trigger_awaiting_ack":     reviewAwaitingAck,
+						"bot_review_trigger_awaiting_ack": botReviewAwaitingAck,
+					},
+				},
+			},
+		},
+	}
+	b, err := json.Marshal(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}
+
+func assertHasReasonCode(t *testing.T, codes []string, want string) {
+	t.Helper()
+	for _, code := range codes {
+		if code == want {
+			return
+		}
+	}
+	t.Fatalf("resume_reason_codes = %v, want %q", codes, want)
+}
+
+func assertLacksReasonCode(t *testing.T, codes []string, unwanted string) {
+	t.Helper()
+	for _, c := range codes {
+		if c == unwanted {
+			t.Fatalf("resume_reason_codes = %v, unexpected %q present", codes, unwanted)
+		}
 	}
 }

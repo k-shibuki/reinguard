@@ -51,10 +51,41 @@ orchestration state, not repository workflow position.
 5. An Adapter implementation (for example the Cursor chat Adapter) checks
    this artifact **before** fresh `rgd-next` proposal logic. The Adapter may
    create a `pending_approval` record **before** the approval gate so unit
-   identity is durable, then transition to `active` after approval. When the
-   artifact says an approved unit is still `active` and matches the current
-   branch, the Adapter resumes Execute instead of starting a new proposal
-   cycle.
+   identity is durable, then transition to `active` after approval.
+   Resume eligibility is a **fresh-evidence** decision, not an artifact-only
+   decision: an `active` artifact may resume Execute **only if** a fresh
+   cross-check still proves the approved proposition.
+   At minimum, the cross-check MUST fail closed unless all of the following
+   still hold:
+   - current branch matches the artifact branch
+   - current `git rev-parse HEAD` matches `approved_contract.head_sha`
+   - fresh `rgd context build --compact` still resolves to the approved
+     `state_id`
+   - when the approved contract recorded a `route_id`, fresh
+     `rgd context build --compact` still resolves to that same `route_id`
+   - any fresh observation-derived signals that materially contribute to the
+     current workflow position do not contradict the approved path. "Materially
+     contribute" means signals whose current values explain or block the fresh
+     resolved `state_id` / `route_id` that the Adapter is about to continue.
+     "Contradict" means either (a) fresh `state_id` / `route_id` no longer
+     equals the approved contract, or (b) a known same-HEAD blocking signal
+     now requires a different path even before a new commit exists. This must
+     stay aligned with ADR-0012 facts in the current schema (for example
+     bot-review facts such as `review_trigger_awaiting_ack` and
+     `bot_review_trigger_awaiting_ack`)
+     Example: if the user approved Execute while
+     `review_trigger_awaiting_ack=false`, then a later same-HEAD
+     `@coderabbitai review` causes fresh observation to report
+     `review_trigger_awaiting_ack=true`, the approved path is contradicted even
+     though `HEAD` did not change and resume must fail closed.
+   - the stored proposal fingerprint still recomputes from the artifact fields
+   An Adapter MAY layer a TTL on top as defense in depth, but TTL alone is not
+   sufficient to authorize resume.
+   The decision surface MUST expose machine-readable diagnostics (for example
+   `resume_reason_codes[]`) and MUST distinguish at least: branch drift, head
+   drift, state / route drift, stale review-trigger facts, malformed artifacts,
+   unavailable fresh context, fingerprint mismatch, and TTL expiry when
+   enabled.
 6. Terminality remains evidence-based per `next-orchestration.md`. The
    artifact is a durable record of the Adapter contract, not an authority
    that overrides procedure semantics.
@@ -100,10 +131,12 @@ not mixed with workspace tool caches under `.tmp/`.
   condition the user approved, not merely that approval happened
 - **Easier**: substrate boundaries stay intact because repo/platform state
   still comes only from `rgd`
+- **Easier**: resume decisions fail closed when fresh observation no longer
+  matches the approved path, including same-HEAD observation drift
 - **Harder**: Adapter commands must explicitly record start / update /
   terminal transitions
-- **Harder**: each Adapter must own its own persistence details instead of
-  delegating continuity to `rgd`
+- **Harder**: each Adapter must own its own persistence details and its own
+  fresh-observation revalidation instead of delegating continuity to `rgd`
 
 ## Refs
 

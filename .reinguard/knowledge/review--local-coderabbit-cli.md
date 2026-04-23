@@ -72,8 +72,10 @@ depending on `~/.coderabbit`.
   `LOCAL_CR_HEARTBEAT_SEC=30`). This matches the **30s / 20m** polling budget
   described for PR-side bot waits in `review--bot-operations.md` (different
   mechanism: subprocess supervision vs `rgd observe` / GitHub polling).
-- Built-in **rate-limit retry** remains: one automatic retry when
-  `--retry-on-rate-limit` is set and the CLI reports a parseable cooldown.
+- Built-in **cooldown retry** remains: one automatic retry when
+  `--retry-on-rate-limit` is set and the CLI failure output includes a
+  parseable duration on the **last** line with an explicit backoff hint
+  (`try again in`, `try after`, or `retry in`).
   The wait is **`parsed_cooldown_seconds + RATE_LIMIT_RETRY_BUFFER_SEC`**
   (default buffer **30s**). PR-side CodeRabbit recovery uses the same
   **`cooldown + 30s`** rule before `@coderabbitai review`; see
@@ -81,8 +83,8 @@ depending on `~/.coderabbit`.
 - Sparse **stdout** from the CLI while it works is **normal**; heartbeats go to
   **stderr** so transcripts stay readable.
 - Only terminal outcomes change control flow: success, explicit CLI failure,
-  supervisor timeout, auth/tooling failure, cooldown parse failure, or second
-  consecutive rate limit (per policy).
+  supervisor timeout, auth/tooling failure, cooldown parse failure, or a failed
+  second attempt after the one automatic retry (per policy).
 - Do not kill the subprocess without positive evidence of hang beyond the
   supervisor limit; the supervisor already bounds worst-case wait.
 - This is a **foreground wait**: a long run or cooldown sleep is **not** failure
