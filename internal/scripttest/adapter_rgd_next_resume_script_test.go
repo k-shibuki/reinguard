@@ -203,6 +203,7 @@ func TestAdapterRgdNextResumeScript_StatusStaleOnDetachedHead(t *testing.T) {
 	if got.Reason != "detached HEAD" {
 		t.Fatalf("reason = %q", got.Reason)
 	}
+	assertHasReasonCode(t, got.ResumeReasonCodes, "detached_head")
 }
 
 func TestAdapterRgdNextResumeScript_SummaryRoundTripWithQuotes(t *testing.T) {
@@ -290,6 +291,7 @@ func TestAdapterRgdNextResumeScript_StatusStaleOnBranchMismatch(t *testing.T) {
 	if got.Reason != "branch mismatch" || got.CurrentBranch != "main" {
 		t.Fatalf("stale metadata = %+v", got)
 	}
+	assertHasReasonCode(t, got.ResumeReasonCodes, "branch_mismatch")
 }
 
 func TestAdapterRgdNextResumeScript_StatusInvalidForMalformedArtifact(t *testing.T) {
@@ -492,11 +494,11 @@ func TestAdapterRgdNextResumeScript_StatusStaleOnTTLExpiry(t *testing.T) {
 	if encodeErr := enc.Encode(artifact); encodeErr != nil {
 		t.Fatal(encodeErr)
 	}
-	if writeErr := os.WriteFile(artifactPath, buf.Bytes(), 0o644); writeErr != nil {
-		t.Fatal(writeErr)
-	}
 	if buf.Len() == 0 {
 		t.Fatal("encoded artifact is empty")
+	}
+	if writeErr := os.WriteFile(artifactPath, buf.Bytes(), 0o644); writeErr != nil {
+		t.Fatal(writeErr)
 	}
 
 	statusEnv := append(
@@ -517,6 +519,73 @@ func TestAdapterRgdNextResumeScript_StatusStaleOnTTLExpiry(t *testing.T) {
 		t.Fatalf("reason = %q", got.Reason)
 	}
 	assertHasReasonCode(t, got.ResumeReasonCodes, "ttl_expired")
+}
+
+func TestAdapterRgdNextResumeScript_StatusInvalidOnProposalFingerprintMismatch(t *testing.T) {
+	t.Parallel()
+
+	script := scriptPath(t, "adapter-rgd-next-resume.sh")
+	repo := setupLocalReviewRepo(t)
+	renameBranch(t, repo, "feature/104")
+
+	startOut, err := runBashScript(t, repo, script, nil,
+		"start",
+		"--branch", "feature/104",
+		"--issue", "104",
+		"--state-id", "working_no_pr",
+		"--route-id", "user-implement",
+		"--ordered-remainder", "implement -> change-inspect -> pr-create",
+		"--completion-condition", "Per-unit Definition of Done",
+	)
+	if err != nil {
+		t.Fatalf("start: %v\n%s", err, startOut)
+	}
+	approveOut, err := runBashScript(t, repo, script, nil, "approve")
+	if err != nil {
+		t.Fatalf("approve: %v\n%s", err, approveOut)
+	}
+
+	artifactPath := filepath.Join(repo, ".reinguard", "local", "adapter", "rgd-next", "execute-resume.json")
+	raw, readErr := os.ReadFile(artifactPath)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	var artifact map[string]any
+	unmarshalJSON(t, string(raw), &artifact)
+	approved, ok := artifact["approved_contract"].(map[string]any)
+	if !ok {
+		t.Fatalf("approved_contract missing or wrong type: %+v", artifact)
+	}
+	approved["proposal_fingerprint"] = strings.Repeat("0", 64)
+
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if encodeErr := enc.Encode(artifact); encodeErr != nil {
+		t.Fatal(encodeErr)
+	}
+	if buf.Len() == 0 {
+		t.Fatal("encoded artifact is empty")
+	}
+	if writeErr := os.WriteFile(artifactPath, buf.Bytes(), 0o644); writeErr != nil {
+		t.Fatal(writeErr)
+	}
+
+	statusEnv := resumeStatusEnv(t, repo, "working_no_pr", "user-implement", false, false)
+	statusOut, err := runBashScript(t, repo, script, statusEnv, "status")
+	if err != nil {
+		t.Fatalf("status: %v\n%s", err, statusOut)
+	}
+
+	var got resumeScriptStatus
+	unmarshalJSON(t, statusOut, &got)
+	if got.Status != "invalid" || got.ResumeEligible {
+		t.Fatalf("status = %+v", got)
+	}
+	if got.Reason != "proposal fingerprint mismatch" {
+		t.Fatalf("reason = %q", got.Reason)
+	}
+	assertHasReasonCode(t, got.ResumeReasonCodes, "proposal_fingerprint_mismatch")
 }
 
 func TestAdapterRgdNextResumeScript_FinishValidatesTerminalReason(t *testing.T) {
