@@ -522,27 +522,13 @@ func TestAdapterRgdNextResumeScript_StatusInvalidOnApprovedContractIncomplete(t 
 	}
 
 	artifactPath := filepath.Join(repo, ".reinguard", "local", "adapter", "rgd-next", "execute-resume.json")
-	raw, readErr := os.ReadFile(artifactPath)
-	if readErr != nil {
-		t.Fatal(readErr)
-	}
-	var artifact map[string]any
-	unmarshalJSON(t, string(raw), &artifact)
-	approved, ok := artifact["approved_contract"].(map[string]any)
-	if !ok {
-		t.Fatalf("approved_contract missing: %+v", artifact)
-	}
-	delete(approved, "ordered_remainder")
-
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	enc.SetEscapeHTML(false)
-	if encodeErr := enc.Encode(artifact); encodeErr != nil {
-		t.Fatal(encodeErr)
-	}
-	if writeErr := os.WriteFile(artifactPath, buf.Bytes(), 0o644); writeErr != nil {
-		t.Fatal(writeErr)
-	}
+	mutateResumeArtifact(t, artifactPath, func(artifact map[string]any) {
+		approved, ok := artifact["approved_contract"].(map[string]any)
+		if !ok {
+			t.Fatalf("approved_contract missing: %+v", artifact)
+		}
+		delete(approved, "ordered_remainder")
+	})
 
 	statusOut, err := runBashScript(t, repo, script, nil, "status")
 	if err != nil {
@@ -585,23 +571,9 @@ func TestAdapterRgdNextResumeScript_StatusInvalidOnArtifactIdentityMismatch(t *t
 	}
 
 	artifactPath := filepath.Join(repo, ".reinguard", "local", "adapter", "rgd-next", "execute-resume.json")
-	raw, readErr := os.ReadFile(artifactPath)
-	if readErr != nil {
-		t.Fatal(readErr)
-	}
-	var artifact map[string]any
-	unmarshalJSON(t, string(raw), &artifact)
-	artifact["artifact_type"] = "wrong_type"
-
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	enc.SetEscapeHTML(false)
-	if encodeErr := enc.Encode(artifact); encodeErr != nil {
-		t.Fatal(encodeErr)
-	}
-	if writeErr := os.WriteFile(artifactPath, buf.Bytes(), 0o644); writeErr != nil {
-		t.Fatal(writeErr)
-	}
+	mutateResumeArtifact(t, artifactPath, func(artifact map[string]any) {
+		artifact["artifact_type"] = "wrong_type"
+	})
 
 	statusOut, err := runBashScript(t, repo, script, nil, "status")
 	if err != nil {
@@ -684,28 +656,12 @@ func TestAdapterRgdNextResumeScript_StatusStaleOnTTLExpiry(t *testing.T) {
 	}
 
 	artifactPath := filepath.Join(repo, ".reinguard", "local", "adapter", "rgd-next", "execute-resume.json")
-	raw, readErr := os.ReadFile(artifactPath)
-	if readErr != nil {
-		t.Fatal(readErr)
-	}
-	var artifact map[string]any
-	unmarshalJSON(t, string(raw), &artifact)
-	if _, ok := artifact["approval_recorded_at"].(string); !ok {
-		t.Fatal("artifact missing or has invalid approval_recorded_at")
-	}
-	artifact["approval_recorded_at"] = "2000-01-01T00:00:00Z"
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	enc.SetEscapeHTML(false)
-	if encodeErr := enc.Encode(artifact); encodeErr != nil {
-		t.Fatal(encodeErr)
-	}
-	if buf.Len() == 0 {
-		t.Fatal("encoded artifact is empty")
-	}
-	if writeErr := os.WriteFile(artifactPath, buf.Bytes(), 0o644); writeErr != nil {
-		t.Fatal(writeErr)
-	}
+	mutateResumeArtifact(t, artifactPath, func(artifact map[string]any) {
+		if _, ok := artifact["approval_recorded_at"].(string); !ok {
+			t.Fatal("artifact missing or has invalid approval_recorded_at")
+		}
+		artifact["approval_recorded_at"] = "2000-01-01T00:00:00Z"
+	})
 
 	statusEnv := append(
 		resumeStatusEnv(t, repo, "working_no_pr", "user-implement", false, false),
@@ -752,30 +708,13 @@ func TestAdapterRgdNextResumeScript_StatusInvalidOnProposalFingerprintMismatch(t
 	}
 
 	artifactPath := filepath.Join(repo, ".reinguard", "local", "adapter", "rgd-next", "execute-resume.json")
-	raw, readErr := os.ReadFile(artifactPath)
-	if readErr != nil {
-		t.Fatal(readErr)
-	}
-	var artifact map[string]any
-	unmarshalJSON(t, string(raw), &artifact)
-	approved, ok := artifact["approved_contract"].(map[string]any)
-	if !ok {
-		t.Fatalf("approved_contract missing or wrong type: %+v", artifact)
-	}
-	approved["proposal_fingerprint"] = strings.Repeat("0", 64)
-
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	enc.SetEscapeHTML(false)
-	if encodeErr := enc.Encode(artifact); encodeErr != nil {
-		t.Fatal(encodeErr)
-	}
-	if buf.Len() == 0 {
-		t.Fatal("encoded artifact is empty")
-	}
-	if writeErr := os.WriteFile(artifactPath, buf.Bytes(), 0o644); writeErr != nil {
-		t.Fatal(writeErr)
-	}
+	mutateResumeArtifact(t, artifactPath, func(artifact map[string]any) {
+		approved, ok := artifact["approved_contract"].(map[string]any)
+		if !ok {
+			t.Fatalf("approved_contract missing or wrong type: %+v", artifact)
+		}
+		approved["proposal_fingerprint"] = strings.Repeat("0", 64)
+	})
 
 	statusEnv := resumeStatusEnv(t, repo, "working_no_pr", "user-implement", false, false)
 	statusOut, err := runBashScript(t, repo, script, statusEnv, "status")
@@ -914,6 +853,29 @@ func unmarshalJSON(t *testing.T, raw string, target any) {
 	t.Helper()
 	if err := json.Unmarshal([]byte(raw), target); err != nil {
 		t.Fatalf("unmarshal JSON: %v\n%s", err, raw)
+	}
+}
+
+func mutateResumeArtifact(t *testing.T, path string, mutate func(map[string]any)) {
+	t.Helper()
+
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var artifact map[string]any
+	unmarshalJSON(t, string(raw), &artifact)
+	mutate(artifact)
+
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(artifact); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, buf.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
 	}
 }
 
