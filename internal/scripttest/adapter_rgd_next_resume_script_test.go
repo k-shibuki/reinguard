@@ -152,7 +152,10 @@ func TestAdapterRgdNextResumeScript_Lifecycle(t *testing.T) {
 	if got.LastIteration.StateID != "waiting_ci" || got.LastIteration.RouteID != "user-wait-ci" {
 		t.Fatalf("last_iteration = %+v", got.LastIteration)
 	}
-	if got.Terminal.Reason != "tooling_session_limit" || got.Terminal.Summary != "context limit reached" {
+	// Issue #132: resumable wait states cannot be terminalized as cannot_proceed /
+	// tooling_session_limit; the lifecycle uses hard_stop with an unrecoverable
+	// external block as evidence.
+	if got.Terminal.Reason != "hard_stop" || got.Terminal.Summary != "github unreachable from runner" {
 		t.Fatalf("terminal = %+v", got.Terminal)
 	}
 	wantPath := filepath.Join(repo, ".reinguard", "local", "adapter", "rgd-next", "execute-resume.json")
@@ -809,6 +812,281 @@ func TestAdapterRgdNextResumeScript_FinishValidatesTerminalReason(t *testing.T) 
 	}
 }
 
+func TestAdapterRgdNextResumeScript_FinishForbidsTerminalStopOnResumableWait(t *testing.T) {
+	t.Parallel()
+
+	// Issue #132 / ADR-0015: allowed_stop with cannot_proceed or tooling_session_limit
+	// must fail closed when fresh `rgd context build --compact` still resolves to a
+	// resumable wait state (waiting_ci or waiting_bot_*). The field failure came from
+	// PR #128 where a rate-limited bot review was closed as allowed_stop/cannot_proceed.
+	tests := []struct {
+		name       string
+		state      string
+		route      string
+		reason     string
+		wantSubstr string
+	}{
+		{
+			name:       "waitingBotRateLimited_cannotProceed",
+			state:      "waiting_bot_rate_limited",
+			route:      "user-wait-bot-quota",
+			reason:     "cannot_proceed",
+			wantSubstr: "fresh state_id 'waiting_bot_rate_limited' is a resumable wait state",
+		},
+		{
+			name:       "waitingBotRateLimited_toolingSessionLimit",
+			state:      "waiting_bot_rate_limited",
+			route:      "user-wait-bot-quota",
+			reason:     "tooling_session_limit",
+			wantSubstr: "fresh state_id 'waiting_bot_rate_limited' is a resumable wait state",
+		},
+		{
+			name:       "waitingCI_cannotProceed",
+			state:      "waiting_ci",
+			route:      "user-wait-ci",
+			reason:     "cannot_proceed",
+			wantSubstr: "fresh state_id 'waiting_ci' is a resumable wait state",
+		},
+		{
+			name:       "waitingCI_toolingSessionLimit",
+			state:      "waiting_ci",
+			route:      "user-wait-ci",
+			reason:     "tooling_session_limit",
+			wantSubstr: "fresh state_id 'waiting_ci' is a resumable wait state",
+		},
+		{
+			name:       "waitingBotPaused_cannotProceed",
+			state:      "waiting_bot_paused",
+			route:      "user-wait-bot-paused",
+			reason:     "cannot_proceed",
+			wantSubstr: "fresh state_id 'waiting_bot_paused' is a resumable wait state",
+		},
+		{
+			name:       "waitingBotPaused_toolingSessionLimit",
+			state:      "waiting_bot_paused",
+			route:      "user-wait-bot-paused",
+			reason:     "tooling_session_limit",
+			wantSubstr: "fresh state_id 'waiting_bot_paused' is a resumable wait state",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			script := scriptPath(t, "adapter-rgd-next-resume.sh")
+			repo := setupLocalReviewRepo(t)
+			renameBranch(t, repo, "feature/132")
+
+			// Given: an approved Execute run on a resumable wait branch
+			startOut, err := runBashScript(t, repo, script, nil,
+				"start",
+				"--branch", "feature/132",
+				"--issue", "132",
+				"--state-id", "working_no_pr",
+				"--route-id", "user-implement",
+				"--ordered-remainder", "implement -> change-inspect -> pr-create",
+				"--completion-condition", "Per-unit Definition of Done",
+			)
+			if err != nil {
+				t.Fatalf("start: %v\n%s", err, startOut)
+			}
+			approveOut, err := runBashScript(t, repo, script, nil, "approve")
+			if err != nil {
+				t.Fatalf("approve: %v\n%s", err, approveOut)
+			}
+
+			// When: finish is attempted as allowed_stop / resumable-wait reason while fresh
+			// observation still reports a resumable wait state
+			finishEnv := resumeStatusEnv(t, repo, tt.state, tt.route, false, false)
+			finishOut, err := runBashScript(t, repo, script, finishEnv,
+				"finish",
+				"--status", "allowed_stop",
+				"--reason", tt.reason,
+				"--summary", "attempted terminalization",
+			)
+
+			// Then: the adapter contract refuses fail-closed and names the resumable wait
+			if err == nil {
+				t.Fatalf("expected fail-closed finish, got success:\n%s", finishOut)
+			}
+			if !strings.Contains(finishOut, tt.wantSubstr) {
+				t.Fatalf("expected refusal to mention %q, got:\n%s", tt.wantSubstr, finishOut)
+			}
+			if !strings.Contains(finishOut, "--reason hard_stop") {
+				t.Fatalf("expected refusal to reference hard_stop escape hatch, got:\n%s", finishOut)
+			}
+		})
+	}
+}
+
+func TestAdapterRgdNextResumeScript_FinishAllowsHardStopOnResumableWait(t *testing.T) {
+	t.Parallel()
+
+	// Issue #132: hard_stop is preserved for genuinely unrecoverable external blocks,
+	// including when the current resolved state is a resumable wait.
+	script := scriptPath(t, "adapter-rgd-next-resume.sh")
+	repo := setupLocalReviewRepo(t)
+	renameBranch(t, repo, "feature/132")
+
+	startOut, err := runBashScript(t, repo, script, nil,
+		"start",
+		"--branch", "feature/132",
+		"--issue", "132",
+		"--state-id", "working_no_pr",
+		"--route-id", "user-implement",
+		"--ordered-remainder", "implement -> change-inspect -> pr-create",
+		"--completion-condition", "Per-unit Definition of Done",
+	)
+	if err != nil {
+		t.Fatalf("start: %v\n%s", err, startOut)
+	}
+	approveOut, err := runBashScript(t, repo, script, nil, "approve")
+	if err != nil {
+		t.Fatalf("approve: %v\n%s", err, approveOut)
+	}
+
+	finishEnv := resumeStatusEnv(t, repo, "waiting_bot_rate_limited", "user-wait-bot-quota", false, false)
+	finishOut, err := runBashScript(t, repo, script, finishEnv,
+		"finish",
+		"--status", "allowed_stop",
+		"--reason", "hard_stop",
+		"--summary", "github unreachable from runner",
+	)
+	if err != nil {
+		t.Fatalf("finish hard_stop: %v\n%s", err, finishOut)
+	}
+
+	var artifact map[string]any
+	unmarshalJSON(t, finishOut, &artifact)
+	if status, _ := artifact["status"].(string); status != "allowed_stop" {
+		t.Fatalf("status = %q, want allowed_stop", status)
+	}
+	terminal, ok := artifact["terminal"].(map[string]any)
+	if !ok {
+		t.Fatalf("terminal missing: %+v", artifact)
+	}
+	if reason, _ := terminal["reason"].(string); reason != "hard_stop" {
+		t.Fatalf("terminal.reason = %q, want hard_stop", reason)
+	}
+}
+
+func TestAdapterRgdNextResumeScript_FinishAllowsAllowedStopReasonsOnNonWaitState(t *testing.T) {
+	t.Parallel()
+
+	// Issue #132: for non-wait FSM states, both cannot_proceed and tooling_session_limit
+	// may still close the artifact; the resumable-wait guard only applies when fresh
+	// observation resolves to waiting_ci / waiting_bot_*.
+	tests := []struct {
+		name   string
+		state  string
+		route  string
+		reason string
+	}{
+		{name: "workingNoPR_cannotProceed", state: "working_no_pr", route: "user-implement", reason: "cannot_proceed"},
+		{name: "workingNoPR_toolingSessionLimit", state: "working_no_pr", route: "user-implement", reason: "tooling_session_limit"},
+		{name: "unresolvedThreads_cannotProceed", state: "unresolved_threads", route: "user-address-review", reason: "cannot_proceed"},
+		{name: "mergeReady_cannotProceed", state: "merge_ready", route: "user-pr-merge", reason: "cannot_proceed"},
+		{name: "mergeReady_toolingSessionLimit", state: "merge_ready", route: "user-pr-merge", reason: "tooling_session_limit"},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			script := scriptPath(t, "adapter-rgd-next-resume.sh")
+			repo := setupLocalReviewRepo(t)
+			renameBranch(t, repo, "feature/132")
+
+			startOut, err := runBashScript(t, repo, script, nil,
+				"start",
+				"--branch", "feature/132",
+				"--issue", "132",
+				"--state-id", "working_no_pr",
+				"--route-id", "user-implement",
+				"--ordered-remainder", "implement -> change-inspect -> pr-create",
+				"--completion-condition", "Per-unit Definition of Done",
+			)
+			if err != nil {
+				t.Fatalf("start: %v\n%s", err, startOut)
+			}
+			approveOut, err := runBashScript(t, repo, script, nil, "approve")
+			if err != nil {
+				t.Fatalf("approve: %v\n%s", err, approveOut)
+			}
+
+			finishEnv := resumeStatusEnv(t, repo, tt.state, tt.route, false, false)
+			finishOut, err := runBashScript(t, repo, script, finishEnv,
+				"finish",
+				"--status", "allowed_stop",
+				"--reason", tt.reason,
+				"--summary", "external credential revoked",
+			)
+			if err != nil {
+				t.Fatalf("finish %s on %s: %v\n%s", tt.reason, tt.state, err, finishOut)
+			}
+
+			var artifact map[string]any
+			unmarshalJSON(t, finishOut, &artifact)
+			terminal, ok := artifact["terminal"].(map[string]any)
+			if !ok {
+				t.Fatalf("terminal missing: %+v", artifact)
+			}
+			if got, _ := terminal["reason"].(string); got != tt.reason {
+				t.Fatalf("terminal.reason = %q, want %q", got, tt.reason)
+			}
+		})
+	}
+}
+
+func TestAdapterRgdNextResumeScript_FinishFailsClosedWhenFreshContextUnavailable(t *testing.T) {
+	t.Parallel()
+
+	// Issue #132: without fresh observation the resumable-wait guard cannot be verified;
+	// allowed_stop with cannot_proceed / tooling_session_limit must fail closed rather than
+	// silently bless the terminalization.
+	script := scriptPath(t, "adapter-rgd-next-resume.sh")
+	repo := setupLocalReviewRepo(t)
+	renameBranch(t, repo, "feature/132")
+
+	startOut, err := runBashScript(t, repo, script, nil,
+		"start",
+		"--branch", "feature/132",
+		"--issue", "132",
+		"--state-id", "working_no_pr",
+		"--route-id", "user-implement",
+		"--ordered-remainder", "implement -> change-inspect -> pr-create",
+		"--completion-condition", "Per-unit Definition of Done",
+	)
+	if err != nil {
+		t.Fatalf("start: %v\n%s", err, startOut)
+	}
+	approveOut, err := runBashScript(t, repo, script, nil, "approve")
+	if err != nil {
+		t.Fatalf("approve: %v\n%s", err, approveOut)
+	}
+
+	// No REINGUARD_RGD_NEXT_CONTEXT_BUILD_FILE override and the minimal test repo has no
+	// cmd/rgd/main.go, so build_resume_context_json fails -> guard must fail closed.
+	finishOut, err := runBashScript(t, repo, script, nil,
+		"finish",
+		"--status", "allowed_stop",
+		"--reason", "cannot_proceed",
+		"--summary", "unverifiable block",
+	)
+	if err == nil {
+		t.Fatalf("expected fail-closed finish without fresh context, got success:\n%s", finishOut)
+	}
+	if !strings.Contains(finishOut, "fresh 'rgd context build --compact' unavailable") {
+		t.Fatalf("expected refusal to reference unavailable fresh context, got:\n%s", finishOut)
+	}
+	if !strings.Contains(finishOut, "--reason hard_stop") {
+		t.Fatalf("expected refusal to reference hard_stop escape hatch, got:\n%s", finishOut)
+	}
+}
+
 func runResumeLifecycleStatus(t *testing.T, repo, script string) resumeScriptStatus {
 	t.Helper()
 
@@ -828,8 +1106,8 @@ func runResumeLifecycleStatus(t *testing.T, repo, script string) resumeScriptSta
 	finishOut, err := runBashScript(t, repo, script, nil,
 		"finish",
 		"--status", "allowed_stop",
-		"--reason", "tooling_session_limit",
-		"--summary", "context limit reached",
+		"--reason", "hard_stop",
+		"--summary", "github unreachable from runner",
 	)
 	if err != nil {
 		t.Fatalf("finish: %v\n%s", err, finishOut)

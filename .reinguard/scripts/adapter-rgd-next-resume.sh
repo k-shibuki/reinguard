@@ -122,6 +122,19 @@ build_resume_context_json() {
   return 1
 }
 
+is_resumable_wait_state() {
+  # Resumable wait states per next-orchestration.md § Allowed stops and
+  # .reinguard/control/states/workflow.yaml. Keep in sync with that SSOT.
+  case "$1" in
+    waiting_ci|waiting_bot_rate_limited|waiting_bot_paused|waiting_bot_stale|waiting_bot_run|waiting_bot_failed)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 parse_resume_context_fields() {
   local raw="$1"
   python3 -c '
@@ -583,6 +596,28 @@ finish_cmd() {
   require_file "$ARTIFACT_PATH" "resume artifact is missing; start must run before finish" 2
   load_artifact
   ensure_artifact_branch_matches_current
+
+  # Resumable-wait guard (Issue #132, ADR-0015, next-orchestration.md § Allowed stops):
+  # allowed_stop with cannot_proceed or tooling_session_limit must not silently terminalize a
+  # resumable wait state. Only hard_stop is permitted for those conditions, and only with a
+  # genuinely unrecoverable external block. hard_stop, dod_satisfied, and scope_revoked do not
+  # need the fresh-observation check because they are not substitutes for a wait/retry procedure.
+  if [[ "$status" == "allowed_stop" && ( "$reason" == "cannot_proceed" || "$reason" == "tooling_session_limit" ) ]]; then
+    local fresh_context fresh_context_parse_error="" fresh_state_kind="" fresh_state_id=""
+    local fresh_route_kind="" fresh_route_id=""
+    local fresh_review_trigger_awaiting_ack="false" fresh_bot_review_trigger_awaiting_ack="false"
+    if ! fresh_context="$(build_resume_context_json)"; then
+      fail_with "finish refused: cannot verify resumable-wait guard — fresh 'rgd context build --compact' unavailable (see next-orchestration.md § Allowed stops). Run it successfully, or use --reason hard_stop with evidence of a genuinely unrecoverable external block." 2
+    fi
+    eval "$(parse_resume_context_fields "$fresh_context")"
+    if [[ -n "$fresh_context_parse_error" ]]; then
+      fail_with "finish refused: fresh 'rgd context build --compact' JSON could not be parsed ($fresh_context_parse_error); cannot verify resumable-wait guard. Re-run substrate observation, or use --reason hard_stop with evidence." 2
+    fi
+    if [[ "$fresh_state_kind" == "resolved" ]] && is_resumable_wait_state "$fresh_state_id"; then
+      fail_with "finish refused: fresh state_id '$fresh_state_id' is a resumable wait state (waiting_ci / waiting_bot_*); allowed_stop with reason '$reason' is forbidden for resumable waits (see next-orchestration.md § Allowed stops). Continue the mapped wait procedure (cooldown + re-trigger) and refresh context, or use --reason hard_stop with evidence of a genuinely unrecoverable external block." 2
+    fi
+  fi
+
   artifact_status="$status"
   artifact_terminal_reason="$reason"
   artifact_terminal_summary="$summary"

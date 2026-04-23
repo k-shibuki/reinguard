@@ -106,6 +106,13 @@ After approval, the agent **must** drive toward **Per-unit Definition of Done** 
 - **Hard Stops** (**HS-***) in [`../policy/safety--agent-invariants.md`](../policy/safety--agent-invariants.md).
 - **Genuine cannot proceed** — missing credentials, org enforcement, unrecoverable GitHub block — report with **evidence** and stop.
 
+**Resumable wait states: do not close as `allowed_stop` with `cannot_proceed` or `tooling_session_limit`.** When fresh `rgd context build --compact` still resolves to one of these **temporary wait** `state_id` values, the run remains on a normative retry path (see [`.reinguard/procedure/wait-bot-review.md`](wait-bot-review.md), [`.reinguard/knowledge/review--bot-operations.md`](../knowledge/review--bot-operations.md)):
+
+- **Wait states (resumable):** `waiting_ci`, `waiting_bot_rate_limited`, `waiting_bot_paused`, `waiting_bot_stale`, `waiting_bot_run`, `waiting_bot_failed` (normative `state_id` SSOT: [`.reinguard/control/states/workflow.yaml`](../control/states/workflow.yaml)).
+- **Forbidden:** `allowed_stop` with reason `cannot_proceed` or `tooling_session_limit` for those resolved states — continue the mapped wait procedure (cooldown + re-trigger), refresh context, then Route again. `tooling_session_limit` is not a substitute for repository-state terminality when observation still resolves to a wait/retry procedure.
+- **When stopping is allowed:** only an **HS-*** (hard stop), or a genuine unrecoverable external failure (for example GitHub itself unreachable, org-level enforcement permanently blocking the required bot) — and only as `allowed_stop` + `hard_stop`, with evidence that names the external block.
+- **Status:** this does **not** introduce a new non-terminal `suspended` status; resumable waits stay on the loop until fresh observation moves the FSM or DoD is met.
+
 Adapters may persist this approval continuity locally so the next turn can
 resume the same approved path. Such persistence is **Adapter-local** and must
 not be promoted into substrate workflow state, routes, guards, or

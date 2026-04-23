@@ -102,6 +102,8 @@ bash .reinguard/scripts/adapter-rgd-next-resume.sh update --state-id <state_id> 
 
 Do **not** treat per-iteration chat as required user-visible output — follow [`.cursor/rules/reinguard-bridge.mdc`](../../.cursor/rules/reinguard-bridge.mdc) § **rgd-next Execute — Cursor chat transcript** for what may appear in the Cursor chat panel. When DoD or an allowed stop is reached, close the artifact with `finish --status ... --reason ...` before returning the final user-facing report.
 
+**Resumable wait stops (normative detail):** [`.reinguard/procedure/next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md) § **Allowed stops**. The `adapter-rgd-next-resume.sh` `finish` subcommand enforces the fail-closed contract using fresh `rgd context build --compact` (ADR-0015); do not duplicate policy here.
+
 ## Guard
 
 - FSM and priorities: [`docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md`](../../docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md)
