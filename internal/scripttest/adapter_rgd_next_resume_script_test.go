@@ -603,7 +603,7 @@ func TestAdapterRgdNextResumeScript_StatusInvalidOnArtifactIdentityMismatch(t *t
 	assertHasReasonCode(t, got.ResumeReasonCodes, "artifact_identity_mismatch")
 }
 
-func TestAdapterRgdNextResumeScript_StatusStaleOnBotReviewAwaitingAck(t *testing.T) {
+func TestAdapterRgdNextResumeScript_StatusStaleOnStateMismatch_EmitsReviewAndBotReviewAwaitingAck(t *testing.T) {
 	t.Parallel()
 
 	script := scriptPath(t, "adapter-rgd-next-resume.sh")
