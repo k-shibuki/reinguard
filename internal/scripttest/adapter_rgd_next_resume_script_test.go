@@ -3,7 +3,6 @@ package scripttest
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -408,9 +407,15 @@ func TestAdapterRgdNextResumeScript_StatusStaleOnFreshStateMismatch(t *testing.T
 	if got.Reason != "state mismatch" {
 		t.Fatalf("reason = %q", got.Reason)
 	}
+	assertHasReasonCode(t, got.ResumeReasonCodes, "branch_match")
+	assertHasReasonCode(t, got.ResumeReasonCodes, "proposal_fingerprint_match")
 	assertHasReasonCode(t, got.ResumeReasonCodes, "head_match")
 	assertHasReasonCode(t, got.ResumeReasonCodes, "fresh_context_loaded")
+	assertHasReasonCode(t, got.ResumeReasonCodes, "state_resolved")
 	assertHasReasonCode(t, got.ResumeReasonCodes, "state_mismatch")
+	assertLacksReasonCode(t, got.ResumeReasonCodes, "state_match")
+	assertLacksReasonCode(t, got.ResumeReasonCodes, "route_match")
+	assertLacksReasonCode(t, got.ResumeReasonCodes, "route_mismatch")
 }
 
 func TestAdapterRgdNextResumeScript_StatusStaleOnRouteMismatch(t *testing.T) {
@@ -451,8 +456,15 @@ func TestAdapterRgdNextResumeScript_StatusStaleOnRouteMismatch(t *testing.T) {
 	if got.Reason != "route mismatch" {
 		t.Fatalf("reason = %q", got.Reason)
 	}
+	assertHasReasonCode(t, got.ResumeReasonCodes, "branch_match")
+	assertHasReasonCode(t, got.ResumeReasonCodes, "proposal_fingerprint_match")
+	assertHasReasonCode(t, got.ResumeReasonCodes, "head_match")
+	assertHasReasonCode(t, got.ResumeReasonCodes, "fresh_context_loaded")
+	assertHasReasonCode(t, got.ResumeReasonCodes, "state_resolved")
 	assertHasReasonCode(t, got.ResumeReasonCodes, "state_match")
 	assertHasReasonCode(t, got.ResumeReasonCodes, "route_mismatch")
+	assertLacksReasonCode(t, got.ResumeReasonCodes, "state_mismatch")
+	assertLacksReasonCode(t, got.ResumeReasonCodes, "route_match")
 }
 
 func TestAdapterRgdNextResumeScript_StatusStaleOnFreshContextInvalid(t *testing.T) {
@@ -881,34 +893,39 @@ func mutateResumeArtifact(t *testing.T, path string, mutate func(map[string]any)
 
 func resumeStatusEnv(t *testing.T, repo, stateID, routeID string, reviewAwaitingAck, botReviewAwaitingAck bool) []string {
 	t.Helper()
-	contextPath := writeTempFile(t, repo, "resume-context-*.json", resumeContextJSON(stateID, routeID, reviewAwaitingAck, botReviewAwaitingAck))
+	contextPath := writeTempFile(t, repo, "resume-context-*.json", resumeContextJSON(t, stateID, routeID, reviewAwaitingAck, botReviewAwaitingAck))
 	return []string{"REINGUARD_RGD_NEXT_CONTEXT_BUILD_FILE=" + contextPath}
 }
 
-func resumeContextJSON(stateID, routeID string, reviewAwaitingAck, botReviewAwaitingAck bool) string {
-	return fmt.Sprintf(`{
-  "state": {
-    "kind": "resolved",
-    "state_id": %q
-  },
-  "routes": [
-    {
-      "kind": "resolved",
-      "route_id": %q
-    }
-  ],
-  "observation": {
-    "signals": {
-      "github": {
-        "reviews": {
-          "review_trigger_awaiting_ack": %t,
-          "bot_review_trigger_awaiting_ack": %t
-        }
-      }
-    }
-  }
-}
-`, stateID, routeID, reviewAwaitingAck, botReviewAwaitingAck)
+func resumeContextJSON(t *testing.T, stateID, routeID string, reviewAwaitingAck, botReviewAwaitingAck bool) string {
+	t.Helper()
+	ctx := map[string]any{
+		"state": map[string]any{
+			"kind":     "resolved",
+			"state_id": stateID,
+		},
+		"routes": []any{
+			map[string]any{
+				"kind":     "resolved",
+				"route_id": routeID,
+			},
+		},
+		"observation": map[string]any{
+			"signals": map[string]any{
+				"github": map[string]any{
+					"reviews": map[string]any{
+						"review_trigger_awaiting_ack":     reviewAwaitingAck,
+						"bot_review_trigger_awaiting_ack": botReviewAwaitingAck,
+					},
+				},
+			},
+		},
+	}
+	b, err := json.Marshal(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
 }
 
 func assertHasReasonCode(t *testing.T, codes []string, want string) {
@@ -919,4 +936,13 @@ func assertHasReasonCode(t *testing.T, codes []string, want string) {
 		}
 	}
 	t.Fatalf("resume_reason_codes = %v, want %q", codes, want)
+}
+
+func assertLacksReasonCode(t *testing.T, codes []string, unwanted string) {
+	t.Helper()
+	for _, c := range codes {
+		if c == unwanted {
+			t.Fatalf("resume_reason_codes = %v, unexpected %q present", codes, unwanted)
+		}
+	}
 }
