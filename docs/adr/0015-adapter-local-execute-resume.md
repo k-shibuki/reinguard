@@ -88,7 +88,48 @@ orchestration state, not repository workflow position.
    enabled.
 6. Terminality remains evidence-based per `next-orchestration.md`. The
    artifact is a durable record of the Adapter contract, not an authority
-   that overrides procedure semantics.
+   that overrides procedure semantics. In particular, the Adapter-local
+   continuity contract **distinguishes temporary waits from terminal allowed
+   stops**:
+   - **Temporary / resumable wait states** — The **normative** FSM
+     `state_id` values are defined in
+     [`.reinguard/control/states/workflow.yaml`](../../.reinguard/control/states/workflow.yaml).
+     This ADR and `.reinguard/scripts/adapter-rgd-next-resume.sh` enumerate the
+     **wait/retry subset** aligned with that file: `waiting_ci`,
+     `waiting_bot_rate_limited`, `waiting_bot_paused`, `waiting_bot_stale`,
+     `waiting_bot_run`, `waiting_bot_failed`. If the control plane adds a new
+     wait `state_id`, update the control rules, the script guard, and this
+     Semantics text together (same-kind sweep) so the fail-closed check cannot
+     drift. Procedure docs
+     (`.reinguard/procedure/wait-bot-review.md`,
+     `.reinguard/knowledge/review--bot-operations.md`) explain **how** to
+     retry; they do not silently extend the script's guarded set. An
+     Adapter's `finish` subcommand MUST fail closed when a caller attempts to
+     record `allowed_stop` with reason `cannot_proceed` or
+     `tooling_session_limit` while fresh `rgd context build --compact` still
+     resolves to one of these states. `tooling_session_limit` is not a
+     substitute for repository-state terminality when current observation
+     still resolves to a wait/retry procedure. The terminal reason enum
+     (`dod_satisfied`, `hard_stop`, `cannot_proceed`, `tooling_session_limit`,
+     `scope_revoked`) is defined by the resume artifact schema in
+     `.reinguard/scripts/adapter-rgd-next-resume.sh` (see
+     `RESUME_SCHEMA_VERSION` and the script's `usage` section); the reference
+     implementation there enforces the resumable-wait guard by re-running
+     substrate observation at `finish` time.
+   - **Terminal allowed stops** — narrowed to **HS-*** hard stops
+     (procedural hard-stop invariants; SSOT in
+     [`.reinguard/policy/safety--agent-invariants.md`](../../.reinguard/policy/safety--agent-invariants.md))
+     and genuine unrecoverable external blocks (for example GitHub itself
+     unreachable, org-level enforcement that permanently blocks the required
+     bot). These are expressed as `allowed_stop` + `hard_stop` with
+     evidence.
+   - **Out of scope for this ADR revision:** introducing a new non-terminal
+     `suspended` / `resumable_wait` artifact status, and any substrate FSM
+     / observation contract changes owned by the Phase 2 substrate-alignment
+     epic ([#59](https://github.com/k-shibuki/reinguard/issues/59)). Resumable
+     waits remain `active` until the loop re-enters them or fresh observation
+     transitions them; this Adapter-local contract tightens only the stop
+     semantics, not artifact lifecycle states.
 7. The artifact is allowed to answer **what was approved** for adapter-local
    audit / resume decisions, but it must still not become substrate state.
    In particular, the approved contract is evidence for the Adapter only and
