@@ -168,6 +168,56 @@ func TestResolveState_priorityWins(t *testing.T) {
 	}
 }
 
+func TestResolveState_excludesHigherPriorityWhenExtraPredicatesFail(t *testing.T) {
+	t.Parallel()
+	// Given: a higher-priority (lower number) state rule with the same base signals
+	// as a bot-wait rule, plus extra "mutual exclusion" predicates on diagnostics (Issue #129)
+	// When: diagnostics indicate bot-wait, so the extra predicates on the human rule fail
+	// Then: the next matching rule (bot-wait) wins
+	blockedOr := map[string]any{
+		"or": []any{
+			map[string]any{"op": "not_exists", "path": "github.reviews.bot_review_diagnostics.bot_review_pending"},
+			map[string]any{"op": "eq", "path": "github.reviews.bot_review_diagnostics.bot_review_pending", "value": false},
+		},
+	}
+	humanWhen := map[string]any{
+		"and": []any{
+			map[string]any{"op": "eq", "path": "github.pull_requests.pr_exists_for_branch", "value": true},
+			map[string]any{"op": "gt", "path": "github.reviews.review_threads_unresolved", "value": 0},
+			blockedOr,
+		},
+	}
+	rules := []config.Rule{
+		{Type: "state", ID: "human", Priority: 8, StateID: "unresolved_threads", When: humanWhen},
+		{Type: "state", ID: "bot_run", Priority: 15, StateID: "waiting_bot_run", When: map[string]any{
+			"and": []any{
+				map[string]any{"op": "eq", "path": "github.pull_requests.pr_exists_for_branch", "value": true},
+				map[string]any{"op": "eq", "path": "github.reviews.bot_review_diagnostics.bot_review_pending", "value": true},
+			},
+		}},
+	}
+	signals := map[string]any{
+		"github": map[string]any{
+			"pull_requests": map[string]any{
+				"pr_exists_for_branch": true,
+			},
+			"reviews": map[string]any{
+				"review_threads_unresolved": 1,
+				"bot_review_diagnostics": map[string]any{
+					"bot_review_pending": true,
+				},
+			},
+		},
+	}
+	res, err := ResolveState(rules, signals, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Kind != OutcomeResolved || res.StateID != "waiting_bot_run" {
+		t.Fatalf("got %+v", res)
+	}
+}
+
 func TestResolveState_tieAmbiguous(t *testing.T) {
 	t.Parallel()
 	// Given: two matches at same best priority

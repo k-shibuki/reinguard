@@ -1,6 +1,8 @@
 # FSM workflow states (ADR-0013). Lower priority number wins among matches (ADR-0004).
-# Actionable human review (threads / formal changes) beats bot-wait states;
-# bot-wait states split by reason (state_id); CI/merge gate split as waiting_ci.
+# Human-addressable review (threads / non-thread findings / formal changes) still has
+# the lowest numeric priorities (8–10), but predicates exclude bot-wait recovery:
+# `when` requires bot diagnostics to not indicate blocked / failed / stale / pending
+# (Issue #129). Bot-wait states split by reason (state_id); CI/merge gate split as waiting_ci.
 schema_version: "0.8.0"
 rules:
   # Human-actionable review work first (before any bot-wait tier).
@@ -16,6 +18,34 @@ rules:
         - op: gt
           path: github.reviews.review_threads_unresolved
           value: 0
+        - &id_bot_diagnostics_not_blocking
+          or:
+            - op: not_exists
+              path: github.reviews.bot_review_diagnostics.bot_review_blocked
+            - op: eq
+              path: github.reviews.bot_review_diagnostics.bot_review_blocked
+              value: false
+        - &id_bot_diagnostics_not_failed
+          or:
+            - op: not_exists
+              path: github.reviews.bot_review_diagnostics.bot_review_failed
+            - op: eq
+              path: github.reviews.bot_review_diagnostics.bot_review_failed
+              value: false
+        - &id_bot_diagnostics_not_stale
+          or:
+            - op: not_exists
+              path: github.reviews.bot_review_diagnostics.bot_review_stale
+            - op: eq
+              path: github.reviews.bot_review_diagnostics.bot_review_stale
+              value: false
+        - &id_bot_diagnostics_not_pending
+          or:
+            - op: not_exists
+              path: github.reviews.bot_review_diagnostics.bot_review_pending
+            - op: eq
+              path: github.reviews.bot_review_diagnostics.bot_review_pending
+              value: false
 
   - type: state
     id: non_thread_findings_pending
@@ -38,6 +68,10 @@ rules:
         - op: eq
           path: github.reviews.bot_review_diagnostics.non_thread_findings_present
           value: true
+        - *id_bot_diagnostics_not_blocking
+        - *id_bot_diagnostics_not_failed
+        - *id_bot_diagnostics_not_stale
+        - *id_bot_diagnostics_not_pending
 
   - type: state
     id: changes_requested
@@ -51,6 +85,10 @@ rules:
         - op: gt
           path: github.reviews.review_decisions_changes_requested
           value: 0
+        - *id_bot_diagnostics_not_blocking
+        - *id_bot_diagnostics_not_failed
+        - *id_bot_diagnostics_not_stale
+        - *id_bot_diagnostics_not_pending
 
   - type: state
     id: rate_limited
