@@ -174,7 +174,7 @@ func TestResolveState_excludesHigherPriorityWhenExtraPredicatesFail(t *testing.T
 	// as a bot-wait rule, plus extra "mutual exclusion" predicates on diagnostics (Issue #129)
 	// When: diagnostics indicate bot-wait, so the extra predicates on the human rule fail
 	// Then: the next matching rule (bot-wait) wins
-	blockedOr := map[string]any{
+	notPendingOr := map[string]any{
 		"or": []any{
 			map[string]any{"op": "not_exists", "path": "github.reviews.bot_review_diagnostics.bot_review_pending"},
 			map[string]any{"op": "eq", "path": "github.reviews.bot_review_diagnostics.bot_review_pending", "value": false},
@@ -184,7 +184,7 @@ func TestResolveState_excludesHigherPriorityWhenExtraPredicatesFail(t *testing.T
 		"and": []any{
 			map[string]any{"op": "eq", "path": "github.pull_requests.pr_exists_for_branch", "value": true},
 			map[string]any{"op": "gt", "path": "github.reviews.review_threads_unresolved", "value": 0},
-			blockedOr,
+			notPendingOr,
 		},
 	}
 	rules := []config.Rule{
