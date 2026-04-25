@@ -36,7 +36,7 @@ Run the applicable subset per [`coding--preflight.md`](coding--preflight.md) § 
 
 ## HS-NO-SKIP
 
-Run any policy-defined process to its own stated completion (verification, retry, wait, completion, review, merge). Deviation requires (a) an explicit user instruction in this turn, (b) another HS-* firing, or (c) a cited `.reinguard/policy/` clause, and must name that authority in chat. Wall-clock, turn count, response length, or "feels long" are not grounds.
+Run any policy-defined process (verification, retry, wait, review, merge) to its own stated completion. Deviation requires one of: (a) an explicit user instruction in this turn, (b) another HS-* firing, or (c) a cited `.reinguard/policy/` clause, and the agent must name that authority in chat. Wall-clock time, turn count, response length, or "feels long" are not valid grounds for deviation.
 
 ## HS-NO-DISMISS
 
