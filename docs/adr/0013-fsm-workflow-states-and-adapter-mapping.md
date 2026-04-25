@@ -56,9 +56,11 @@ wins** among matching rules (ADR-0004). `state_id` values:
 **Diagnostics:** `bot_review_completed` means every **required** bot is in the
 Reviewed tier and none in the Blocked or Failed tiers; `bot_review_blocked` if
 any required bot is `rate_limited` or `review_paused`; `bot_review_failed` if
-any required bot is in the Failed tier; `bot_review_terminal` = failed OR
-completed; `bot_review_pending` = not terminal and not blocked. Optional bots
-(`required: false`) do not affect aggregates.
+any required bot is in the Failed tier; `bot_review_stale` if any required bot
+completed review on a different HEAD commit than the current PR head;
+`bot_review_terminal` = failed OR completed; `bot_review_pending` = not
+terminal and not blocked. Optional bots (`required: false`) do not affect
+aggregates.
 
 Consensus-style conditions (approved + no changes + threads resolved) are
 **expressed as rules**, not a single derived observation key (see issue #72).
