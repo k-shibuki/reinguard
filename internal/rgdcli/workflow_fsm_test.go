@@ -217,6 +217,40 @@ var workflowFSMScenarioFixtures = []struct {
 		wantRouteID: "user-merge",
 	},
 	{
+		name: "waiting_bot_run_beats_merge_ready_when_bot_pending",
+		observation: `{
+  "signals": {
+    "git": {"detached_head": false, "working_tree_clean": true},
+    "github": {
+      "pull_requests": {
+        "pr_exists_for_branch": true,
+        "merge_state_status": "clean"
+      },
+      "ci": {"ci_status": "success"},
+      "reviews": {
+        "review_threads_unresolved": 0,
+        "pagination_incomplete": false,
+        "review_decisions_changes_requested": 0,
+        "review_decisions_truncated": false,
+        "bot_reviewer_status": [],
+        "bot_review_diagnostics": {
+          "bot_review_pending": true,
+          "bot_review_blocked": false,
+          "bot_review_block_reason": "",
+          "bot_review_terminal": false,
+          "bot_review_failed": false,
+          "bot_review_stale": false,
+          "non_thread_findings_present": false
+        }
+      }
+    }
+  },
+  "degraded": false
+}`,
+		wantStateID: "waiting_bot_run",
+		wantRouteID: "user-wait-bot-run",
+	},
+	{
 		name: "waiting_bot_run_beats_unresolved_threads_when_bot_pending",
 		observation: `{
   "signals": {
