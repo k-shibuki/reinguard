@@ -217,7 +217,7 @@ var workflowFSMScenarioFixtures = []struct {
 		wantRouteID: "user-merge",
 	},
 	{
-		name: "unresolved_threads_beats_bot_pending",
+		name: "waiting_bot_run_beats_unresolved_threads_when_bot_pending",
 		observation: `{
   "signals": {
     "git": {"detached_head": false, "working_tree_clean": true},
@@ -233,6 +233,7 @@ var workflowFSMScenarioFixtures = []struct {
           "bot_review_completed": false,
           "bot_review_pending": true,
           "bot_review_blocked": false,
+          "bot_review_stale": false,
           "bot_review_block_reason": "",
           "bot_review_terminal": false
         }
@@ -241,8 +242,234 @@ var workflowFSMScenarioFixtures = []struct {
   },
   "degraded": false
 }`,
-		wantStateID: "unresolved_threads",
-		wantRouteID: "user-address-review",
+		wantStateID: "waiting_bot_run",
+		wantRouteID: "user-wait-bot-run",
+	},
+	{
+		name: "rate_limited_beats_unresolved_threads_when_bot_blocked",
+		observation: `{
+  "signals": {
+    "git": {"detached_head": false, "working_tree_clean": true},
+    "github": {
+      "pull_requests": {"pr_exists_for_branch": true, "merge_state_status": "unstable"},
+      "ci": {"ci_status": "pending"},
+      "reviews": {
+        "review_threads_unresolved": 1,
+        "review_decisions_changes_requested": 0,
+        "bot_reviewer_status": [
+          {"login": "bot", "required": true, "status": "rate_limited", "contains_rate_limit": true}
+        ],
+        "bot_review_diagnostics": {
+          "bot_review_failed": false,
+          "bot_review_completed": false,
+          "bot_review_pending": false,
+          "bot_review_blocked": true,
+          "bot_review_stale": false,
+          "bot_review_block_reason": "rate_limited",
+          "bot_review_terminal": false
+        }
+      }
+    }
+  },
+  "degraded": false
+}`,
+		wantStateID: "waiting_bot_rate_limited",
+		wantRouteID: "user-wait-bot-quota",
+	},
+	{
+		name: "rate_limited_beats_non_thread_findings_when_bot_blocked",
+		observation: `{
+  "signals": {
+    "git": {"detached_head": false, "working_tree_clean": true},
+    "github": {
+      "pull_requests": {"pr_exists_for_branch": true, "merge_state_status": "clean"},
+      "ci": {"ci_status": "success"},
+      "reviews": {
+        "review_threads_unresolved": 0,
+        "pagination_incomplete": false,
+        "review_decisions_changes_requested": 0,
+        "review_decisions_truncated": false,
+        "bot_reviewer_status": [
+          {"login": "bot", "required": true, "status": "rate_limited", "contains_rate_limit": true}
+        ],
+        "bot_review_diagnostics": {
+          "non_thread_findings_present": true,
+          "bot_review_failed": false,
+          "bot_review_completed": false,
+          "bot_review_pending": false,
+          "bot_review_blocked": true,
+          "bot_review_stale": false,
+          "bot_review_block_reason": "rate_limited",
+          "bot_review_terminal": false
+        }
+      }
+    }
+  },
+  "degraded": false
+}`,
+		wantStateID: "waiting_bot_rate_limited",
+		wantRouteID: "user-wait-bot-quota",
+	},
+	{
+		name: "rate_limited_beats_changes_requested_when_bot_blocked",
+		observation: `{
+  "signals": {
+    "git": {"detached_head": false, "working_tree_clean": true},
+    "github": {
+      "pull_requests": {"pr_exists_for_branch": true, "merge_state_status": "dirty"},
+      "ci": {"ci_status": "success"},
+      "reviews": {
+        "review_threads_unresolved": 0,
+        "review_decisions_changes_requested": 1,
+        "bot_reviewer_status": [
+          {"login": "bot", "required": true, "status": "rate_limited", "contains_rate_limit": true}
+        ],
+        "bot_review_diagnostics": {
+          "bot_review_failed": false,
+          "bot_review_completed": false,
+          "bot_review_pending": false,
+          "bot_review_blocked": true,
+          "bot_review_stale": false,
+          "bot_review_block_reason": "rate_limited",
+          "bot_review_terminal": false
+        }
+      }
+    }
+  },
+  "degraded": false
+}`,
+		wantStateID: "waiting_bot_rate_limited",
+		wantRouteID: "user-wait-bot-quota",
+	},
+	{
+		name: "bot_paused_beats_non_thread_findings_when_bot_blocked",
+		observation: `{
+  "signals": {
+    "git": {"detached_head": false, "working_tree_clean": true},
+    "github": {
+      "pull_requests": {"pr_exists_for_branch": true, "merge_state_status": "clean"},
+      "ci": {"ci_status": "success"},
+      "reviews": {
+        "review_threads_unresolved": 0,
+        "pagination_incomplete": false,
+        "review_decisions_changes_requested": 0,
+        "review_decisions_truncated": false,
+        "bot_reviewer_status": [
+          {"login": "bot", "required": true, "status": "review_paused", "contains_review_paused": true}
+        ],
+        "bot_review_diagnostics": {
+          "non_thread_findings_present": true,
+          "bot_review_failed": false,
+          "bot_review_completed": false,
+          "bot_review_pending": false,
+          "bot_review_blocked": true,
+          "bot_review_stale": false,
+          "bot_review_block_reason": "review_paused",
+          "bot_review_terminal": false
+        }
+      }
+    }
+  },
+  "degraded": false
+}`,
+		wantStateID: "waiting_bot_paused",
+		wantRouteID: "user-wait-bot-paused",
+	},
+	{
+		name: "bot_failed_beats_non_thread_findings",
+		observation: `{
+  "signals": {
+    "git": {"detached_head": false, "working_tree_clean": true},
+    "github": {
+      "pull_requests": {"pr_exists_for_branch": true, "merge_state_status": "clean"},
+      "ci": {"ci_status": "success"},
+      "reviews": {
+        "review_threads_unresolved": 0,
+        "pagination_incomplete": false,
+        "review_decisions_changes_requested": 0,
+        "review_decisions_truncated": false,
+        "bot_reviewer_status": [],
+        "bot_review_diagnostics": {
+          "non_thread_findings_present": true,
+          "bot_review_failed": true,
+          "bot_review_completed": false,
+          "bot_review_pending": false,
+          "bot_review_blocked": false,
+          "bot_review_stale": false,
+          "bot_review_block_reason": "",
+          "bot_review_terminal": true
+        }
+      }
+    }
+  },
+  "degraded": false
+}`,
+		wantStateID: "waiting_bot_failed",
+		wantRouteID: "user-wait-bot-failed",
+	},
+	{
+		name: "bot_stale_beats_non_thread_findings",
+		observation: `{
+  "signals": {
+    "git": {"detached_head": false, "working_tree_clean": true},
+    "github": {
+      "pull_requests": {"pr_exists_for_branch": true, "merge_state_status": "clean"},
+      "ci": {"ci_status": "success"},
+      "reviews": {
+        "review_threads_unresolved": 0,
+        "pagination_incomplete": false,
+        "review_decisions_changes_requested": 0,
+        "review_decisions_truncated": false,
+        "bot_reviewer_status": [],
+        "bot_review_diagnostics": {
+          "non_thread_findings_present": true,
+          "bot_review_stale": true,
+          "bot_review_failed": false,
+          "bot_review_completed": true,
+          "bot_review_pending": false,
+          "bot_review_blocked": false,
+          "bot_review_block_reason": "",
+          "bot_review_terminal": true
+        }
+      }
+    }
+  },
+  "degraded": false
+}`,
+		wantStateID: "waiting_bot_stale",
+		wantRouteID: "user-wait-bot-stale",
+	},
+	{
+		name: "bot_run_beats_non_thread_findings_when_bot_pending",
+		observation: `{
+  "signals": {
+    "git": {"detached_head": false, "working_tree_clean": true},
+    "github": {
+      "pull_requests": {"pr_exists_for_branch": true, "merge_state_status": "clean"},
+      "ci": {"ci_status": "success"},
+      "reviews": {
+        "review_threads_unresolved": 0,
+        "pagination_incomplete": false,
+        "review_decisions_changes_requested": 0,
+        "review_decisions_truncated": false,
+        "bot_reviewer_status": [],
+        "bot_review_diagnostics": {
+          "non_thread_findings_present": true,
+          "bot_review_pending": true,
+          "bot_review_failed": false,
+          "bot_review_completed": false,
+          "bot_review_blocked": false,
+          "bot_review_stale": false,
+          "bot_review_block_reason": "",
+          "bot_review_terminal": false
+        }
+      }
+    }
+  },
+  "degraded": false
+}`,
+		wantStateID: "waiting_bot_run",
+		wantRouteID: "user-wait-bot-run",
 	},
 	{
 		name: "bot_rate_limited",

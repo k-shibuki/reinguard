@@ -32,19 +32,11 @@ Never use `gh pr create --base <feature-branch>`. All PRs must target **`main`**
 
 ## HS-LOCAL-VERIFY
 
-Before pushing Go changes:
-
-- `bash .reinguard/scripts/with-repo-local-state.sh -- go test ./...`
-- `bash .reinguard/scripts/with-repo-local-state.sh -- go vet ./...`
-- `bash .reinguard/scripts/with-repo-local-state.sh -- golangci-lint run`
-
-Before pushing Markdown changes:
-
-- `bash .reinguard/scripts/with-repo-local-state.sh -- pre-commit run markdownlint-cli2 --all-files` (pinned hook version from `.pre-commit-config.yaml`)
+Run the applicable subset per [`coding--preflight.md`](coding--preflight.md) § `HS-LOCAL-VERIFY (conditional)` before every push.
 
 ## HS-NO-SKIP
 
-Do not skip verification steps or merge with failing checks without an explicit documented exception.
+Run any policy-defined process to its own stated completion (verification, retry, wait, completion, review, merge). Deviation requires (a) an explicit user instruction in this turn, (b) another HS-* firing, or (c) a cited `.reinguard/policy/` clause, and must name that authority in chat. Wall-clock, turn count, response length, or "feels long" are not grounds.
 
 ## HS-NO-DISMISS
 
