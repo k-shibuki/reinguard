@@ -21,9 +21,9 @@ wins** among matching rules (ADR-0004). `state_id` values:
 
 | state_id | Intent | Notes |
 |----------|--------|--------|
-| `unresolved_threads` | Actionable review threads remain open | `github.reviews.review_threads_unresolved` > 0 (GraphQL `reviewThreads` with `isResolved` false). State rule **priority 8** (see “State catalog” above). **Does not** match while `github.reviews.bot_review_diagnostics` indicates a required bot is blocked, failed, stale, or still pending a run (those flags present and not false); if this rule does not match, a `waiting_bot_*` rule (priorities 11–15) can win instead (Issue #129). |
+| `unresolved_threads` | Actionable review threads remain open | `github.reviews.review_threads_unresolved` > 0 (GraphQL `reviewThreads` with `isResolved` false). State rule **priority 8** (see “State catalog” above). **Does not** match while required-bot diagnostics have any of `bot_review_blocked`, `bot_review_failed`, `bot_review_stale`, or `bot_review_pending` strictly `true`; if this rule does not match, a `waiting_bot_*` rule (priorities 11–15) can win instead (Issue #129). |
 | `non_thread_findings_pending` | Required bot has non-thread review work (enrichment counts) | PR exists; threads 0; pagination complete; no formal changes-requested; `github.reviews.bot_review_diagnostics.non_thread_findings_present` true (Issue #105). State rule **priority 9** — between `unresolved_threads` (8) and `changes_requested` (10) in the numeric ordering. **Same** bot-diagnostic mutual exclusion as `unresolved_threads` (Issue #129). |
-| `changes_requested` | Formal GitHub "Request changes" on the PR | `github.reviews.review_decisions_changes_requested` > 0 (`latestReviews` with state `CHANGES_REQUESTED`). State rule **priority 10**. **Not** the same as open review threads; a bot may leave threads without a CHANGES_REQUESTED review. **Same** bot-diagnostic mutual exclusion as `unresolved_threads` (Issue #129). |
+| `changes_requested` | Formal GitHub "Request changes" on the PR | `github.reviews.review_decisions_changes_requested` > 0 (`latestReviews` with state `CHANGES_REQUESTED`). State rule **priority 10**. **Not** the same as open review threads; a bot may leave threads without a CHANGES_REQUESTED review. **Same** bot-diagnostic mutual exclusion as `unresolved_threads` (Issue #129). This intentionally routes to required-bot recovery first, even when the changes-requested review is human-authored, so agents do not disposition review feedback while required bot lifecycle evidence is non-terminal. |
 | `waiting_bot_rate_limited` | Required bot `status` is `rate_limited` | `op: any` on `github.reviews.bot_reviewer_status` with `$.required` and `$.status` |
 | `waiting_bot_paused` | Required bot `status` is `review_paused` | Same pattern |
 | `waiting_bot_failed` | Any required bot in failed tier (aggregate) | `github.reviews.bot_review_diagnostics.bot_review_failed` |
@@ -49,14 +49,16 @@ wins** among matching rules (ADR-0004). `state_id` values:
     observation pass once both are visible. If the GitHub review entry
     appears first, remain `completed` until the clean marker is also
     observed.
-- **Failed:** `rate_limited`, `review_paused`, `review_failed`
+- **Blocked:** `rate_limited`, `review_paused`
+- **Failed:** `review_failed`
 - **In progress:** `pending`, `not_triggered`
 
 **Diagnostics:** `bot_review_completed` means every **required** bot is in the
-Reviewed tier and none in the Failed tier; `bot_review_failed` if any required
-bot is in the Failed tier; `bot_review_terminal` = failed OR completed;
-`bot_review_pending` = not terminal. Optional bots (`required: false`) do not
-affect aggregates.
+Reviewed tier and none in the Blocked or Failed tiers; `bot_review_blocked` if
+any required bot is `rate_limited` or `review_paused`; `bot_review_failed` if
+any required bot is in the Failed tier; `bot_review_terminal` = failed OR
+completed; `bot_review_pending` = not terminal and not blocked. Optional bots
+(`required: false`) do not affect aggregates.
 
 Consensus-style conditions (approved + no changes + threads resolved) are
 **expressed as rules**, not a single derived observation key (see issue #72).
