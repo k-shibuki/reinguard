@@ -63,6 +63,17 @@ func assertSeconds(t *testing.T, got map[string]any, want int) {
 	if !ok || sec != want {
 		t.Fatalf("got %v", got)
 	}
+	assertRateLimitNotice(t, got)
+}
+
+func assertRateLimitNotice(t *testing.T, got map[string]any) {
+	t.Helper()
+	if v, ok := got["review_rate_limit_notice"].(bool); !ok || !v {
+		t.Fatalf("want review_rate_limit_notice=true, got %+v", got)
+	}
+	if v, ok := got["cr_review_rate_limit_notice"].(bool); !ok || !v {
+		t.Fatalf("want cr_review_rate_limit_notice=true, got %+v", got)
+	}
 }
 
 func TestCoderabbitEnrichment_reviewStatusProcessing(t *testing.T) {
@@ -463,6 +474,9 @@ func TestCoderabbitEnrichment_ClassifyStatus_order(t *testing.T) {
 	}
 	if s, basis := classifyCoderabbitStatusWithBasis(map[string]any{"has_review": true, "cr_review_rate_limit_notice": true, "latest_comment_at": "2026-01-01T00:00:00Z"}); s != BotStatusPending || basis != "review_rate_limit_notice" {
 		t.Fatalf("basis got %q %q", s, basis)
+	}
+	if s, basis := classifyCoderabbitStatusWithBasis(map[string]any{"has_review": true, "review_rate_limit_notice": true, "rate_limit_remaining_seconds": 0}); s != BotStatusPending || basis != "review_rate_limit_notice" {
+		t.Fatalf("expired issue-comment rate-limit notice got %q %q", s, basis)
 	}
 	if g := e.ClassifyStatus(map[string]any{"has_review": true}); g != BotStatusCompleted {
 		t.Fatalf("got %q", g)

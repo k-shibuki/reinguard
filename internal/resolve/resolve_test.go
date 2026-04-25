@@ -213,7 +213,7 @@ func TestResolveState_excludesHigherPriorityWhenExtraPredicatesFail(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Kind != OutcomeResolved || res.StateID != "waiting_bot_run" {
+	if res.Kind != OutcomeResolved || res.StateID != "waiting_bot_run" || res.RuleID != "bot_run" {
 		t.Fatalf("got %+v", res)
 	}
 }

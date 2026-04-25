@@ -18,8 +18,13 @@ func (coderabbitEnrichment) Enrich(commentBody string) map[string]any {
 		return nil
 	}
 	out := make(map[string]any)
-	if sec := parseCoderabbitRateLimitSeconds(body); sec > 0 {
+	sec := parseCoderabbitRateLimitSeconds(body)
+	if sec > 0 {
 		out["rate_limit_remaining_seconds"] = sec
+	}
+	if sec > 0 || reCRRateLimitNotice.MatchString(body) {
+		out["review_rate_limit_notice"] = true
+		out["cr_review_rate_limit_notice"] = true
 	}
 	for k, v := range parseCoderabbitReviewStatusMarkers(body) {
 		out[k] = v

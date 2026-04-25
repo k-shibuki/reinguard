@@ -862,7 +862,7 @@ func TestCollect_botReviewer_rateLimitAgeClampsToZero(t *testing.T) {
 	if m["status"].(string) != BotStatusPending {
 		t.Fatalf("after cooldown elapses without terminal clean, want pending: %+v", m)
 	}
-	if m["status_class_basis"].(string) != "issue_comments_pending" {
+	if m["status_class_basis"].(string) != "review_rate_limit_notice" {
 		t.Fatalf("status_class_basis: %+v", m)
 	}
 }
@@ -1146,6 +1146,87 @@ func TestCollect_botReviewer_newerRateLimitSupersedesOlderCleanComment(t *testin
 	}
 	if m["status"].(string) != BotStatusRateLimited {
 		t.Fatalf("status: %+v", m)
+	}
+}
+
+func TestCollect_botReviewer_expiredRateLimitNoticeWithCurrentHeadReviewStaysPending(t *testing.T) {
+	t.Parallel()
+	// Given: CodeRabbit left a rate-limit status comment whose numeric cooldown has elapsed
+	// and an otherwise empty PullRequestReview on the current head.
+	// When: Collect runs with CodeRabbit enrichment.
+	// Then: the expired quota notice remains non-terminal instead of falling through to has_review completion.
+	head := "head-sha"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		resp := map[string]any{
+			"data": map[string]any{
+				"repository": map[string]any{
+					"pullRequest": map[string]any{
+						"state": "OPEN", "isDraft": false, "title": "t",
+						"mergeable": "MERGEABLE", "mergeStateStatus": "CLEAN",
+						"baseRefName": "main", "headRefOid": head,
+						"labels":                  map[string]any{"nodes": []any{}},
+						"closingIssuesReferences": map[string]any{"nodes": []any{}},
+						"latestReviews": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false},
+							"nodes": []any{
+								map[string]any{
+									"submittedAt": "2026-03-27T12:05:00Z",
+									"state":       "COMMENTED",
+									"author":      map[string]any{"login": "coderabbitai[bot]"},
+									"body":        "",
+									"commit":      map[string]any{"oid": head},
+								},
+							},
+						},
+						"comments": map[string]any{
+							"nodes": []map[string]any{
+								{
+									"author":    map[string]any{"login": "coderabbitai[bot]"},
+									"body":      "Rate limit exceeded. Please try again in 2 minutes and 5 seconds",
+									"updatedAt": "2026-03-27T12:00:00Z",
+								},
+							},
+						},
+						"reviewThreads": map[string]any{"pageInfo": map[string]any{"hasNextPage": false}, "nodes": []any{}},
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	bots := []BotReviewer{{ID: "coderabbit", Login: "coderabbitai[bot]", Required: true, Enrich: []string{"coderabbit"}}}
+	obsAt := time.Date(2026, 3, 27, 12, 5, 0, 0, time.UTC)
+	_, rev, err := CollectWithOptions(context.Background(), c, "o", "r", 1, bots, &CollectOptions{Now: &obsAt})
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := rev["bot_reviewer_status"].([]any)[0].(map[string]any)
+	if m["status"].(string) != BotStatusPending {
+		t.Fatalf("status: %+v", m)
+	}
+	if m["status_class_basis"].(string) != "review_rate_limit_notice" {
+		t.Fatalf("status_class_basis: %+v", m)
+	}
+	if got := m["rate_limit_remaining_seconds"].(int); got != 0 {
+		t.Fatalf("want expired cooldown at 0 seconds, got %+v", m)
+	}
+	if v, ok := m["review_rate_limit_notice"].(bool); !ok || !v {
+		t.Fatalf("want durable rate-limit notice, got %+v", m)
+	}
+	diag := rev["bot_review_diagnostics"].(map[string]any)
+	if diag["bot_review_terminal"].(bool) {
+		t.Fatalf("want bot_review_terminal=false, got %+v", diag)
+	}
+	if !diag["bot_review_pending"].(bool) {
+		t.Fatalf("want bot_review_pending=true, got %+v", diag)
+	}
+	if diag["bot_review_completed"].(bool) {
+		t.Fatalf("want bot_review_completed=false, got %+v", diag)
 	}
 }
 
