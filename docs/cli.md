@@ -48,7 +48,7 @@ higher-level evaluation commands.
 rgd version
 rgd config validate
 rgd schema export [--dir DIR]
-rgd gate record <gate-id> --status pass|fail --producer-procedure NAME --check id:status:summary [--checks-file FILE]
+rgd gate record <gate-id> --status pass|fail --producer-procedure NAME --check id:status:summary [--check-json JSON] [--checks-file FILE]
 rgd gate status <gate-id>
 rgd gate show <gate-id>
 rgd observe [--view summary|full]
