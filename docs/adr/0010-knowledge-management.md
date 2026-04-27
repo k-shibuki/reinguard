@@ -2,7 +2,11 @@
 
 ## Context
 
-reinguard is a three-layer control system whose Substrate runtime (`rgd`) stabilizes the information surface for agents (ADR-0001). Repositories declare **knowledge** under `.reinguard/knowledge/`—project-coupled guidance that agents should read when acting in that repo.
+reinguard provides repo-owned semantic control for agentic development; its
+internal Substrate runtime (`rgd`) stabilizes the information surface for
+agents, humans, and the bots reviewing their work (ADR-0001). Repositories
+declare **knowledge** under `.reinguard/knowledge/`—project-coupled guidance
+that agents should read when acting in that repo.
 
 Without normative rules:
 
@@ -25,15 +29,15 @@ Alternatives considered:
 
 2. **Manifest as generated artifact** — `manifest.json` is **not** hand-authored as the source of truth. **`rgd knowledge index`** scans knowledge Markdown files, reads front matter, and writes `manifest.json`. The manifest is **committed** so tools that do not invoke `rgd` (e.g. editor rules) can still read a stable catalog.
 
-3. **Validation and freshness** — `rgd config validate` validates the manifest against its JSON Schema, checks that each `path` exists, statically validates each entry’s **`when`** (same rules as control rules: known `op` values and operands, registered `eval:` names, `eval: constant` params, and `path` prefixes `git.` / `github.` / `state.` / `$`), and **fails** if the manifest does not match a re-index from front matter (stale manifest). Optional **hints** (warnings) may flag oversized files or excessive trigger counts to support atomicity discipline without claiming semantic enforcement.
+3. **Validation and freshness** — `rgd config validate` validates the manifest against its JSON Schema, checks that each `path` exists, statically validates each entry’s **`when`** (same rules as control rules: known `op` values and operands, registered `eval:` names, `eval: constant` params, and `path` prefixes `git.` / `github.` / `state.` / `gates.` / `$`), and **fails** if the manifest does not match a re-index from front matter (stale manifest). Optional **hints** (warnings) may flag oversized files or excessive trigger counts to support atomicity discipline without claiming semantic enforcement.
 
 4. **Atomicity** — **Structural** guarantees: valid front matter, unique `id`, resolvable paths. **Semantic** “one concern per file” is a **review and authoring** discipline, not a machine guarantee.
 
 5. **Operational context contract** — The `knowledge` object in operational context JSON carries **`entries`**: an array of objects including `id`, `path`, `when`, and typically `description` and `triggers`. The legacy `paths`-only shape is **removed** (see ADR-0008 synchronized versioning).
 
-6. **Signal selection** — Every manifest entry carries **`when`**. **`rgd context build`** filters `knowledge.entries` with `match.Eval` against observation signals after merging resolved **`state.*`** fields into the flat map (ADR-0002). Route and guard outcomes are not injected into that map for knowledge filtering (avoids circularity).
+6. **Signal selection** — Every manifest entry carries **`when`**. **`rgd context build`** filters `knowledge.entries` with `match.Eval` against the merged flat map after adding runtime gate signals as **`gates.<id>.*`** and resolved **`state.*`** fields (ADR-0002, ADR-0014). Route and guard outcomes are not injected into that map for knowledge filtering (avoids circularity). **`rgd knowledge pack --observation-file`** is intentionally narrower: it flattens only the supplied observation document’s `signals` object and does not synthesize `gates.*` or `state.*` unless those keys are already present in that input.
 
-7. **`rgd knowledge pack`** — Optional **`--observation-file`** applies the same `when` evaluation against the observation file’s nested **`signals`** only (not state-resolved). Optional **`--query`** matches **triggers** (case-insensitive substring). When **`--observation-file`** is set, results are the **OR union** (by entry id) of signal matches and query matches. When **`--observation-file`** is omitted, **all** entries are returned and **`--query`** filters by triggers only. Malformed `when` evaluation keeps the entry and emits diagnostics (**safe-side** for judgment aids).
+7. **`rgd knowledge pack`** — Optional **`--observation-file`** applies the same `when` evaluation against the observation file’s nested **`signals`** only (not state-resolved and not gate-enriched by `rgd`). Optional **`--query`** matches **triggers** (case-insensitive substring). When **`--observation-file`** is set, results are the **OR union** (by entry id) of signal matches and query matches. When **`--observation-file`** is omitted, **all** entries are returned and **`--query`** filters by triggers only. Malformed `when` evaluation keeps the entry and emits diagnostics (**safe-side** for judgment aids).
 
 8. **Agent consumption** — The **primary** platform-agnostic delivery is operational context JSON from **`rgd context build`**. **`rgd knowledge pack`** remains for catalog-style listing and optional observation + query composition. **Per-platform bootstrap** (e.g. Cursor `.cursor/rules/` pointing at `manifest.json`) is a **hybrid** concern: normative patterns may be documented here and exemplified in repositories; **`rgd init`-style scaffolding** may generate bridge files in a later change.
 

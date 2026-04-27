@@ -20,7 +20,9 @@ preserve the substrate boundary from ADR-0001 and ADR-0003:
 ADR-0014 already permits bounded substrate-owned runtime artifacts for
 verification outcomes such as `pr-readiness`. That mechanism is not a fit
 for Execute continuity itself because approval continuity is Adapter-local
-orchestration state, not repository workflow position.
+orchestration state, not repository workflow position. The resume artifact is
+therefore proof of an Adapter approval contract, not substrate state and not a
+signal that `rgd` may use to resolve workflow position.
 
 ## Decision
 

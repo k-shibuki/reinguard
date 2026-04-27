@@ -12,20 +12,25 @@ Two broad architectural responses exist:
 
 1. **Orchestrator / workflow brain** — the system drives the agent
    through procedures, decides next actions, and centralizes control flow.
-2. **Substrate** — the system stabilizes the information space in which
+2. **Repo-owned semantic control** — the system stabilizes the information space in which
    the agent reasons: structured observation, declarative constraints,
    deterministic checks, and auditable outputs. Semantic judgment stays
    with the agent.
 
-reinguard addresses these problems as a three-layer **control system**
-whose runtime component is delivered as a Go binary (`rgd`).
+reinguard addresses these problems as repo-owned semantic control for
+agentic development: shared operational context for agents, humans, and the
+bots reviewing their work. It is implemented as a three-layer **control
+system** whose runtime component is delivered as a Go binary (`rgd`).
 
 ## Decision
 
-reinguard is a **three-layer control system** (Adapter / Semantics /
-Substrate), not a workflow brain. `rgd` is the **Substrate layer**: a
+reinguard is **repo-owned semantic control**, not a workflow brain. Its
+implementation remains a **three-layer control system** (Adapter /
+Semantics / Substrate). `rgd` is the internal **Substrate layer**: a
 stateless, pull-based CLI runtime that computes operational context from
-repository-declared specifications and platform observation.
+repository-declared specifications and platform observation. This keeps
+`Substrate` reserved for the runtime layer inside the three-layer
+architecture.
 
 `rgd`:
 
@@ -53,7 +58,7 @@ space** in which it operates, not to script its thinking.
 ## Responsibility layers
 
 Three layers separate **how agents integrate**, **what the repository
-means**, and **how the substrate evaluates**:
+means**, and **how the runtime substrate evaluates**:
 
 | Layer | Name | Verb | Location | SSOT for | Feedback role |
 |-------|------|------|----------|----------|---------------|

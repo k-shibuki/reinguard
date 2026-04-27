@@ -7,9 +7,12 @@ Configuration for AI reviewers (e.g. CodeRabbit) and agents using this repositor
 
 ## Project context
 
-**reinguard** is a three-layer control system (Adapter / Semantics / Substrate) that stabilizes the
-information space for AI agents — not a workflow brain. `rgd` is its Substrate layer: a stateless Go
-CLI runtime that computes operational context via observation and declarative rules (see ADR-0001).
+**reinguard** provides repo-owned semantic control for agentic development:
+shared operational context for agents, humans, and the bots reviewing their
+work. Its architecture remains three-layered (Adapter / Semantics / Substrate):
+repository-owned Semantics define meaning, and `rgd` is the Substrate layer, a
+stateless Go CLI runtime that computes operational context via observation and
+declarative rules (see ADR-0001).
 
 Authoritative architecture: [docs/adr/](docs/adr/). Especially relevant for review:
 
@@ -20,6 +23,9 @@ Authoritative architecture: [docs/adr/](docs/adr/). Especially relevant for revi
 - ADR-0009: observation engine abstraction
 - ADR-0010: repository knowledge format, manifest generation, and agent-facing delivery
 - ADR-0011: semantic control plane directory structure (`.reinguard/` layout)
+- ADR-0013: FSM workflow states and Adapter mapping
+- ADR-0014: runtime gate artifacts for local proof
+- ADR-0015: Adapter-local execute resume artifact
 
 CI: `golangci-lint`, `go vet`, `go test -race`; PRs must pass job **`ci-pass`** (aggregates `gate-policy`, `lint-markdown`, `lint-go`, `test-go`, and dogfood jobs). Branch protection should require **`ci-pass`** and **conversation resolution before merge** — see [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md).
 

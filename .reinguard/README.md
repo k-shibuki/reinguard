@@ -1,12 +1,70 @@
 # `.reinguard` (Semantics layer)
 
-Repository-local **semantic control plane** for `rgd`: substrate config,
-knowledge atoms, policy, and control (state / route / guard) match rules.
-See **ADR-0001** (Adapter / Semantics / Substrate), **ADR-0011** (this
-layout), and **ADR-0010** (knowledge).
+## Why this directory exists
 
-Normative architecture lives in `docs/adr/`. This directory describes how
-*this* repository configures `rgd`.
+Agentic development often fails before code generation: CI moves; review bots
+may be rate-limited, stale, paused, or awaiting acknowledgement; local
+verification may be complete but not yet PR-ready; knowledge may matter only in
+a specific operational state. Without a **shared observation surface** for
+these workflow facts, every actor reconstructs position ad hoc.
+
+**reinguard** addresses this by keeping **repo-owned operational semantics**
+next to the work: observation providers, workflow states, routes, guards,
+runtime gate roles, knowledge `when` clauses, policies, and procedures under
+version control. The Substrate runtime **`rgd`** reads those declarations,
+observes platform state, and emits typed **operational context**. The goal is
+not a new agent brain or orchestrator; it is to make the context around
+agentic work deterministic and inspectable before an agent chooses the next
+step.
+
+This directory is the **Semantics layer**: it holds **what the repository
+means**—substrate config, knowledge atoms, policy, control (state / route /
+guard) match rules, and procedure mappings—while **Adapter** (`.cursor/`,
+`AGENTS.md`) integrates clients by path reference only, and **Substrate**
+(`rgd`) computes current status under that meaning. Normative architecture
+lives in [`docs/adr/`](../docs/adr/). The sections below are an **authoring
+guide** for how *this* repository configures `rgd` and where to place new
+content.
+
+See [ADR-0001](../docs/adr/0001-system-positioning.md) (Adapter / Semantics /
+Substrate) and [ADR-0011](../docs/adr/0011-semantic-control-plane-structure.md)
+(this layout). See also [ADR-0010](../docs/adr/0010-knowledge-management.md)
+(knowledge), [ADR-0014](../docs/adr/0014-runtime-gate-artifacts.md) (runtime
+gates), and [ADR-0015](../docs/adr/0015-adapter-local-execute-resume.md)
+(Adapter-local resume).
+
+## Load-bearing pieces declared here
+
+The following are **load-bearing** for stable operational context—not incidental
+folders:
+
+- **Bot-aware FSM** — `control/states/`, `control/routes/`, and
+  `control/guards/` hold declarative rules keyed on git/GitHub observation and
+  bot signals such as `github.reviews.bot_reviewer_status` and
+  `github.reviews.bot_review_diagnostics`. See
+  [ADR-0013](../docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md).
+- **Proof-carrying gates** — Runtime gate **roles** are declared in
+  `reinguard.yaml`; artifacts live under `local/gates/` (gitignored,
+  Substrate-owned operational state, not Semantics). Gates such as
+  `pr-readiness` can require upstream gate proofs via `inputs[]`. See
+  [ADR-0014](../docs/adr/0014-runtime-gate-artifacts.md).
+- **Signal-filtered knowledge** — Every `knowledge/*.md` entry has a required
+  **`when`** clause; `rgd context build` filters entries against observation
+  merged with `state.*` and `gates.<id>.*`. See
+  [ADR-0010](../docs/adr/0010-knowledge-management.md).
+- **Policy (must-follow)** — `policy/` holds normative text; the Adapter
+  references paths and must not duplicate policy body as a second SSOT. See
+  [ADR-0001](../docs/adr/0001-system-positioning.md).
+- **Procedure mappings** — `procedure/*.md` YAML front matter
+  (`applies_to.state_ids`, optional `route_ids`) is the SSOT binding resolved
+  workflow state to procedure documents; `rgd config validate` checks
+  consistency. See
+  [ADR-0013](../docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md).
+- **Bounded local proof** — `local/gates/` and `local/adapter/` hold gitignored
+  filesystem evidence for later invocations to re-observe; they are not
+  Semantics content, not agent session memory, and not workflow authority. See
+  [ADR-0014](../docs/adr/0014-runtime-gate-artifacts.md),
+  [ADR-0015](../docs/adr/0015-adapter-local-execute-resume.md).
 
 ## Layout
 
@@ -20,8 +78,10 @@ Normative architecture lives in `docs/adr/`. This directory describes how
 | `control/routes/*.yaml` | `type: route` rules only |
 | `control/guards/*.yaml` | `type: guard` rules only |
 | `control/catalog.yaml` | Manual index of control rule files (`id`, `path`, `type`, `description`); not read by `config.Load` / `rgd config validate` (only subtree `*.yaml`) |
+| `procedure/` | Agent action cards with YAML front matter; procedure mappings are validated by `rgd config validate` |
+| `local/` | Gitignored local artifacts such as runtime gates and Adapter continuity; not Semantics content |
 | `labels.yaml` | GitHub label categories + `commit_prefix` flags (ADR-0008); SSOT for type/exception/scope labels |
-| `scripts/` | Repo-specific policy scripts (commit/PR/Issue validation; Issue template sync) |
+| `scripts/` | Repo helpers: commit/PR/Issue policy checks, Issue template sync, coverage threshold, local AI review checks, Adapter execute resume (ADR-0015), repo-local state runner |
 
 Unified **priority** across all control YAML files: ADR-0004.
 
@@ -30,7 +90,8 @@ Unified **priority** across all control YAML files: ADR-0004.
 - **Improves judgment when read** → `knowledge/` (front matter required; run `rgd knowledge index`).
 - **Must be followed** (review/merge invariants, etc.) → `policy/` and add an entry to `policy/catalog.yaml`.
 - **Evaluable match rules** → `control/` in the subtree matching `type`, and add an entry to `control/catalog.yaml`.
-- **Client-specific procedures** → `.cursor/` (Adapter layer); do not duplicate policy body text there.
+- **Procedure mappings** → `procedure/` with front matter aligned to control states / routes.
+- **Client-specific bridge behavior** → `.cursor/` (Adapter layer); do not duplicate policy body text there.
 
 ## Authoring policy
 
@@ -64,7 +125,7 @@ Each file under `knowledge/` is Markdown with a **YAML front matter** block
 | `id` | Unique across entries |
 | `description` | One-line summary |
 | `triggers` | Non-empty keyword list; no duplicate strings after trim (case-insensitive). Used with `rgd knowledge pack --query` (substring match). |
-| `when` | **Required.** Match expression (ADR-0002), same shape as control rules’ `when`. `rgd config validate` checks `op` / operands, `eval:` names, and that each `path` starts with `git.`, `github.`, `state.`, or `$` / `.$.`. `rgd context build` and `rgd knowledge pack --observation-file` filter with `match.Eval`. Prefer conditions on real signals (e.g. `or` of `exists` on `git.branch` and `github.repository.owner` when either provider is present). Rare always-on aids may use `eval: constant` with `params.value: true`. |
+| `when` | **Required.** Match expression (ADR-0002), same shape as control rules’ `when`. `rgd config validate` checks `op` / operands, `eval:` names, and that each `path` starts with `git.`, `github.`, `state.`, `gates.`, or `$` / `$.`. `rgd context build` filters after merging `state.*` and `gates.<id>.*`; `rgd knowledge pack --observation-file` filters only the supplied observation signals. Prefer conditions on real signals (e.g. `or` of `exists` on `git.branch` and `github.repository.owner` when either provider is present). Rare always-on aids may use `eval: constant` with `params.value: true`. |
 
 ### Atomicity
 
