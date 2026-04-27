@@ -11,12 +11,15 @@ or route separation.
 At the same time, reinguard must stay within the substrate boundary from
 ADR-0001: `rgd` may compute deterministic context from repository-owned inputs,
 but it must not become a workflow brain or execute arbitrary repository scripts.
+This ADR therefore distinguishes **bounded local proof** from agent memory:
+runtime gate artifacts make verification outcomes observable to `rgd`, but they
+do not authorize open-ended workflow progression by themselves.
 
 ## Decision
 
 1. Introduce **runtime gate artifacts** under `.reinguard/local/gates/`.
    These are **gitignored, substrate-owned operational state**, not Semantics
-   documents.
+   documents and not agent-internal session state.
 2. Add `rgd gate` commands:
    - `rgd gate record <gate-id>` - bounded write of one validated artifact for
      the current branch HEAD
