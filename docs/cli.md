@@ -418,9 +418,10 @@ Each entry has the following fields (see
 
 Default output (without `--trace-rules`) is unchanged: `rule_trace` is omitted
 from stdout. Out-of-scope for this flag: per-expression match diagnostics, AST
-traces, and guard-rule traces inside `rgd context build` — those remain
-available only via direct `rgd guard eval` / `rgd state eval` / `rgd route select`
-invocations.
+traces, and guard-rule traces — `--trace-rules` emits only `state` / `route`
+rule traces. Guard-rule tracing is not exposed by any current `rgd` CLI command
+or output; the substrate keeps `ResolveGuardTrace` as an internal API for
+future use.
 
 ## `rgd route select`
 
