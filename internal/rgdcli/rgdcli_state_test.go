@@ -191,6 +191,7 @@ func TestRunStateEval_traceRulesAmbiguousIncludesAllMatchedRules(t *testing.T) {
 	if !ok || len(traceAny) != 2 {
 		t.Fatalf("expected 2 trace entries, got %v", out["rule_trace"])
 	}
+	seen := map[string]bool{}
 	for _, e := range traceAny {
 		em, ok := e.(map[string]any)
 		if !ok {
@@ -199,6 +200,11 @@ func TestRunStateEval_traceRulesAmbiguousIncludesAllMatchedRules(t *testing.T) {
 		if em["matched"] != true {
 			t.Fatalf("ambiguous trace entry must be matched=true, got %+v", em)
 		}
+		id, _ := em["rule_id"].(string)
+		if id == "" || seen[id] {
+			t.Fatalf("expected distinct non-empty rule_id, got %v (seen=%v)", em["rule_id"], seen)
+		}
+		seen[id] = true
 	}
 }
 

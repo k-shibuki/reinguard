@@ -409,7 +409,7 @@ Each entry has the following fields (see
 | Field | Description |
 |-------|-------------|
 | `rule_id` | Rule id from configuration. |
-| `rule_type` | `state` \| `route` \| `guard`. Always equal to the resolution scope; e.g. `rgd state eval --trace-rules` only emits `state` entries. |
+| `rule_type` | `state` \| `route`. Always equal to the resolution scope; e.g. `rgd state eval --trace-rules` only emits `state` entries. The schema reserves `guard` for the substrate-level `ResolveGuardTrace` API; `--trace-rules` itself never emits guard entries (out-of-scope note below). |
 | `priority` | Numeric priority of the rule. |
 | `target_id` | The `state_id` (state rules), `route_id` (route rules), or `guard_id` (guard rules) declared on the rule. |
 | `matched` | `true` when the rule's `when` evaluated to true for the supplied signals; `false` otherwise. |
