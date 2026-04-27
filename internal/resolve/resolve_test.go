@@ -500,3 +500,206 @@ func TestDuplicatePriorityWarnings_crossKindOnly(t *testing.T) {
 		t.Fatalf("%v", w)
 	}
 }
+
+func TestResolve_doesNotPopulateRuleTrace(t *testing.T) {
+	t.Parallel()
+	// Given: one matching state rule and one non-matching state rule
+	// When: Resolve runs (without trace)
+	rules := []config.Rule{
+		{Type: "state", ID: "miss", Priority: 30, StateID: "M", When: map[string]any{"op": "eq", "path": "x", "value": 0}},
+		{Type: "state", ID: "hit", Priority: 10, StateID: "H", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+	}
+	res, err := Resolve(rules, map[string]any{"x": 1}, nil, "state")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Then: default Resolve never populates RuleTrace (back-compat boundary for Issue #143)
+	if res.RuleTrace != nil {
+		t.Fatalf("default Resolve must not populate RuleTrace, got %+v", res.RuleTrace)
+	}
+}
+
+func TestResolveStateTrace_includesNonMatchingAndMatchingRules(t *testing.T) {
+	t.Parallel()
+	// Given: two matching state rules at different priorities and one non-matching rule
+	rules := []config.Rule{
+		{Type: "state", ID: "low", Priority: 10, StateID: "Low", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+		{Type: "state", ID: "high", Priority: 30, StateID: "High", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+		{Type: "state", ID: "off", Priority: 5, StateID: "Off", When: map[string]any{"op": "eq", "path": "x", "value": 0}},
+	}
+	// When: ResolveStateTrace runs against signals where "off" is non-matching
+	res, err := ResolveStateTrace(rules, map[string]any{"x": 1}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Then: lower-priority "low" wins; trace lists every state rule in evaluation order with matched flags.
+	if res.Kind != OutcomeResolved || res.RuleID != "low" || res.StateID != "Low" {
+		t.Fatalf("winner: %+v", res)
+	}
+	want := []RuleTrace{
+		{RuleID: "low", RuleType: "state", Priority: 10, TargetID: "Low", Matched: true},
+		{RuleID: "high", RuleType: "state", Priority: 30, TargetID: "High", Matched: true},
+		{RuleID: "off", RuleType: "state", Priority: 5, TargetID: "Off", Matched: false},
+	}
+	if !reflect.DeepEqual(res.RuleTrace, want) {
+		t.Fatalf("rule_trace mismatch:\n got:  %+v\n want: %+v", res.RuleTrace, want)
+	}
+}
+
+func TestResolveStateTrace_ambiguousIncludesAllTiedRules(t *testing.T) {
+	t.Parallel()
+	// Given: two matching state rules at the same best priority
+	rules := []config.Rule{
+		{Type: "state", ID: "a", Priority: 10, StateID: "A", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+		{Type: "state", ID: "b", Priority: 10, StateID: "B", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+	}
+	// When: ResolveStateTrace runs
+	res, err := ResolveStateTrace(rules, map[string]any{"x": 1}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Then: ambiguous outcome; both rules appear in trace as matched without suppression
+	if res.Kind != OutcomeAmbiguous {
+		t.Fatalf("kind: %+v", res)
+	}
+	if len(res.RuleTrace) != 2 {
+		t.Fatalf("trace len=%d want 2: %+v", len(res.RuleTrace), res.RuleTrace)
+	}
+	for _, e := range res.RuleTrace {
+		if !e.Matched {
+			t.Fatalf("expected matched=true for %s, got %+v", e.RuleID, e)
+		}
+		if e.Suppressed || len(e.SuppressedBy) > 0 {
+			t.Fatalf("expected unsuppressed entry for %s, got %+v", e.RuleID, e)
+		}
+		if e.TargetID == "" {
+			t.Fatalf("expected non-empty target_id for %s, got %+v", e.RuleID, e)
+		}
+	}
+}
+
+func TestResolveStateTrace_suppressedByDependsOn(t *testing.T) {
+	t.Parallel()
+	// Given: a matching state rule that depends_on a degraded provider, plus a matching active rule
+	rules := []config.Rule{
+		{Type: "state", ID: "needs_github", Priority: 5, StateID: "Blocked", When: map[string]any{"op": "eq", "path": "x", "value": 1}, DependsOn: []string{"github"}},
+		{Type: "state", ID: "fallback", Priority: 20, StateID: "Fallback", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+	}
+	deg := map[string]struct{}{"github": {}}
+	// When: ResolveStateTrace runs with github degraded
+	res, err := ResolveStateTrace(rules, map[string]any{"x": 1}, deg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Then: fallback wins; trace marks the suppressed rule with suppressed_by
+	if res.Kind != OutcomeResolved || res.RuleID != "fallback" {
+		t.Fatalf("winner: %+v", res)
+	}
+	if len(res.RuleTrace) != 2 {
+		t.Fatalf("trace len: %+v", res.RuleTrace)
+	}
+	suppressed := res.RuleTrace[0]
+	if suppressed.RuleID != "needs_github" || !suppressed.Matched || !suppressed.Suppressed {
+		t.Fatalf("suppressed entry: %+v", suppressed)
+	}
+	wantSuppBy := []string{"github"}
+	if !reflect.DeepEqual(suppressed.SuppressedBy, wantSuppBy) {
+		t.Fatalf("suppressed_by: %+v want %+v", suppressed.SuppressedBy, wantSuppBy)
+	}
+	winner := res.RuleTrace[1]
+	if winner.RuleID != "fallback" || !winner.Matched || winner.Suppressed || len(winner.SuppressedBy) > 0 {
+		t.Fatalf("winner trace: %+v", winner)
+	}
+}
+
+func TestResolveStateTrace_noMatchKeepsTrace(t *testing.T) {
+	t.Parallel()
+	// Given: state rules that do not match the supplied signals
+	rules := []config.Rule{
+		{Type: "state", ID: "off", Priority: 5, StateID: "Off", When: map[string]any{"op": "eq", "path": "x", "value": 0}},
+	}
+	// When: ResolveStateTrace runs
+	res, err := ResolveStateTrace(rules, map[string]any{"x": 1}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Then: degraded outcome with the non-matching rule still recorded in the trace
+	if res.Kind != OutcomeDegraded {
+		t.Fatalf("kind: %+v", res)
+	}
+	if len(res.RuleTrace) != 1 || res.RuleTrace[0].RuleID != "off" || res.RuleTrace[0].Matched {
+		t.Fatalf("trace: %+v", res.RuleTrace)
+	}
+}
+
+func TestResolveRouteTrace_ignoresOtherRuleTypes(t *testing.T) {
+	t.Parallel()
+	// Given: route and state rules where the route rule matches; trace must include only routes
+	rules := []config.Rule{
+		{Type: "state", ID: "s_skip", Priority: 1, StateID: "S", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+		{Type: "route", ID: "r_hit", Priority: 10, RouteID: "next", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+	}
+	// When: ResolveRouteTrace runs
+	res, err := ResolveRouteTrace(rules, map[string]any{"x": 1}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Then: only the route rule is in the trace and the state rule is filtered out before walking
+	if res.Kind != OutcomeResolved || res.RouteID != "next" {
+		t.Fatalf("winner: %+v", res)
+	}
+	if len(res.RuleTrace) != 1 || res.RuleTrace[0].RuleID != "r_hit" || res.RuleTrace[0].RuleType != "route" {
+		t.Fatalf("trace: %+v", res.RuleTrace)
+	}
+	if res.RuleTrace[0].TargetID != "next" {
+		t.Fatalf("target_id: %+v", res.RuleTrace[0])
+	}
+}
+
+func TestResolveGuardTrace_scopesToRequestedGuardID(t *testing.T) {
+	t.Parallel()
+	// Given: guard rules for two different guard_id values
+	rules := []config.Rule{
+		{Type: "guard", ID: "other", Priority: 5, GuardID: "other-guard", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+		{Type: "guard", ID: "merge_a", Priority: 20, GuardID: "merge-readiness", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+		{Type: "guard", ID: "merge_b", Priority: 10, GuardID: "merge-readiness", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+	}
+	// When: ResolveGuardTrace runs for merge-readiness
+	res, err := ResolveGuardTrace(rules, map[string]any{"x": 1}, nil, "merge-readiness")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Then: only the two merge-readiness rules appear in the trace
+	if res.Kind != OutcomeResolved || res.GuardID != "merge-readiness" || res.RuleID != "merge_b" {
+		t.Fatalf("winner: %+v", res)
+	}
+	if len(res.RuleTrace) != 2 {
+		t.Fatalf("trace len=%d want 2: %+v", len(res.RuleTrace), res.RuleTrace)
+	}
+	for _, e := range res.RuleTrace {
+		if e.RuleType != "guard" || e.TargetID != "merge-readiness" {
+			t.Fatalf("trace entry leaked other guard scope: %+v", e)
+		}
+	}
+}
+
+func TestResolveStateTrace_evalErrorReportsTraceUpToFailingRule(t *testing.T) {
+	t.Parallel()
+	// Given: one valid rule followed by a rule with an unsupported when-clause shape
+	rules := []config.Rule{
+		{Type: "state", ID: "ok", Priority: 30, StateID: "OK", When: map[string]any{"op": "eq", "path": "x", "value": 1}},
+		{Type: "state", ID: "boom", Priority: 5, StateID: "Boom", When: map[string]any{"op": "bogus"}},
+	}
+	// When: ResolveStateTrace runs
+	res, err := ResolveStateTrace(rules, map[string]any{"x": 1}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Then: unsupported outcome; trace contains the rule(s) evaluated before the failing rule
+	if res.Kind != OutcomeUnsupported || !strings.Contains(res.Reason, "rule boom:") {
+		t.Fatalf("res: %+v", res)
+	}
+	if len(res.RuleTrace) != 1 || res.RuleTrace[0].RuleID != "ok" {
+		t.Fatalf("trace: %+v", res.RuleTrace)
+	}
+}

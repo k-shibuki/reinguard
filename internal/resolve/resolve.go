@@ -48,14 +48,17 @@ const (
 
 // Result is the outcome of resolving among matching rules of one type.
 type Result struct {
-	Kind            OutcomeKind      `json:"kind"`
-	StateID         string           `json:"state_id,omitempty"`
-	RouteID         string           `json:"route_id,omitempty"`
-	GuardID         string           `json:"guard_id,omitempty"`
-	TargetID        string           `json:"target_id,omitempty"`
-	RuleID          string           `json:"rule_id,omitempty"`
-	Reason          string           `json:"reason,omitempty"`
-	ReEntryHint     string           `json:"re_entry_hint,omitempty"`
+	Kind        OutcomeKind `json:"kind"`
+	StateID     string      `json:"state_id,omitempty"`
+	RouteID     string      `json:"route_id,omitempty"`
+	GuardID     string      `json:"guard_id,omitempty"`
+	TargetID    string      `json:"target_id,omitempty"`
+	RuleID      string      `json:"rule_id,omitempty"`
+	Reason      string      `json:"reason,omitempty"`
+	ReEntryHint string      `json:"re_entry_hint,omitempty"`
+	// RuleTrace is the optional rule-level evaluation trace; populated only by *Trace
+	// entry points so default Result JSON stays unchanged. See RuleTrace.
+	RuleTrace       []RuleTrace      `json:"rule_trace,omitempty"`
 	Candidates      []string         `json:"candidates,omitempty"`
 	RouteCandidates []RouteCandidate `json:"route_candidates,omitempty"`
 	MissingEvidence []string         `json:"missing_evidence,omitempty"`
@@ -67,6 +70,27 @@ type RouteCandidate struct {
 	RuleID   string  `json:"rule_id"`
 	RouteID  string  `json:"route_id"`
 	Priority float64 `json:"priority"`
+}
+
+// RuleTrace is one rule-level entry in an optional resolution trace (Issue #143). It records
+// rule_id, rule_type, priority, target_id (state_id / route_id / guard_id depending on rule_type),
+// whether the rule's when-clause matched, and dependency suppression for matched rules.
+//
+// Trace entries are recorded for every rule of the requested type that the resolver evaluated,
+// in evaluation order. They do not include the "and" / "or" / "any" / "all" sub-clauses of
+// match expressions; rule_trace is intentionally rule-level only (no expression-level tracing).
+//
+// Suppressed and SuppressedBy are populated only for rules whose when-clause matched but whose
+// declared depends_on entries include at least one degraded provider. SuppressedBy lists the
+// degraded provider IDs that caused the suppression.
+type RuleTrace struct {
+	RuleID       string   `json:"rule_id"`
+	RuleType     string   `json:"rule_type"`
+	TargetID     string   `json:"target_id"`
+	SuppressedBy []string `json:"suppressed_by,omitempty"`
+	Priority     float64  `json:"priority"`
+	Matched      bool     `json:"matched"`
+	Suppressed   bool     `json:"suppressed,omitempty"`
 }
 
 // StateRules filters rules to type state.
@@ -180,23 +204,61 @@ func unsupportedMissingGuardID(ruleID string) Result {
 // OutcomeUnsupported (ADR-0007) with Reason and optional handoff fields.
 //
 // For ruleType "guard", rules must share one logical guard_id (or use [ResolveGuard], which filters).
+//
+// Resolve never populates Result.RuleTrace; use [ResolveTrace] when callers need a rule-level
+// evaluation trace (Issue #143). Resolve and ResolveTrace agree on every other field.
 func Resolve(rules []config.Rule, signals map[string]any, degraded map[string]struct{}, ruleType string) (Result, error) {
+	return resolveCore(rules, signals, degraded, ruleType, false)
+}
+
+// ResolveTrace is the trace-aware variant of [Resolve]: in addition to the standard Result fields,
+// it populates Result.RuleTrace with one entry per evaluated rule of the requested type, in
+// evaluation order, including non-matching rules and matched-but-suppressed rules.
+//
+// Trace coverage matches [Resolve]'s evaluation: rules whose when-clause panics with an evaluation
+// error stop the walk and are reported as OutcomeUnsupported (the failing rule appears in
+// Result.Reason / Result.MissingEvidence). Rules evaluated before that point still appear in
+// Result.RuleTrace; the failing rule itself is not appended because evaluation never finished.
+func ResolveTrace(rules []config.Rule, signals map[string]any, degraded map[string]struct{}, ruleType string) (Result, error) {
+	return resolveCore(rules, signals, degraded, ruleType, true)
+}
+
+func resolveCore(rules []config.Rule, signals map[string]any, degraded map[string]struct{}, ruleType string, withTrace bool) (Result, error) {
 	p, err := profileForRuleType(ruleType)
 	if err != nil {
 		return unsupportedRuleType(ruleType, err.Error()), nil
 	}
-	candidates, err := matchingRules(filterType(rules, p.ruleType), signals)
-	if err != nil {
-		return unsupportedMatchError(err), nil
+	evals, evalErr := evaluateRules(filterType(rules, p.ruleType), signals, degraded)
+	if evalErr != nil {
+		res := unsupportedMatchError(evalErr)
+		if withTrace {
+			res.RuleTrace = traceFromEvals(evals)
+		}
+		return res, nil
 	}
-	if len(candidates) == 0 {
-		return Result{Kind: OutcomeDegraded, Reason: p.noMatchReason}, nil
+	candidates, active := splitMatchedRules(evals)
+	res := selectFromActive(p, candidates, active)
+	if withTrace {
+		res.RuleTrace = traceFromEvals(evals)
 	}
-	active := suppressDependsOn(candidates, degraded)
-	if len(active) == 0 {
-		return Result{Kind: OutcomeDegraded, Reason: p.allSuppressedReason}, nil
-	}
+	return res, nil
+}
 
+// ruleEval captures one rule's evaluation outcome so the same data can drive both selection and
+// optional rule-level tracing without re-walking match.Eval.
+type ruleEval struct {
+	suppressedBy []string
+	rule         config.Rule
+	matched      bool
+}
+
+func selectFromActive(p resolveProfile, candidates, active []config.Rule) Result {
+	if len(candidates) == 0 {
+		return Result{Kind: OutcomeDegraded, Reason: p.noMatchReason}
+	}
+	if len(active) == 0 {
+		return Result{Kind: OutcomeDegraded, Reason: p.allSuppressedReason}
+	}
 	ordered, routeCandidates := orderRulesForResolve(active, p.routeStyle)
 	best := minPriority(ordered)
 	var atBest []config.Rule
@@ -206,9 +268,9 @@ func Resolve(rules []config.Rule, signals map[string]any, degraded map[string]st
 		}
 	}
 	if len(atBest) > 1 {
-		return ambiguousResolveResult(best, atBest, p, routeCandidates), nil
+		return ambiguousResolveResult(best, atBest, p, routeCandidates)
 	}
-	return singleRuleResolveResult(atBest[0], p, routeCandidates), nil
+	return singleRuleResolveResult(atBest[0], p, routeCandidates)
 }
 
 // orderRulesForResolve returns rules in evaluation order; for routes, copies, sorts, and builds routeCandidates.
@@ -308,56 +370,120 @@ func ResolveState(rules []config.Rule, signals map[string]any, degraded map[stri
 	return Resolve(rules, signals, degraded, "state")
 }
 
+// ResolveStateTrace is the trace-aware variant of [ResolveState] (Issue #143).
+func ResolveStateTrace(rules []config.Rule, signals map[string]any, degraded map[string]struct{}) (Result, error) {
+	return ResolveTrace(rules, signals, degraded, "state")
+}
+
 // ResolveRoute selects route rules with the same priority and depends_on semantics as state rules.
 func ResolveRoute(rules []config.Rule, signals map[string]any, degraded map[string]struct{}) (Result, error) {
 	return Resolve(rules, signals, degraded, "route")
+}
+
+// ResolveRouteTrace is the trace-aware variant of [ResolveRoute] (Issue #143).
+func ResolveRouteTrace(rules []config.Rule, signals map[string]any, degraded map[string]struct{}) (Result, error) {
+	return ResolveTrace(rules, signals, degraded, "route")
 }
 
 // ResolveGuard selects among guard rules that declare the given guard_id using the same priority
 // and depends_on semantics as ResolveState (ADR-0004). It is the supported entry point for guard
 // resolution; callers should not mix multiple guard_id values in one Resolve(..., "guard") call.
 func ResolveGuard(rules []config.Rule, signals map[string]any, degraded map[string]struct{}, guardID string) (Result, error) {
+	return Resolve(scopeGuardRules(rules, guardID), signals, degraded, "guard")
+}
+
+// ResolveGuardTrace is the trace-aware variant of [ResolveGuard] (Issue #143). The trace covers
+// only rules scoped to guardID; rules with a different guard_id are filtered before evaluation
+// and never appear in Result.RuleTrace.
+func ResolveGuardTrace(rules []config.Rule, signals map[string]any, degraded map[string]struct{}, guardID string) (Result, error) {
+	return ResolveTrace(scopeGuardRules(rules, guardID), signals, degraded, "guard")
+}
+
+func scopeGuardRules(rules []config.Rule, guardID string) []config.Rule {
 	var scoped []config.Rule
 	for _, r := range rules {
 		if r.Type == "guard" && r.GuardID == guardID {
 			scoped = append(scoped, r)
 		}
 	}
-	return Resolve(scoped, signals, degraded, "guard")
+	return scoped
 }
 
-func matchingRules(rules []config.Rule, signals map[string]any) ([]config.Rule, error) {
-	var out []config.Rule
+// evaluateRules walks the typed rule slice once, recording match.Eval outcome and depends_on
+// suppression per rule. The first match.Eval failure aborts the walk and returns the rules
+// evaluated so far together with the wrapped error.
+func evaluateRules(rules []config.Rule, signals map[string]any, degraded map[string]struct{}) ([]ruleEval, error) {
+	out := make([]ruleEval, 0, len(rules))
 	for _, r := range rules {
 		ok, err := match.Eval(r.When, signals)
 		if err != nil {
-			return nil, fmt.Errorf("rule %s: %w", r.ID, err)
+			return out, fmt.Errorf("rule %s: %w", r.ID, err)
 		}
-		if ok {
-			out = append(out, r)
+		re := ruleEval{rule: r, matched: ok}
+		if ok && len(degraded) > 0 {
+			for _, d := range r.DependsOn {
+				if _, isDeg := degraded[d]; isDeg {
+					re.suppressedBy = append(re.suppressedBy, d)
+				}
+			}
 		}
+		out = append(out, re)
 	}
 	return out, nil
 }
 
-func suppressDependsOn(rules []config.Rule, degraded map[string]struct{}) []config.Rule {
-	if len(degraded) == 0 {
-		return rules
+// splitMatchedRules separates evaluated rules into (matched, matched-and-not-suppressed) preserving
+// the original evaluation order.
+func splitMatchedRules(evals []ruleEval) (candidates, active []config.Rule) {
+	for _, e := range evals {
+		if !e.matched {
+			continue
+		}
+		candidates = append(candidates, e.rule)
+		if len(e.suppressedBy) == 0 {
+			active = append(active, e.rule)
+		}
 	}
-	var out []config.Rule
-	for _, r := range rules {
-		skip := false
-		for _, d := range r.DependsOn {
-			if _, ok := degraded[d]; ok {
-				skip = true
-				break
-			}
+	return candidates, active
+}
+
+// traceFromEvals projects ruleEval entries into the public RuleTrace shape. Suppressed and
+// SuppressedBy are populated only for matched rules with degraded dependencies.
+func traceFromEvals(evals []ruleEval) []RuleTrace {
+	if len(evals) == 0 {
+		return nil
+	}
+	out := make([]RuleTrace, 0, len(evals))
+	for _, e := range evals {
+		entry := RuleTrace{
+			RuleID:   e.rule.ID,
+			RuleType: e.rule.Type,
+			Priority: e.rule.Priority,
+			TargetID: ruleTargetID(e.rule),
+			Matched:  e.matched,
 		}
-		if !skip {
-			out = append(out, r)
+		if len(e.suppressedBy) > 0 {
+			entry.Suppressed = true
+			entry.SuppressedBy = append([]string(nil), e.suppressedBy...)
 		}
+		out = append(out, entry)
 	}
 	return out
+}
+
+// ruleTargetID returns the rule's logical target identifier (state_id / route_id / guard_id) per
+// rule type. Empty strings are preserved so callers can distinguish "no target" from "missing".
+func ruleTargetID(r config.Rule) string {
+	switch r.Type {
+	case "state":
+		return r.StateID
+	case "route":
+		return r.RouteID
+	case "guard":
+		return r.GuardID
+	default:
+		return ""
+	}
 }
 
 // NearlyEqual reports floating-point equality for duplicate-priority warnings (ADR-0004).

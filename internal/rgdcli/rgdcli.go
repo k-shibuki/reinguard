@@ -111,7 +111,27 @@ func resolveEvalOutputMap(res resolve.Result) map[string]any {
 	if res.ReEntryHint != "" {
 		out["re_entry_hint"] = res.ReEntryHint
 	}
+	if len(res.RuleTrace) > 0 {
+		out["rule_trace"] = res.RuleTrace
+	}
 	return out
+}
+
+// resolveStateForCommand picks ResolveState or ResolveStateTrace based on --trace-rules so
+// callers do not have to branch on the flag at every call site (Issue #143).
+func resolveStateForCommand(c *cli.Context, rules []config.Rule, signals map[string]any, deg map[string]struct{}) (resolve.Result, error) {
+	if c.Bool("trace-rules") {
+		return resolve.ResolveStateTrace(rules, signals, deg)
+	}
+	return resolve.ResolveState(rules, signals, deg)
+}
+
+// resolveRouteForCommand mirrors resolveStateForCommand for route resolution (Issue #143).
+func resolveRouteForCommand(c *cli.Context, rules []config.Rule, signals map[string]any, deg map[string]struct{}) (resolve.Result, error) {
+	if c.Bool("trace-rules") {
+		return resolve.ResolveRouteTrace(rules, signals, deg)
+	}
+	return resolve.ResolveRoute(rules, signals, deg)
 }
 
 func contextBuildStateOutput(stateRes resolve.Result, routeRes resolve.Result, loaded *config.LoadResult) map[string]any {
@@ -222,7 +242,7 @@ func RunStateEval(c *cli.Context) error {
 		return mergeErr
 	}
 	degSet := observation.DegradedSet(diags, deg)
-	res, err := resolve.ResolveState(loaded.Rules(), flat, degSet)
+	res, err := resolveStateForCommand(c, loaded.Rules(), flat, degSet)
 	if err != nil {
 		return err
 	}
@@ -263,7 +283,7 @@ func RunRouteSelect(c *cli.Context) error {
 		return mergeErr
 	}
 	degSet := observation.DegradedSet(diags, deg)
-	res, err := resolve.ResolveRoute(loaded.Rules(), flat, degSet)
+	res, err := resolveRouteForCommand(c, loaded.Rules(), flat, degSet)
 	if err != nil {
 		return err
 	}
@@ -350,7 +370,7 @@ func RunContextBuild(c *cli.Context) error {
 		return mergeErr
 	}
 	degSet := observation.DegradedSet(diags, deg)
-	stateRes, err := resolve.ResolveState(loaded.Rules(), flat, degSet)
+	stateRes, err := resolveStateForCommand(c, loaded.Rules(), flat, degSet)
 	if err != nil {
 		return err
 	}
@@ -364,7 +384,7 @@ func RunContextBuild(c *cli.Context) error {
 		flat[k] = v
 	}
 	kEntries, kWarns := filterContextKnowledge(loaded, flat)
-	routeRes, err := resolve.ResolveRoute(loaded.Rules(), flat, degSet)
+	routeRes, err := resolveRouteForCommand(c, loaded.Rules(), flat, degSet)
 	if err != nil {
 		return err
 	}
@@ -1040,6 +1060,7 @@ func NewApp(version string) *cli.App {
 						newCwdFlag(),
 						newConfigDirFlag(),
 						newFailOnNonResolvedFlag(),
+						newTraceRulesFlag(),
 					},
 					Action: RunStateEval,
 				},
@@ -1061,6 +1082,7 @@ func NewApp(version string) *cli.App {
 						newCwdFlag(),
 						newConfigDirFlag(),
 						newFailOnNonResolvedFlag(),
+						newTraceRulesFlag(),
 					},
 					Action: RunRouteSelect,
 				},
@@ -1107,6 +1129,7 @@ func NewApp(version string) *cli.App {
 						newPRNumberFlag(),
 						newCompactFlag(),
 						newFailOnNonResolvedFlag(),
+						newTraceRulesFlag(),
 					},
 					Action: RunContextBuild,
 				},
