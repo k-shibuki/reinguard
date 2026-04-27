@@ -436,6 +436,8 @@ Evaluates `type: route` rules using:
   `2` when `kind` is `ambiguous`, `degraded`, or `unsupported`.
 - `--trace-rules` adds an optional `rule_trace[]` array to the JSON output
   recording every evaluated `type: route` rule (see [Rule trace](#rule-trace)).
+  Composes with `--fail-on-non-resolved`: stdout still includes `rule_trace`
+  before the non-zero exit.
 
 ### Output
 
@@ -664,6 +666,8 @@ guard steps use that flat map; they do not see route/guard outcomes inside
   used to derive `routes[0]`). Each `rule_trace[]` is scoped to its own
   `rule_type`; guard-rule traces are out of scope for this flag (use the
   matching `rgd state eval` / `rgd route select` invocations for finer scope).
+  Composes with `--fail-on-non-resolved`: stdout still includes
+  `state.rule_trace` and `routes[0].rule_trace` before the non-zero exit.
   See [Rule trace](#rule-trace).
 
 The `knowledge` object in the output has **`entries`** (same shape as
