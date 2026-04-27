@@ -40,6 +40,17 @@ func newFailOnNonResolvedFlag() *cli.BoolFlag {
 	}
 }
 
+// newTraceRulesFlag returns a fresh --trace-rules flag for state/route/context resolution
+// commands (Issue #143). When set, the JSON output gains an optional rule_trace array (or
+// state.rule_trace / routes[0].rule_trace for context build) listing every evaluated rule.
+// Default output without --trace-rules is unchanged.
+func newTraceRulesFlag() *cli.BoolFlag {
+	return &cli.BoolFlag{
+		Name:  "trace-rules",
+		Usage: "include rule-level trace of evaluated rules in the JSON output",
+	}
+}
+
 func newObservationFileFlag() *cli.StringFlag {
 	return &cli.StringFlag{Name: "observation-file"}
 }

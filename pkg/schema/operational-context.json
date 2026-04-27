@@ -38,6 +38,50 @@
           "items": { "type": "string" }
         },
         "re_entry_hint": { "type": "string" },
+        "rule_trace": {
+          "type": "array",
+          "description": "Optional rule-level evaluation trace populated only when --trace-rules is set on rgd state eval / route select / context build. Contains one entry per evaluated rule of the requested rule_type, in evaluation order.",
+          "items": {
+            "type": "object",
+            "required": ["rule_id", "rule_type", "priority", "target_id", "matched"],
+            "properties": {
+              "rule_id": { "type": "string" },
+              "rule_type": {
+                "type": "string",
+                "enum": ["state", "route", "guard"]
+              },
+              "priority": { "type": "number" },
+              "target_id": { "type": "string" },
+              "matched": { "type": "boolean" },
+              "suppressed": { "type": "boolean" },
+              "suppressed_by": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            },
+            "additionalProperties": false,
+            "allOf": [
+              {
+                "if": {
+                  "required": ["suppressed"],
+                  "properties": {
+                    "suppressed": { "const": true }
+                  }
+                },
+                "then": {
+                  "required": ["suppressed_by"],
+                  "properties": {
+                    "suppressed_by": {
+                      "type": "array",
+                      "items": { "type": "string" },
+                      "minItems": 1
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
         "procedure_hint": {
           "type": "object",
           "description": "Optional advisory mapping from resolved state_id to a procedure file (front matter SSOT). Omitted when state.kind is not resolved.",

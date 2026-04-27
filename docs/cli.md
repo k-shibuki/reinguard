@@ -14,6 +14,7 @@ body or README.
 | `-o`, `--output` | — | Reserved for future file output (optional) |
 | `--serial` | — | Run observation providers sequentially (default: parallel) |
 | `--fail-on-non-resolved` | — | Exit code `2` when a supported evaluation outcome is `ambiguous`, `degraded`, or `unsupported` |
+| `--trace-rules` | — | (`state eval`, `route select`, `context build`) include a rule-level evaluation trace (`rule_trace[]`) in the JSON output. Default off; default output is unchanged. |
 
 With **urfave/cli v2**, place flags that must apply to a **nested** subcommand
 **after** the subcommand name (e.g. `rgd state eval --config-dir DIR`), not only
@@ -372,6 +373,10 @@ Committed workflow `state_id` priorities for this repository are documented in *
   the evaluation signal map as `gates.<gate-id>.*` before state resolution.
 - `--fail-on-non-resolved` writes the normal JSON result to stdout, then exits
   `2` when `kind` is `ambiguous`, `degraded`, or `unsupported`.
+- `--trace-rules` adds an optional `rule_trace[]` array to the JSON output
+  recording every evaluated `type: state` rule (see [Rule trace](#rule-trace)).
+  Composes with `--fail-on-non-resolved`: stdout still includes `rule_trace`
+  before the non-zero exit.
 
 ### Output
 
@@ -386,8 +391,36 @@ JSON object:
 | `reason` | Human-readable summary when not `resolved`, or details for `unsupported` |
 | `missing_evidence` | Present for `unsupported`: machine-oriented tags (e.g. `when_evaluation`, `rule_id:…`) |
 | `re_entry_hint` | Present for `unsupported`: what to do next (re-entry contract per ADR-0007) |
+| `rule_trace` | **Only with `--trace-rules`.** Array of evaluated state rules; see [Rule trace](#rule-trace). |
 
 **`degraded` vs `unsupported`:** `degraded` means evaluation ran but no trustworthy winner (no match, all suppressed by `depends_on`, etc.). `unsupported` means the substrate refused to interpret inputs safely (invalid `when` shape, wrong `rule_type` to `Resolve`, or a winning rule missing `state_id` / `route_id`).
+
+### Rule trace
+
+The optional `rule_trace[]` array is populated only when `--trace-rules` is set
+on `rgd state eval`, `rgd route select`, or `rgd context build`. It records
+**rule-level** evaluation outcomes (one entry per evaluated rule of the
+relevant `rule_type`, in evaluation order). It is intentionally **not** an
+expression-level trace of the `when` AST.
+
+Each entry has the following fields (see
+`pkg/schema/operational-context.json` `resolutionResult.rule_trace`):
+
+| Field | Description |
+|-------|-------------|
+| `rule_id` | Rule id from configuration. |
+| `rule_type` | `state` \| `route` \| `guard`. Always equal to the resolution scope; e.g. `rgd state eval --trace-rules` only emits `state` entries. |
+| `priority` | Numeric priority of the rule. |
+| `target_id` | The `state_id` (state rules), `route_id` (route rules), or `guard_id` (guard rules) declared on the rule. |
+| `matched` | `true` when the rule's `when` evaluated to true for the supplied signals; `false` otherwise. |
+| `suppressed` | Optional. `true` when the rule matched but was suppressed by a `depends_on` chain (omitted when false). |
+| `suppressed_by` | Optional. Rule ids that caused this rule to be suppressed via `depends_on` (omitted when empty). |
+
+Default output (without `--trace-rules`) is unchanged: `rule_trace` is omitted
+from stdout. Out-of-scope for this flag: per-expression match diagnostics, AST
+traces, and guard-rule traces inside `rgd context build` — those remain
+available only via direct `rgd guard eval` / `rgd state eval` / `rgd route select`
+invocations.
 
 ## `rgd route select`
 
@@ -401,10 +434,12 @@ Evaluates `type: route` rules using:
   `gates.<gate-id>.*` before route evaluation)
 - `--fail-on-non-resolved` writes the normal JSON result to stdout, then exits
   `2` when `kind` is `ambiguous`, `degraded`, or `unsupported`.
+- `--trace-rules` adds an optional `rule_trace[]` array to the JSON output
+  recording every evaluated `type: route` rule (see [Rule trace](#rule-trace)).
 
 ### Output
 
-Same shape as state eval with `route_id` instead of `state_id` when resolved, including `unsupported` and handoff fields.
+Same shape as state eval with `route_id` instead of `state_id` when resolved, including `unsupported` and handoff fields. With `--trace-rules`, the optional `rule_trace[]` array is included as documented in [Rule trace](#rule-trace).
 
 `route_candidates` is always present when at least one matching route rule has a
 non-empty `route_id` after `depends_on` suppression. It lists **all** such
@@ -623,6 +658,13 @@ guard steps use that flat map; they do not see route/guard outcomes inside
 - **`--fail-on-non-resolved`**: writes the operational-context JSON to stdout,
   then exits `2` when either the embedded `state` result or `routes[0]` result
   is `ambiguous`, `degraded`, or `unsupported`.
+- **`--trace-rules`**: include the rule-level evaluation trace in the
+  operational-context JSON. Adds `state.rule_trace[]` (state-rule evaluations
+  used to derive `state`) and `routes[0].rule_trace[]` (route-rule evaluations
+  used to derive `routes[0]`). Each `rule_trace[]` is scoped to its own
+  `rule_type`; guard-rule traces are out of scope for this flag (use the
+  matching `rgd state eval` / `rgd route select` invocations for finer scope).
+  See [Rule trace](#rule-trace).
 
 The `knowledge` object in the output has **`entries`** (same shape as
 `rgd knowledge pack` stdout), not `paths` (ADR-0010).

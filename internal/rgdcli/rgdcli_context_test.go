@@ -251,6 +251,103 @@ applies_to:
 	}
 }
 
+func TestRunContextBuild_traceRulesAttachesTraceToStateAndRoute(t *testing.T) {
+	t.Parallel()
+	// Given: minimal config and observation, with --trace-rules
+	cfgDir := t.TempDir()
+	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
+	writeFile(t, filepath.Join(cfgDir, "control", "states", "default.yaml"), []byte(testFixtureRulesStateIdle))
+	writeFile(t, filepath.Join(cfgDir, "control", "routes", "default.yaml"), []byte(testFixtureControlRoutesNext))
+	if err := os.Mkdir(filepath.Join(cfgDir, "knowledge"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(cfgDir, "knowledge", "manifest.json"), []byte(`{"schema_version":"0.8.0","entries":[]}`))
+	obsPath := filepath.Join(t.TempDir(), "obs.json")
+	writeFile(t, obsPath, []byte(`{"schema_version":"0.8.0","signals":{"git":{"branch":"main","working_tree_clean":true}},"degraded":false}`))
+
+	var buf bytes.Buffer
+	app := NewApp("test")
+	app.Writer = &buf
+	// When: context build runs with --trace-rules
+	if err := app.Run([]string{
+		"rgd", "context", "build",
+		"--config-dir", cfgDir,
+		"--observation-file", obsPath,
+		"--trace-rules",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var out map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	// Then: state.rule_trace and routes[0].rule_trace are present and target only their own rule_type
+	state := mustMap(t, out["state"], "state")
+	stateTrace, ok := state["rule_trace"].([]any)
+	if !ok || len(stateTrace) == 0 {
+		t.Fatalf("state.rule_trace missing: %+v", state)
+	}
+	for _, e := range stateTrace {
+		em := mustMap(t, e, "state.rule_trace[]")
+		if em["rule_type"] != "state" {
+			t.Fatalf("state.rule_trace contains non-state rule: %+v", em)
+		}
+	}
+	routes := mustSlice(t, out["routes"], "routes")
+	r0 := mustMap(t, routes[0], "routes[0]")
+	routeTrace, ok := r0["rule_trace"].([]any)
+	if !ok || len(routeTrace) == 0 {
+		t.Fatalf("routes[0].rule_trace missing: %+v", r0)
+	}
+	for _, e := range routeTrace {
+		em := mustMap(t, e, "routes[0].rule_trace[]")
+		if em["rule_type"] != "route" {
+			t.Fatalf("routes[0].rule_trace contains non-route rule: %+v", em)
+		}
+	}
+}
+
+func TestRunContextBuild_defaultOmitsRuleTraceInStateAndRoutes(t *testing.T) {
+	t.Parallel()
+	// Given: minimal config and observation, no --trace-rules
+	cfgDir := t.TempDir()
+	writeFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte(testFixtureReinguardRoot))
+	writeFile(t, filepath.Join(cfgDir, "control", "states", "default.yaml"), []byte(testFixtureRulesStateIdle))
+	writeFile(t, filepath.Join(cfgDir, "control", "routes", "default.yaml"), []byte(testFixtureControlRoutesNext))
+	if err := os.Mkdir(filepath.Join(cfgDir, "knowledge"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(cfgDir, "knowledge", "manifest.json"), []byte(`{"schema_version":"0.8.0","entries":[]}`))
+	obsPath := filepath.Join(t.TempDir(), "obs.json")
+	writeFile(t, obsPath, []byte(`{"schema_version":"0.8.0","signals":{"git":{"branch":"main","working_tree_clean":true}},"degraded":false}`))
+
+	var buf bytes.Buffer
+	app := NewApp("test")
+	app.Writer = &buf
+	// When: context build runs without --trace-rules
+	if err := app.Run([]string{
+		"rgd", "context", "build",
+		"--config-dir", cfgDir,
+		"--observation-file", obsPath,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var out map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	// Then: neither state nor routes[0] include rule_trace
+	state := mustMap(t, out["state"], "state")
+	if _, ok := state["rule_trace"]; ok {
+		t.Fatalf("default context build must omit state.rule_trace, got %+v", state)
+	}
+	routes := mustSlice(t, out["routes"], "routes")
+	r0 := mustMap(t, routes[0], "routes[0]")
+	if _, ok := r0["rule_trace"]; ok {
+		t.Fatalf("default context build must omit routes[0].rule_trace, got %+v", r0)
+	}
+}
+
 func TestRunContextBuild_rejectsScopeFlagsWithObservationFile(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

@@ -223,6 +223,47 @@ rules:
 	}
 }
 
+func TestCLIStateEval_traceRulesWithFailOnNonResolved_keepsTraceOnStdout(t *testing.T) {
+	t.Parallel()
+
+	// Given: ambiguous state rules so --fail-on-non-resolved trips, plus --trace-rules
+	cfgDir := t.TempDir()
+	writeTestFile(t, filepath.Join(cfgDir, "reinguard.yaml"), []byte("schema_version: \"0.8.0\"\ndefault_branch: main\nproviders: []\n"))
+	writeTestFile(t, filepath.Join(cfgDir, "control", "states", "rules.yaml"), []byte(`schema_version: "0.8.0"
+rules:
+  - type: state
+    id: a
+    priority: 1
+    state_id: A
+    when: {op: eq, path: git.branch, value: feat}
+  - type: state
+    id: b
+    priority: 1
+    state_id: B
+    when: {op: eq, path: git.branch, value: feat}
+`))
+	obsPath := filepath.Join(t.TempDir(), "observation.json")
+	writeTestFile(t, obsPath, []byte(`{"schema_version":"0.8.0","signals":{"git":{"branch":"feat"}},"degraded":false}`))
+
+	// When: state eval runs with both --trace-rules and --fail-on-non-resolved
+	stdout, stderr, exitCode := runRGDBinary(t, "state", "eval", "--config-dir", cfgDir, "--observation-file", obsPath, "--trace-rules", "--fail-on-non-resolved")
+	// Then: exit code is 2 and stdout JSON still includes rule_trace alongside ambiguous kind
+	if exitCode != 2 {
+		t.Fatalf("expected exit 2, got %d stderr=%q", exitCode, stderr)
+	}
+	var out map[string]any
+	if err := json.Unmarshal([]byte(stdout), &out); err != nil {
+		t.Fatalf("invalid JSON: %v raw=%s", err, stdout)
+	}
+	if out["kind"] != "ambiguous" {
+		t.Fatalf("expected ambiguous kind, got %v", out["kind"])
+	}
+	traceAny, ok := out["rule_trace"].([]any)
+	if !ok || len(traceAny) != 2 {
+		t.Fatalf("expected 2 rule_trace entries, got %v", out["rule_trace"])
+	}
+}
+
 func TestCLIGateRecord_checksFileFromStdin(t *testing.T) {
 	t.Parallel()
 
