@@ -75,6 +75,18 @@ you need evidence outside the surfaced inbox (see `review--github-thread-api.md`
 
 ## Act
 
+### Active-signal preconditions
+
+Before any review-trigger action, check active bot-review signals from
+`observation.signals.github.reviews`. When one of these preconditions is true,
+complete the linked recovery or wait action before proceeding with Step 0 or
+posting `@coderabbitai review`.
+
+| Active signal | Required action |
+|---|---|
+| `github.reviews.bot_review_diagnostics.bot_review_blocked == true` | Follow [`../knowledge/review--bot-operations.md`](../knowledge/review--bot-operations.md) § **Rate-Limit Recovery**; sleep for `rate_limit_remaining_seconds + 30s` before any `@coderabbitai review` trigger. |
+| `bot_review_trigger_awaiting_ack == true` | Follow [`../knowledge/review--bot-operations.md`](../knowledge/review--bot-operations.md) § **Trigger**; wait for bot acknowledgement before retrying a trigger or proceeding as though review state is settled. |
+
 ### 0. Local work gate (uncommitted changes)
 
 If `observation.signals.git.working_tree_clean` is `false` (from `rgd context build --compact` or `rgd observe`):
