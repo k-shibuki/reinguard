@@ -77,10 +77,10 @@ you need evidence outside the surfaced inbox (see `review--github-thread-api.md`
 
 ### Active-signal preconditions
 
-Before any review-trigger action, check active bot-review signals from
+Before any review-address action, check active bot-review signals from
 `observation.signals.github.reviews`. When one of these preconditions is true,
-complete the linked recovery or wait action before proceeding with Step 0 or
-posting `@coderabbitai review`.
+complete the linked recovery or wait action before proceeding with Step 0,
+retrying a trigger, or posting `@coderabbitai review`.
 
 | Active signal | Required action |
 |---|---|

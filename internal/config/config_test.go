@@ -712,6 +712,28 @@ providers: []
 	}
 }
 
+func TestLoadRoot_localAIReviewRejectsTooLargeUnknownQuotaWait(t *testing.T) {
+	t.Parallel()
+	// Given: reinguard.yaml with an excessive CodeRabbit unknown-quota fallback.
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(fmt.Sprintf(`schema_version: %q
+default_branch: main
+workflow:
+  local_ai_review:
+    coderabbit:
+      unknown_quota_wait_seconds: 86401
+providers: []
+`, schema.CurrentSchemaVersion)))
+
+	// When: LoadRoot is called.
+	_, err := LoadRoot(dir)
+
+	// Then: validation rejects the value.
+	if err == nil || !strings.Contains(err.Error(), "unknown_quota_wait_seconds") {
+		t.Fatalf("got err=%v", err)
+	}
+}
+
 func TestLoadRoot_runtimeGateRolesDuplicateGateID(t *testing.T) {
 	t.Parallel()
 	// Given: reinguard.yaml with two runtime gate roles sharing the same gate_id

@@ -98,7 +98,7 @@ that remains outside the shipped `rgd` binary but is still validated by
 
 | Key | Type | Description |
 |-----|------|-------------|
-| `workflow.local_ai_review.coderabbit.unknown_quota_wait_seconds` | integer, `>= 0` | Fallback wait used by `.reinguard/scripts/check-local-review.sh --retry-on-rate-limit` when CodeRabbit emits usage-based/hourly-cap guidance without a parseable retry-after duration. Explicit `try again in` / `try after` / `retry in` cooldown hints still take precedence. |
+| `workflow.local_ai_review.coderabbit.unknown_quota_wait_seconds` | integer, `0..86400` | Fallback wait, in seconds, used by `.reinguard/scripts/check-local-review.sh --retry-on-rate-limit` when CodeRabbit emits usage-based/hourly-cap guidance without a parseable retry-after duration. If omitted, that unknown-quota condition fails closed instead of inventing a wait; `0` means retry immediately. Explicit `try again in` / `try after` / `retry in` cooldown hints still take precedence. This repository uses `1860` to cover the documented OSS 2/hour refilling-bucket interval plus buffer. |
 
 ## Provider IDs ↔ commands
 

@@ -56,6 +56,10 @@ type LocalAIReviewSpec struct {
 
 // CodeRabbitLocalReviewSpec configures the repository-local CodeRabbit CLI gate.
 type CodeRabbitLocalReviewSpec struct {
+	// UnknownQuotaWaitSeconds is the fallback wait before one local CodeRabbit retry when
+	// the CLI reports usage-based/hourly-cap quota guidance without a retry-after duration.
+	// The repository config currently uses 1860 seconds for the OSS 2/hour refill floor;
+	// 0 means retry immediately, and values above 86400 seconds are rejected.
 	UnknownQuotaWaitSeconds *int `yaml:"unknown_quota_wait_seconds,omitempty" json:"unknown_quota_wait_seconds,omitempty"`
 }
 
@@ -191,6 +195,20 @@ func validateRulesMatchControlKind(kind string, rules []Rule, pathHint string) e
 		if ru.Type != want {
 			return fmt.Errorf("config: rule[%d] in %s has type %q, expected %q for control/%s/", i, pathHint, ru.Type, want, kind)
 		}
+	}
+	return nil
+}
+
+func validateLocalAIReview(root *Root, pathHint string) error {
+	wait := root.Workflow.LocalAIReview.CodeRabbit.UnknownQuotaWaitSeconds
+	if wait == nil {
+		return nil
+	}
+	if *wait < 0 {
+		return fmt.Errorf("config: workflow.local_ai_review.coderabbit.unknown_quota_wait_seconds in %s must be >= 0, got %d", pathHint, *wait)
+	}
+	if *wait > 86400 {
+		return fmt.Errorf("config: workflow.local_ai_review.coderabbit.unknown_quota_wait_seconds in %s must be <= 86400, got %d", pathHint, *wait)
 	}
 	return nil
 }
