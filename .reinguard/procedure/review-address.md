@@ -84,8 +84,8 @@ posting `@coderabbitai review`.
 
 | Active signal | Required action |
 |---|---|
-| `github.reviews.bot_review_diagnostics.bot_review_blocked == true` | Follow [`../knowledge/review--bot-operations.md`](../knowledge/review--bot-operations.md) § **Rate-Limit Recovery**; sleep for `rate_limit_remaining_seconds + 30s` before any `@coderabbitai review` trigger. |
-| `bot_review_trigger_awaiting_ack == true` | Follow [`../knowledge/review--bot-operations.md`](../knowledge/review--bot-operations.md) § **Trigger**; wait for bot acknowledgement before retrying a trigger or proceeding as though review state is settled. |
+| `observation.signals.github.reviews.bot_review_diagnostics.bot_review_blocked == true` | Follow [`../knowledge/review--bot-operations.md`](../knowledge/review--bot-operations.md) § **Rate-Limit Recovery**; sleep for `rate_limit_remaining_seconds + 30s` before any `@coderabbitai review` trigger. |
+| `observation.signals.github.reviews.bot_review_trigger_awaiting_ack == true` | Follow [`../knowledge/review--bot-operations.md`](../knowledge/review--bot-operations.md) § **Trigger**; wait for bot acknowledgement before retrying a trigger or proceeding as though review state is settled. |
 
 ### 0. Local work gate (uncommitted changes)
 
