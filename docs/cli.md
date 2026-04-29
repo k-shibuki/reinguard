@@ -90,6 +90,16 @@ Issue/PR **policy enforcement** and related repository tooling scripts live unde
 
 Deterministic policy validators (`check-pr-policy.sh`, `check-issue-policy.sh`, `check-commit-msg.sh`) are the only current candidates for future Go-backed `rgd` migration. External-CLI and repository-maintenance scripts (`check-local-review.sh`, `sync-issue-templates.sh`, `check-coverage-threshold.sh`) remain repository-local shell tooling. The shell script suite is exercised by Go integration tests under `internal/scripttest/` and `internal/labels/`.
 
+### Workflow local review options (`reinguard.yaml`)
+
+`workflow.local_ai_review` configures repository-local pre-PR AI review tooling
+that remains outside the shipped `rgd` binary but is still validated by
+`rgd config validate`.
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `workflow.local_ai_review.coderabbit.unknown_quota_wait_seconds` | integer, `>= 0` | Fallback wait used by `.reinguard/scripts/check-local-review.sh --retry-on-rate-limit` when CodeRabbit emits usage-based/hourly-cap guidance without a parseable retry-after duration. Explicit `try again in` / `try after` / `retry in` cooldown hints still take precedence. |
+
 ## Provider IDs ↔ commands
 
 | Provider `id` in `reinguard.yaml` | Collected by |

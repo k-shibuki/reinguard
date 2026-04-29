@@ -80,11 +80,18 @@ depending on `~/.coderabbit`.
   (default buffer **30s**). PR-side CodeRabbit recovery uses the same
   **`cooldown + 30s`** rule before `@coderabbitai review`; see
   `review--bot-operations.md` § Rate-Limit Recovery.
+- If CodeRabbit emits usage-based/hourly-cap guidance without a parseable
+  retry-after duration, `--retry-on-rate-limit` uses the repository fallback
+  `workflow.local_ai_review.coderabbit.unknown_quota_wait_seconds` from
+  `.reinguard/reinguard.yaml` for the one automatic retry. Explicit cooldown
+  hints take precedence over this fallback; generic CLI failures still fail
+  closed.
 - Sparse **stdout** from the CLI while it works is **normal**; heartbeats go to
   **stderr** so transcripts stay readable.
 - Only terminal outcomes change control flow: success, explicit CLI failure,
-  supervisor timeout, auth/tooling failure, cooldown parse failure, or a failed
-  second attempt after the one automatic retry (per policy).
+  supervisor timeout, auth/tooling failure, cooldown parse failure, missing or
+  invalid unknown-quota fallback config, or a failed second attempt after the
+  one automatic retry (per policy).
 - Do not kill the subprocess without positive evidence of hang beyond the
   supervisor limit; the supervisor already bounds worst-case wait.
 - This is a **foreground wait**: a long run or cooldown sleep is **not** failure

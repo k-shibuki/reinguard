@@ -199,6 +199,88 @@ extract_rate_limit_seconds() {
   printf '%s\n' "$total"
 }
 
+has_unknown_quota_guidance() {
+	local text="$1"
+	grep -qiE 'usage-based add-?on|hourly cap|additional reviews beyond the hourly cap|reviews running without waiting' <<< "$text"
+}
+
+read_unknown_quota_wait_seconds() {
+	local cfg=".reinguard/reinguard.yaml"
+	require_file "$cfg" "$cfg is required to read workflow.local_ai_review.coderabbit.unknown_quota_wait_seconds." 2
+	awk '
+function indentation(s) {
+	match(s, /^ */)
+	return RLENGTH
+}
+function reset_local() {
+	in_local = 0
+	in_coderabbit = 0
+	local_indent = -1
+	coderabbit_indent = -1
+}
+BEGIN {
+	in_workflow = 0
+	reset_local()
+	workflow_indent = -1
+	found = 0
+}
+/^[[:space:]]*($|#)/ { next }
+{
+	line = $0
+	sub(/[[:space:]]+#.*/, "", line)
+	trimmed = line
+	sub(/^[[:space:]]*/, "", trimmed)
+	sub(/[[:space:]]*$/, "", trimmed)
+	indent = indentation(line)
+
+	if (in_coderabbit && indent <= coderabbit_indent) {
+		in_coderabbit = 0
+		coderabbit_indent = -1
+	}
+	if (in_local && indent <= local_indent) {
+		reset_local()
+	}
+	if (in_workflow && indent <= workflow_indent) {
+		in_workflow = 0
+		workflow_indent = -1
+		reset_local()
+	}
+
+	if (trimmed == "workflow:") {
+		in_workflow = 1
+		workflow_indent = indent
+		next
+	}
+	if (in_workflow && trimmed == "local_ai_review:") {
+		in_local = 1
+		local_indent = indent
+		next
+	}
+	if (in_local && trimmed == "coderabbit:") {
+		in_coderabbit = 1
+		coderabbit_indent = indent
+		next
+	}
+	if (in_coderabbit && trimmed ~ /^unknown_quota_wait_seconds:/) {
+		value = trimmed
+		sub(/^unknown_quota_wait_seconds:[[:space:]]*/, "", value)
+		if (value !~ /^[0-9]+$/) {
+			printf("invalid unknown_quota_wait_seconds: %s\n", value) > "/dev/stderr"
+			exit 3
+		}
+		print value
+		found = 1
+		exit 0
+	}
+}
+END {
+	if (!found) {
+		exit 1
+	}
+}
+' "$cfg"
+}
+
 # Run one `coderabbit review` with wall-clock cap and periodic stderr heartbeats.
 # Does not restart the CLI on an interval; one subprocess per attempt (same contract as before).
 heartbeat_pause() {
@@ -302,6 +384,28 @@ while true; do
     echo "ERROR: CodeRabbit CLI output included a cooldown hint but duration could not be parsed from the latest cooldown instruction line in this CLI run. Re-run after cooldown or check CLI output." >&2
     exit 2
   fi
+
+	if has_unknown_quota_guidance "$REVIEW_OUTPUT_CLEAN"; then
+		if [[ $RETRY_ON_RATE_LIMIT -eq 1 && $attempt -lt $max_attempts ]]; then
+			if ! wait_seconds="$(read_unknown_quota_wait_seconds)" || ! [[ "$wait_seconds" =~ ^[0-9]+$ ]]; then
+				echo "ERROR: CodeRabbit CLI reported usage-based/hourly-cap quota guidance without a parseable cooldown, but workflow.local_ai_review.coderabbit.unknown_quota_wait_seconds is missing or invalid." >&2
+				exit 2
+			fi
+			echo "" >&2
+			echo "CodeRabbit usage-based/hourly-cap quota guidance detected without a retry-after duration." >&2
+			echo "Configured fallback wait: ${wait_seconds}s from workflow.local_ai_review.coderabbit.unknown_quota_wait_seconds; sleeping before one automatic retry..." >&2
+			sleep "$wait_seconds"
+			echo "Retrying CodeRabbit local review (attempt $((attempt + 1))/${max_attempts})..." >&2
+			attempt=$((attempt + 1))
+			continue
+		fi
+		if [[ $RETRY_ON_RATE_LIMIT -eq 1 && $attempt -eq $max_attempts ]]; then
+			echo "ERROR: CodeRabbit CLI reported usage-based/hourly-cap quota guidance again after automatic retry. Wait for quota refill or enable the usage-based add-on, then rerun manually." >&2
+		else
+			echo "ERROR: CodeRabbit CLI reported usage-based/hourly-cap quota guidance without a retry-after duration. Pass --retry-on-rate-limit to use the configured fallback wait, or rerun after quota refill." >&2
+		fi
+		exit 2
+	fi
 
   if [[ $RETRY_ON_RATE_LIMIT -eq 1 && $attempt -eq $max_attempts ]]; then
     echo "ERROR: CodeRabbit local review failed again after automatic retry. Wait for any reported cooldown and rerun manually." >&2

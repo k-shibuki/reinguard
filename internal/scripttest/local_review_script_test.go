@@ -35,6 +35,24 @@ func setupLocalReviewRepo(t *testing.T) string {
 	return repo
 }
 
+func writeLocalReviewReinguardConfig(t *testing.T, repo, waitSeconds string) {
+	t.Helper()
+	cfgDir := filepath.Join(repo, ".reinguard")
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cfgDir, "reinguard.yaml"), []byte(`schema_version: "0.8.0"
+default_branch: main
+workflow:
+  local_ai_review:
+    coderabbit:
+      unknown_quota_wait_seconds: `+waitSeconds+`
+providers: []
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestCheckLocalReviewScript_RetryUsesLatestRateLimitLine(t *testing.T) {
 	t.Parallel()
 
@@ -239,6 +257,237 @@ printf '%s\n' "$1" >>"${TEST_SLEEP_FILE:?}"
 		t.Fatalf("expected fail-closed without sleep; footer must not supply cooldown, got:\n%s", sleepLog)
 	} else if !os.IsNotExist(err) {
 		t.Fatalf("unexpected error checking sleep file: %v", err)
+	}
+}
+
+func TestCheckLocalReviewScript_UnknownQuotaGuidanceUsesConfiguredFallback(t *testing.T) {
+	t.Parallel()
+
+	script := scriptPath(t, "check-local-review.sh")
+	// Given: CodeRabbit emits usage-based/hourly-cap guidance without retry-after, and repo config supplies fallback wait.
+	repo := setupLocalReviewRepo(t)
+	writeLocalReviewReinguardConfig(t, repo, "1860")
+
+	stubDir := t.TempDir()
+	sleepFile := filepath.Join(stubDir, "sleep.log")
+	countFile := filepath.Join(stubDir, "coderabbit-count.txt")
+	writeExecutable(t, stubDir, "coderabbit", `#!/usr/bin/env bash
+set -euo pipefail
+subcmd="$1"; shift
+case "$subcmd" in
+  auth) echo "Authentication: logged in" ;;
+  review)
+    count=0; [[ -f "${TEST_COUNT_FILE:?}" ]] && count=$(cat "${TEST_COUNT_FILE:?}")
+    count=$((count + 1)); printf '%s\n' "$count" >"${TEST_COUNT_FILE:?}"
+    if [[ $count -eq 1 ]]; then
+      echo "ERROR: To keep reviews running without waiting, you can enable usage-based add-on for your organization. This allows additional reviews beyond the hourly cap."
+      exit 1
+    fi
+    echo "Review completed: 0 findings"
+    ;;
+  *) exit 1 ;;
+esac
+`)
+	writeExecutable(t, stubDir, "sleep", `#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$1" >>"${TEST_SLEEP_FILE:?}"
+`)
+
+	env := []string{
+		"PATH=" + stubDir + string(os.PathListSeparator) + os.Getenv("PATH"),
+		"TEST_SLEEP_FILE=" + sleepFile,
+		"TEST_COUNT_FILE=" + countFile,
+	}
+
+	// When: automatic retry is enabled.
+	out, err := runBashScript(t, repo, script, env, "--base", "main", "--retry-on-rate-limit")
+	if err != nil {
+		t.Fatalf("check-local-review: %v\n%s", err, out)
+	}
+
+	// Then: the configured fallback wait is used before the one retry.
+	sleepLog, err := os.ReadFile(sleepFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(string(sleepLog)); got != "1860" {
+		t.Fatalf("sleep seconds = %q, want 1860", got)
+	}
+	if !strings.Contains(out, "CodeRabbit local review completed.") {
+		t.Fatalf("expected completion message, got:\n%s", out)
+	}
+}
+
+func TestCheckLocalReviewScript_UnknownQuotaGuidanceRequiresConfiguredFallback(t *testing.T) {
+	t.Parallel()
+
+	script := scriptPath(t, "check-local-review.sh")
+	// Given: CodeRabbit emits usage-based/hourly-cap guidance, but repo config has no fallback wait.
+	repo := setupLocalReviewRepo(t)
+
+	stubDir := t.TempDir()
+	sleepFile := filepath.Join(stubDir, "sleep.log")
+	writeExecutable(t, stubDir, "coderabbit", `#!/usr/bin/env bash
+set -euo pipefail
+subcmd="$1"; shift
+case "$subcmd" in
+  auth) echo "Authentication: logged in" ;;
+  review)
+    echo "ERROR: To keep reviews running without waiting, you can enable usage-based add-on for your organization. This allows additional reviews beyond the hourly cap."
+    exit 1
+    ;;
+  *) exit 1 ;;
+esac
+`)
+	writeExecutable(t, stubDir, "sleep", `#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$1" >>"${TEST_SLEEP_FILE:?}"
+`)
+
+	env := []string{
+		"PATH=" + stubDir + string(os.PathListSeparator) + os.Getenv("PATH"),
+		"TEST_SLEEP_FILE=" + sleepFile,
+	}
+
+	// When: automatic retry is enabled.
+	out, err := runBashScript(t, repo, script, env, "--base", "main", "--retry-on-rate-limit")
+
+	// Then: the script fails closed instead of inventing a wait.
+	if err == nil {
+		t.Fatalf("expected failure, got success:\n%s", out)
+	}
+	requireExitCode(t, err, 2, out)
+	if !strings.Contains(out, "unknown_quota_wait_seconds is missing or invalid") {
+		t.Fatalf("expected missing fallback diagnostic, got:\n%s", out)
+	}
+	if _, err := os.Stat(sleepFile); err == nil {
+		sleepLog, readErr := os.ReadFile(sleepFile)
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		t.Fatalf("expected fail-closed behavior without sleep, got sleep log:\n%s", sleepLog)
+	} else if !os.IsNotExist(err) {
+		t.Fatalf("unexpected error checking sleep file: %v", err)
+	}
+}
+
+func TestCheckLocalReviewScript_ExplicitCooldownPrecedesUnknownQuotaFallback(t *testing.T) {
+	t.Parallel()
+
+	script := scriptPath(t, "check-local-review.sh")
+	// Given: CodeRabbit output includes billing guidance and a parseable cooldown line.
+	repo := setupLocalReviewRepo(t)
+	writeLocalReviewReinguardConfig(t, repo, "1860")
+
+	stubDir := t.TempDir()
+	sleepFile := filepath.Join(stubDir, "sleep.log")
+	countFile := filepath.Join(stubDir, "coderabbit-count.txt")
+	writeExecutable(t, stubDir, "coderabbit", `#!/usr/bin/env bash
+set -euo pipefail
+subcmd="$1"; shift
+case "$subcmd" in
+  auth) echo "Authentication: logged in" ;;
+  review)
+    count=0; [[ -f "${TEST_COUNT_FILE:?}" ]] && count=$(cat "${TEST_COUNT_FILE:?}")
+    count=$((count + 1)); printf '%s\n' "$count" >"${TEST_COUNT_FILE:?}"
+    if [[ $count -eq 1 ]]; then
+      echo "usage-based add-on notice"
+      echo "Rate limit exceeded, retry in 1 seconds"
+      exit 1
+    fi
+    echo "Review completed: 0 findings"
+    ;;
+  *) exit 1 ;;
+esac
+`)
+	writeExecutable(t, stubDir, "sleep", `#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$1" >>"${TEST_SLEEP_FILE:?}"
+`)
+
+	env := []string{
+		"PATH=" + stubDir + string(os.PathListSeparator) + os.Getenv("PATH"),
+		"TEST_SLEEP_FILE=" + sleepFile,
+		"TEST_COUNT_FILE=" + countFile,
+		"RATE_LIMIT_RETRY_BUFFER_SEC=30",
+	}
+
+	// When: automatic retry is enabled.
+	out, err := runBashScript(t, repo, script, env, "--base", "main", "--retry-on-rate-limit")
+	if err != nil {
+		t.Fatalf("check-local-review: %v\n%s", err, out)
+	}
+
+	// Then: explicit cooldown plus buffer wins over the configured unknown-quota fallback.
+	sleepLog, err := os.ReadFile(sleepFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(string(sleepLog)); got != "31" {
+		t.Fatalf("sleep seconds = %q, want 31", got)
+	}
+}
+
+func TestCheckLocalReviewScript_UnknownQuotaGuidanceSecondHitFails(t *testing.T) {
+	t.Parallel()
+
+	script := scriptPath(t, "check-local-review.sh")
+	// Given: CodeRabbit emits usage-based/hourly-cap guidance on both attempts.
+	repo := setupLocalReviewRepo(t)
+	writeLocalReviewReinguardConfig(t, repo, "1860")
+
+	stubDir := t.TempDir()
+	sleepFile := filepath.Join(stubDir, "sleep.log")
+	countFile := filepath.Join(stubDir, "coderabbit-count.txt")
+	writeExecutable(t, stubDir, "coderabbit", `#!/usr/bin/env bash
+set -euo pipefail
+subcmd="$1"; shift
+case "$subcmd" in
+  auth) echo "Authentication: logged in" ;;
+  review)
+    count=0; [[ -f "${TEST_COUNT_FILE:?}" ]] && count=$(cat "${TEST_COUNT_FILE:?}")
+    count=$((count + 1)); printf '%s\n' "$count" >"${TEST_COUNT_FILE:?}"
+    echo "ERROR: To keep reviews running without waiting, you can enable usage-based add-on for your organization. This allows additional reviews beyond the hourly cap."
+    exit 1
+    ;;
+  *) exit 1 ;;
+esac
+`)
+	writeExecutable(t, stubDir, "sleep", `#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$1" >>"${TEST_SLEEP_FILE:?}"
+`)
+
+	env := []string{
+		"PATH=" + stubDir + string(os.PathListSeparator) + os.Getenv("PATH"),
+		"TEST_SLEEP_FILE=" + sleepFile,
+		"TEST_COUNT_FILE=" + countFile,
+	}
+
+	// When: automatic retry is enabled.
+	out, err := runBashScript(t, repo, script, env, "--base", "main", "--retry-on-rate-limit")
+
+	// Then: the script retries once and then fails with a quota-specific diagnostic.
+	if err == nil {
+		t.Fatalf("expected failure, got success:\n%s", out)
+	}
+	requireExitCode(t, err, 2, out)
+	if !strings.Contains(out, "usage-based/hourly-cap quota guidance again after automatic retry") {
+		t.Fatalf("expected second quota hit diagnostic, got:\n%s", out)
+	}
+	sleepLog, err := os.ReadFile(sleepFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(string(sleepLog)); got != "1860" {
+		t.Fatalf("sleep seconds = %q, want one 1860 wait", got)
+	}
+	reviewCount, err := os.ReadFile(countFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(string(reviewCount)); got != "2" {
+		t.Fatalf("review attempts = %q, want 2", got)
 	}
 }
 

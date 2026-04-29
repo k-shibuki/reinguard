@@ -27,6 +27,7 @@ type Root struct {
 
 // WorkflowSpec is top-level workflow-specific config that still belongs to repo-owned Semantics.
 type WorkflowSpec struct {
+	LocalAIReview    LocalAIReviewSpec    `yaml:"local_ai_review,omitempty" json:"local_ai_review,omitempty"`
 	RuntimeGateRoles RuntimeGateRolesSpec `yaml:"runtime_gate_roles,omitempty" json:"runtime_gate_roles,omitempty"`
 }
 
@@ -46,6 +47,16 @@ type RuntimeGateRoleSpec struct {
 	GateID             string    `yaml:"gate_id,omitempty" json:"gate_id,omitempty"`
 	ProducerProcedures []string  `yaml:"producer_procedures,omitempty" json:"producer_procedures,omitempty"`
 	PassCheckIDs       []string  `yaml:"pass_check_ids,omitempty" json:"pass_check_ids,omitempty"`
+}
+
+// LocalAIReviewSpec configures repository-local pre-PR AI review tooling.
+type LocalAIReviewSpec struct {
+	CodeRabbit CodeRabbitLocalReviewSpec `yaml:"coderabbit,omitempty" json:"coderabbit,omitempty"`
+}
+
+// CodeRabbitLocalReviewSpec configures the repository-local CodeRabbit CLI gate.
+type CodeRabbitLocalReviewSpec struct {
+	UnknownQuotaWaitSeconds *int `yaml:"unknown_quota_wait_seconds,omitempty" json:"unknown_quota_wait_seconds,omitempty"`
 }
 
 // ProviderSpec is one observation provider entry.
