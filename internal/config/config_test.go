@@ -666,71 +666,65 @@ providers: []
 
 func TestLoadRoot_localAIReviewCodeRabbitUnknownQuotaWait(t *testing.T) {
 	t.Parallel()
-	// Given: reinguard.yaml with CodeRabbit local review unknown-quota fallback configured.
-	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(fmt.Sprintf(`schema_version: %q
+	tests := []struct {
+		name          string
+		wantErrSubstr string
+		value         int
+		wantValue     int
+		wantErr       bool
+	}{
+		{
+			name:      "valid value",
+			value:     1860,
+			wantValue: 1860,
+		},
+		{
+			name:          "negative rejected",
+			value:         -1,
+			wantErr:       true,
+			wantErrSubstr: "unknown_quota_wait_seconds",
+		},
+		{
+			name:          "exceeds max rejected",
+			value:         86401,
+			wantErr:       true,
+			wantErrSubstr: "unknown_quota_wait_seconds",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			// Given: reinguard.yaml with a CodeRabbit local review unknown-quota fallback.
+			dir := t.TempDir()
+			writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(fmt.Sprintf(`schema_version: %q
 default_branch: main
 workflow:
   local_ai_review:
     coderabbit:
-      unknown_quota_wait_seconds: 1860
+      unknown_quota_wait_seconds: %d
 providers: []
-`, schema.CurrentSchemaVersion)))
+`, schema.CurrentSchemaVersion, tt.value)))
 
-	// When: LoadRoot is called.
-	root, err := LoadRoot(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
+			// When: LoadRoot is called.
+			root, err := LoadRoot(dir)
 
-	// Then: the typed config preserves the configured wait.
-	got := root.Workflow.LocalAIReview.CodeRabbit.UnknownQuotaWaitSeconds
-	if got == nil || *got != 1860 {
-		t.Fatalf("unknown_quota_wait_seconds=%v, want 1860", got)
-	}
-}
-
-func TestLoadRoot_localAIReviewRejectsNegativeUnknownQuotaWait(t *testing.T) {
-	t.Parallel()
-	// Given: reinguard.yaml with an invalid negative CodeRabbit unknown-quota fallback.
-	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(fmt.Sprintf(`schema_version: %q
-default_branch: main
-workflow:
-  local_ai_review:
-    coderabbit:
-      unknown_quota_wait_seconds: -1
-providers: []
-`, schema.CurrentSchemaVersion)))
-
-	// When: LoadRoot is called.
-	_, err := LoadRoot(dir)
-
-	// Then: JSON Schema rejects the value.
-	if err == nil || !strings.Contains(err.Error(), "unknown_quota_wait_seconds") {
-		t.Fatalf("got err=%v", err)
-	}
-}
-
-func TestLoadRoot_localAIReviewRejectsTooLargeUnknownQuotaWait(t *testing.T) {
-	t.Parallel()
-	// Given: reinguard.yaml with an excessive CodeRabbit unknown-quota fallback.
-	dir := t.TempDir()
-	writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(fmt.Sprintf(`schema_version: %q
-default_branch: main
-workflow:
-  local_ai_review:
-    coderabbit:
-      unknown_quota_wait_seconds: 86401
-providers: []
-`, schema.CurrentSchemaVersion)))
-
-	// When: LoadRoot is called.
-	_, err := LoadRoot(dir)
-
-	// Then: validation rejects the value.
-	if err == nil || !strings.Contains(err.Error(), "unknown_quota_wait_seconds") {
-		t.Fatalf("got err=%v", err)
+			// Then: validation preserves valid values and rejects invalid bounds.
+			if tt.wantErr {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErrSubstr) {
+					t.Fatalf("got err=%v, want substring %q", err, tt.wantErrSubstr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := root.Workflow.LocalAIReview.CodeRabbit.UnknownQuotaWaitSeconds
+			if got == nil || *got != tt.wantValue {
+				t.Fatalf("unknown_quota_wait_seconds=%v, want %d", got, tt.wantValue)
+			}
+		})
 	}
 }
 
