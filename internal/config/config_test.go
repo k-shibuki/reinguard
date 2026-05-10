@@ -679,6 +679,16 @@ func TestLoadRoot_localAIReviewCodeRabbitUnknownQuotaWait(t *testing.T) {
 			wantValue: 1860,
 		},
 		{
+			name:      "minimum valid",
+			value:     0,
+			wantValue: 0,
+		},
+		{
+			name:      "maximum valid",
+			value:     86400,
+			wantValue: 86400,
+		},
+		{
 			name:          "negative rejected",
 			value:         -1,
 			wantErr:       true,
@@ -693,7 +703,6 @@ func TestLoadRoot_localAIReviewCodeRabbitUnknownQuotaWait(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			// Given: reinguard.yaml with a CodeRabbit local review unknown-quota fallback.

@@ -264,6 +264,7 @@ BEGIN {
   if (in_coderabbit && trimmed ~ /^unknown_quota_wait_seconds:/) {
     value = trimmed
     sub(/^unknown_quota_wait_seconds:[[:space:]]*/, "", value)
+    gsub(/^["'\''"]|["'\''"]$/, "", value)
     if (value !~ /^[0-9]+$/) {
       printf("invalid unknown_quota_wait_seconds: %s\n", value) > "/dev/stderr"
       exit 3
