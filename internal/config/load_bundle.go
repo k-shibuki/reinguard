@@ -18,6 +18,8 @@ import (
 	"github.com/k-shibuki/reinguard/pkg/schema"
 )
 
+const maxUnknownQuotaWaitSeconds = 86400
+
 // loadSchemaSet holds compiled JSON Schema handles for one Load invocation.
 type loadSchemaSet struct {
 	root   *jsonschema.Schema
@@ -93,8 +95,8 @@ func validateLocalAIReview(root *Root, pathHint string) error {
 	if *wait < 0 {
 		return fmt.Errorf("config: workflow.local_ai_review.coderabbit.unknown_quota_wait_seconds in %s must be >= 0, got %d", pathHint, *wait)
 	}
-	if *wait > 86400 {
-		return fmt.Errorf("config: workflow.local_ai_review.coderabbit.unknown_quota_wait_seconds in %s must be <= 86400, got %d", pathHint, *wait)
+	if *wait > maxUnknownQuotaWaitSeconds {
+		return fmt.Errorf("config: workflow.local_ai_review.coderabbit.unknown_quota_wait_seconds in %s must be <= %d, got %d", pathHint, maxUnknownQuotaWaitSeconds, *wait)
 	}
 	return nil
 }
