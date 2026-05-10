@@ -2,11 +2,14 @@ package scripttest
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/k-shibuki/reinguard/pkg/schema"
 )
 
 func requireExitCode(t *testing.T, err error, want int, out string) {
@@ -41,14 +44,15 @@ func writeLocalReviewReinguardConfig(t *testing.T, repo, waitSeconds string) {
 	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(cfgDir, "reinguard.yaml"), []byte(`schema_version: "0.8.0"
+	cfg := fmt.Sprintf(`schema_version: %q
 default_branch: main
 workflow:
   local_ai_review:
     coderabbit:
-      unknown_quota_wait_seconds: `+waitSeconds+`
+      unknown_quota_wait_seconds: %s
 providers: []
-`), 0o644); err != nil {
+`, schema.CurrentSchemaVersion, waitSeconds)
+	if err := os.WriteFile(filepath.Join(cfgDir, "reinguard.yaml"), []byte(cfg), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }
