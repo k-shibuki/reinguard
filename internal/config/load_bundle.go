@@ -85,6 +85,20 @@ func readAndValidateRoot(dir string, rootSch *jsonschema.Schema) (Root, error) {
 	return root, nil
 }
 
+func validateLocalAIReview(root *Root, pathHint string) error {
+	wait := root.Workflow.LocalAIReview.CodeRabbit.UnknownQuotaWaitSeconds
+	if wait == nil {
+		return nil
+	}
+	if *wait < 0 {
+		return fmt.Errorf("config: workflow.local_ai_review.coderabbit.unknown_quota_wait_seconds in %s must be >= 0, got %d", pathHint, *wait)
+	}
+	if *wait > 86400 {
+		return fmt.Errorf("config: workflow.local_ai_review.coderabbit.unknown_quota_wait_seconds in %s must be <= 86400, got %d", pathHint, *wait)
+	}
+	return nil
+}
+
 func rejectLegacyRulesDir(dir string) error {
 	legacyRulesDir := filepath.Join(dir, "rules")
 	entries, lerr := os.ReadDir(legacyRulesDir)

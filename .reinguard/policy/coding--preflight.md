@@ -78,8 +78,8 @@ bash .reinguard/scripts/with-repo-local-state.sh --home-subdir cr-home -- \
   with PR-side bot wait cadence in `review--bot-operations.md`. Sparse **stdout**
   while the CLI works, or a long cooldown sleep, is not a failure by itself and
   must not be treated as a hang without positive evidence.
-- If the script cannot run (CLI missing, auth missing, second consecutive
-  rate limit or usage-based/hourly-cap quota block after retry, execution
+- If the script cannot run (CLI missing, auth missing, rate limit or
+  usage-based/hourly-cap quota block whose retry attempt also fails, execution
   error), treat that as a failed gate and do not proceed to `pr-create`.
 - When the local CLI gate succeeds on the current HEAD, record a fresh runtime
   proof for the configured **pre-PR AI review** gate role

@@ -33,7 +33,7 @@
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 86400,
-                  "description": "Fallback wait before one retry when CodeRabbit emits usage-based/hourly-cap guidance without a parseable retry-after duration."
+                  "description": "Fallback wait before one retry when CodeRabbit emits usage-based/hourly-cap guidance without a parseable retry-after duration. Zero is allowed and means retry immediately."
                 }
               }
             }
