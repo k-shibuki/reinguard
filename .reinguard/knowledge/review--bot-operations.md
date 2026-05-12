@@ -36,6 +36,11 @@ Operational reference for **PR-side** bot review (after a PR exists):
 CodeRabbit and Codex on GitHub — trigger, detection, timing, rate limits,
 re-review, and polling cadence for `wait-bot-review` / `review-address`.
 
+This card is selected by active bot-review diagnostics rather than by PR
+existence alone. Use keyword retrieval (for example `rgd knowledge pack
+--query 'CodeRabbit trigger'`) when you need the general reference outside a
+bot-review wait or re-review situation.
+
 **Pre-PR** local CodeRabbit CLI (`check-local-review.sh`) is **not** covered
 here; see `.reinguard/knowledge/review--local-coderabbit-cli.md`.
 

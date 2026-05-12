@@ -222,6 +222,127 @@ func TestRunContextBuild_reviewBotKnowledgeFollowsDiagnostics(t *testing.T) {
 			absentIDs: []string{"review-incremental-fix-flow", "review-github-thread-api"},
 		},
 		{
+			name: "failed_bot_review",
+			observation: `{
+  "schema_version": "0.8.0",
+  "signals": {
+    "git": {"detached_head": false, "working_tree_clean": true},
+    "github": {
+      "pull_requests": {"pr_exists_for_branch": true, "merge_state_status": "clean"},
+      "ci": {"ci_status": "success"},
+      "reviews": {
+        "review_threads_unresolved": 0,
+        "review_decisions_changes_requested": 0,
+        "bot_reviewer_status": [],
+        "bot_review_diagnostics": {
+          "bot_review_blocked": false,
+          "bot_review_block_reason": "",
+          "bot_review_trigger_awaiting_ack": false,
+          "bot_review_pending": false,
+          "bot_review_failed": true,
+          "bot_review_stale": false,
+          "non_thread_findings_present": false
+        }
+      }
+    }
+  },
+  "degraded": false
+}`,
+			wantIDs:   []string{"review-bot-operations", "review-multi-source-review-signals"},
+			absentIDs: []string{"review-incremental-fix-flow", "review-github-thread-api"},
+		},
+		{
+			name: "stale_bot_review",
+			observation: `{
+  "schema_version": "0.8.0",
+  "signals": {
+    "git": {"detached_head": false, "working_tree_clean": true},
+    "github": {
+      "pull_requests": {"pr_exists_for_branch": true, "merge_state_status": "clean"},
+      "ci": {"ci_status": "success"},
+      "reviews": {
+        "review_threads_unresolved": 0,
+        "review_decisions_changes_requested": 0,
+        "bot_reviewer_status": [],
+        "bot_review_diagnostics": {
+          "bot_review_blocked": false,
+          "bot_review_block_reason": "",
+          "bot_review_trigger_awaiting_ack": false,
+          "bot_review_pending": false,
+          "bot_review_failed": false,
+          "bot_review_stale": true,
+          "non_thread_findings_present": false
+        }
+      }
+    }
+  },
+  "degraded": false
+}`,
+			wantIDs:   []string{"review-bot-operations", "review-multi-source-review-signals"},
+			absentIDs: []string{"review-incremental-fix-flow", "review-github-thread-api"},
+		},
+		{
+			name: "non_thread_findings",
+			observation: `{
+  "schema_version": "0.8.0",
+  "signals": {
+    "git": {"detached_head": false, "working_tree_clean": true},
+    "github": {
+      "pull_requests": {"pr_exists_for_branch": true, "merge_state_status": "clean"},
+      "ci": {"ci_status": "success"},
+      "reviews": {
+        "review_threads_unresolved": 0,
+        "review_decisions_changes_requested": 0,
+        "bot_reviewer_status": [],
+        "bot_review_diagnostics": {
+          "bot_review_blocked": false,
+          "bot_review_block_reason": "",
+          "bot_review_trigger_awaiting_ack": false,
+          "bot_review_pending": false,
+          "bot_review_failed": false,
+          "bot_review_stale": false,
+          "non_thread_findings_present": true
+        }
+      }
+    }
+  },
+  "degraded": false
+}`,
+			wantIDs:   []string{"review-multi-source-review-signals", "review-incremental-fix-flow"},
+			absentIDs: []string{"review-bot-operations", "review-github-thread-api"},
+		},
+		{
+			name: "duplicate_findings",
+			observation: `{
+  "schema_version": "0.8.0",
+  "signals": {
+    "git": {"detached_head": false, "working_tree_clean": true},
+    "github": {
+      "pull_requests": {"pr_exists_for_branch": true, "merge_state_status": "clean"},
+      "ci": {"ci_status": "success"},
+      "reviews": {
+        "review_threads_unresolved": 0,
+        "review_decisions_changes_requested": 0,
+        "bot_reviewer_status": [],
+        "bot_review_diagnostics": {
+          "bot_review_blocked": false,
+          "bot_review_block_reason": "",
+          "bot_review_trigger_awaiting_ack": false,
+          "bot_review_pending": false,
+          "bot_review_failed": false,
+          "bot_review_stale": false,
+          "duplicate_findings_detected": true,
+          "non_thread_findings_present": false
+        }
+      }
+    }
+  },
+  "degraded": false
+}`,
+			wantIDs:   []string{"review-multi-source-review-signals"},
+			absentIDs: []string{"review-bot-operations", "review-incremental-fix-flow", "review-github-thread-api"},
+		},
+		{
 			name: "non_bot_pr_review_surface",
 			observation: `{
   "schema_version": "0.8.0",
