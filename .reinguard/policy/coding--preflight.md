@@ -62,19 +62,26 @@ bash .reinguard/scripts/with-repo-local-state.sh --home-subdir cr-home -- \
   cooldown from the **latest line that contains an explicit backoff hint**
   (`try again in`, `try after`, or `retry in`) in that run (so earlier log text
   and unrelated footers such as `finished in N seconds` do not affect the
-  wait). It adds a small **safety buffer** (default 30s; override with
-  `RATE_LIMIT_RETRY_BUFFER_SEC`) before the retry. If no parseable cooldown is
-  found on that line, or the review still fails after that single automatic
-  retry, treat the gate as failed.
+  wait). Retry wait selection:
+  1. Explicit backoff hint — sleep the parsed cooldown plus the small **safety
+     buffer** (default 30s; override with `RATE_LIMIT_RETRY_BUFFER_SEC`).
+  2. Usage-based/hourly-cap guidance without a parseable retry-after duration —
+     sleep the repository fallback
+     `workflow.local_ai_review.coderabbit.unknown_quota_wait_seconds` from
+     `.reinguard/reinguard.yaml`.
+  3. No applicable wait or failed retry — treat the gate as failed when there
+     is no wait guidance or when the second attempt fails after the one
+     automatic retry.
 - The script supervises each `coderabbit review` attempt: stderr **heartbeat**
   every **30 seconds** (default `LOCAL_CR_HEARTBEAT_SEC=30`) and a **20-minute**
   wall-clock maximum per attempt (default `LOCAL_CR_MAX_WAIT_SEC=1200`), aligned
-  with PR-side bot wait cadence in `review--bot-operations.md`. Sparse **stdout**
-  while the CLI works, or a long cooldown sleep, is not a failure by itself and
-  must not be treated as a hang without positive evidence.
-- If the script cannot run (CLI missing, auth missing, second consecutive
-  rate limit after retry, execution error), treat that as a failed gate and
-  do not proceed to `pr-create`.
+  with PR-side bot wait cadence in
+  `.reinguard/knowledge/review--bot-operations.md`. Sparse **stdout** while the
+  CLI works, or a long cooldown sleep, is not a failure by itself and must not
+  be treated as a hang without positive evidence.
+- If the script cannot run (CLI missing, auth missing, rate limit or
+  usage-based/hourly-cap quota block whose retry attempt also fails, execution
+  error), treat that as a failed gate and do not proceed to `pr-create`.
 - When the local CLI gate succeeds on the current HEAD, record a fresh runtime
   proof for the configured **pre-PR AI review** gate role
   (`workflow.runtime_gate_roles.pre_pr_ai_review`; default gate id:

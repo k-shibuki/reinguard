@@ -195,6 +195,39 @@ func TestComputeBotReviewDiagnostics_nonThreadFindingsRequired(t *testing.T) {
 	}
 }
 
+func TestComputeBotReviewDiagnostics_cleanCompletionClearsStaleNonThreadFindings(t *testing.T) {
+	t.Parallel()
+	// Given: CodeRabbit status is clean for the current head, while older review-body counts remain on the status map.
+	got := ComputeBotReviewDiagnostics([]any{
+		map[string]any{
+			"required":                    true,
+			"status":                      BotStatusCompletedClean,
+			"review_commit_sha":           "abc123",
+			"review_completed_clean":      true,
+			"actionable_findings_count":   1,
+			"outside_diff_findings_count": 1,
+		},
+	}, "abc123", false)
+
+	// Then: stale non-thread finding counts do not block merge readiness after a clean bot completion.
+	if got["non_thread_findings_present"].(bool) {
+		t.Fatalf("want non_thread_findings_present=false after clean completion: %+v", got)
+	}
+
+	gotAlias := ComputeBotReviewDiagnostics([]any{
+		map[string]any{
+			"required":                  true,
+			"status":                    BotStatusCompleted,
+			"review_commit_sha":         "abc123",
+			"cr_review_completed_clean": true,
+			"actionable_findings_count": 1,
+		},
+	}, "abc123", false)
+	if gotAlias["non_thread_findings_present"].(bool) {
+		t.Fatalf("want non_thread_findings_present=false when cr_review_completed_clean=true: %+v", gotAlias)
+	}
+}
+
 func TestComputeBotReviewDiagnostics_nonThreadFindingsOptionalOnly(t *testing.T) {
 	t.Parallel()
 	// Given: optional-only bot with outside-diff findings signal

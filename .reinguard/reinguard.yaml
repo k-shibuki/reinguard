@@ -2,6 +2,9 @@
 schema_version: "0.8.0"
 default_branch: main
 workflow:
+  local_ai_review:
+    coderabbit:
+      unknown_quota_wait_seconds: 1860
   runtime_gate_roles:
     local_verification:
       gate_id: local-verification

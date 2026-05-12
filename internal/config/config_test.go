@@ -664,6 +664,137 @@ providers: []
 	}
 }
 
+func TestLoadRoot_localAIReviewCodeRabbitUnknownQuotaWait(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name          string
+		wantErrSubstr string
+		value         int
+		wantValue     int
+		wantErr       bool
+	}{
+		{
+			name:      "valid value",
+			value:     1860,
+			wantValue: 1860,
+		},
+		{
+			name:      "minimum valid",
+			value:     0,
+			wantValue: 0,
+		},
+		{
+			name:      "maximum valid",
+			value:     86400,
+			wantValue: 86400,
+		},
+		{
+			name:          "negative rejected",
+			value:         -1,
+			wantErr:       true,
+			wantErrSubstr: "unknown_quota_wait_seconds",
+		},
+		{
+			name:          "exceeds max rejected",
+			value:         86401,
+			wantErr:       true,
+			wantErrSubstr: "unknown_quota_wait_seconds",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			// Given: reinguard.yaml with a CodeRabbit local review unknown-quota fallback.
+			dir := t.TempDir()
+			writeFile(t, filepath.Join(dir, "reinguard.yaml"), []byte(fmt.Sprintf(`schema_version: %q
+default_branch: main
+workflow:
+  local_ai_review:
+    coderabbit:
+      unknown_quota_wait_seconds: %d
+providers: []
+`, schema.CurrentSchemaVersion, tt.value)))
+
+			// When: LoadRoot is called.
+			root, err := LoadRoot(dir)
+
+			// Then: validation preserves valid values and rejects invalid bounds.
+			if tt.wantErr {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErrSubstr) {
+					t.Fatalf("got err=%v, want substring %q", err, tt.wantErrSubstr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := root.Workflow.LocalAIReview.CodeRabbit.UnknownQuotaWaitSeconds
+			if got == nil || *got != tt.wantValue {
+				t.Fatalf("unknown_quota_wait_seconds=%v, want %d", got, tt.wantValue)
+			}
+		})
+	}
+}
+
+func intPtr(v int) *int {
+	return &v
+}
+
+func TestValidateLocalAIReview(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name          string
+		wait          *int
+		wantErrSubstr string
+	}{
+		{
+			name: "nil wait allowed",
+		},
+		{
+			name: "zero wait allowed",
+			wait: intPtr(0),
+		},
+		{
+			name: "max wait allowed",
+			wait: intPtr(maxUnknownQuotaWaitSeconds),
+		},
+		{
+			name:          "negative rejected",
+			wait:          intPtr(-1),
+			wantErrSubstr: "must be >= 0",
+		},
+		{
+			name:          "over max rejected",
+			wait:          intPtr(maxUnknownQuotaWaitSeconds + 1),
+			wantErrSubstr: "must be <= 86400",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			// Given: a root with the local CodeRabbit fallback wait configured for this case.
+			root := Root{}
+			root.Workflow.LocalAIReview.CodeRabbit.UnknownQuotaWaitSeconds = tt.wait
+
+			// When: local AI review validation runs.
+			err := validateLocalAIReview(&root, "reinguard.yaml")
+
+			// Then: each branch preserves the intended bound behavior.
+			if tt.wantErrSubstr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErrSubstr) {
+					t.Fatalf("got err=%v, want substring %q", err, tt.wantErrSubstr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
 func TestLoadRoot_runtimeGateRolesDuplicateGateID(t *testing.T) {
 	t.Parallel()
 	// Given: reinguard.yaml with two runtime gate roles sharing the same gate_id

@@ -18,6 +18,8 @@ import (
 	"github.com/k-shibuki/reinguard/pkg/schema"
 )
 
+const maxUnknownQuotaWaitSeconds = 86400
+
 // loadSchemaSet holds compiled JSON Schema handles for one Load invocation.
 type loadSchemaSet struct {
 	root   *jsonschema.Schema
@@ -76,10 +78,27 @@ func readAndValidateRoot(dir string, rootSch *jsonschema.Schema) (Root, error) {
 	if err = validateRuntimeGateRoles(&root, rootPath); err != nil {
 		return Root{}, err
 	}
+	if err = validateLocalAIReview(&root, rootPath); err != nil {
+		return Root{}, err
+	}
 	if err := rejectLegacyRulesDir(dir); err != nil {
 		return Root{}, err
 	}
 	return root, nil
+}
+
+func validateLocalAIReview(root *Root, pathHint string) error {
+	wait := root.Workflow.LocalAIReview.CodeRabbit.UnknownQuotaWaitSeconds
+	if wait == nil {
+		return nil
+	}
+	if *wait < 0 {
+		return fmt.Errorf("config: workflow.local_ai_review.coderabbit.unknown_quota_wait_seconds in %s must be >= 0, got %d", pathHint, *wait)
+	}
+	if *wait > maxUnknownQuotaWaitSeconds {
+		return fmt.Errorf("config: workflow.local_ai_review.coderabbit.unknown_quota_wait_seconds in %s must be <= %d, got %d", pathHint, maxUnknownQuotaWaitSeconds, *wait)
+	}
+	return nil
 }
 
 func rejectLegacyRulesDir(dir string) error {

@@ -19,6 +19,26 @@
       "description": "Optional workflow overlay: runtime gate role bindings and related PR readiness wiring (see ADR-0014).",
       "additionalProperties": false,
       "properties": {
+        "local_ai_review": {
+          "type": "object",
+          "description": "Repository-local pre-PR AI review tooling policy.",
+          "additionalProperties": false,
+          "properties": {
+            "coderabbit": {
+              "type": "object",
+              "description": "Repository-local CodeRabbit CLI gate policy.",
+              "additionalProperties": false,
+              "properties": {
+                "unknown_quota_wait_seconds": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 86400,
+                  "description": "Fallback wait before one retry when CodeRabbit emits usage-based/hourly-cap guidance without a parseable retry-after duration. Zero is allowed and means retry immediately."
+                }
+              }
+            }
+          }
+        },
         "runtime_gate_roles": {
           "type": "object",
           "additionalProperties": false,

@@ -224,9 +224,12 @@ func (coderabbitEnrichment) CommentMaxTier(body string) int {
 	return CoderabbitIssueCommentMaxTier(body)
 }
 
-// ClassifyStatus applies CodeRabbit-aware rules. Rate limiting is derived from
-// age-adjusted rate_limit_remaining_seconds (not raw "rate limit" substrings), so stale
-// quota text in the same comment as a terminal-clean summary does not override completed_clean.
+// ClassifyStatus applies CodeRabbit-aware rules. Review-paused markers and
+// active rate-limit cooldowns are blockers even when a selected status comment
+// also includes a clean summary. Rate limiting is derived from age-adjusted
+// rate_limit_remaining_seconds (not raw "rate limit" substrings), so stale quota
+// text in the same comment as a terminal-clean summary does not override
+// completed_clean.
 func (coderabbitEnrichment) ClassifyStatus(m map[string]any) string {
 	s, _ := classifyCoderabbitStatusWithBasis(m)
 	return s
@@ -241,6 +244,12 @@ func classifyCoderabbitStatusWithBasis(m map[string]any) (status string, basis s
 	if signalBool(m, "review_trigger_awaiting_ack") {
 		return BotStatusPending, "review_triggered_awaiting_ack"
 	}
+	if signalBool(m, "contains_review_paused") {
+		return BotStatusReviewPaused, "review_paused"
+	}
+	if n, ok := intFromStatusMapAny(m, "rate_limit_remaining_seconds"); ok && n > 0 {
+		return BotStatusRateLimited, "active_rate_limit_cooldown"
+	}
 	// Terminal clean from issue-comment markers (e.g. "no actionable comments") — wins over stale rate-limit wording.
 	if statusMapBoolAny(m, true, "cr_review_completed_clean", "review_completed_clean") {
 		return BotStatusCompletedClean, "review_completed_clean"
@@ -248,14 +257,8 @@ func classifyCoderabbitStatusWithBasis(m map[string]any) (status string, basis s
 	if statusMapBoolAny(m, false, "cr_review_processing", "review_processing") {
 		return BotStatusCompleted, "review_completed"
 	}
-	if signalBool(m, "contains_review_paused") {
-		return BotStatusReviewPaused, "review_paused"
-	}
 	if signalBool(m, "contains_review_failed") {
 		return BotStatusReviewFailed, "review_failed"
-	}
-	if n, ok := intFromStatusMapAny(m, "rate_limit_remaining_seconds"); ok && n > 0 {
-		return BotStatusRateLimited, "active_rate_limit_cooldown"
 	}
 	if signalBool(m, "cr_review_rate_limit_notice") || signalBool(m, "review_rate_limit_notice") {
 		return BotStatusPending, "review_rate_limit_notice"
