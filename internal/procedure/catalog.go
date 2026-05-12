@@ -134,6 +134,9 @@ func validateReadReference(repoRootAbs, resolvedRepoRoot, procedureAbsPath, proc
 	if st.IsDir() {
 		return fmt.Errorf("procedure: reads[%d] in procedure %q path is a directory: %q", index, procedureID, read)
 	}
+	if !st.Mode().IsRegular() {
+		return fmt.Errorf("procedure: reads[%d] in procedure %q path is not a regular file: %q", index, procedureID, read)
+	}
 	return nil
 }
 

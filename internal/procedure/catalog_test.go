@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 )
 
@@ -176,6 +177,33 @@ reads:
 				t.Fatalf("present=%v entries=%+v", present, entries)
 			}
 		})
+	}
+}
+
+func TestLoadEntries_readsReferenceRejectsNonRegularFile(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "policy"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := syscall.Mkfifo(filepath.Join(root, "policy", "pipe.md"), 0o600); err != nil {
+		t.Skipf("mkfifo unavailable: %v", err)
+	}
+	pdir := filepath.Join(root, "procedure")
+	writeProcFile(t, filepath.Join(pdir, "p.md"), `---
+id: procedure-p
+purpose: P
+applies_to:
+  state_ids: []
+  route_ids: []
+reads:
+  - ../policy/pipe.md
+---
+`)
+
+	_, _, err := LoadEntries(root, pdir)
+	if err == nil || !strings.Contains(err.Error(), "not a regular file") {
+		t.Fatalf("LoadEntries() err=%v, want non-regular file rejection", err)
 	}
 }
 
