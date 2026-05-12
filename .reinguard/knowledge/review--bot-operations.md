@@ -40,8 +40,8 @@ Operational reference for **PR-side** bot review (after a PR exists):
 CodeRabbit and Codex on GitHub — trigger, detection, timing, rate limits,
 re-review, and polling cadence for `wait-bot-review` / `review-address`.
 
-This card is selected by active bot-review diagnostics rather than by PR
-existence alone: `bot_review_blocked`,
+This card is selected when a PR exists and active bot-review diagnostics are
+present: `bot_review_blocked`,
 `bot_review_trigger_awaiting_ack`, `bot_review_pending`,
 `bot_review_failed`, or `bot_review_stale`. Use keyword retrieval (for
 example `rgd knowledge pack --query 'CodeRabbit trigger'`) when you need the
