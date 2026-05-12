@@ -382,6 +382,60 @@ printf '%s\n' "$1" >>"${TEST_SLEEP_FILE:?}"
 	}
 }
 
+func TestCheckLocalReviewScript_UnknownQuotaGuidanceRejectsInvalidFallback(t *testing.T) {
+	t.Parallel()
+
+	script := scriptPath(t, "check-local-review.sh")
+	// Given: CodeRabbit emits usage-based/hourly-cap guidance, but repo config has an invalid fallback wait.
+	repo := setupLocalReviewRepo(t)
+	writeLocalReviewReinguardConfig(t, repo, "not-a-number")
+
+	stubDir := t.TempDir()
+	sleepFile := filepath.Join(stubDir, "sleep.log")
+	writeExecutable(t, stubDir, "coderabbit", `#!/usr/bin/env bash
+set -euo pipefail
+subcmd="$1"; shift
+case "$subcmd" in
+  auth) echo "Authentication: logged in" ;;
+  review)
+    echo "ERROR: To keep reviews running without waiting, you can enable usage-based add-on for your organization. This allows additional reviews beyond the hourly cap."
+    exit 1
+    ;;
+  *) exit 1 ;;
+esac
+`)
+	writeExecutable(t, stubDir, "sleep", `#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$1" >>"${TEST_SLEEP_FILE:?}"
+`)
+
+	env := []string{
+		"PATH=" + stubDir + string(os.PathListSeparator) + os.Getenv("PATH"),
+		"TEST_SLEEP_FILE=" + sleepFile,
+	}
+
+	// When: automatic retry is enabled.
+	out, err := runBashScript(t, repo, script, env, "--base", "main", "--retry-on-rate-limit")
+
+	// Then: the script fails closed instead of sleeping with an invalid fallback.
+	if err == nil {
+		t.Fatalf("expected failure, got success:\n%s", out)
+	}
+	requireExitCode(t, err, 2, out)
+	if !strings.Contains(out, "unknown_quota_wait_seconds is missing or invalid") {
+		t.Fatalf("expected invalid fallback diagnostic, got:\n%s", out)
+	}
+	if _, err := os.Stat(sleepFile); err == nil {
+		sleepLog, readErr := os.ReadFile(sleepFile)
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		t.Fatalf("expected fail-closed behavior without sleep, got sleep log:\n%s", sleepLog)
+	} else if !os.IsNotExist(err) {
+		t.Fatalf("unexpected error checking sleep file: %v", err)
+	}
+}
+
 func TestCheckLocalReviewScript_ExplicitCooldownPrecedesUnknownQuotaFallback(t *testing.T) {
 	t.Parallel()
 
