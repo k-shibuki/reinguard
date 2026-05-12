@@ -14,9 +14,6 @@ when:
       path: github.pull_requests.pr_exists_for_branch
       value: true
     - or:
-        - op: eq
-          path: git.working_tree_clean
-          value: false
         - op: gt
           path: github.reviews.review_threads_unresolved
           value: 0

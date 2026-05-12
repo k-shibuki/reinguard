@@ -155,7 +155,7 @@ func TestRunContextBuild_reviewBotKnowledgeFollowsDiagnostics(t *testing.T) {
   "degraded": false
 }`,
 			wantIDs:   []string{"review-bot-operations"},
-			absentIDs: []string{"review-multi-source-review-signals", "review-incremental-fix-flow", "review-github-thread-api"},
+			absentIDs: []string{"review-multi-source-review-signals", "review-incremental-fix-flow"},
 		},
 		{
 			name: "paused_bot_review",
@@ -187,7 +187,7 @@ func TestRunContextBuild_reviewBotKnowledgeFollowsDiagnostics(t *testing.T) {
   "degraded": false
 }`,
 			wantIDs:   []string{"review-bot-operations"},
-			absentIDs: []string{"review-multi-source-review-signals", "review-incremental-fix-flow", "review-github-thread-api"},
+			absentIDs: []string{"review-multi-source-review-signals", "review-incremental-fix-flow"},
 		},
 		{
 			name: "bot_review_trigger_awaiting_ack",
@@ -219,7 +219,7 @@ func TestRunContextBuild_reviewBotKnowledgeFollowsDiagnostics(t *testing.T) {
   "degraded": false
 }`,
 			wantIDs:   []string{"review-bot-operations"},
-			absentIDs: []string{"review-multi-source-review-signals", "review-incremental-fix-flow", "review-github-thread-api"},
+			absentIDs: []string{"review-multi-source-review-signals", "review-incremental-fix-flow"},
 		},
 		{
 			name: "failed_bot_review",
@@ -249,7 +249,7 @@ func TestRunContextBuild_reviewBotKnowledgeFollowsDiagnostics(t *testing.T) {
   "degraded": false
 }`,
 			wantIDs:   []string{"review-bot-operations"},
-			absentIDs: []string{"review-multi-source-review-signals", "review-incremental-fix-flow", "review-github-thread-api"},
+			absentIDs: []string{"review-multi-source-review-signals", "review-incremental-fix-flow"},
 		},
 		{
 			name: "stale_bot_review",
@@ -279,7 +279,7 @@ func TestRunContextBuild_reviewBotKnowledgeFollowsDiagnostics(t *testing.T) {
   "degraded": false
 }`,
 			wantIDs:   []string{"review-bot-operations"},
-			absentIDs: []string{"review-multi-source-review-signals", "review-incremental-fix-flow", "review-github-thread-api"},
+			absentIDs: []string{"review-multi-source-review-signals", "review-incremental-fix-flow"},
 		},
 		{
 			name: "non_thread_findings",
@@ -309,7 +309,7 @@ func TestRunContextBuild_reviewBotKnowledgeFollowsDiagnostics(t *testing.T) {
   "degraded": false
 }`,
 			wantIDs:   []string{"review-multi-source-review-signals", "review-incremental-fix-flow"},
-			absentIDs: []string{"review-bot-operations", "review-github-thread-api"},
+			absentIDs: []string{"review-bot-operations"},
 		},
 		{
 			name: "duplicate_findings",
@@ -340,7 +340,7 @@ func TestRunContextBuild_reviewBotKnowledgeFollowsDiagnostics(t *testing.T) {
   "degraded": false
 }`,
 			wantIDs:   []string{"review-multi-source-review-signals"},
-			absentIDs: []string{"review-bot-operations", "review-incremental-fix-flow", "review-github-thread-api"},
+			absentIDs: []string{"review-bot-operations", "review-incremental-fix-flow"},
 		},
 		{
 			name: "non_bot_pr_review_surface",
@@ -373,7 +373,7 @@ func TestRunContextBuild_reviewBotKnowledgeFollowsDiagnostics(t *testing.T) {
   "degraded": false
 }`,
 			wantIDs:   []string{},
-			absentIDs: []string{"review-bot-operations", "review-multi-source-review-signals", "review-incremental-fix-flow", "review-github-thread-api"},
+			absentIDs: []string{"review-bot-operations", "review-multi-source-review-signals", "review-incremental-fix-flow"},
 		},
 		{
 			name: "no_pr_with_review_shaped_signals",

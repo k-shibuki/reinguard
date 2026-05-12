@@ -9,17 +9,9 @@ triggers:
   - thread resolution API
   - gh api graphql
 when:
-  and:
-    - op: eq
-      path: github.pull_requests.pr_exists_for_branch
-      value: true
-    - or:
-        - op: gt
-          path: github.reviews.review_threads_unresolved
-          value: 0
-        - op: gt
-          path: github.reviews.review_decisions_changes_requested
-          value: 0
+  op: eq
+  path: github.pull_requests.pr_exists_for_branch
+  value: true
 ---
 
 # GitHub review thread API (REST vs GraphQL)
