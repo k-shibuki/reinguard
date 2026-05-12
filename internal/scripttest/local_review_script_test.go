@@ -317,6 +317,13 @@ printf '%s\n' "$1" >>"${TEST_SLEEP_FILE:?}"
 	if got := strings.TrimSpace(string(sleepLog)); got != "1860" {
 		t.Fatalf("sleep seconds = %q, want 1860", got)
 	}
+	reviewCount, err := os.ReadFile(countFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(string(reviewCount)); got != "2" {
+		t.Fatalf("review attempts = %q, want 2", got)
+	}
 	if !strings.Contains(out, "CodeRabbit local review completed.") {
 		t.Fatalf("expected completion message, got:\n%s", out)
 	}
@@ -429,6 +436,13 @@ printf '%s\n' "$1" >>"${TEST_SLEEP_FILE:?}"
 	}
 	if got := strings.TrimSpace(string(sleepLog)); got != "31" {
 		t.Fatalf("sleep seconds = %q, want 31", got)
+	}
+	reviewCount, err := os.ReadFile(countFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(string(reviewCount)); got != "2" {
+		t.Fatalf("review attempts = %q, want 2", got)
 	}
 }
 
