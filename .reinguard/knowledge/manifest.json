@@ -173,31 +173,40 @@
         "rate limit recovery"
       ],
       "when": {
-        "or": [
+        "and": [
           {
             "op": "eq",
-            "path": "github.reviews.bot_review_diagnostics.bot_review_blocked",
+            "path": "github.pull_requests.pr_exists_for_branch",
             "value": true
           },
           {
-            "op": "eq",
-            "path": "github.reviews.bot_review_diagnostics.bot_review_trigger_awaiting_ack",
-            "value": true
-          },
-          {
-            "op": "eq",
-            "path": "github.reviews.bot_review_diagnostics.bot_review_pending",
-            "value": true
-          },
-          {
-            "op": "eq",
-            "path": "github.reviews.bot_review_diagnostics.bot_review_failed",
-            "value": true
-          },
-          {
-            "op": "eq",
-            "path": "github.reviews.bot_review_diagnostics.bot_review_stale",
-            "value": true
+            "or": [
+              {
+                "op": "eq",
+                "path": "github.reviews.bot_review_diagnostics.bot_review_blocked",
+                "value": true
+              },
+              {
+                "op": "eq",
+                "path": "github.reviews.bot_review_diagnostics.bot_review_trigger_awaiting_ack",
+                "value": true
+              },
+              {
+                "op": "eq",
+                "path": "github.reviews.bot_review_diagnostics.bot_review_pending",
+                "value": true
+              },
+              {
+                "op": "eq",
+                "path": "github.reviews.bot_review_diagnostics.bot_review_failed",
+                "value": true
+              },
+              {
+                "op": "eq",
+                "path": "github.reviews.bot_review_diagnostics.bot_review_stale",
+                "value": true
+              }
+            ]
           }
         ]
       }
@@ -239,16 +248,25 @@
         "gh api graphql"
       ],
       "when": {
-        "or": [
+        "and": [
           {
-            "op": "gt",
-            "path": "github.reviews.review_threads_unresolved",
-            "value": 0
+            "op": "eq",
+            "path": "github.pull_requests.pr_exists_for_branch",
+            "value": true
           },
           {
-            "op": "gt",
-            "path": "github.reviews.review_decisions_changes_requested",
-            "value": 0
+            "or": [
+              {
+                "op": "gt",
+                "path": "github.reviews.review_threads_unresolved",
+                "value": 0
+              },
+              {
+                "op": "gt",
+                "path": "github.reviews.review_decisions_changes_requested",
+                "value": 0
+              }
+            ]
           }
         ]
       }
@@ -346,46 +364,35 @@
         "review signal priority"
       ],
       "when": {
-        "or": [
-          {
-            "op": "gt",
-            "path": "github.reviews.review_threads_unresolved",
-            "value": 0
-          },
-          {
-            "op": "gt",
-            "path": "github.reviews.review_decisions_changes_requested",
-            "value": 0
-          },
+        "and": [
           {
             "op": "eq",
-            "path": "github.reviews.bot_review_diagnostics.non_thread_findings_present",
+            "path": "github.pull_requests.pr_exists_for_branch",
             "value": true
           },
           {
-            "op": "eq",
-            "path": "github.reviews.bot_review_diagnostics.duplicate_findings_detected",
-            "value": true
-          },
-          {
-            "op": "eq",
-            "path": "github.reviews.bot_review_diagnostics.bot_review_blocked",
-            "value": true
-          },
-          {
-            "op": "eq",
-            "path": "github.reviews.bot_review_diagnostics.bot_review_pending",
-            "value": true
-          },
-          {
-            "op": "eq",
-            "path": "github.reviews.bot_review_diagnostics.bot_review_failed",
-            "value": true
-          },
-          {
-            "op": "eq",
-            "path": "github.reviews.bot_review_diagnostics.bot_review_stale",
-            "value": true
+            "or": [
+              {
+                "op": "gt",
+                "path": "github.reviews.review_threads_unresolved",
+                "value": 0
+              },
+              {
+                "op": "gt",
+                "path": "github.reviews.review_decisions_changes_requested",
+                "value": 0
+              },
+              {
+                "op": "eq",
+                "path": "github.reviews.bot_review_diagnostics.non_thread_findings_present",
+                "value": true
+              },
+              {
+                "op": "eq",
+                "path": "github.reviews.bot_review_diagnostics.duplicate_findings_detected",
+                "value": true
+              }
+            ]
           }
         ]
       }
