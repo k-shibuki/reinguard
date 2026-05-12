@@ -9,9 +9,23 @@ triggers:
   - CodeRabbit incremental
   - batch review fixes
 when:
-  op: eq
-  path: github.pull_requests.pr_exists_for_branch
-  value: true
+  and:
+    - op: eq
+      path: github.pull_requests.pr_exists_for_branch
+      value: true
+    - or:
+        - op: eq
+          path: git.working_tree_clean
+          value: false
+        - op: gt
+          path: github.reviews.review_threads_unresolved
+          value: 0
+        - op: gt
+          path: github.reviews.review_decisions_changes_requested
+          value: 0
+        - op: eq
+          path: github.reviews.bot_review_diagnostics.non_thread_findings_present
+          value: true
 ---
 
 # Incremental fix flow (review-sourced changes)

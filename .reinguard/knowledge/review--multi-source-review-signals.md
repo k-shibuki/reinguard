@@ -9,9 +9,31 @@ triggers:
   - checks vs review
   - review signal priority
 when:
-  op: eq
-  path: github.pull_requests.pr_exists_for_branch
-  value: true
+  or:
+    - op: gt
+      path: github.reviews.review_threads_unresolved
+      value: 0
+    - op: gt
+      path: github.reviews.review_decisions_changes_requested
+      value: 0
+    - op: eq
+      path: github.reviews.bot_review_diagnostics.non_thread_findings_present
+      value: true
+    - op: eq
+      path: github.reviews.bot_review_diagnostics.duplicate_findings_detected
+      value: true
+    - op: eq
+      path: github.reviews.bot_review_diagnostics.bot_review_blocked
+      value: true
+    - op: eq
+      path: github.reviews.bot_review_diagnostics.bot_review_pending
+      value: true
+    - op: eq
+      path: github.reviews.bot_review_diagnostics.bot_review_failed
+      value: true
+    - op: eq
+      path: github.reviews.bot_review_diagnostics.bot_review_stale
+      value: true
 ---
 
 # Multi-source review signals (single inbox)

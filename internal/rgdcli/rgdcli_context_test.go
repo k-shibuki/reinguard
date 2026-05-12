@@ -115,6 +115,176 @@ when:
 	}
 }
 
+func TestRunContextBuild_reviewBotKnowledgeFollowsDiagnostics(t *testing.T) {
+	t.Parallel()
+	// Given/When/Then: repository knowledge predicates include review/bot cards only for targeted review diagnostics.
+	cfgDir := reinguardConfigDir(t)
+	tests := []struct {
+		name        string
+		observation string
+		wantIDs     []string
+		absentIDs   []string
+	}{
+		{
+			name: "rate_limited_bot_review",
+			observation: `{
+  "schema_version": "0.8.0",
+  "signals": {
+    "git": {"detached_head": false, "working_tree_clean": true},
+    "github": {
+      "pull_requests": {"pr_exists_for_branch": true, "merge_state_status": "unstable"},
+      "ci": {"ci_status": "pending"},
+      "reviews": {
+        "review_threads_unresolved": 0,
+        "review_decisions_changes_requested": 0,
+        "bot_reviewer_status": [
+          {"login": "coderabbitai[bot]", "required": true, "status": "rate_limited", "contains_rate_limit": true}
+        ],
+        "bot_review_diagnostics": {
+          "bot_review_blocked": true,
+          "bot_review_block_reason": "rate_limited",
+          "bot_review_trigger_awaiting_ack": false,
+          "bot_review_pending": false,
+          "bot_review_failed": false,
+          "bot_review_stale": false,
+          "non_thread_findings_present": false
+        }
+      }
+    }
+  },
+  "degraded": false
+}`,
+			wantIDs:   []string{"review-bot-operations", "review-multi-source-review-signals"},
+			absentIDs: []string{"review-incremental-fix-flow", "review-github-thread-api"},
+		},
+		{
+			name: "paused_bot_review",
+			observation: `{
+  "schema_version": "0.8.0",
+  "signals": {
+    "git": {"detached_head": false, "working_tree_clean": true},
+    "github": {
+      "pull_requests": {"pr_exists_for_branch": true, "merge_state_status": "clean"},
+      "ci": {"ci_status": "success"},
+      "reviews": {
+        "review_threads_unresolved": 0,
+        "review_decisions_changes_requested": 0,
+        "bot_reviewer_status": [
+          {"login": "coderabbitai[bot]", "required": true, "status": "review_paused", "contains_review_paused": true}
+        ],
+        "bot_review_diagnostics": {
+          "bot_review_blocked": true,
+          "bot_review_block_reason": "review_paused",
+          "bot_review_trigger_awaiting_ack": false,
+          "bot_review_pending": false,
+          "bot_review_failed": false,
+          "bot_review_stale": false,
+          "non_thread_findings_present": false
+        }
+      }
+    }
+  },
+  "degraded": false
+}`,
+			wantIDs:   []string{"review-bot-operations", "review-multi-source-review-signals"},
+			absentIDs: []string{"review-incremental-fix-flow", "review-github-thread-api"},
+		},
+		{
+			name: "bot_review_trigger_awaiting_ack",
+			observation: `{
+  "schema_version": "0.8.0",
+  "signals": {
+    "git": {"detached_head": false, "working_tree_clean": true},
+    "github": {
+      "pull_requests": {"pr_exists_for_branch": true, "merge_state_status": "clean"},
+      "ci": {"ci_status": "pending"},
+      "reviews": {
+        "review_threads_unresolved": 0,
+        "review_decisions_changes_requested": 0,
+        "bot_reviewer_status": [
+          {"login": "coderabbitai[bot]", "required": true, "status": "pending", "review_trigger_awaiting_ack": true}
+        ],
+        "bot_review_diagnostics": {
+          "bot_review_blocked": false,
+          "bot_review_block_reason": "",
+          "bot_review_trigger_awaiting_ack": true,
+          "bot_review_pending": true,
+          "bot_review_failed": false,
+          "bot_review_stale": false,
+          "non_thread_findings_present": false
+        }
+      }
+    }
+  },
+  "degraded": false
+}`,
+			wantIDs:   []string{"review-bot-operations", "review-multi-source-review-signals"},
+			absentIDs: []string{"review-incremental-fix-flow", "review-github-thread-api"},
+		},
+		{
+			name: "non_bot_pr_review_surface",
+			observation: `{
+  "schema_version": "0.8.0",
+  "signals": {
+    "git": {"detached_head": false, "working_tree_clean": true},
+    "github": {
+      "pull_requests": {"pr_exists_for_branch": true, "merge_state_status": "clean"},
+      "ci": {"ci_status": "success"},
+      "reviews": {
+        "review_threads_unresolved": 0,
+        "pagination_incomplete": false,
+        "review_decisions_changes_requested": 0,
+        "review_decisions_truncated": false,
+        "bot_reviewer_status": [],
+        "bot_review_diagnostics": {
+          "bot_review_blocked": false,
+          "bot_review_block_reason": "",
+          "bot_review_trigger_awaiting_ack": false,
+          "bot_review_pending": false,
+          "bot_review_failed": false,
+          "bot_review_stale": false,
+          "duplicate_findings_detected": false,
+          "non_thread_findings_present": false
+        }
+      }
+    }
+  },
+  "degraded": false
+}`,
+			wantIDs:   []string{},
+			absentIDs: []string{"review-bot-operations", "review-multi-source-review-signals", "review-incremental-fix-flow", "review-github-thread-api"},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			obsPath := filepath.Join(t.TempDir(), "obs.json")
+			writeFile(t, obsPath, []byte(tc.observation))
+			var buf bytes.Buffer
+			app := NewApp("test")
+			app.Writer = &buf
+			if err := app.Run([]string{"rgd", "context", "build", "--config-dir", cfgDir, "--observation-file", obsPath, "--compact"}); err != nil {
+				t.Fatal(err)
+			}
+			var out map[string]any
+			if err := json.Unmarshal(buf.Bytes(), &out); err != nil {
+				t.Fatalf("json: %v raw=%s", err, buf.String())
+			}
+			gotIDs := knowledgeEntryIDSet(t, out)
+			for _, id := range tc.wantIDs {
+				if !gotIDs[id] {
+					t.Fatalf("expected knowledge entry %q; got ids=%v", id, gotIDs)
+				}
+			}
+			for _, id := range tc.absentIDs {
+				if gotIDs[id] {
+					t.Fatalf("did not expect knowledge entry %q; got ids=%v", id, gotIDs)
+				}
+			}
+		})
+	}
+}
+
 func TestRunContextBuild_githubAuthFails_keepsStateAndRoute(t *testing.T) {
 	// Given: live collect with git + github; gh auth fails; repo identity from origin only (sandbox-like)
 	if runtime.GOOS == "windows" {
@@ -608,6 +778,25 @@ func mustSlice(t *testing.T, v any, label string) []any {
 		t.Fatalf("%s: %v", label, v)
 	}
 	return s
+}
+
+func knowledgeEntryIDSet(t *testing.T, out map[string]any) map[string]bool {
+	t.Helper()
+	knowledge := mustMap(t, out["knowledge"], "knowledge")
+	entries, ok := knowledge["entries"].([]any)
+	if !ok {
+		t.Fatalf("knowledge.entries: %T", knowledge["entries"])
+	}
+	ids := make(map[string]bool, len(entries))
+	for _, entry := range entries {
+		entryMap := mustMap(t, entry, "knowledge.entries[]")
+		id, ok := entryMap["id"].(string)
+		if !ok {
+			t.Fatalf("knowledge entry id: %T", entryMap["id"])
+		}
+		ids[id] = true
+	}
+	return ids
 }
 
 func runGit(t *testing.T, dir string, args ...string) {
