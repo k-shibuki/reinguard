@@ -51,6 +51,7 @@ func ParseFrontMatter(md []byte) (*FrontMatter, error) {
 	fm.Purpose = strings.TrimSpace(fm.Purpose)
 	fm.AppliesTo.StateIDs = trimNonEmptyStrings(fm.AppliesTo.StateIDs)
 	fm.AppliesTo.RouteIDs = trimNonEmptyStrings(fm.AppliesTo.RouteIDs)
+	// Keep blank reads entries as validation errors because each item names a required file.
 	fm.Reads = trimStrings(fm.Reads)
 	if fm.ID == "" {
 		return nil, fmt.Errorf("procedure: front matter: missing id")

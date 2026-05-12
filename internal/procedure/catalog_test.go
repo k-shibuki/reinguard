@@ -131,6 +131,7 @@ func TestLoadEntries_readsReferenceValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			root := t.TempDir()
+			writeProcFile(t, filepath.Join(root, "policy", "other.md"), "# Other\n")
 			if tt.setup != nil {
 				tt.setup(t, root)
 			}
