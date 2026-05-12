@@ -12,9 +12,26 @@ triggers:
   - "@codex review"
   - rate limit recovery
 when:
-  op: eq
-  path: github.pull_requests.pr_exists_for_branch
-  value: true
+  and:
+    - op: eq
+      path: github.pull_requests.pr_exists_for_branch
+      value: true
+    - or:
+        - op: eq
+          path: github.reviews.bot_review_diagnostics.bot_review_blocked
+          value: true
+        - op: eq
+          path: github.reviews.bot_review_diagnostics.bot_review_trigger_awaiting_ack
+          value: true
+        - op: eq
+          path: github.reviews.bot_review_diagnostics.bot_review_pending
+          value: true
+        - op: eq
+          path: github.reviews.bot_review_diagnostics.bot_review_failed
+          value: true
+        - op: eq
+          path: github.reviews.bot_review_diagnostics.bot_review_stale
+          value: true
 ---
 
 # Bot Review Operations (PR-side)
@@ -22,6 +39,13 @@ when:
 Operational reference for **PR-side** bot review (after a PR exists):
 CodeRabbit and Codex on GitHub — trigger, detection, timing, rate limits,
 re-review, and polling cadence for `wait-bot-review` / `review-address`.
+
+This card is selected when a PR exists and active bot-review diagnostics are
+present: `bot_review_blocked`,
+`bot_review_trigger_awaiting_ack`, `bot_review_pending`,
+`bot_review_failed`, or `bot_review_stale`. Use keyword retrieval (for
+example `rgd knowledge pack --query 'CodeRabbit trigger'`) when you need the
+general reference outside a bot-review wait or re-review situation.
 
 **Pre-PR** local CodeRabbit CLI (`check-local-review.sh`) is **not** covered
 here; see `.reinguard/knowledge/review--local-coderabbit-cli.md`.
