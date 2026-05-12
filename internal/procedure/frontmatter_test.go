@@ -17,6 +17,7 @@ applies_to:
     - user-implement
 reads:
   - ../policy/coding--standards.md
+  - ../policy/commit--format.md
 ---
 # Body
 `
@@ -33,7 +34,9 @@ reads:
 	if len(fm.AppliesTo.RouteIDs) != 1 || fm.AppliesTo.RouteIDs[0] != "user-implement" {
 		t.Fatalf("route_ids %+v", fm.AppliesTo.RouteIDs)
 	}
-	if len(fm.Reads) != 1 || fm.Reads[0] != "../policy/coding--standards.md" {
+	if len(fm.Reads) != 2 ||
+		fm.Reads[0] != "../policy/coding--standards.md" ||
+		fm.Reads[1] != "../policy/commit--format.md" {
 		t.Fatalf("reads %+v", fm.Reads)
 	}
 }
