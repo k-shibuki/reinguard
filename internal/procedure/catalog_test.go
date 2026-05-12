@@ -126,6 +126,21 @@ func TestLoadEntries_readsReferenceValidation(t *testing.T) {
 			},
 			wantErrSubstr: "path is a symlink",
 		},
+		{
+			name: "intermediate_symlink_escape_fails",
+			read: "../policy/link/secret.md",
+			setup: func(t *testing.T, root string) {
+				outside := filepath.Join(t.TempDir(), "outside")
+				writeProcFile(t, filepath.Join(outside, "secret.md"), "# Secret\n")
+				if err := os.MkdirAll(filepath.Join(root, "policy"), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Symlink(outside, filepath.Join(root, "policy", "link")); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantErrSubstr: "escapes repository",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

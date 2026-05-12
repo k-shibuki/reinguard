@@ -65,13 +65,13 @@ func ParseFrontMatter(md []byte) (*FrontMatter, error) {
 	if err := validateUniqueStrings("route_id", fm.ID, fm.AppliesTo.RouteIDs); err != nil {
 		return nil, err
 	}
-	if err := validateUniqueStrings("read", fm.ID, fm.Reads); err != nil {
-		return nil, err
-	}
 	for i, read := range fm.Reads {
 		if read == "" {
 			return nil, fmt.Errorf("procedure: front matter: reads[%d] in procedure id %q is empty", i, fm.ID)
 		}
+	}
+	if err := validateUniqueStrings("read", fm.ID, fm.Reads); err != nil {
+		return nil, err
 	}
 	return &fm, nil
 }
