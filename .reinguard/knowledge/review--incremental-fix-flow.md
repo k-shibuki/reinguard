@@ -48,6 +48,8 @@ Normative disposition and resolve rules remain in `.reinguard/policy/review--con
 |------------------|---------|
 | `github.pull_requests.pr_exists_for_branch` true | On a PR branch |
 | `github.reviews.review_threads_unresolved` > 0 | Thread disposition work remains (typical with this flow) |
+| `github.reviews.review_decisions_changes_requested` > 0 | At least one review has formally requested changes |
+| `github.reviews.bot_review_diagnostics.non_thread_findings_present` true | Required-bot non-thread findings remain to classify and address |
 | `git.working_tree_clean` false | Uncommitted or unstaged work — run **review-address Step 0** before relying on disposition-only steps |
 
 ## Procedure outline
