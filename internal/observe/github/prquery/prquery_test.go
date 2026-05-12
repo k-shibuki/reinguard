@@ -1487,6 +1487,93 @@ func TestCollect_botReviewer_commentOnlyNoReviewClean(t *testing.T) {
 	}
 }
 
+func TestCollect_botReviewer_pausedCleanCommentBlocked(t *testing.T) {
+	t.Parallel()
+	// Given: CodeRabbit selects a status comment whose pause wrapper coexists with a clean summary.
+	// When: Collect runs with coderabbit enrichment for a required bot.
+	// Then: review_paused wins over completed_clean and aggregate diagnostics remain blocked/non-terminal.
+	head := "abc1234567890abcdef1234567890abcdef1234"
+	commentBody := "<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n" +
+		"<!-- This is an auto-generated comment: review paused by coderabbit.ai -->\n\n" +
+		"> [!NOTE]\n> ## Reviews paused\n\n" +
+		"No actionable comments were generated in the recent review.\n\n" +
+		"Reviewing files that changed from the base of the PR and between [1111111111111111111111111111111111111111](https://example.com/a) " +
+		"and [" + head + "](https://example.com/b).\n"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		resp := map[string]any{
+			"data": map[string]any{
+				"repository": map[string]any{
+					"pullRequest": map[string]any{
+						"state": "OPEN", "isDraft": false, "title": "t",
+						"mergeable": "UNKNOWN", "mergeStateStatus": "UNKNOWN",
+						"baseRefName": "main", "headRefOid": head,
+						"labels":                  map[string]any{"nodes": []any{}},
+						"closingIssuesReferences": map[string]any{"nodes": []any{}},
+						"latestReviews": map[string]any{
+							"pageInfo": map[string]any{"hasNextPage": false},
+							"nodes":    []any{},
+						},
+						"comments": map[string]any{
+							"nodes": []map[string]any{
+								{
+									"author":    map[string]any{"login": "coderabbitai"},
+									"body":      commentBody,
+									"updatedAt": "2026-03-28T12:00:00Z",
+								},
+							},
+						},
+						"reviewThreads": map[string]any{"pageInfo": map[string]any{"hasNextPage": false}, "nodes": []any{}},
+					},
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+	bots := []BotReviewer{{ID: "cr", Login: "coderabbitai[bot]", Required: true, Enrich: []string{"coderabbit"}}}
+	_, rev, err := Collect(context.Background(), c, "o", "r", 1, bots)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := rev["bot_reviewer_status"].([]any)
+	if len(st) != 1 {
+		t.Fatalf("status len: %v", st)
+	}
+	m := st[0].(map[string]any)
+	if m["status"].(string) != BotStatusReviewPaused {
+		t.Fatalf("status: %+v", m)
+	}
+	if basis := m["status_class_basis"].(string); basis != "review_paused" {
+		t.Fatalf("status_class_basis: want review_paused, got %q in %+v", basis, m)
+	}
+	if paused, ok := m["contains_review_paused"].(bool); !ok || !paused {
+		t.Fatalf("want contains_review_paused=true, got %+v", m)
+	}
+	if clean, ok := m["review_completed_clean"].(bool); !ok || !clean {
+		t.Fatalf("want review_completed_clean diagnostic=true, got %+v", m)
+	}
+	diag := rev["bot_review_diagnostics"].(map[string]any)
+	if diag["bot_review_completed"].(bool) {
+		t.Fatalf("want bot_review_completed=false, got %+v", diag)
+	}
+	if diag["bot_review_terminal"].(bool) {
+		t.Fatalf("want bot_review_terminal=false, got %+v", diag)
+	}
+	if !diag["bot_review_blocked"].(bool) {
+		t.Fatalf("want bot_review_blocked=true, got %+v", diag)
+	}
+	if got := diag["bot_review_block_reason"].(string); got != BotStatusReviewPaused {
+		t.Fatalf("bot_review_block_reason: want %q, got %q in %+v", BotStatusReviewPaused, got, diag)
+	}
+	if diag["bot_review_failed"].(bool) {
+		t.Fatalf("want bot_review_failed=false, got %+v", diag)
+	}
+}
+
 func TestCollect_botReviewer_enrichedHeadOverridesStaleGraphQLReview(t *testing.T) {
 	t.Parallel()
 	// Given: latestReviews still references an older review commit, but the selected CodeRabbit

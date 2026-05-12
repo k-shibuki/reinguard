@@ -49,7 +49,11 @@ wins** among matching rules (ADR-0004). `state_id` values:
     observation pass once both are visible. If the GitHub review entry
     appears first, remain `completed` until the clean marker is also
     observed.
-- **Blocked:** `rate_limited`, `review_paused`
+- **Blocked:** `rate_limited`, `review_paused`. A required bot remains blocked
+  and non-terminal when the selected status comment has a `review_paused`
+  marker, even if the same comment also contains a clean review summary.
+  Comment selection and marker recognition rules are defined by the observation
+  contract in `docs/cli.md`.
 - **Failed:** `review_failed`
 - **In progress:** `pending`, `not_triggered`
 

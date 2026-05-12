@@ -486,40 +486,68 @@ func TestCoderabbitEnrichment_ClassifyStatus_order(t *testing.T) {
 	}
 }
 
-func TestCoderabbitEnrichment_ClassifyStatus_staleRateLimitTextDoesNotOverrideClean(t *testing.T) {
+func TestCoderabbitEnrichment_ClassifyStatus_cleanMarkerPrecedence(t *testing.T) {
 	t.Parallel()
 	e := coderabbitEnrichment{}
-	// Same issue-comment body can mention "rate limit" historically while reporting a terminal clean summary.
-	m := map[string]any{
-		"contains_rate_limit":          true,
-		"review_completed_clean":       true,
-		"rate_limit_remaining_seconds": 0,
-		"latest_comment_at":            "2026-04-06T00:31:05Z",
+	// Given/When/Then: clean-marker precedence cases distinguish active pause markers from
+	// stale wording that can coexist with a valid terminal-clean summary.
+	tests := []struct {
+		name       string
+		signals    map[string]any
+		wantStatus string
+		wantBasis  string
+	}{
+		{
+			name: "paused_blocks_clean",
+			signals: map[string]any{
+				"contains_review_paused": true,
+				"review_completed_clean": true,
+			},
+			wantStatus: BotStatusReviewPaused,
+			wantBasis:  "review_paused",
+		},
+		{
+			name: "active_rate_limit_blocks_clean",
+			signals: map[string]any{
+				"rate_limit_remaining_seconds": 300,
+				"review_completed_clean":       true,
+			},
+			wantStatus: BotStatusRateLimited,
+			wantBasis:  "active_rate_limit_cooldown",
+		},
+		{
+			name: "stale_rate_limit_does_not_override_clean",
+			signals: map[string]any{
+				"contains_rate_limit":          true,
+				"review_completed_clean":       true,
+				"rate_limit_remaining_seconds": 0,
+				"latest_comment_at":            "2026-04-06T00:31:05Z",
+			},
+			wantStatus: BotStatusCompletedClean,
+			wantBasis:  "review_completed_clean",
+		},
+		{
+			name: "failed_text_does_not_override_clean",
+			signals: map[string]any{
+				"contains_review_failed": true,
+				"review_completed_clean": true,
+				"latest_comment_at":      "2026-04-08T06:29:17Z",
+			},
+			wantStatus: BotStatusCompletedClean,
+			wantBasis:  "review_completed_clean",
+		},
 	}
-	if g := e.ClassifyStatus(m); g != BotStatusCompletedClean {
-		t.Fatalf("got %q want completed_clean", g)
-	}
-	s, basis := classifyCoderabbitStatusWithBasis(m)
-	if s != BotStatusCompletedClean || basis != "review_completed_clean" {
-		t.Fatalf("basis got %q %q", s, basis)
-	}
-}
-
-func TestCoderabbitEnrichment_ClassifyStatus_stalePausedOrFailedTextDoesNotOverrideClean(t *testing.T) {
-	t.Parallel()
-	e := coderabbitEnrichment{}
-	m := map[string]any{
-		"contains_review_paused": true,
-		"contains_review_failed": true,
-		"review_completed_clean": true,
-		"latest_comment_at":      "2026-04-08T06:29:17Z",
-	}
-	if g := e.ClassifyStatus(m); g != BotStatusCompletedClean {
-		t.Fatalf("got %q want completed_clean", g)
-	}
-	s, basis := classifyCoderabbitStatusWithBasis(m)
-	if s != BotStatusCompletedClean || basis != "review_completed_clean" {
-		t.Fatalf("basis got %q %q", s, basis)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := e.ClassifyStatus(tt.signals); got != tt.wantStatus {
+				t.Fatalf("ClassifyStatus() = %q, want %q", got, tt.wantStatus)
+			}
+			s, basis := classifyCoderabbitStatusWithBasis(tt.signals)
+			if s != tt.wantStatus || basis != tt.wantBasis {
+				t.Fatalf("basis got %q %q, want %q %q", s, basis, tt.wantStatus, tt.wantBasis)
+			}
+		})
 	}
 }
 
