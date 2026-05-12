@@ -139,7 +139,7 @@ func TestLoadEntries_readsReferenceValidation(t *testing.T) {
 					t.Fatal(err)
 				}
 			},
-			wantErrSubstr: "escapes repository",
+			wantErrSubstr: "resolves outside repository",
 		},
 	}
 	for _, tt := range tests {

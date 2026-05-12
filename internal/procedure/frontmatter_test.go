@@ -60,6 +60,26 @@ applies_to:
 	}
 }
 
+func TestParseFrontMatter_emptyReads(t *testing.T) {
+	t.Parallel()
+	md := `---
+id: procedure-empty-reads
+purpose: Empty reads.
+applies_to:
+  state_ids: []
+  route_ids: []
+reads: []
+---
+`
+	fm, err := ParseFrontMatter([]byte(md))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(fm.Reads) != 0 {
+		t.Fatalf("reads %+v", fm.Reads)
+	}
+}
+
 func TestParseFrontMatter_singleRead(t *testing.T) {
 	t.Parallel()
 	md := `---

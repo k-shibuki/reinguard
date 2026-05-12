@@ -119,7 +119,7 @@ func validateReadReference(repoRootAbs, resolvedRepoRoot, procedureAbsPath, proc
 		return fmt.Errorf("procedure: reads[%d] in procedure %q path %q: %w", index, procedureID, read, err)
 	}
 	if !pathInside(resolvedRepoRoot, resolvedReadPath) {
-		return fmt.Errorf("procedure: reads[%d] in procedure %q escapes repository: %q", index, procedureID, read)
+		return fmt.Errorf("procedure: reads[%d] in procedure %q resolves outside repository: %q", index, procedureID, read)
 	}
 	st, err := os.Lstat(readPath)
 	if err != nil {
