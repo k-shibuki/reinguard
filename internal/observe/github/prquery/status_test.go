@@ -213,6 +213,19 @@ func TestComputeBotReviewDiagnostics_cleanCompletionClearsStaleNonThreadFindings
 	if got["non_thread_findings_present"].(bool) {
 		t.Fatalf("want non_thread_findings_present=false after clean completion: %+v", got)
 	}
+
+	gotAlias := ComputeBotReviewDiagnostics([]any{
+		map[string]any{
+			"required":                  true,
+			"status":                    BotStatusCompleted,
+			"review_commit_sha":         "abc123",
+			"cr_review_completed_clean": true,
+			"actionable_findings_count": 1,
+		},
+	}, "abc123", false)
+	if gotAlias["non_thread_findings_present"].(bool) {
+		t.Fatalf("want non_thread_findings_present=false when cr_review_completed_clean=true: %+v", gotAlias)
+	}
 }
 
 func TestComputeBotReviewDiagnostics_nonThreadFindingsOptionalOnly(t *testing.T) {
