@@ -23,6 +23,7 @@ func reinguardConfigDir(t *testing.T) string {
 	if err := copyTree(t, src, dst); err != nil {
 		t.Fatalf("copy .reinguard: %v", err)
 	}
+	// Some procedure reads entries intentionally point at repo files outside .reinguard.
 	writeFile(t, filepath.Join(fixtureRoot, ".github", "PULL_REQUEST_TEMPLATE.md"), []byte("# Pull Request\n"))
 	// Isolate FSM scenario tests from developer-local .reinguard/local artifacts (hermetic fixtures).
 	_ = os.RemoveAll(filepath.Join(dst, "local"))

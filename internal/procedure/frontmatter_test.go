@@ -91,6 +91,7 @@ func TestParseFrontMatter_errors(t *testing.T) {
 		{name: "missing_id", input: "---\npurpose: p\napplies_to:\n  state_ids: []\n  route_ids: []\n---\n", contain: "id"},
 		{name: "missing_purpose", input: "---\nid: x\napplies_to:\n  state_ids: []\n  route_ids: []\n---\n", contain: "purpose"},
 		{name: "empty_reads_entry", input: "---\nid: x\npurpose: p\napplies_to:\n  state_ids: []\n  route_ids: []\nreads:\n  - '  '\n---\n", contain: "reads[0]"},
+		{name: "dup_reads_entry", input: "---\nid: x\npurpose: p\napplies_to:\n  state_ids: []\n  route_ids: []\nreads:\n  - ../a.md\n  - ../a.md\n---\n", contain: "duplicate read"},
 		{name: "dup_state_in_file", input: `---
 id: x
 purpose: p

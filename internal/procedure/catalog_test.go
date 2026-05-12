@@ -87,6 +87,7 @@ func TestLoadEntries_readsReferenceValidation(t *testing.T) {
 			read: "../policy/required.md",
 			setup: func(t *testing.T, root string) {
 				writeProcFile(t, filepath.Join(root, "policy", "required.md"), "# Required\n")
+				writeProcFile(t, filepath.Join(root, "policy", "other.md"), "# Other\n")
 			},
 		},
 		{
@@ -114,6 +115,17 @@ func TestLoadEntries_readsReferenceValidation(t *testing.T) {
 			},
 			wantErrSubstr: "path is a directory",
 		},
+		{
+			name: "symlink_path_fails",
+			read: "../policy/link.md",
+			setup: func(t *testing.T, root string) {
+				writeProcFile(t, filepath.Join(root, "policy", "required.md"), "# Required\n")
+				if err := os.Symlink("required.md", filepath.Join(root, "policy", "link.md")); err != nil {
+					t.Fatal(err)
+				}
+			},
+			wantErrSubstr: "path is a symlink",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -131,6 +143,7 @@ applies_to:
   route_ids: []
 reads:
   - `+tt.read+`
+  - ../policy/other.md
 ---
 `)
 			entries, present, err := LoadEntries(root, pdir)
@@ -143,7 +156,7 @@ reads:
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !present || len(entries) != 1 || len(entries[0].Reads) != 1 {
+			if !present || len(entries) != 1 || len(entries[0].Reads) != 2 {
 				t.Fatalf("present=%v entries=%+v", present, entries)
 			}
 		})

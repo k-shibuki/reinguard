@@ -767,15 +767,18 @@ The command shells out to `gh api graphql` with a single
 ## `rgd config validate`
 
 Validates `reinguard.yaml`, `control/{states,routes,guards}/*.yaml`, `procedure/*.md` procedure front matter (when the directory exists), and `knowledge/manifest.json` when
-present, against embedded JSON Schemas and mapping consistency rules. Procedure
-front matter validation includes state mapping consistency and `reads:` entries:
-each `reads:` path must be relative to the declaring procedure file, resolve
-inside the repository root, and point to an existing file rather than a
-directory. Also **builds enabled observation providers** (same path as
-`rgd observe`) so invalid `providers[].options` (e.g. unknown
-`bot_reviewers[].enrich` names) fail validation. Non-zero exit on hard validation
-errors. **Deprecated** configuration keys (marked in JSON Schema) emit **warnings
-on stderr** but still exit **0** when validation succeeds.
+present, against embedded JSON Schemas and mapping consistency rules.
+
+Procedure front matter validation includes state mapping consistency and
+`reads:` path validation. Each `reads:` path must be relative to the declaring
+procedure file, resolve inside the repository root, and point to an existing
+regular file rather than a directory or symlink.
+
+Provider validation also **builds enabled observation providers**, using the
+same code path as `rgd observe`, so invalid `providers[].options` (e.g. unknown
+`bot_reviewers[].enrich` names) fail validation. Non-zero exit on hard
+validation errors. **Deprecated** configuration keys (marked in JSON Schema)
+emit **warnings on stderr** but still exit **0** when validation succeeds.
 
 `config validate` does **not** validate `.reinguard/local/`; runtime gate
 artifacts use the dedicated `rgd gate` schema and commands instead.

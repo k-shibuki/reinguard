@@ -103,15 +103,18 @@ func validateReadReferences(repoRootAbs, procedureAbsPath, procedureID string, r
 		if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
 			return fmt.Errorf("procedure: reads[%d] in procedure %q escapes repository: %q", i, procedureID, read)
 		}
-		st, err := os.Stat(readPath)
+		st, err := os.Lstat(readPath)
 		if err != nil {
 			if os.IsNotExist(err) {
-				return fmt.Errorf("procedure: reads[%d] in procedure %q path does not exist: %s", i, procedureID, read)
+				return fmt.Errorf("procedure: reads[%d] in procedure %q path does not exist: %q", i, procedureID, read)
 			}
 			return fmt.Errorf("procedure: reads[%d] in procedure %q path %q: %w", i, procedureID, read, err)
 		}
+		if st.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("procedure: reads[%d] in procedure %q path is a symlink: %q", i, procedureID, read)
+		}
 		if st.IsDir() {
-			return fmt.Errorf("procedure: reads[%d] in procedure %q path is a directory: %s", i, procedureID, read)
+			return fmt.Errorf("procedure: reads[%d] in procedure %q path is a directory: %q", i, procedureID, read)
 		}
 	}
 	return nil
