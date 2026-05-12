@@ -16,9 +16,6 @@ when:
     - op: eq
       path: github.reviews.bot_review_diagnostics.bot_review_blocked
       value: true
-    - op: ne
-      path: github.reviews.bot_review_diagnostics.bot_review_block_reason
-      value: ""
     - op: eq
       path: github.reviews.bot_review_diagnostics.bot_review_trigger_awaiting_ack
       value: true
