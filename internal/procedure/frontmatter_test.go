@@ -60,6 +60,27 @@ applies_to:
 	}
 }
 
+func TestParseFrontMatter_singleRead(t *testing.T) {
+	t.Parallel()
+	md := `---
+id: procedure-single-read
+purpose: Single read.
+applies_to:
+  state_ids: []
+  route_ids: []
+reads:
+  - ../policy/one.md
+---
+`
+	fm, err := ParseFrontMatter([]byte(md))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(fm.Reads) != 1 || fm.Reads[0] != "../policy/one.md" {
+		t.Fatalf("reads %+v", fm.Reads)
+	}
+}
+
 func TestParseFrontMatter_blockScalarAllowsIndentedDelimiters(t *testing.T) {
 	t.Parallel()
 	md := `---
