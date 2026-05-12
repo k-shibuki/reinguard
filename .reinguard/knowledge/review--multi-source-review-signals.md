@@ -41,7 +41,7 @@ Normative disposition and resolve rules stay in `.reinguard/policy/review--conse
 | **blocking** | Must clear before merge consideration (policy + branch protection) | Failing required checks; formal `CHANGES_REQUESTED`; unresolved review threads that need disposition |
 | **actionable** | Should classify and reply (or fix) in this PR | Inline review comments; bot threads; human review threads |
 | **duplicate_suppressed** | CodeRabbit re-detected an issue but did not post a new thread (`♻️ Duplicate comments (N)` in the review body); treat as actionable content, not noise | `github.reviews.bot_review_diagnostics.duplicate_findings_detected`; per-bot duplicate count on each `github.reviews.bot_reviewer_status[]` element as `duplicate_findings_count` (`docs/cli.md`; `coderabbit` enrichment also emits legacy `cr_duplicate_findings_count`) |
-| **bot_aggregate** | Required-bot aggregate that turns non-thread or duplicate findings into review-triage work | `github.reviews.bot_review_diagnostics.non_thread_findings_present` or `duplicate_findings_detected` (documented in `docs/cli.md` § Bot review diagnostics) |
+| **bot_aggregate** | Required-bot aggregate that turns non-thread or duplicate findings into review-triage work | `github.reviews.bot_review_diagnostics.non_thread_findings_present` or `github.reviews.bot_review_diagnostics.duplicate_findings_detected` (documented in `docs/cli.md` § Bot review diagnostics) |
 | **informational** | Context only unless it contains a concrete finding | Clean-bill summaries; meta comments without new findings |
 
 ## Source kinds
