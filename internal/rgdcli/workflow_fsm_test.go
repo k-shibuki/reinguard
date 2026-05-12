@@ -18,10 +18,13 @@ func reinguardConfigDir(t *testing.T) string {
 	}
 	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
 	src := filepath.Join(root, ".reinguard")
-	dst := filepath.Join(t.TempDir(), ".reinguard")
+	fixtureRoot := t.TempDir()
+	dst := filepath.Join(fixtureRoot, ".reinguard")
 	if err := copyTree(t, src, dst); err != nil {
 		t.Fatalf("copy .reinguard: %v", err)
 	}
+	// Some procedure definitions reference files outside .reinguard (for example, PR templates).
+	writeFile(t, filepath.Join(fixtureRoot, ".github", "PULL_REQUEST_TEMPLATE.md"), []byte("# Pull Request\n"))
 	// Isolate FSM scenario tests from developer-local .reinguard/local artifacts (hermetic fixtures).
 	_ = os.RemoveAll(filepath.Join(dst, "local"))
 	return dst

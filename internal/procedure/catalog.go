@@ -17,6 +17,7 @@ type Entry struct {
 	Path      string
 	StateIDs  []string
 	RouteIDs  []string
+	Reads     []string
 	Purpose   string
 	AbsSource string
 }
@@ -66,6 +67,9 @@ func LoadEntries(repoRootAbs, procedureAbsDir string) ([]Entry, bool, error) {
 			return nil, true, fmt.Errorf("procedure: duplicate procedure id %q in %s and %s", fm.ID, prev, absPath)
 		}
 		seenProcID[fm.ID] = absPath
+		if err := validateReadReferences(repoRootAbs, absPath, fm.ID, fm.Reads); err != nil {
+			return nil, true, err
+		}
 
 		rel, rerr := filepath.Rel(repoRootAbs, absPath)
 		if rerr != nil {
@@ -78,11 +82,70 @@ func LoadEntries(repoRootAbs, procedureAbsDir string) ([]Entry, bool, error) {
 			Path:      rel,
 			StateIDs:  append([]string(nil), fm.AppliesTo.StateIDs...),
 			RouteIDs:  append([]string(nil), fm.AppliesTo.RouteIDs...),
+			Reads:     append([]string(nil), fm.Reads...),
 			Purpose:   fm.Purpose,
 			AbsSource: absPath,
 		})
 	}
 	return entries, true, nil
+}
+
+func validateReadReferences(repoRootAbs, procedureAbsPath, procedureID string, reads []string) error {
+	resolvedRepoRoot, err := filepath.EvalSymlinks(repoRootAbs)
+	if err != nil {
+		return fmt.Errorf("procedure: resolve repository root %q: %w", repoRootAbs, err)
+	}
+	for i, read := range reads {
+		if err := validateReadReference(repoRootAbs, resolvedRepoRoot, procedureAbsPath, procedureID, i, read); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateReadReference(repoRootAbs, resolvedRepoRoot, procedureAbsPath, procedureID string, index int, read string) error {
+	if filepath.IsAbs(read) {
+		return fmt.Errorf("procedure: reads[%d] in procedure %q must be relative, got %q", index, procedureID, read)
+	}
+	readPath := filepath.Clean(filepath.Join(filepath.Dir(procedureAbsPath), filepath.FromSlash(read)))
+	if !pathInside(repoRootAbs, readPath) {
+		return fmt.Errorf("procedure: reads[%d] in procedure %q escapes repository: %q", index, procedureID, read)
+	}
+	resolvedReadPath, err := filepath.EvalSymlinks(readPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("procedure: reads[%d] in procedure %q path does not exist: %q", index, procedureID, read)
+		}
+		return fmt.Errorf("procedure: reads[%d] in procedure %q path %q: %w", index, procedureID, read, err)
+	}
+	if !pathInside(resolvedRepoRoot, resolvedReadPath) {
+		return fmt.Errorf("procedure: reads[%d] in procedure %q resolves outside repository: %q", index, procedureID, read)
+	}
+	st, err := os.Lstat(readPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("procedure: reads[%d] in procedure %q path does not exist: %q", index, procedureID, read)
+		}
+		return fmt.Errorf("procedure: reads[%d] in procedure %q path %q: %w", index, procedureID, read, err)
+	}
+	if st.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("procedure: reads[%d] in procedure %q path is a symlink: %q", index, procedureID, read)
+	}
+	if st.IsDir() {
+		return fmt.Errorf("procedure: reads[%d] in procedure %q path is a directory: %q", index, procedureID, read)
+	}
+	if !st.Mode().IsRegular() {
+		return fmt.Errorf("procedure: reads[%d] in procedure %q path is not a regular file: %q", index, procedureID, read)
+	}
+	return nil
+}
+
+func pathInside(rootAbs, pathAbs string) bool {
+	rel, err := filepath.Rel(rootAbs, pathAbs)
+	if err != nil {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel)
 }
 
 // ValidateStateMapping checks that each state_id appears in at most one procedure entry
