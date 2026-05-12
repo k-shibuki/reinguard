@@ -100,6 +100,12 @@ func nonThreadFindingsPresentForRequiredBots(statusList []any) bool {
 // bot's status map is positive (actionable, outside-diff, duplicate, or finding-shaped
 // conversation comments).
 func nonThreadFindingsPresentForStatus(m map[string]any) bool {
+	if status, _ := m["status"].(string); status == BotStatusCompletedClean {
+		return false
+	}
+	if statusMapBoolAny(m, true, "cr_review_completed_clean", "review_completed_clean") {
+		return false
+	}
 	a := intFromStatusMapOrZeroAny(m, "actionable_findings_count", "cr_actionable_comments_count")
 	o := intFromStatusMapOrZeroAny(m, "outside_diff_findings_count", "cr_outside_diff_comments_count")
 	d := intFromStatusMapOrZeroAny(m, "duplicate_findings_count", "cr_duplicate_findings_count")
