@@ -17,6 +17,7 @@ type Entry struct {
 	Path      string
 	StateIDs  []string
 	RouteIDs  []string
+	Reads     []string
 	Purpose   string
 	AbsSource string
 }
@@ -66,6 +67,9 @@ func LoadEntries(repoRootAbs, procedureAbsDir string) ([]Entry, bool, error) {
 			return nil, true, fmt.Errorf("procedure: duplicate procedure id %q in %s and %s", fm.ID, prev, absPath)
 		}
 		seenProcID[fm.ID] = absPath
+		if err := validateReadReferences(repoRootAbs, absPath, fm.ID, fm.Reads); err != nil {
+			return nil, true, err
+		}
 
 		rel, rerr := filepath.Rel(repoRootAbs, absPath)
 		if rerr != nil {
@@ -78,11 +82,39 @@ func LoadEntries(repoRootAbs, procedureAbsDir string) ([]Entry, bool, error) {
 			Path:      rel,
 			StateIDs:  append([]string(nil), fm.AppliesTo.StateIDs...),
 			RouteIDs:  append([]string(nil), fm.AppliesTo.RouteIDs...),
+			Reads:     append([]string(nil), fm.Reads...),
 			Purpose:   fm.Purpose,
 			AbsSource: absPath,
 		})
 	}
 	return entries, true, nil
+}
+
+func validateReadReferences(repoRootAbs, procedureAbsPath, procedureID string, reads []string) error {
+	for i, read := range reads {
+		if filepath.IsAbs(read) {
+			return fmt.Errorf("procedure: reads[%d] in procedure %q must be relative, got %q", i, procedureID, read)
+		}
+		readPath := filepath.Clean(filepath.Join(filepath.Dir(procedureAbsPath), filepath.FromSlash(read)))
+		rel, err := filepath.Rel(repoRootAbs, readPath)
+		if err != nil {
+			return fmt.Errorf("procedure: reads[%d] in procedure %q path %q: %w", i, procedureID, read, err)
+		}
+		if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+			return fmt.Errorf("procedure: reads[%d] in procedure %q escapes repository: %q", i, procedureID, read)
+		}
+		st, err := os.Stat(readPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return fmt.Errorf("procedure: reads[%d] in procedure %q path does not exist: %s", i, procedureID, read)
+			}
+			return fmt.Errorf("procedure: reads[%d] in procedure %q path %q: %w", i, procedureID, read, err)
+		}
+		if st.IsDir() {
+			return fmt.Errorf("procedure: reads[%d] in procedure %q path is a directory: %s", i, procedureID, read)
+		}
+	}
+	return nil
 }
 
 // ValidateStateMapping checks that each state_id appears in at most one procedure entry

@@ -1219,6 +1219,10 @@ rules:
 	if err := os.MkdirAll(procDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.MkdirAll(filepath.Join(dir, "policy"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(dir, "policy", "required.md"), []byte("# Required\n"))
 	writeFile(t, filepath.Join(procDir, "p.md"), []byte(`---
 id: procedure-test
 purpose: Test procedure.
@@ -1226,6 +1230,8 @@ applies_to:
   state_ids:
     - working_no_pr
   route_ids: []
+reads:
+  - ../policy/required.md
 ---
 `))
 	res, err := Load(dir)
@@ -1234,6 +1240,51 @@ applies_to:
 	}
 	if !res.ProcedurePresent || len(res.ProcedureEntries) != 1 {
 		t.Fatalf("procedure: present=%v entries=%+v", res.ProcedurePresent, res.ProcedureEntries)
+	}
+}
+
+func TestLoad_procedureReadsMissingRejected(t *testing.T) {
+	t.Parallel()
+	// Given: a valid state rule and a procedure declaring a missing reads target
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "reinguard.yaml"), reinguardYAMLMinimal())
+	statesDir := filepath.Join(dir, "control", "states")
+	if err := os.MkdirAll(statesDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(statesDir, "t.yaml"), []byte(fmt.Sprintf(`schema_version: %q
+rules:
+  - type: state
+    id: only
+    priority: 10
+    when:
+      op: eq
+      path: git.branch
+      value: main
+    state_id: working_no_pr
+`, schema.CurrentSchemaVersion)))
+	procDir := filepath.Join(dir, "procedure")
+	if err := os.MkdirAll(procDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(procDir, "p.md"), []byte(`---
+id: procedure-test
+purpose: Test procedure.
+applies_to:
+  state_ids:
+    - working_no_pr
+  route_ids: []
+reads:
+  - ../policy/missing.md
+---
+`))
+
+	// When: Load runs
+	_, err := Load(dir)
+
+	// Then: validation names the procedure and missing reads path
+	if err == nil || !strings.Contains(err.Error(), "procedure-test") || !strings.Contains(err.Error(), "../policy/missing.md") {
+		t.Fatalf("got %v", err)
 	}
 }
 

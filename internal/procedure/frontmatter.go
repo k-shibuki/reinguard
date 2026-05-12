@@ -21,7 +21,8 @@ type FrontMatter struct {
 	ID        string    `yaml:"id"`
 	Purpose   string    `yaml:"purpose"`
 	AppliesTo AppliesTo `yaml:"applies_to"`
-	// Other keys (reads, sense, act, …) are ignored for machine validation.
+	Reads     []string  `yaml:"reads"`
+	// Other keys (sense, act, …) are ignored for machine validation.
 }
 
 // ParseFrontMatter extracts and parses the first YAML front matter block (--- ... ---).
@@ -50,6 +51,7 @@ func ParseFrontMatter(md []byte) (*FrontMatter, error) {
 	fm.Purpose = strings.TrimSpace(fm.Purpose)
 	fm.AppliesTo.StateIDs = trimNonEmptyStrings(fm.AppliesTo.StateIDs)
 	fm.AppliesTo.RouteIDs = trimNonEmptyStrings(fm.AppliesTo.RouteIDs)
+	fm.Reads = trimStrings(fm.Reads)
 	if fm.ID == "" {
 		return nil, fmt.Errorf("procedure: front matter: missing id")
 	}
@@ -62,16 +64,29 @@ func ParseFrontMatter(md []byte) (*FrontMatter, error) {
 	if err := validateUniqueStrings("route_id", fm.ID, fm.AppliesTo.RouteIDs); err != nil {
 		return nil, err
 	}
+	for i, read := range fm.Reads {
+		if read == "" {
+			return nil, fmt.Errorf("procedure: front matter: reads[%d] in procedure id %q is empty", i, fm.ID)
+		}
+	}
 	return &fm, nil
 }
 
 func trimNonEmptyStrings(in []string) []string {
+	trimmed := trimStrings(in)
 	var out []string
-	for _, s := range in {
-		s = strings.TrimSpace(s)
+	for _, s := range trimmed {
 		if s != "" {
 			out = append(out, s)
 		}
+	}
+	return out
+}
+
+func trimStrings(in []string) []string {
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		out = append(out, strings.TrimSpace(s))
 	}
 	return out
 }
