@@ -39,16 +39,14 @@ wins** among matching rules (ADR-0004). `state_id` values:
 
 - **Reviewed (success path):**
   - `completed` - bot finished review; review findings may or may not have been reported.
-  - `completed_clean` - all of the following are true:
-    1. The bot finished review.
-    2. The bot emitted an explicit clean marker recognized by the observation/provider implementation for that bot (see `docs/cli.md` signal notes for the current enrichment contract).
-    3. A corresponding GitHub review entry for the same bot login is observable.
-  - Timing rule: if the clean marker is observed before the matching
-    GitHub review entry appears in the observation pass, classify as
-    `completed` on that pass and upgrade to `completed_clean` on a later
-    observation pass once both are visible. If the GitHub review entry
-    appears first, remain `completed` until the clean marker is also
-    observed.
+  - `completed_clean` - the bot emitted an explicit clean marker recognized by
+    the observation/provider implementation for that bot (see `docs/cli.md`
+    signal notes for the current enrichment contract). A matching GitHub review
+    entry is sufficient but not required when the provider reports the clean
+    result through a selected status comment, such as CodeRabbit's "no
+    actionable comments" summary.
+  - Timing rule: if a GitHub review entry appears before the clean marker,
+    remain `completed` until the clean marker is also observed.
 - **Blocked:** `rate_limited`, `review_paused`. A required bot remains blocked
   and non-terminal when the selected status comment has a `review_paused`
   marker, even if the same comment also contains a clean review summary.
