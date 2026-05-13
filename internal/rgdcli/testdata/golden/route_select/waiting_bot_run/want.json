@@ -1,0 +1,14 @@
+{
+  "kind": "resolved",
+  "priority": 26,
+  "route_candidates": [
+    {
+      "priority": 26,
+      "route_id": "user-wait-bot-run",
+      "rule_id": "route_wait_bot_run"
+    }
+  ],
+  "route_id": "user-wait-bot-run",
+  "rule_id": "route_wait_bot_run",
+  "target_id": "user-wait-bot-run"
+}

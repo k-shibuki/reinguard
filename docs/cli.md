@@ -867,3 +867,19 @@ gh --version
 ```
 
 (`GH_TOKEN` / `GITHUB_TOKEN` is set by Actions for `gh` and the GitHub provider.)
+
+## Golden fixture tests
+
+`internal/rgdcli/golden_test.go` locks down deterministic CLI JSON contracts for
+workflow state evaluation, route selection, `merge-readiness`, and `context
+build`. Each case uses a committed `observation.json`; tests must not perform
+live observation, require `gh`, or depend on network access.
+
+Refresh fixtures only when the intended CLI contract changes:
+
+```bash
+go test ./internal/rgdcli -run TestGolden -update
+```
+
+Review the resulting `want.json` diffs before committing. The normal CI path
+runs these tests without `-update` through `go test ./... -race`.

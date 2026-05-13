@@ -1,0 +1,14 @@
+{
+  "kind": "resolved",
+  "priority": 23,
+  "route_candidates": [
+    {
+      "priority": 23,
+      "route_id": "user-address-review",
+      "rule_id": "route_address_review"
+    }
+  ],
+  "route_id": "user-address-review",
+  "rule_id": "route_address_review",
+  "target_id": "user-address-review"
+}

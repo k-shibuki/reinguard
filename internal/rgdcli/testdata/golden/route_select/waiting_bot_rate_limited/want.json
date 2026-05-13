@@ -1,0 +1,14 @@
+{
+  "kind": "resolved",
+  "priority": 27,
+  "route_candidates": [
+    {
+      "priority": 27,
+      "route_id": "user-wait-bot-quota",
+      "rule_id": "route_wait_bot_quota"
+    }
+  ],
+  "route_id": "user-wait-bot-quota",
+  "rule_id": "route_wait_bot_quota",
+  "target_id": "user-wait-bot-quota"
+}

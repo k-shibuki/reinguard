@@ -1,0 +1,14 @@
+{
+  "kind": "resolved",
+  "priority": 19,
+  "route_candidates": [
+    {
+      "priority": 19,
+      "route_id": "user-implement",
+      "rule_id": "route_implement_pr_ready"
+    }
+  ],
+  "route_id": "user-implement",
+  "rule_id": "route_implement_pr_ready",
+  "target_id": "user-implement"
+}

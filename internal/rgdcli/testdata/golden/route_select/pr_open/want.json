@@ -1,0 +1,14 @@
+{
+  "kind": "resolved",
+  "priority": 21,
+  "route_candidates": [
+    {
+      "priority": 21,
+      "route_id": "user-monitor-pr",
+      "rule_id": "route_monitor"
+    }
+  ],
+  "route_id": "user-monitor-pr",
+  "rule_id": "route_monitor",
+  "target_id": "user-monitor-pr"
+}

@@ -58,6 +58,15 @@ bash .reinguard/scripts/with-repo-local-state.sh -- pre-commit run markdownlint-
 under `internal/scripttest/` and `internal/labels/`. Tool-sensitive cases skip
 cleanly when dependencies such as mikefarah `yq` are unavailable.
 
+When intentionally refreshing rgd CLI golden fixtures, run:
+
+```bash
+go test ./internal/rgdcli -run TestGolden -update
+```
+
+Commit the resulting `observation.json` / `want.json` changes only after
+reviewing that the JSON contract change is intended.
+
 **Coverage** (module-wide threshold **80%**, same as CI):
 
 ```bash

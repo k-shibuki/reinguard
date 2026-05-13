@@ -1,0 +1,14 @@
+{
+  "kind": "resolved",
+  "priority": 22,
+  "route_candidates": [
+    {
+      "priority": 22,
+      "route_id": "user-wait-ci",
+      "rule_id": "route_wait_ci"
+    }
+  ],
+  "route_id": "user-wait-ci",
+  "rule_id": "route_wait_ci",
+  "target_id": "user-wait-ci"
+}

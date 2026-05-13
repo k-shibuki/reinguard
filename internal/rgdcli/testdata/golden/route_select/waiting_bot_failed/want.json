@@ -1,0 +1,14 @@
+{
+  "kind": "resolved",
+  "priority": 24,
+  "route_candidates": [
+    {
+      "priority": 24,
+      "route_id": "user-wait-bot-failed",
+      "rule_id": "route_wait_bot_failed"
+    }
+  ],
+  "route_id": "user-wait-bot-failed",
+  "rule_id": "route_wait_bot_failed",
+  "target_id": "user-wait-bot-failed"
+}

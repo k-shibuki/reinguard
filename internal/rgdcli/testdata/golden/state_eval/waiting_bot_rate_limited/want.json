@@ -1,0 +1,7 @@
+{
+  "kind": "resolved",
+  "priority": 11,
+  "rule_id": "rate_limited",
+  "state_id": "waiting_bot_rate_limited",
+  "target_id": "waiting_bot_rate_limited"
+}

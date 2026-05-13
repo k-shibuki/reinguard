@@ -1,0 +1,48 @@
+{
+  "degraded": false,
+  "schema_version": "0.8.0",
+  "signals": {
+    "git": {
+      "ahead_of_upstream": 0,
+      "behind_of_upstream": 0,
+      "branch": "test/74-fsm-golden-fixtures-and-ci",
+      "detached_head": false,
+      "has_upstream": false,
+      "stale_remote_branches_count": 0,
+      "stash_count": 0,
+      "uncommitted_files": 0,
+      "working_tree_clean": true
+    },
+    "github": {
+      "pull_requests": {
+        "current_branch": "test/74-fsm-golden-fixtures-and-ci",
+        "merge_state_status": "dirty",
+        "open_count": 1,
+        "pr_exists_for_branch": true,
+        "pr_number_for_branch": 74
+      },
+      "reviews": {
+        "bot_review_diagnostics": {
+          "bot_review_block_reason": "rate_limited",
+          "bot_review_blocked": true,
+          "non_thread_findings_present": true
+        },
+        "bot_reviewer_status": [
+          {
+            "id": "coderabbit",
+            "login": "coderabbitai[bot]",
+            "rate_limit_remaining_seconds": 120,
+            "required": true,
+            "status": "rate_limited"
+          }
+        ],
+        "pagination_incomplete": false,
+        "review_decisions_approved": 0,
+        "review_decisions_changes_requested": 0,
+        "review_decisions_total": 0,
+        "review_decisions_truncated": false,
+        "review_threads_unresolved": 0
+      }
+    }
+  }
+}
