@@ -60,6 +60,8 @@ jobs:
             -o "dist/${artifact}" \
             ./cmd/rgd
 
+      # The Ubuntu runner can execute only the native linux/amd64 binary; every
+      # matrix target is built with the same VERSION ldflag above.
       - name: Verify stamped version
         if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
         env:
@@ -71,7 +73,15 @@ jobs:
 
       - name: Generate checksum
         working-directory: dist
-        run: sha256sum -- ./* > "rgd_${{ github.ref_name }}_${{ matrix.goos }}_${{ matrix.goarch }}.sha256"
+        env:
+          VERSION: ${{ github.ref_name }}
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          EXT: ${{ matrix.ext }}
+        run: |
+          set -euo pipefail
+          artifact="rgd_${VERSION}_${GOOS}_${GOARCH}${EXT}"
+          sha256sum -- "${artifact}" > "${artifact}.sha256"
 
       - name: Upload release artifact
         uses: actions/upload-artifact@v7.0.1
