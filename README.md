@@ -168,6 +168,11 @@ Full command behavior, flags, stdout/stderr rules, and exit codes:
 - **Build**: `go build -o rgd ./cmd/rgd`
 - **Check**: `make check`
 
+Tagged releases publish `rgd` binaries for Linux, macOS, and Windows on
+`amd64` and `arm64`, plus SHA-256 checksum files for each target. Release
+builds stamp `rgd version` from the Git tag. Package-manager distribution such
+as Homebrew is intentionally deferred outside the v1.0.0 release artifact set.
+
 Smoke check:
 
 ```bash
