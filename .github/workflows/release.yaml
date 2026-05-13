@@ -1,0 +1,161 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify release candidate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: actions/setup-go@v6.4.0
+        with:
+          go-version-file: go.mod
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Verify module checksums
+        run: go mod verify
+
+      - name: Install mikefarah yq
+        uses: ./.github/actions/install-yq
+
+      - name: go test
+        run: go test ./... -race -timeout=10m
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9.2.0
+        with:
+          # Keep release verification aligned with the PR CI lint job.
+          version: v2.11.4
+          args: --timeout=5m ./...
+
+  build:
+    name: Build rgd (${{ matrix.goos }}-${{ matrix.goarch }})
+    needs: [verify]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            ext: ""
+          - goos: linux
+            goarch: arm64
+            ext: ""
+          - goos: darwin
+            goarch: amd64
+            ext: ""
+          - goos: darwin
+            goarch: arm64
+            ext: ""
+          - goos: windows
+            goarch: amd64
+            ext: .exe
+          - goos: windows
+            goarch: arm64
+            ext: .exe
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: actions/setup-go@v6.4.0
+        with:
+          go-version-file: go.mod
+
+      - name: Build release binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+          VERSION: ${{ github.ref_name }}
+          EXT: ${{ matrix.ext }}
+        run: |
+          set -euo pipefail
+          artifact="rgd_${VERSION}_${GOOS}_${GOARCH}${EXT}"
+          mkdir -p dist
+          go build \
+            -trimpath \
+            -ldflags "-s -w -X main.version=${VERSION}" \
+            -o "dist/${artifact}" \
+            ./cmd/rgd
+
+      # The Ubuntu runner can execute only the native linux/amd64 binary; every
+      # matrix target is built with the same VERSION ldflag above.
+      - name: Verify stamped version
+        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          got="$("./dist/rgd_${VERSION}_linux_amd64" version)"
+          test "${got}" = "${VERSION}"
+
+      - name: Generate checksum
+        working-directory: dist
+        env:
+          VERSION: ${{ github.ref_name }}
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          EXT: ${{ matrix.ext }}
+        run: |
+          set -euo pipefail
+          artifact="rgd_${VERSION}_${GOOS}_${GOARCH}${EXT}"
+          sha256sum -- "${artifact}" > "${artifact}.sha256"
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: rgd-${{ github.ref_name }}-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v7.0.0
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          artifacts=(dist/*)
+          if ((${#artifacts[@]} == 0)); then
+            echo "No release artifacts found in dist/"
+            exit 1
+          fi
+          if gh release view "${TAG_NAME}" >/dev/null 2>&1; then
+            echo "Release ${TAG_NAME} already exists; delete it manually before republishing."
+            exit 1
+          fi
+          gh release create "${TAG_NAME}" "${artifacts[@]}" \
+            --title "${TAG_NAME}" \
+            --generate-notes
