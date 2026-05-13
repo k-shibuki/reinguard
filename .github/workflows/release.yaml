@@ -39,6 +39,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9.2.0
         with:
+          # Keep release verification aligned with the PR CI lint job.
           version: v2.11.4
           args: --timeout=5m ./...
 

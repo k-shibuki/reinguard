@@ -169,10 +169,11 @@ Full command behavior, flags, stdout/stderr rules, and exit codes:
 - **Check**: `make check`
 
 Tagged releases publish `rgd` binaries for Linux, macOS, and Windows on
-`amd64` and `arm64`, plus SHA-256 checksum files for each target, from
-[GitHub Releases](https://github.com/k-shibuki/reinguard/releases). Release
-builds stamp `rgd version` from the Git tag. Package-manager distribution such
-as Homebrew is intentionally deferred outside the v1.0.0 release artifact set.
+`amd64` and `arm64` from
+[GitHub Releases](https://github.com/k-shibuki/reinguard/releases). Each
+release includes SHA-256 checksum files for all targets. Release builds stamp
+`rgd version` from the Git tag. Package-manager distribution such as Homebrew is
+intentionally deferred outside the v1.0.0 release artifact set.
 
 Smoke check:
 
