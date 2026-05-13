@@ -1,0 +1,85 @@
+{
+  "diagnostics": [
+    {
+      "code": "fixture_degraded",
+      "message": "fixture provider degraded",
+      "provider": "fixture",
+      "severity": "warning"
+    },
+    {
+      "code": "context_built",
+      "message": "context build pipeline complete",
+      "severity": "info"
+    }
+  ],
+  "guards": {
+    "merge-readiness": {
+      "guard_id": "merge-readiness",
+      "ok": false,
+      "reason": "missing or invalid github.reviews.review_threads_unresolved"
+    }
+  },
+  "knowledge": {
+    "entries": []
+  },
+  "observation": {
+    "degraded": true,
+    "diagnostics": [
+      {
+        "code": "fixture_degraded",
+        "message": "fixture provider degraded",
+        "provider": "fixture",
+        "severity": "warning"
+      }
+    ],
+    "meta": {
+      "view": "full"
+    },
+    "schema_version": "0.8.0",
+    "signals": {
+      "git": {
+        "ahead_of_upstream": 0,
+        "behind_of_upstream": 0,
+        "branch": "test/74-fsm-golden-fixtures-and-ci",
+        "detached_head": false,
+        "has_upstream": false,
+        "stale_remote_branches_count": 0,
+        "stash_count": 0,
+        "uncommitted_files": 0,
+        "working_tree_clean": true
+      },
+      "github": {
+        "pull_requests": {
+          "current_branch": "test/74-fsm-golden-fixtures-and-ci",
+          "open_count": 0,
+          "pr_exists_for_branch": false,
+          "pr_number_for_branch": 0
+        }
+      }
+    }
+  },
+  "routes": [
+    {
+      "kind": "resolved",
+      "priority": 20,
+      "route_candidates": [
+        {
+          "priority": 20,
+          "route_id": "user-implement",
+          "rule_id": "route_implement"
+        }
+      ],
+      "route_id": "user-implement",
+      "rule_id": "route_implement",
+      "target_id": "user-implement"
+    }
+  ],
+  "schema_version": "0.8.0",
+  "state": {
+    "kind": "resolved",
+    "priority": 60,
+    "rule_id": "working_no_pr",
+    "state_id": "working_no_pr",
+    "target_id": "working_no_pr"
+  }
+}

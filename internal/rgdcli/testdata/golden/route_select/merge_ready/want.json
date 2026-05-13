@@ -1,0 +1,14 @@
+{
+  "kind": "resolved",
+  "priority": 29,
+  "route_candidates": [
+    {
+      "priority": 29,
+      "route_id": "user-merge",
+      "rule_id": "route_merge"
+    }
+  ],
+  "route_id": "user-merge",
+  "rule_id": "route_merge",
+  "target_id": "user-merge"
+}

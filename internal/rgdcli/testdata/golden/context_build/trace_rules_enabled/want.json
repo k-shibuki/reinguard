@@ -1,0 +1,243 @@
+{
+  "diagnostics": [
+    {
+      "code": "context_built",
+      "message": "context build pipeline complete",
+      "severity": "info"
+    }
+  ],
+  "guards": {
+    "merge-readiness": {
+      "guard_id": "merge-readiness",
+      "ok": false,
+      "reason": "missing or invalid github.reviews.review_threads_unresolved"
+    }
+  },
+  "knowledge": {
+    "entries": []
+  },
+  "observation": {
+    "degraded": false,
+    "meta": {
+      "view": "full"
+    },
+    "schema_version": "0.8.0",
+    "signals": {
+      "git": {
+        "ahead_of_upstream": 0,
+        "behind_of_upstream": 0,
+        "branch": "test/74-fsm-golden-fixtures-and-ci",
+        "detached_head": false,
+        "has_upstream": false,
+        "stale_remote_branches_count": 0,
+        "stash_count": 0,
+        "uncommitted_files": 0,
+        "working_tree_clean": true
+      },
+      "github": {
+        "pull_requests": {
+          "current_branch": "test/74-fsm-golden-fixtures-and-ci",
+          "open_count": 0,
+          "pr_exists_for_branch": false,
+          "pr_number_for_branch": 0
+        }
+      }
+    }
+  },
+  "routes": [
+    {
+      "kind": "resolved",
+      "priority": 20,
+      "route_candidates": [
+        {
+          "priority": 20,
+          "route_id": "user-implement",
+          "rule_id": "route_implement"
+        }
+      ],
+      "route_id": "user-implement",
+      "rule_id": "route_implement",
+      "rule_trace": [
+        {
+          "matched": false,
+          "priority": 19,
+          "rule_id": "route_implement_pr_ready",
+          "rule_type": "route",
+          "target_id": "user-implement"
+        },
+        {
+          "matched": true,
+          "priority": 20,
+          "rule_id": "route_implement",
+          "rule_type": "route",
+          "target_id": "user-implement"
+        },
+        {
+          "matched": false,
+          "priority": 21,
+          "rule_id": "route_monitor",
+          "rule_type": "route",
+          "target_id": "user-monitor-pr"
+        },
+        {
+          "matched": false,
+          "priority": 22,
+          "rule_id": "route_wait_ci",
+          "rule_type": "route",
+          "target_id": "user-wait-ci"
+        },
+        {
+          "matched": false,
+          "priority": 23,
+          "rule_id": "route_address_review",
+          "rule_type": "route",
+          "target_id": "user-address-review"
+        },
+        {
+          "matched": false,
+          "priority": 24,
+          "rule_id": "route_wait_bot_failed",
+          "rule_type": "route",
+          "target_id": "user-wait-bot-failed"
+        },
+        {
+          "matched": false,
+          "priority": 25,
+          "rule_id": "route_wait_bot_stale",
+          "rule_type": "route",
+          "target_id": "user-wait-bot-stale"
+        },
+        {
+          "matched": false,
+          "priority": 26,
+          "rule_id": "route_wait_bot_run",
+          "rule_type": "route",
+          "target_id": "user-wait-bot-run"
+        },
+        {
+          "matched": false,
+          "priority": 27,
+          "rule_id": "route_wait_bot_quota",
+          "rule_type": "route",
+          "target_id": "user-wait-bot-quota"
+        },
+        {
+          "matched": false,
+          "priority": 28,
+          "rule_id": "route_wait_bot_paused",
+          "rule_type": "route",
+          "target_id": "user-wait-bot-paused"
+        },
+        {
+          "matched": false,
+          "priority": 29,
+          "rule_id": "route_merge",
+          "rule_type": "route",
+          "target_id": "user-merge"
+        }
+      ],
+      "target_id": "user-implement"
+    }
+  ],
+  "schema_version": "0.8.0",
+  "state": {
+    "kind": "resolved",
+    "priority": 60,
+    "rule_id": "working_no_pr",
+    "rule_trace": [
+      {
+        "matched": false,
+        "priority": 8,
+        "rule_id": "unresolved_threads",
+        "rule_type": "state",
+        "target_id": "unresolved_threads"
+      },
+      {
+        "matched": false,
+        "priority": 9,
+        "rule_id": "non_thread_findings_pending",
+        "rule_type": "state",
+        "target_id": "non_thread_findings_pending"
+      },
+      {
+        "matched": false,
+        "priority": 10,
+        "rule_id": "changes_requested",
+        "rule_type": "state",
+        "target_id": "changes_requested"
+      },
+      {
+        "matched": false,
+        "priority": 11,
+        "rule_id": "rate_limited",
+        "rule_type": "state",
+        "target_id": "waiting_bot_rate_limited"
+      },
+      {
+        "matched": false,
+        "priority": 12,
+        "rule_id": "review_paused",
+        "rule_type": "state",
+        "target_id": "waiting_bot_paused"
+      },
+      {
+        "matched": false,
+        "priority": 13,
+        "rule_id": "review_failed",
+        "rule_type": "state",
+        "target_id": "waiting_bot_failed"
+      },
+      {
+        "matched": false,
+        "priority": 14,
+        "rule_id": "bot_stale",
+        "rule_type": "state",
+        "target_id": "waiting_bot_stale"
+      },
+      {
+        "matched": false,
+        "priority": 15,
+        "rule_id": "bot_run",
+        "rule_type": "state",
+        "target_id": "waiting_bot_run"
+      },
+      {
+        "matched": false,
+        "priority": 25,
+        "rule_id": "merge_ready",
+        "rule_type": "state",
+        "target_id": "merge_ready"
+      },
+      {
+        "matched": false,
+        "priority": 35,
+        "rule_id": "waiting_ci",
+        "rule_type": "state",
+        "target_id": "waiting_ci"
+      },
+      {
+        "matched": false,
+        "priority": 40,
+        "rule_id": "pr_open",
+        "rule_type": "state",
+        "target_id": "pr_open"
+      },
+      {
+        "matched": false,
+        "priority": 55,
+        "rule_id": "ready_for_pr",
+        "rule_type": "state",
+        "target_id": "ready_for_pr"
+      },
+      {
+        "matched": true,
+        "priority": 60,
+        "rule_id": "working_no_pr",
+        "rule_type": "state",
+        "target_id": "working_no_pr"
+      }
+    ],
+    "state_id": "working_no_pr",
+    "target_id": "working_no_pr"
+  }
+}

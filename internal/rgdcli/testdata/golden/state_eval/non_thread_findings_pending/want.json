@@ -1,0 +1,7 @@
+{
+  "kind": "resolved",
+  "priority": 9,
+  "rule_id": "non_thread_findings_pending",
+  "state_id": "non_thread_findings_pending",
+  "target_id": "non_thread_findings_pending"
+}

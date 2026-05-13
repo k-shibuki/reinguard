@@ -1,0 +1,5 @@
+{
+  "guard_id": "merge-readiness",
+  "ok": false,
+  "reason": "unresolved review threads: 1"
+}

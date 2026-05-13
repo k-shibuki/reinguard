@@ -1,0 +1,7 @@
+{
+  "kind": "resolved",
+  "priority": 13,
+  "rule_id": "review_failed",
+  "state_id": "waiting_bot_failed",
+  "target_id": "waiting_bot_failed"
+}

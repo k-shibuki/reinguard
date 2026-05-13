@@ -1,0 +1,31 @@
+{
+  "degraded": false,
+  "schema_version": "0.8.0",
+  "signals": {
+    "git": {
+      "ahead_of_upstream": 0,
+      "behind_of_upstream": 0,
+      "branch": "test/74-fsm-golden-fixtures-and-ci",
+      "detached_head": false,
+      "has_upstream": false,
+      "stale_remote_branches_count": 0,
+      "stash_count": 0,
+      "uncommitted_files": 0,
+      "working_tree_clean": true
+    },
+    "github": {
+      "pull_requests": {
+        "current_branch": "test/74-fsm-golden-fixtures-and-ci",
+        "merge_state_status": "dirty",
+        "open_count": 1,
+        "pr_exists_for_branch": true,
+        "pr_number_for_branch": 74
+      },
+      "reviews": {
+        "bot_review_diagnostics": {
+          "bot_review_pending": true
+        }
+      }
+    }
+  }
+}

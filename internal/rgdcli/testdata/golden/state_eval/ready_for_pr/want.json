@@ -1,0 +1,7 @@
+{
+  "kind": "resolved",
+  "priority": 55,
+  "rule_id": "ready_for_pr",
+  "state_id": "ready_for_pr",
+  "target_id": "ready_for_pr"
+}

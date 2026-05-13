@@ -1,0 +1,62 @@
+{
+  "degraded": false,
+  "schema_version": "0.8.0",
+  "signals": {
+    "git": {
+      "ahead_of_upstream": 0,
+      "behind_of_upstream": 0,
+      "branch": "test/74-fsm-golden-fixtures-and-ci",
+      "detached_head": false,
+      "has_upstream": false,
+      "stale_remote_branches_count": 0,
+      "stash_count": 0,
+      "uncommitted_files": 0,
+      "working_tree_clean": true
+    },
+    "github": {
+      "ci": {
+        "ci_status": "success",
+        "head_sha": "0123456789abcdef0123456789abcdef01234567"
+      },
+      "pull_requests": {
+        "current_branch": "test/74-fsm-golden-fixtures-and-ci",
+        "merge_state_status": "clean",
+        "open_count": 1,
+        "pr_exists_for_branch": true,
+        "pr_number_for_branch": 74
+      },
+      "reviews": {
+        "bot_review_diagnostics": {
+          "bot_review_block_reason": "",
+          "bot_review_blocked": false,
+          "bot_review_completed": true,
+          "bot_review_failed": false,
+          "bot_review_pending": false,
+          "bot_review_stale": false,
+          "bot_review_terminal": true,
+          "bot_review_trigger_awaiting_ack": false,
+          "duplicate_findings_detected": false,
+          "non_thread_findings_present": false
+        },
+        "bot_reviewer_status": [
+          {
+            "has_review": true,
+            "id": "coderabbit",
+            "login": "coderabbitai[bot]",
+            "required": true,
+            "review_commit_sha": "0123456789abcdef0123456789abcdef01234567",
+            "review_state": "COMMENTED",
+            "status": "completed_clean"
+          }
+        ],
+        "pagination_incomplete": false,
+        "review_decisions_approved": 1,
+        "review_decisions_changes_requested": 0,
+        "review_decisions_total": 1,
+        "review_decisions_truncated": false,
+        "review_threads_total": 0,
+        "review_threads_unresolved": 1
+      }
+    }
+  }
+}
