@@ -76,8 +76,8 @@
             "thread_id": "thread-1"
           }
         ],
-        "review_threads_total": 0,
-        "review_threads_unresolved": 0
+        "review_threads_total": 1,
+        "review_threads_unresolved": 1
       }
     }
   }

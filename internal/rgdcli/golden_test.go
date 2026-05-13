@@ -346,7 +346,7 @@ func goldenContextCases() []goldenContextCase {
 		{"interaction_paused_with_changes_requested", "waiting_bot_paused", nil, false, fixtureObservation(baseSignals(pausedWithChangesRequestedSignals()))},
 		{"interaction_trigger_awaiting_ack_blocks_merge_ready", "waiting_bot_run", nil, false, fixtureObservation(baseSignals(triggerAwaitingAckSignals()))},
 		{"interaction_priority_rate_limited_over_stale", "waiting_bot_rate_limited", nil, false, fixtureObservation(baseSignals(rateLimitedOverStaleSignals()))},
-		{"compact_observation_view", "merge_ready", []string{"--compact"}, false, fixtureObservation(withHighVolumeReviewPayload(baseSignals(mergeReadySignals())))},
+		{"compact_observation_view", "unresolved_threads", []string{"--compact"}, false, fixtureObservation(withHighVolumeReviewPayload(baseSignals(mergeReadySignals())))},
 		{"trace_rules_enabled", "working_no_pr", []string{"--trace-rules"}, true, fixtureObservation(baseSignals(noPR()))},
 		{"degraded_observation_warning", "working_no_pr", nil, false, degradedObservation(baseSignals(noPR()))},
 	}
@@ -578,6 +578,8 @@ func withHighVolumeReviewPayload(signals map[string]any) map[string]any {
 	gh["ci"].(map[string]any)["check_runs"] = []any{map[string]any{"name": "ci-pass", "status": "completed", "conclusion": "success"}}
 	reviews := gh["reviews"].(map[string]any)
 	reviews["review_inbox"] = []any{map[string]any{"thread_id": "thread-1", "root_comment_id": 1001, "path": "internal/rgdcli/golden_test.go", "line": 1}}
+	reviews["review_threads_total"] = 1
+	reviews["review_threads_unresolved"] = 1
 	reviews["conversation_comments"] = []any{map[string]any{"author": "coderabbitai[bot]", "body": "No issues found", "updated_at": "2026-01-02T03:04:05Z"}}
 	return signals
 }

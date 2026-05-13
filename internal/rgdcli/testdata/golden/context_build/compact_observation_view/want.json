@@ -9,7 +9,8 @@
   "guards": {
     "merge-readiness": {
       "guard_id": "merge-readiness",
-      "ok": true
+      "ok": false,
+      "reason": "unresolved review threads: 1"
     }
   },
   "knowledge": {
@@ -74,8 +75,8 @@
           "review_decisions_changes_requested": 0,
           "review_decisions_total": 1,
           "review_decisions_truncated": false,
-          "review_threads_total": 0,
-          "review_threads_unresolved": 0
+          "review_threads_total": 1,
+          "review_threads_unresolved": 1
         }
       }
     }
@@ -83,25 +84,25 @@
   "routes": [
     {
       "kind": "resolved",
-      "priority": 29,
+      "priority": 23,
       "route_candidates": [
         {
-          "priority": 29,
-          "route_id": "user-merge",
-          "rule_id": "route_merge"
+          "priority": 23,
+          "route_id": "user-address-review",
+          "rule_id": "route_address_review"
         }
       ],
-      "route_id": "user-merge",
-      "rule_id": "route_merge",
-      "target_id": "user-merge"
+      "route_id": "user-address-review",
+      "rule_id": "route_address_review",
+      "target_id": "user-address-review"
     }
   ],
   "schema_version": "0.8.0",
   "state": {
     "kind": "resolved",
-    "priority": 25,
-    "rule_id": "merge_ready",
-    "state_id": "merge_ready",
-    "target_id": "merge_ready"
+    "priority": 8,
+    "rule_id": "unresolved_threads",
+    "state_id": "unresolved_threads",
+    "target_id": "unresolved_threads"
   }
 }
