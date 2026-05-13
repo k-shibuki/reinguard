@@ -177,14 +177,18 @@ macOS, and Windows on `amd64` and `arm64`:
 1. Download the asset for your platform from
    [GitHub Releases](https://github.com/k-shibuki/reinguard/releases), for
    example `rgd_v1.0.0_linux_amd64`.
-2. Download the matching `.sha256` file and verify it with `sha256sum -c`.
+2. Download the matching `.sha256` file and verify it:
+   - Linux/macOS: `sha256sum -c rgd_v1.0.0_linux_amd64.sha256`
+   - Windows PowerShell:
+     `(Get-FileHash rgd_v1.0.0_windows_amd64.exe).Hash -eq (Get-Content rgd_v1.0.0_windows_amd64.exe.sha256).Split()[0]`
 3. Rename the binary to `rgd` (`rgd.exe` on Windows), make it executable on
    Unix-like systems, and place it in a directory on `PATH`.
-4. Run `rgd version` and `rgd config validate` from a repository that owns a
-   `.reinguard/` configuration.
+4. Verify the installation with `rgd version`. After bootstrapping a repository
+   with `.reinguard/` configuration, run `rgd config validate` to verify that
+   repository setup.
 
 There is no `rgd init` command in `v1.0.0`. To bootstrap a repository, copy or
-adapt a repository-owned `.reinguard/` directory, then run
+adapt this repository's `.reinguard/` directory as a template, then run
 `rgd config validate` and commit the Semantics files that define that
 repository's policies, knowledge, workflow states, routes, guards, procedures,
 and runtime gate roles. The canonical Adapter bootstrap examples are
