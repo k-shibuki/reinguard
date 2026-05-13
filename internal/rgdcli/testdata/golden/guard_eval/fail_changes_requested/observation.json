@@ -45,8 +45,8 @@
             "login": "coderabbitai[bot]",
             "required": true,
             "review_commit_sha": "0123456789abcdef0123456789abcdef01234567",
-            "review_state": "APPROVED",
-            "status": "completed_clean"
+            "review_state": "CHANGES_REQUESTED",
+            "status": "completed"
           }
         ],
         "pagination_incomplete": false,

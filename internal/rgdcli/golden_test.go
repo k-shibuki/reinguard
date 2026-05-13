@@ -476,11 +476,14 @@ func nonThreadSignals() map[string]any {
 	gh := mergeReadySignals()
 	gh["reviews"].(map[string]any)["bot_review_diagnostics"].(map[string]any)["non_thread_findings_present"] = true
 	gh["reviews"].(map[string]any)["bot_reviewer_status"].([]any)[0].(map[string]any)["actionable_findings_count"] = 1
+	gh["reviews"].(map[string]any)["bot_reviewer_status"].([]any)[0].(map[string]any)["status"] = "completed"
 	return gh
 }
 
 func changesRequestedSignals() map[string]any {
 	gh := mergeReadySignals()
+	gh["reviews"].(map[string]any)["bot_reviewer_status"].([]any)[0].(map[string]any)["review_state"] = "CHANGES_REQUESTED"
+	gh["reviews"].(map[string]any)["bot_reviewer_status"].([]any)[0].(map[string]any)["status"] = "completed"
 	gh["reviews"].(map[string]any)["review_decisions_approved"] = 0
 	gh["reviews"].(map[string]any)["review_decisions_changes_requested"] = 1
 	return gh
@@ -530,7 +533,10 @@ func ciFailureSignals() map[string]any {
 
 func triggerAwaitingAckSignals() map[string]any {
 	gh := mergeReadySignals()
+	gh["reviews"].(map[string]any)["bot_reviewer_status"].([]any)[0].(map[string]any)["status"] = "pending"
+	gh["reviews"].(map[string]any)["bot_reviewer_status"].([]any)[0].(map[string]any)["review_trigger_awaiting_ack"] = true
 	diags := gh["reviews"].(map[string]any)["bot_review_diagnostics"].(map[string]any)
+	diags["bot_review_completed"] = false
 	diags["bot_review_pending"] = true
 	diags["bot_review_terminal"] = false
 	diags["bot_review_trigger_awaiting_ack"] = true
