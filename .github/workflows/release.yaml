@@ -151,9 +151,9 @@ jobs:
             exit 1
           fi
           if gh release view "${TAG_NAME}" >/dev/null 2>&1; then
-            gh release upload "${TAG_NAME}" "${artifacts[@]}" --clobber
-          else
-            gh release create "${TAG_NAME}" "${artifacts[@]}" \
-              --title "${TAG_NAME}" \
-              --generate-notes
+            echo "Release ${TAG_NAME} already exists; delete it manually before republishing."
+            exit 1
           fi
+          gh release create "${TAG_NAME}" "${artifacts[@]}" \
+            --title "${TAG_NAME}" \
+            --generate-notes
