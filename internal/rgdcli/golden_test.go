@@ -96,9 +96,10 @@ func TestGoldenCoverage_RouteIdsHaveFixture(t *testing.T) {
 
 func TestGoldenCoverage_MergeReadinessGuardHasFixture(t *testing.T) {
 	t.Parallel()
-	guards := readWorkflowGuardIDs(t)
-	if !containsString(guards, "merge-readiness") {
-		t.Fatalf("test bug: committed guard ids did not include merge-readiness: %v", guards)
+	gotGuards := readWorkflowGuardIDs(t)
+	wantGuards := []string{"merge-readiness"}
+	if !reflect.DeepEqual(gotGuards, wantGuards) {
+		t.Fatalf("workflow guard fixture coverage mismatch\ngot:  %v\nwant: %v", gotGuards, wantGuards)
 	}
 	names := map[string]bool{}
 	for _, tc := range goldenGuardCases() {
@@ -671,13 +672,4 @@ func sortedKeys(m map[string]bool) []string {
 	}
 	sort.Strings(out)
 	return out
-}
-
-func containsString(xs []string, want string) bool {
-	for _, x := range xs {
-		if x == want {
-			return true
-		}
-	}
-	return false
 }
