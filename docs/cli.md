@@ -5,6 +5,27 @@ flags, stdout/stderr, and exit codes (ADR-0008). The `rgd` implementation
 must match this document; do not duplicate normative tables in the ADR
 body or README.
 
+## v1.0.0 stability
+
+For product `v1.0.0`, the shipped `rgd` CLI surface documented here is stable:
+command names, flags, machine-readable stdout contracts, stderr placement, and
+exit-code meanings are part of the public early-adopter promise. The command
+tree and flags in this document have been audited against the implemented
+`rgd` command wiring for the v1.0 line.
+
+This stability promise is distinct from the synchronized schema contract.
+Current repository configuration, control files, knowledge manifest, and
+operational-context JSON use schema contract `0.8.0`; `rgd config validate`
+enforces that contract as described in the `schema_version` vs this binary
+section below.
+
+Experimental or follow-up CLI work is not required for v1.0.0. In particular,
+Phase 3 human-facing explainability remains tracked in
+[#133](https://github.com/k-shibuki/reinguard/issues/133) and is not a v1.0
+release blocker. Repository-local scripts under `.reinguard/scripts/` remain
+outside the shipped `rgd` binary unless explicitly documented in this file as
+repository tooling.
+
 ## Common flags
 
 | Flag | Env | Description |

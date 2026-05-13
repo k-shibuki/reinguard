@@ -4,7 +4,7 @@
 [![Go version](https://img.shields.io/github/go-mod/go-version/k-shibuki/reinguard)](https://github.com/k-shibuki/reinguard/blob/main/go.mod)
 [![Go Report Card](https://goreportcard.com/badge/github.com/k-shibuki/reinguard)](https://goreportcard.com/report/github.com/k-shibuki/reinguard)
 [![CI](https://github.com/k-shibuki/reinguard/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/k-shibuki/reinguard/actions/workflows/ci.yaml?query=branch%3Amain)
-[![Pre-release](https://img.shields.io/badge/status-pre--release-orange)](https://github.com/k-shibuki/reinguard#status)
+[![Release](https://img.shields.io/badge/status-v1.0.0-blue)](https://github.com/k-shibuki/reinguard#status--license)
 
 **Repo-owned Semantic Control for Agentic Development** — *operational context for bot-aware PR work*.
 
@@ -42,6 +42,49 @@ agent decides what to do next.
 If the instinct is to solve this with an agent orchestrator, `reinguard` takes
 the opposite bet: make the facts deterministic, then leave judgment with the
 agent.
+
+## v1.0.0 Position
+
+Product `v1.0.0` means the core shape of reinguard is ready for early adopters:
+a repo-owned Agent Control Plane as Code substrate that computes operational
+context for humans, agents, and review bots. It does **not** mean the product
+has become a workflow brain. ADR-0001 remains the boundary: `rgd` observes,
+evaluates, and emits deterministic context; agents and maintainers keep
+judgment-heavy planning and review decisions.
+
+The synchronized schema contract is versioned separately from the product
+release. The current `.reinguard/` files and embedded schemas declare contract
+`0.8.0`; that value covers both repository inputs and machine-readable
+operational-context output, as described in ADR-0008. A product tag such as
+`v1.0.0` can ship with schema contract `0.8.0` when the release stabilizes the
+product promise without changing the schema contract.
+
+Stable in `v1.0.0`:
+
+- The Adapter / Semantics / Substrate architecture and the ADR-0001 boundary
+- The `rgd` CLI command tree, flags, stdout/stderr rules, and exit-code contract
+  documented in [docs/cli.md](docs/cli.md)
+- The synchronized schema-contract model from ADR-0008 and
+  `pkg/schema/CurrentSchemaVersion`
+- Repository-owned Semantics under `.reinguard/`: policy, knowledge, workflow
+  states, routes, guards, procedures, and runtime gate roles
+
+Experimental or repository-local in `v1.0.0`:
+
+- The Cursor Adapter and other client-specific bridge files
+- Local runtime proof and Adapter resume artifacts under `.reinguard/local/`
+- Repository maintenance scripts under `.reinguard/scripts/`, including the
+  local CodeRabbit gate
+- Human-facing CLI explainability and richer diagnostics, tracked as Phase 3
+  follow-up work in
+  [#133](https://github.com/k-shibuki/reinguard/issues/133)
+
+Out of scope for `v1.0.0`:
+
+- Agent orchestration, planning, or online learning inside `rgd`
+- Replacing human or agent judgment for architecture, policy exceptions, or
+  review-comment correctness
+- Treating Phase 3 explainability work as a release blocker
 
 ## What Operational Context Looks Like
 
@@ -118,7 +161,8 @@ Full command behavior, flags, stdout/stderr rules, and exit codes:
 
 ## Repository Runtime Expectations
 
-- **Schema**: `0.8.0`
+- **Product release**: `v1.0.0` stability promise
+- **Schema contract**: `0.8.0`
 - **GitHub auth**: `gh` CLI
 - **Go**: 1.25.8+ (CI: 1.26.1; see [`go.mod`](go.mod))
 - **Build**: `go build -o rgd ./cmd/rgd`
@@ -146,5 +190,6 @@ Contribution and workflow policy: [.github/CONTRIBUTING.md](.github/CONTRIBUTING
 
 ## Status / License
 
-**Pre-release.** The CLI and schemas are still evolving. Licensed under
-[Apache-2.0](LICENSE).
+**v1.0.0 positioned.** The core product promise is stable for early adopters;
+schema contract `0.8.0` remains the synchronized machine contract for this
+release line. Licensed under [Apache-2.0](LICENSE).
