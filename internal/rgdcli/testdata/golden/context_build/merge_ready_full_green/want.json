@@ -65,7 +65,7 @@
               "login": "coderabbitai[bot]",
               "required": true,
               "review_commit_sha": "0123456789abcdef0123456789abcdef01234567",
-              "review_state": "COMMENTED",
+              "review_state": "APPROVED",
               "status": "completed_clean"
             }
           ],

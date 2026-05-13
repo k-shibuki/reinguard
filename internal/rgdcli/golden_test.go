@@ -447,7 +447,7 @@ func cleanReviews() map[string]any {
 			"required":          true,
 			"status":            "completed_clean",
 			"has_review":        true,
-			"review_state":      "COMMENTED",
+			"review_state":      "APPROVED",
 			"review_commit_sha": "0123456789abcdef0123456789abcdef01234567",
 		}},
 		"bot_review_diagnostics": map[string]any{
@@ -467,6 +467,7 @@ func cleanReviews() map[string]any {
 
 func unresolvedThreadSignals() map[string]any {
 	gh := mergeReadySignals()
+	gh["reviews"].(map[string]any)["review_threads_total"] = 1
 	gh["reviews"].(map[string]any)["review_threads_unresolved"] = 1
 	return gh
 }
@@ -480,43 +481,44 @@ func nonThreadSignals() map[string]any {
 
 func changesRequestedSignals() map[string]any {
 	gh := mergeReadySignals()
+	gh["reviews"].(map[string]any)["review_decisions_approved"] = 0
 	gh["reviews"].(map[string]any)["review_decisions_changes_requested"] = 1
 	return gh
 }
 
 func rateLimitedSignals() map[string]any {
 	gh := prSignals()
-	gh["reviews"] = map[string]any{
+	gh["reviews"] = withEmptyDecisionCounts(map[string]any{
 		"bot_reviewer_status":    []any{map[string]any{"id": "coderabbit", "login": "coderabbitai[bot]", "required": true, "status": "rate_limited", "rate_limit_remaining_seconds": 120}},
 		"bot_review_diagnostics": map[string]any{"bot_review_blocked": true, "bot_review_block_reason": "rate_limited"},
-	}
+	})
 	return gh
 }
 
 func pausedSignals() map[string]any {
 	gh := prSignals()
-	gh["reviews"] = map[string]any{
+	gh["reviews"] = withEmptyDecisionCounts(map[string]any{
 		"bot_reviewer_status":    []any{map[string]any{"id": "coderabbit", "login": "coderabbitai[bot]", "required": true, "status": "review_paused"}},
 		"bot_review_diagnostics": map[string]any{"bot_review_blocked": true, "bot_review_block_reason": "review_paused"},
-	}
+	})
 	return gh
 }
 
 func failedSignals() map[string]any {
 	gh := prSignals()
-	gh["reviews"] = map[string]any{"bot_review_diagnostics": map[string]any{"bot_review_failed": true}}
+	gh["reviews"] = withEmptyDecisionCounts(map[string]any{"bot_review_diagnostics": map[string]any{"bot_review_failed": true}})
 	return gh
 }
 
 func staleSignals() map[string]any {
 	gh := prSignals()
-	gh["reviews"] = map[string]any{"bot_review_diagnostics": map[string]any{"bot_review_stale": true}}
+	gh["reviews"] = withEmptyDecisionCounts(map[string]any{"bot_review_diagnostics": map[string]any{"bot_review_stale": true}})
 	return gh
 }
 
 func pendingBotSignals() map[string]any {
 	gh := prSignals()
-	gh["reviews"] = map[string]any{"bot_review_diagnostics": map[string]any{"bot_review_pending": true}}
+	gh["reviews"] = withEmptyDecisionCounts(map[string]any{"bot_review_diagnostics": map[string]any{"bot_review_pending": true}})
 	return gh
 }
 
@@ -546,8 +548,17 @@ func rateLimitedWithNonThreadSignals() map[string]any {
 
 func pausedWithChangesRequestedSignals() map[string]any {
 	gh := pausedSignals()
+	gh["reviews"].(map[string]any)["review_decisions_total"] = 1
 	gh["reviews"].(map[string]any)["review_decisions_changes_requested"] = 1
 	return gh
+}
+
+func withEmptyDecisionCounts(reviews map[string]any) map[string]any {
+	reviews["review_decisions_total"] = 0
+	reviews["review_decisions_approved"] = 0
+	reviews["review_decisions_changes_requested"] = 0
+	reviews["review_decisions_truncated"] = false
+	return reviews
 }
 
 func rateLimitedOverStaleSignals() map[string]any {

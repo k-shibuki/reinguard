@@ -56,7 +56,11 @@
               "required": true,
               "status": "rate_limited"
             }
-          ]
+          ],
+          "review_decisions_approved": 0,
+          "review_decisions_changes_requested": 0,
+          "review_decisions_total": 0,
+          "review_decisions_truncated": false
         }
       }
     }

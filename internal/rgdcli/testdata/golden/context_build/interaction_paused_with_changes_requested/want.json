@@ -55,7 +55,10 @@
               "status": "review_paused"
             }
           ],
-          "review_decisions_changes_requested": 1
+          "review_decisions_approved": 0,
+          "review_decisions_changes_requested": 1,
+          "review_decisions_total": 1,
+          "review_decisions_truncated": false
         }
       }
     }

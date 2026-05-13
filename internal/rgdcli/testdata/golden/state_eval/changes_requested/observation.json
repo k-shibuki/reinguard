@@ -45,12 +45,12 @@
             "login": "coderabbitai[bot]",
             "required": true,
             "review_commit_sha": "0123456789abcdef0123456789abcdef01234567",
-            "review_state": "COMMENTED",
+            "review_state": "APPROVED",
             "status": "completed_clean"
           }
         ],
         "pagination_incomplete": false,
-        "review_decisions_approved": 1,
+        "review_decisions_approved": 0,
         "review_decisions_changes_requested": 1,
         "review_decisions_total": 1,
         "review_decisions_truncated": false,

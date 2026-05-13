@@ -45,7 +45,7 @@
             "login": "coderabbitai[bot]",
             "required": true,
             "review_commit_sha": "0123456789abcdef0123456789abcdef01234567",
-            "review_state": "COMMENTED",
+            "review_state": "APPROVED",
             "status": "completed_clean"
           }
         ],
@@ -54,7 +54,7 @@
         "review_decisions_changes_requested": 0,
         "review_decisions_total": 1,
         "review_decisions_truncated": false,
-        "review_threads_total": 0,
+        "review_threads_total": 1,
         "review_threads_unresolved": 1
       }
     }
