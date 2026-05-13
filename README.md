@@ -159,6 +159,40 @@ inspection, review thread transport, schema export, and config validation.
 Full command behavior, flags, stdout/stderr rules, and exit codes:
 [docs/cli.md](docs/cli.md).
 
+## Install `rgd`
+
+Use Go when you want the latest tagged module build:
+
+```bash
+go install github.com/k-shibuki/reinguard/cmd/rgd@latest
+rgd version
+```
+
+Make sure your Go binary directory is on `PATH`. If `go env GOBIN` is empty,
+Go installs commands under `$(go env GOPATH)/bin`.
+
+Tagged GitHub Releases also publish standalone `rgd` binaries for Linux,
+macOS, and Windows on `amd64` and `arm64`:
+
+1. Download the asset for your platform from
+   [GitHub Releases](https://github.com/k-shibuki/reinguard/releases), for
+   example `rgd_v1.0.0_linux_amd64`.
+2. Download the matching `.sha256` file and verify it with `sha256sum -c`.
+3. Rename the binary to `rgd` (`rgd.exe` on Windows), make it executable on
+   Unix-like systems, and place it in a directory on `PATH`.
+4. Run `rgd version` and `rgd config validate` from a repository that owns a
+   `.reinguard/` configuration.
+
+There is no `rgd init` command in `v1.0.0`. To bootstrap a repository, copy or
+adapt a repository-owned `.reinguard/` directory, then run
+`rgd config validate` and commit the Semantics files that define that
+repository's policies, knowledge, workflow states, routes, guards, procedures,
+and runtime gate roles. The canonical Adapter bootstrap examples are
+[`AGENTS.md`](AGENTS.md) for agent/reviewer instructions and
+[`.cursor/rules/reinguard-bridge.mdc`](.cursor/rules/reinguard-bridge.mdc)
+for Cursor. Those Adapter files should point at `.reinguard/` instead of
+duplicating Semantics-layer policy text.
+
 ## Repository Runtime Expectations
 
 - **Product release**: `v1.0.0` stability promise
