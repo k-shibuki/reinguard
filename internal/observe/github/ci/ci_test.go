@@ -196,6 +196,24 @@ func TestCollect_ciStatusRollup(t *testing.T) {
 			checkRunsBody: `{"check_runs":[{"name":"ci","status":"completed","conclusion":"startup_failure"}]}`,
 			wantCIStatus:  "failure",
 		},
+		{
+			name:          "neutral_conclusion_is_success",
+			legacyState:   "success",
+			checkRunsBody: `{"check_runs":[{"name":"ci","status":"completed","conclusion":"neutral"}]}`,
+			wantCIStatus:  "success",
+		},
+		{
+			name:          "action_required_conclusion_is_failure",
+			legacyState:   "success",
+			checkRunsBody: `{"check_runs":[{"name":"ci","status":"completed","conclusion":"action_required"}]}`,
+			wantCIStatus:  "failure",
+		},
+		{
+			name:          "stale_conclusion_is_failure",
+			legacyState:   "success",
+			checkRunsBody: `{"check_runs":[{"name":"ci","status":"completed","conclusion":"stale"}]}`,
+			wantCIStatus:  "failure",
+		},
 	}
 	for _, tc := range tests {
 		tc := tc
@@ -230,7 +248,10 @@ func TestCollect_ciStatusRollup(t *testing.T) {
 			} else if len(warns) != 0 {
 				t.Fatalf("%v", warns)
 			}
-			cimap := m["ci"].(map[string]any)
+			cimap, ok := m["ci"].(map[string]any)
+			if !ok {
+				t.Fatalf("expected ci map, got %T", m["ci"])
+			}
 			if cimap["ci_status"] != tc.wantCIStatus {
 				t.Fatalf("ci_status=%v want %q ci=%+v", cimap["ci_status"], tc.wantCIStatus, cimap)
 			}
