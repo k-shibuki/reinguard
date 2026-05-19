@@ -178,6 +178,24 @@ func TestCollect_ciStatusRollup(t *testing.T) {
 			checkRunsBody: `{"check_runs":[{"name":"ci","status":"completed","conclusion":"success"}]}`,
 			wantCIStatus:  "failure",
 		},
+		{
+			name:          "cancelled_check_run_is_failure",
+			legacyState:   "success",
+			checkRunsBody: `{"check_runs":[{"name":"ci","status":"completed","conclusion":"cancelled"}]}`,
+			wantCIStatus:  "failure",
+		},
+		{
+			name:          "timed_out_check_run_is_failure",
+			legacyState:   "success",
+			checkRunsBody: `{"check_runs":[{"name":"ci","status":"completed","conclusion":"timed_out"}]}`,
+			wantCIStatus:  "failure",
+		},
+		{
+			name:          "startup_failure_check_run_is_failure",
+			legacyState:   "success",
+			checkRunsBody: `{"check_runs":[{"name":"ci","status":"completed","conclusion":"startup_failure"}]}`,
+			wantCIStatus:  "failure",
+		},
 	}
 	for _, tc := range tests {
 		tc := tc
