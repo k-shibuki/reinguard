@@ -73,8 +73,17 @@ reviews:
         normative policy bodies that belong only under `.reinguard/`.
     - path: "AGENTS.md"
       instructions: |
-        Top-level agent orientation; mirror catalog entry points (`policy/catalog.yaml`, knowledge
-        `manifest.json`) and ADR pointers — not replace `.reinguard/` bodies.
+        agents.md hub: shared review guidelines, project context, and path-only
+        Semantics/Substrate entry. Do not expect client-specific workflow here;
+        see .cursor/ or CLAUDE.md / .claude/.
+    - path: "CLAUDE.md"
+      instructions: |
+        Claude Code Adapter bridge; path references only — same constraints as
+        .cursor/** (point at .reinguard/ and rgd; no policy body duplication).
+    - path: ".claude/**"
+      instructions: |
+        Claude Code workflow commands; must point at .reinguard/ and rgd — do not
+        duplicate long normative policy bodies that belong only under .reinguard/.
     - path: "cmd/**"
       instructions: |
         `rgd` CLI entrypoints and flags. Align with `docs/cli.md` and ADRs; substrate must not embed

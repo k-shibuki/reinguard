@@ -1,18 +1,19 @@
 # AGENTS.md
 
-Configuration for AI reviewers (e.g. CodeRabbit) and agents using this repository.
+**agents.md hub** for tools that read `AGENTS.md` directly (for example Codex,
+CodeRabbit, and other agents.md-native clients). Shared cross-agent metadata:
+project context, review guidelines, and path-only entry to Semantics and
+Substrate. Client-specific workflow bridges live under concrete Adapter
+surfaces (see **Client adapters** below).
 
-- **Semantics (SSOT)**: `.reinguard/` — policy index: [`.reinguard/policy/catalog.yaml`](.reinguard/policy/catalog.yaml); knowledge index: [`.reinguard/knowledge/manifest.json`](.reinguard/knowledge/manifest.json); agent procedures: [`.reinguard/procedure/`](.reinguard/procedure/) (Cursor: [`.cursor/commands/rgd-next.md`](.cursor/commands/rgd-next.md) for FSM workflow; [`.cursor/commands/cursor-plan.md`](.cursor/commands/cursor-plan.md) for deep planning (`CreatePlan` only; Issue steps embedded when needed); FSM: [ADR-0013](docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md)).
-- **Adapter (Cursor)**: single always-active rule `.cursor/rules/reinguard-bridge.mdc` + commands in `.cursor/commands/`; see [ADR-0001](docs/adr/0001-system-positioning.md).
-
-## Project context
+## Architecture
 
 **reinguard** provides repo-owned semantic control for agentic development:
 shared operational context for agents, humans, and the bots reviewing their
 work. Its architecture remains three-layered (Adapter / Semantics / Substrate):
 repository-owned Semantics define meaning, and `rgd` is the Substrate layer, a
 stateless Go CLI runtime that computes operational context via observation and
-declarative rules (see ADR-0001).
+declarative rules (see [ADR-0001](docs/adr/0001-system-positioning.md)).
 
 Authoritative architecture: [docs/adr/](docs/adr/). Especially relevant for review:
 
@@ -29,7 +30,25 @@ Authoritative architecture: [docs/adr/](docs/adr/). Especially relevant for revi
 
 CI: `golangci-lint`, `go vet`, `go test -race`; PRs must pass job **`ci-pass`** (aggregates `gate-policy`, `lint-markdown`, `lint-go`, `test-go`, and dogfood jobs). Branch protection should require **`ci-pass`** and **conversation resolution before merge** — see [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md).
 
+## Semantics entry points
+
+Path-only references to the Semantics layer (SSOT). Do not duplicate policy or
+procedure bodies here.
+
+- **Policy catalog:** [`.reinguard/policy/catalog.yaml`](.reinguard/policy/catalog.yaml)
+- **Knowledge catalog:** [`.reinguard/knowledge/manifest.json`](.reinguard/knowledge/manifest.json)
+- **Agent procedures:** [`.reinguard/procedure/`](.reinguard/procedure/) — FSM mapping mechanism: [ADR-0013](docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md)
+
+## Substrate (`rgd`)
+
+Operational context, observation, guards, and knowledge filtering are computed
+by the Substrate CLI. Command surface: [`docs/cli.md`](docs/cli.md).
+
 ## Review guidelines
+
+Shared review norms for AI reviewers and agents. CodeRabbit applies these via
+the agents.md convention; concrete Adapters reference this section rather than
+duplicating it.
 
 ### Finding scope
 
@@ -56,3 +75,21 @@ CI: `golangci-lint`, `go vet`, `go test -race`; PRs must pass job **`ci-pass`** 
 Normative: [`.reinguard/policy/review--consensus-protocol.md`](.reinguard/policy/review--consensus-protocol.md) (dispositions, thread and non-thread resolution, [**HS-REVIEW-RESOLVE**](.reinguard/policy/safety--agent-invariants.md)); [`.reinguard/policy/review--disposition-categories.md`](.reinguard/policy/review--disposition-categories.md) (classification for local review, self-inspection, and PR review).
 
 [**HS-NO-DISMISS**](.reinguard/policy/safety--agent-invariants.md) · [**HS-MERGE-CONSENSUS**](.reinguard/policy/safety--agent-invariants.md)
+
+## Client adapters
+
+| Surface | Primary consumers | Role |
+|---------|-------------------|------|
+| `AGENTS.md` | Codex, CodeRabbit, agents.md tools | **Hub** (this file): review guidelines, project context, Semantics/Substrate entry |
+| `.coderabbit.yaml` | CodeRabbit | PR review binding and path-specific bot instructions; review norms in `AGENTS.md` |
+| `.cursor/` | Cursor | **Concrete** Adapter: [`reinguard-bridge.mdc`](.cursor/rules/reinguard-bridge.mdc), [`rgd-next`](.cursor/commands/rgd-next.md), [`cursor-plan`](.cursor/commands/cursor-plan.md) |
+| [`CLAUDE.md`](CLAUDE.md) / [`.claude/`](.claude/) | Claude Code | **Concrete** Adapter: bridge + workflow entry |
+
+Codex may consume this hub without a dedicated concrete Adapter surface;
+sufficiency validation is tracked separately ([#163](https://github.com/k-shibuki/reinguard/issues/163)).
+
+## Workflow by client
+
+- **Cursor:** [`.cursor/commands/rgd-next.md`](.cursor/commands/rgd-next.md) — Sense (`rgd context build`), Route, Propose, Execute per [`.reinguard/procedure/next-orchestration.md`](.reinguard/procedure/next-orchestration.md). Planning: [`.cursor/commands/cursor-plan.md`](.cursor/commands/cursor-plan.md).
+- **Claude Code:** [`.claude/commands/rgd-next.md`](.claude/commands/rgd-next.md) — same Semantics loop; see [`CLAUDE.md`](CLAUDE.md). Planning: [`.claude/commands/claude-plan.md`](.claude/commands/claude-plan.md).
+- **agents.md-native (no workflow client):** run `rgd context build`, open the mapped procedure under [`.reinguard/procedure/`](.reinguard/procedure/) per [ADR-0013](docs/adr/0013-fsm-workflow-states-and-adapter-mapping.md) § 4.

@@ -19,8 +19,9 @@ step.
 
 This directory is the **Semantics layer**: it holds **what the repository
 means**—substrate config, knowledge atoms, policy, control (state / route /
-guard) match rules, and procedure mappings—while **Adapter** (`.cursor/`,
-`AGENTS.md`) integrates clients by path reference only, and **Substrate**
+guard) match rules, and procedure mappings—while **Adapter** (`AGENTS.md` hub;
+concrete surfaces such as `.cursor/` and `CLAUDE.md` / `.claude/`) integrates
+clients by path reference only, and **Substrate**
 (`rgd`) computes current status under that meaning. Normative architecture
 lives in [`docs/adr/`](../docs/adr/). The sections below are an **authoring
 guide** for how *this* repository configures `rgd` and where to place new
@@ -32,6 +33,18 @@ Substrate) and [ADR-0011](../docs/adr/0011-semantic-control-plane-structure.md)
 (knowledge), [ADR-0014](../docs/adr/0014-runtime-gate-artifacts.md) (runtime
 gates), and [ADR-0015](../docs/adr/0015-adapter-local-execute-resume.md)
 (Adapter-local resume).
+
+## Adapter taxonomy
+
+| Surface | Primary consumers | Role |
+|---------|-------------------|------|
+| [`AGENTS.md`](../AGENTS.md) | Codex, CodeRabbit, agents.md tools | **Hub:** review guidelines, project context, Semantics/Substrate entry |
+| [`.coderabbit.yaml`](../.coderabbit.yaml) | CodeRabbit | PR review binding; review norms in `AGENTS.md` |
+| [`.cursor/`](../.cursor/) | Cursor | **Concrete:** bridge rule, `rgd-next`, `cursor-plan` |
+| [`CLAUDE.md`](../CLAUDE.md) / [`.claude/`](../.claude/) | Claude Code | **Concrete:** bridge, `rgd-next`, `claude-plan` |
+
+Codex may consume the hub without a dedicated concrete surface; see issue #163
+for sufficiency validation.
 
 ## Load-bearing pieces declared here
 
@@ -91,7 +104,9 @@ Unified **priority** across all control YAML files: ADR-0004.
 - **Must be followed** (review/merge invariants, etc.) → `policy/` and add an entry to `policy/catalog.yaml`.
 - **Evaluable match rules** → `control/` in the subtree matching `type`, and add an entry to `control/catalog.yaml`.
 - **Procedure mappings** → `procedure/` with front matter aligned to control states / routes.
-- **Client-specific bridge behavior** → `.cursor/` (Adapter layer); do not duplicate policy body text there.
+- **Client-specific bridge behavior** → concrete Adapter layer (`.cursor/`,
+  `CLAUDE.md` / `.claude/`); shared review norms → [`AGENTS.md`](../AGENTS.md)
+  hub
 
 ## Authoring policy
 
@@ -99,7 +114,8 @@ Normative documents for this repository: invariants, review and merge
 discipline, exception policy, and related **must-follow** rules.
 
 - This directory subtree is **not** indexed by `rgd knowledge index`.
-- The Adapter layer (`.cursor/`, `AGENTS.md`) references policy files by path.
+- The Adapter layer (`AGENTS.md` hub and concrete surfaces) references policy
+  files by path.
 - Register every policy file in **`policy/catalog.yaml`** (maintained manually).
 - For judgment aids and background knowledge, use `.reinguard/knowledge/` instead
   (ADR-0010, ADR-0011).

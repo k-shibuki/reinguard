@@ -142,13 +142,13 @@ context stable enough for agentic development.
 
 ## How It Is Structured
 
-`reinguard` spans three layers, plus AI-facing reference:
+`reinguard` spans three layers:
 
-- **Adapter** — client-specific procedures and bridge files (`.cursor/`)
+- **Adapter** — client integration: [`AGENTS.md`](AGENTS.md) **hub** (shared review norms and Semantics entry) plus **concrete** surfaces (`.cursor/` for Cursor, [`CLAUDE.md`](CLAUDE.md) / [`.claude/`](.claude/) for Claude Code, [`.coderabbit.yaml`](.coderabbit.yaml) for CodeRabbit review binding)
 - **Semantics** — repository meaning: knowledge, policy, states, routes, guards, and procedures (`.reinguard/`)
 - **Substrate** — the `rgd` runtime that computes operational context from observation and declared rules
 
-Additionally, [`AGENTS.md`](AGENTS.md) provides reviewer and agent configuration — read by AI bots and agents, not part of the layered runtime. See [ADR-0001](docs/adr/0001-system-positioning.md) and [ADR-0011](docs/adr/0011-semantic-control-plane-structure.md).
+See [ADR-0001](docs/adr/0001-system-positioning.md) and [ADR-0011](docs/adr/0011-semantic-control-plane-structure.md) for hub vs concrete Adapter boundaries.
 
 ## `rgd` At A Glance
 
@@ -191,11 +191,10 @@ There is no `rgd init` command in `v1.0.0`. To bootstrap a repository, copy or
 adapt this repository's `.reinguard/` directory as a template, then run
 `rgd config validate` and commit the Semantics files that define that
 repository's policies, knowledge, workflow states, routes, guards, procedures,
-and runtime gate roles. The canonical Adapter bootstrap examples are
-[`AGENTS.md`](AGENTS.md) for agent/reviewer instructions and
-[`.cursor/rules/reinguard-bridge.mdc`](.cursor/rules/reinguard-bridge.mdc)
-for Cursor. Those Adapter files should point at `.reinguard/` instead of
-duplicating Semantics-layer policy text.
+and runtime gate roles. Adapter bootstrap:
+
+- **[`AGENTS.md`](AGENTS.md)** — agents.md **hub**: shared review guidelines, project context, and path-only entry to `.reinguard/` and `rgd` (for Codex, CodeRabbit, and other agents.md-native tools).
+- **Concrete Adapter examples** — [`.cursor/rules/reinguard-bridge.mdc`](.cursor/rules/reinguard-bridge.mdc) (Cursor), [`CLAUDE.md`](CLAUDE.md) / [`.claude/`](.claude/) (Claude Code). Each concrete surface signposts workflow entry and references the hub and Semantics layer instead of duplicating policy text.
 
 ## Repository Runtime Expectations
 

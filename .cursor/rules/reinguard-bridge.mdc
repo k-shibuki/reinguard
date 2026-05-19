@@ -3,8 +3,11 @@ alwaysApply: true
 ---
 # reinguard bridge (Adapter layer)
 
-This file is an **adapter**: it points at the Semantics layer (`.reinguard/`)
-and Substrate (`rgd`). Do not duplicate body text from `.reinguard/` here.
+This file is a **concrete Adapter** for Cursor. It points at the Semantics
+layer (`.reinguard/`) and Substrate (`rgd`). Do not duplicate body text from
+`.reinguard/` here. Shared review norms and the Adapter taxonomy live in
+[`AGENTS.md`](../../AGENTS.md) — read that file when acting as a reviewer;
+this bridge covers Cursor-specific workflow and chat constraints only.
 
 ## Language
 

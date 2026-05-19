@@ -62,9 +62,16 @@ means**, and **how the runtime substrate evaluates**:
 
 | Layer | Name | Verb | Location | SSOT for | Feedback role |
 |-------|------|------|----------|----------|---------------|
-| 3 | **Adapter** | adapt | `.cursor/`, `AGENTS.md` | Client-specific procedures, behavioral rules, bridge references | `internalize`: review findings → Semantics update |
+| 3 | **Adapter** | adapt | `AGENTS.md` (hub); concrete: `.cursor/`, `CLAUDE.md` / `.claude/`, `.coderabbit.yaml` | Hub: shared review norms and Semantics entry; concrete: client-specific bridges and workflow entry | `internalize`: review findings → Semantics update |
 | 2 | **Semantics** | declare | `.reinguard/` | Knowledge, policy, and control definitions (see ADR-0011) | Correction target |
 | 1 | **Substrate** | compute | `rgd` | Observation engine, rule/evaluator runtime, schema tooling, CLI | None (stateless, non-adaptive) |
+
+**Adapter hub vs concrete:** `AGENTS.md` is the **agents.md hub** — review
+guidelines, project context, and path-only Semantics/Substrate entry for
+tools that consume `AGENTS.md` directly (for example Codex and CodeRabbit).
+**Concrete** Adapters (`.cursor/`, Claude Code surfaces, CodeRabbit binding)
+signpost workflow and client-specific behavior; they reference the hub and
+`.reinguard/` rather than duplicating normative policy bodies.
 
 **Dependency direction:** Adapter → Semantics → Substrate. Upper layers
 may reference lower layers; lower layers do not depend on upper layers.
