@@ -67,6 +67,8 @@ Proposal format and approval gate: [`.reinguard/procedure/next-orchestration.md`
 
 After approval, follow [`.reinguard/procedure/next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md) § **Post-approval execution contract** and § **Loop semantics**: drive to Per-unit DoD **without** user prompts that gate progress between iterations.
 
+After the single Execute approval, user-visible output should be only the **final report** (Per-unit DoD evidence) or an **allowed stop** with evidence; keep iteration/progress details adapter-internal.
+
 ```bash
 bash .reinguard/scripts/adapter-rgd-next-resume.sh approve
 ```
@@ -79,7 +81,7 @@ bash .reinguard/scripts/adapter-rgd-next-resume.sh update --state-id <state_id> 
 
 When DoD or an allowed stop is reached, close with `finish --status ... --reason ...`.
 
-**Resumable wait stops:** [`.reinguard/procedure/next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md) § **Allowed stops**.
+**Resumable wait stops:** [`.reinguard/procedure/next-orchestration.md`](../../.reinguard/procedure/next-orchestration.md) § **Allowed stops** and § **Output**.
 
 ## Guard
 
