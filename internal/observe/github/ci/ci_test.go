@@ -98,16 +98,16 @@ func TestCollect_checkRunsMapping(t *testing.T) {
 	}
 }
 
-func TestCollect_summaryOmitsCheckRuns(t *testing.T) {
+func TestCollect_summaryFetchesCheckRunsForRollup(t *testing.T) {
 	t.Parallel()
-	// Given: git repo with HEAD and API that errors on check-runs
+	// Given: legacy commit status success but a failing check run
 	dir := t.TempDir()
 	gitInit(t, dir)
 	var checkRunsRequested atomic.Bool
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/check-runs") {
 			checkRunsRequested.Store(true)
-			http.Error(w, "unexpected check-runs", http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"check_runs":[{"name":"Gate — PR policy","status":"completed","conclusion":"failure"}]}`))
 			return
 		}
 		_, _ = w.Write([]byte(`{"state":"success"}`))
@@ -120,9 +120,9 @@ func TestCollect_summaryOmitsCheckRuns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Then: check-runs endpoint not hit, no warnings, check_runs key absent
-	if checkRunsRequested.Load() {
-		t.Fatal("summary view must not fetch check-runs")
+	// Then: check-runs fetched for rollup, array omitted, ci_status failure
+	if !checkRunsRequested.Load() {
+		t.Fatal("summary view must fetch check-runs for ci_status rollup")
 	}
 	if len(warns) != 0 {
 		t.Fatalf("%v", warns)
@@ -133,6 +133,90 @@ func TestCollect_summaryOmitsCheckRuns(t *testing.T) {
 	}
 	if _, exists := cimap["check_runs"]; exists {
 		t.Fatalf("summary view must omit check_runs: %+v", cimap)
+	}
+	if cimap["ci_status"] != "failure" {
+		t.Fatalf("want ci_status failure from check-run rollup, got %+v", cimap)
+	}
+}
+
+func TestCollect_ciStatusRollup(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name           string
+		legacyState    string
+		checkRunsBody  string
+		wantCIStatus   string
+		wantWarnSubstr string
+	}{
+		{
+			name:          "legacy_success_failing_check_run",
+			legacyState:   "success",
+			checkRunsBody: `{"check_runs":[{"name":"gate","status":"completed","conclusion":"failure"}]}`,
+			wantCIStatus:  "failure",
+		},
+		{
+			name:          "empty_check_runs_legacy_fallback",
+			legacyState:   "pending",
+			checkRunsBody: `{"check_runs":[]}`,
+			wantCIStatus:  "pending",
+		},
+		{
+			name:          "all_success_and_skipped",
+			legacyState:   "success",
+			checkRunsBody: `{"check_runs":[{"name":"lint","status":"completed","conclusion":"success"},{"name":"optional","status":"completed","conclusion":"skipped"}]}`,
+			wantCIStatus:  "success",
+		},
+		{
+			name:          "in_progress_check_run_pending",
+			legacyState:   "success",
+			checkRunsBody: `{"check_runs":[{"name":"ci","status":"in_progress","conclusion":null}]}`,
+			wantCIStatus:  "pending",
+		},
+		{
+			name:          "legacy_failure_wins_over_success_runs",
+			legacyState:   "failure",
+			checkRunsBody: `{"check_runs":[{"name":"ci","status":"completed","conclusion":"success"}]}`,
+			wantCIStatus:  "failure",
+		},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			gitInit(t, dir)
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if strings.Contains(r.URL.Path, "/check-runs") {
+					_, _ = w.Write([]byte(tc.checkRunsBody))
+					return
+				}
+				_, _ = w.Write([]byte(`{"state":"` + tc.legacyState + `"}`))
+			}))
+			t.Cleanup(srv.Close)
+			c := &githubapi.Client{HTTP: srv.Client(), Token: "t", BaseURL: srv.URL}
+			m, warns, err := Collect(context.Background(), c, "o", "r", dir, "", ViewFull)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tc.wantWarnSubstr != "" {
+				found := false
+				for _, w := range warns {
+					if strings.Contains(w, tc.wantWarnSubstr) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Fatalf("warns=%v want substring %q", warns, tc.wantWarnSubstr)
+				}
+			} else if len(warns) != 0 {
+				t.Fatalf("%v", warns)
+			}
+			cimap := m["ci"].(map[string]any)
+			if cimap["ci_status"] != tc.wantCIStatus {
+				t.Fatalf("ci_status=%v want %q ci=%+v", cimap["ci_status"], tc.wantCIStatus, cimap)
+			}
+		})
 	}
 }
 

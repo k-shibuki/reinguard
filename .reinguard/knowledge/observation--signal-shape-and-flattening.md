@@ -47,3 +47,11 @@ If route selection logic is used in both:
 - `context build`
 
 apply the same flattening contract in both pipelines to avoid divergence.
+
+## Rule 4: `github.ci.ci_status` is a worst-of rollup
+
+`signals.github.ci.ci_status` merges legacy commit status and check runs
+(`failure` > `pending` > `success`). The substrate always fetches check runs
+for rollup when the head SHA is known; `check_runs` is emitted only in the CI
+facet `full` view. `context build --compact` keeps `ci_status` accurate without
+including `check_runs`. See `docs/cli.md` § `signals.github.ci`.

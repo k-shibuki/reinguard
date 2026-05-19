@@ -39,12 +39,25 @@ const (
 	ViewFull    = "full"
 )
 
+type ciStatusRank int
+
+const (
+	rankUnknown ciStatusRank = iota
+	rankSuccess
+	rankPending
+	rankFailure
+)
+
 // Collect returns a coarse CI rollup for the observed head SHA.
 // If headSHAOverride is non-empty after trimming, it is used directly; otherwise the
 // SHA is determined via git rev-parse HEAD in workDir.
 // owner and repo identify the repository for GET .../commits/{sha}/status. For a pull
 // request from a fork, CI statuses are posted to the head repository; pass the head
 // owner and name from the pull request (not the base repo).
+//
+// ci_status is the worst-of rollup across legacy commit status and check runs
+// (failure > pending > success). Check runs are always fetched for rollup when the SHA
+// is known; the check_runs array is included only in ViewFull.
 func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir, headSHAOverride, view string) (map[string]any, []string, error) {
 	if c == nil {
 		return nil, nil, fmt.Errorf("nil client")
@@ -82,19 +95,24 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir, hea
 	if err = c.GetJSON(ctx, u, &st); err != nil {
 		return nil, warnings, err
 	}
-	status := strings.ToLower(st.State)
-	if status == "" {
-		status = "unknown"
+	legacyStatus := normalizeLegacyStatus(st.State)
+
+	checkRuns, warnsCR, errCR := fetchCheckRuns(ctx, c, owner, repo, sha)
+	warnings = append(warnings, warnsCR...)
+
+	ciStatus := legacyStatus
+	if errCR != nil {
+		warnings = append(warnings, errCR.Error())
+	} else if len(checkRuns) > 0 {
+		ciStatus = worstOfStatus(legacyStatus, rollupFromCheckRuns(checkRuns))
 	}
+
 	ciMap := map[string]any{
-		"ci_status": status,
+		"ci_status": ciStatus,
 		"head_sha":  sha,
 	}
 	if view == ViewFull {
-		checkRuns, warnsCR, err := fetchCheckRuns(ctx, c, owner, repo, sha)
-		warnings = append(warnings, warnsCR...)
-		if err != nil {
-			warnings = append(warnings, err.Error())
+		if errCR != nil {
 			ciMap["check_runs"] = []any{}
 		} else {
 			ciMap["check_runs"] = checkRuns
@@ -103,6 +121,87 @@ func Collect(ctx context.Context, c *githubapi.Client, owner, repo, workDir, hea
 	return map[string]any{
 		"ci": ciMap,
 	}, warnings, nil
+}
+
+func normalizeLegacyStatus(state string) string {
+	switch strings.ToLower(strings.TrimSpace(state)) {
+	case "failure", "error":
+		return "failure"
+	case "pending":
+		return "pending"
+	case "success":
+		return "success"
+	default:
+		return "unknown"
+	}
+}
+
+func rollupFromCheckRuns(runs []any) string {
+	worst := rankSuccess
+	for _, r := range runs {
+		rm, ok := r.(map[string]any)
+		if !ok {
+			continue
+		}
+		if rank := rankCheckRun(rm); rank > worst {
+			worst = rank
+		}
+	}
+	return statusFromRank(worst)
+}
+
+func rankCheckRun(rm map[string]any) ciStatusRank {
+	status := strings.ToLower(strings.TrimSpace(fmt.Sprint(rm["status"])))
+	switch status {
+	case "queued", "in_progress", "waiting", "requested", "pending":
+		return rankPending
+	case "completed":
+		conclRaw := rm["conclusion"]
+		if conclRaw == nil {
+			return rankPending
+		}
+		concl := strings.ToLower(strings.TrimSpace(fmt.Sprint(conclRaw)))
+		switch concl {
+		case "failure", "timed_out", "cancelled", "action_required", "stale", "startup_failure":
+			return rankFailure
+		case "success", "skipped", "neutral":
+			return rankSuccess
+		default:
+			return rankPending
+		}
+	default:
+		return rankPending
+	}
+}
+
+func worstOfStatus(a, b string) string {
+	return statusFromRank(max(rankFromStatus(a), rankFromStatus(b)))
+}
+
+func rankFromStatus(s string) ciStatusRank {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "failure":
+		return rankFailure
+	case "pending":
+		return rankPending
+	case "success":
+		return rankSuccess
+	default:
+		return rankUnknown
+	}
+}
+
+func statusFromRank(r ciStatusRank) string {
+	switch r {
+	case rankFailure:
+		return "failure"
+	case rankPending:
+		return "pending"
+	case rankSuccess:
+		return "success"
+	default:
+		return "unknown"
+	}
 }
 
 func fetchCheckRuns(ctx context.Context, c *githubapi.Client, owner, repo, sha string) ([]any, []string, error) {

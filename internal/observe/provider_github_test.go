@@ -677,7 +677,7 @@ exit 1
 		case r.URL.Path == "/repos/octocat/hello-world/commits/0123456789abcdef0123456789abcdef01234567/status":
 			_, _ = w.Write([]byte(`{"state":"success"}`))
 		case strings.Contains(r.URL.Path, "/check-runs"):
-			http.Error(w, "unexpected check-runs", http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"check_runs":[]}`))
 			return
 		case r.URL.Path == "/graphql":
 			graphQLCalled.Store(true)
