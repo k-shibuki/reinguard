@@ -289,12 +289,12 @@ Populated when the **ci** facet runs. Uses the observed head commit SHA (from gi
 
 View behavior:
 
-- **`summary`** — cheap CI rollup only (`ci_status`, `head_sha`)
-  - **`full`** — summary fields plus `check_runs`
+- **`summary`** — `ci_status` and `head_sha` only (check runs are fetched internally for rollup but not included in output)
+- **`full`** — summary fields plus `check_runs`
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `ci_status` | string | Lowercased rollup from `GET /repos/{owner}/{repo}/commits/{sha}/status` (`state` field), or `unknown` when the SHA cannot be resolved. This is only the CI rollup signal; **`success` does not imply merge-ready or merge-safe** without review, bot, and mergeability signals. |
+| `ci_status` | string | Lowercased **worst-of** rollup across legacy commit status (`GET /repos/{owner}/{repo}/commits/{sha}/status` `state` field) and check runs (`GET .../check-runs`). Ordering: `failure` > `pending` > `success`. In-progress check runs count as `pending`; terminal conclusions `failure`, `timed_out`, `cancelled`, `action_required`, `stale`, and `startup_failure` count as `failure`; `success`, `skipped`, and `neutral` count as `success`. When no check runs are returned, legacy status alone is used. On check-run fetch failure, rollup falls back to legacy status and a warning is recorded. `unknown` when the SHA cannot be resolved. This is only the CI rollup signal; **`success` does not imply merge-ready or merge-safe** without review, bot, and mergeability signals. |
 | `head_sha` | string | Commit SHA used for status and check-run queries. |
 | `check_runs` | array | Present only in `full`. Check runs from `GET /repos/{owner}/{repo}/commits/{sha}/check-runs` (first page, `per_page=100`). Each element is an object with `name` (string), `status` (string, lowercased), and `conclusion` (string lowercased when present, or JSON `null` while the run has not finished). No check output bodies are included. If the request fails, the array is empty and a warning is recorded. When GitHub reports `total_count` greater than the number of returned runs, observation records a **truncation warning** (for example `github ci: check-runs response truncated (100 of N)`); treat rollup and `check_runs` as potentially incomplete for that head. |
 
