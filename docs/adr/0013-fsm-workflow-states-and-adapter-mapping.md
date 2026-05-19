@@ -128,6 +128,8 @@ Post-review learning: `.reinguard/procedure/internalize.md`.
 
 **Cursor entries:** `.cursor/commands/rgd-next.md` — Sense (`rgd context build`), Route using procedure front matter as above, then Propose / Execute per `.reinguard/procedure/next-orchestration.md` (do not duplicate a mapping table in Adapter files). `.cursor/commands/cursor-plan.md` — planning only (`AskQuestion` / `CreatePlan`); not part of the FSM.
 
+**Claude Code entries:** `CLAUDE.md` — thin bridge referencing Semantics paths and [`AGENTS.md`](../../AGENTS.md) for shared review norms. `.claude/commands/rgd-next.md` — same Sense / Route / Propose / Execute contract as Cursor (Semantics SSOT unchanged). `.claude/commands/claude-plan.md` — planning entry; not part of the FSM.
+
 ### 5. Extension contract (state / route / Adapter)
 
 When adding or changing FSM wiring, keep these touchpoints consistent:

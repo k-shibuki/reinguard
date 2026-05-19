@@ -11,7 +11,8 @@ Without explicit structure:
   knowledge pack`).
 - The name `rules/` is overloaded (policy rules, control rules, linter
   rules, interaction rules).
-- The Adapter layer (`.cursor/`) may grow thick with duplicated semantics.
+- The Adapter layer (concrete surfaces such as `.cursor/`) may grow thick
+  with duplicated semantics.
 
 ## Decision
 
@@ -32,10 +33,10 @@ Without explicit structure:
    - `procedure/` — agent **action-card** bodies (Markdown with YAML front
      matter: `id`, `purpose`, `applies_to`, `reads`, `sense`, `act`, `output`,
      `done_when`, `escalate_when`). SSOT for procedural steps lives here
-     (ADR-0013). Cursor: `rgd-next` maps substrate output to these paths
-     (`.cursor/commands/rgd-next.md`); `cursor-plan` handles deep planning via
-     `CreatePlan` only, embedding Issue-creation steps when issue-first
-     (`.cursor/commands/cursor-plan.md`).
+     (ADR-0013). Concrete Adapters map substrate output to these paths — for
+     example Cursor (`.cursor/commands/rgd-next.md`) and Claude Code
+     (`.claude/commands/rgd-next.md`); planning entries are client-specific
+     (`.cursor/commands/cursor-plan.md`, `.claude/commands/claude-plan.md`).
    - `local/` — **gitignored operational state** written by the Substrate or
      Adapter when a bounded runtime contract explicitly allows it (for example
      runtime gate artifacts and Adapter resume state; see ADR-0014 and
@@ -62,11 +63,13 @@ Without explicit structure:
    - State / route / guard meaning in match YAML → `control/`
    - Repeatable agent procedure bound to state/route → `procedure/`
    - Substrate or Adapter operational state under bounded contract → `local/`
-   - Client-specific bridge only (no SSOT prose) → Adapter layer (`.cursor/`)
+   - Client-specific bridge only (no SSOT prose) → concrete Adapter layer
+     (`.cursor/`, `CLAUDE.md` / `.claude/`, etc.)
 
-1. **Adapter layer** — `.cursor/` remains thin: bridge files and commands
-   reference `.reinguard/` paths; they do not restate Semantics-layer body
-   text as SSOT.
+1. **Adapter layer** — `AGENTS.md` is the **hub** (shared review norms and
+   Semantics entry). Concrete Adapters remain thin: bridge files and commands
+   reference `.reinguard/` paths and `AGENTS.md` where appropriate; they do
+   not restate Semantics-layer body text as SSOT.
 
 ## Consequences
 
