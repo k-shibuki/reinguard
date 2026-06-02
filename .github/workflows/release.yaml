@@ -37,7 +37,7 @@ jobs:
         run: go vet ./...
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v9.2.0
+        uses: golangci/golangci-lint-action@v9.2.1
         with:
           # Keep release verification aligned with the PR CI lint job.
           version: v2.11.4
@@ -135,7 +135,7 @@ jobs:
       - uses: actions/checkout@v6.0.2
 
       - name: Download release artifacts
-        uses: actions/download-artifact@v7.0.0
+        uses: actions/download-artifact@v8.0.1
         with:
           path: dist
           merge-multiple: true
