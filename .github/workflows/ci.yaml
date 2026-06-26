@@ -55,7 +55,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6.0.2
 
-      - uses: DavidAnson/markdownlint-cli2-action@v23.1.0
+      - uses: DavidAnson/markdownlint-cli2-action@v23.2.0
 
   lint-go:
     name: Lint — Go
@@ -78,7 +78,7 @@ jobs:
         run: go build ./...
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v9.2.0
+        uses: golangci/golangci-lint-action@v9.2.1
         with:
           version: v2.11.4
           args: --timeout=5m ./...
